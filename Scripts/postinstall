@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo ">>> Updating project version with version file."
+
+ruby Scripts/updateversion.rb
