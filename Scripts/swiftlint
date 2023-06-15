@@ -1,9 +1,13 @@
 #!/bin/bash
 
-echo ">>> Running swiftlint"
+echo "⚙️  Running swiftlint"
 
-if which swiftlint &> /dev/null; then
-    swiftlint
+if [[ "$(uname -m)" == arm64 ]]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+fi
+
+if which swiftlint > /dev/null; then
+  swiftlint
 else
-    echo ">>> Swiftlint not installed"
+  echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
 fi

@@ -48,3 +48,6 @@ xcuserdata/
 **/xcshareddata/WorkspaceSettings.xcsettings
 **/Preview Content
 **/FailureDiffs
+
+### Tests ###
+TestResults*

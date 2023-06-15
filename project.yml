@@ -35,6 +35,8 @@ targets:
   AbbayTests:
     type: bundle.unit-test
     platform: iOS
+    dependencies:
+      - target: Abbay
     sources:
       - path: AbbayTests
         excludes:
