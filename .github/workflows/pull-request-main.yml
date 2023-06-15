@@ -56,5 +56,6 @@ jobs:
           path: TestResults.xcresult
           upload-bundles: never
           show-passed-tests: false
+          title: Test report
         if: success() || failure()
 
