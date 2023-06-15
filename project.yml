@@ -1,0 +1,71 @@
+name: Abbay
+
+options:
+  postGenCommand: Scripts/postinstall
+  deploymentTarget:
+    iOS: 15.0
+
+configs:
+    debug: debug
+    release: release
+
+targets:
+  Abbay:
+    type: application
+    platform: iOS
+    sources: [Abbay]
+    postBuildScripts:
+      - script: ./Scripts/swiftlint
+        name: SwiftLint
+        basedOnDependencyAnalysis: NO
+    settings:
+      base:
+        PRODUCT_NAME: $(TARGET_NAME)
+        INFOPLIST_FILE: Abbay/Info.plist
+        ENABLE_BITCODE: NO
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.$(PRODUCT_NAME)
+        SDKROOT: iphoneos
+        TARGET_DEVICE_FAMILY: 1
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: iPhone Developer
+        DEVELOPMENT_TEAM: 2X5PWXY74F
+        PROVISIONING_PROFILE:
+        PROVISIONING_PROFILE_SPECIFIER:
+
+  AbbayTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AbbayTests
+        excludes:
+          - "ReferenceImages/*"
+          - "FailureDiffs/*"
+    postBuildScripts:
+      - script: ./Scripts/swiftlint
+        name: SwiftLint
+        basedOnDependencyAnalysis: NO
+    settings:
+      base:
+        PRODUCT_NAME: $(TARGET_NAME)
+        INFOPLIST_FILE: AbbayTests/Info.plist
+
+schemes:
+  Abbay:
+    build:
+      targets:
+        Abbay: all
+        AbbayTests: [test]
+    test:
+      gatherCoverageData: YES
+      coverageTargets:
+        - Abbay
+      targets:
+        - name: AbbayTests
+          paralelizable: true
+      environmentVariables:
+        - variable: FB_REFERENCE_IMAGE_DIR
+          value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/ReferenceImages
+          isEnabled: YES
+        - variable: IMAGE_DIFF_DIR
+          value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/FailureDiffs
+          isEnabled: YES

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo ">>> Running swiftlint"
+
+if which swiftlint &> /dev/null; then
+    swiftlint
+else
+    echo ">>> Swiftlint not installed"
+fi
