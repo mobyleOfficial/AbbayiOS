@@ -43,9 +43,18 @@ jobs:
 
       - name: Run tests
         run: |
-          xcodebuild \
+          xcodebuild test \
           -project Abbay.xcodeproj \
           -scheme Abbay \
           -sdk iphonesimulator \
-          -destination 'platform=iOS Simulator,OS=15.0,name=iPhone 13' \
-          test
+          -destination 'platform=iOS Simulator,OS=16.2,name=iPhone 14' \
+          -resultBundlePath TestResults
+      
+      - name: Test report
+        uses: kishikawakatsumi/xcresulttool@v1.7.1
+        with:
+          path: TestResults.xcresult
+          upload-bundles: never
+          show-passed-tests: false
+        if: success() || failure()
+
