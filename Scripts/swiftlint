@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo ">>> Running swiftlint"
+echo "⚙️  Running swiftlint"
 
 if [[ "$(uname -m)" == arm64 ]]; then
     export PATH="/opt/homebrew/bin:$PATH"
