@@ -36,7 +36,7 @@ extension ConstantsProtocol {
               )  as? [String: T],
               let value = propertyList[self.rawValue]
         else {
-            fatalError("Could not load value")
+            fatalError("Could not load value for \(resource)")
         }
         return value
     }
