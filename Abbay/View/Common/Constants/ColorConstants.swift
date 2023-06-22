@@ -16,6 +16,7 @@ enum ColorConstants: String, CaseIterable {
     case onyx
     case spanishGray
     case background2
+    case clear
 }
 
 extension ColorConstants: ConstantsProtocol {
