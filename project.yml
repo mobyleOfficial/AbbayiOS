@@ -21,7 +21,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: $(TARGET_NAME)
-        INFOPLIST_FILE: Abbay/Info.plist
+        INFOPLIST_FILE: Abbay/Resources/Info.plist
         ENABLE_BITCODE: NO
         PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.$(PRODUCT_NAME)
         SDKROOT: iphoneos

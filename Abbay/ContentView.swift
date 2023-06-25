@@ -20,7 +20,8 @@ struct ContentView: View {
             VStack {
                 Image(systemName: "folder.badge.questionmark")
                     .resizable()
-                    .frame(side: SpaceConstants.sx32.value)
+                    .scaledToFit()
+                    .frame(width: SpaceConstants.sx32.value)
                 Text("So empty...")
             }
         } else {
