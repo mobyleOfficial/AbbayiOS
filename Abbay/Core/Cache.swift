@@ -11,22 +11,22 @@ protocol CacheProtocol {
     associatedtype Value
     associatedtype Key: Hashable
 
-    func put(_ value: Value, withKey key: Key)
+    func insert(_ value: Value, withKey key: Key)
     func getValue(forKey key: Key) -> Value?
-    func removeValue(forKey key: Key)
     func getAllValues() -> [Value]?
+    func removeValue(forKey key: Key)
 }
 
 final class Cache<Key: Hashable, Value>: CacheProtocol {
     private let cache = NSCache<WrappedKey, WrappedValue>()
     private let keyStorage = KeyStorage()
 
-    func put(_ value: Value, withKey key: Key) {
+    func insert(_ value: Value, withKey key: Key) {
         let value = WrappedValue(key: key, value: value)
         let key = WrappedKey(key: key)
 
         cache.setObject(value, forKey: key)
-        keyStorage.put(value)
+        keyStorage.insert(value)
     }
 
     func getValue(forKey key: Key) -> Value? {
@@ -56,7 +56,7 @@ extension Cache {
             guard let value = newValue else {
                 return removeValue(forKey: key)
             }
-            put(value, withKey: key)
+            insert(value, withKey: key)
         }
     }
 }
@@ -100,7 +100,7 @@ extension Cache {
             keys.remove(object.key)
         }
 
-        func put(_ value: WrappedValue) {
+        func insert(_ value: WrappedValue) {
             keys.insert(value.key)
         }
     }
@@ -126,7 +126,7 @@ extension Cache where Key: Codable, Value: Codable {
             return cache
         }
         for value in values {
-            cache.put(value.value, withKey: value.key)
+            cache.insert(value.value, withKey: value.key)
         }
         return cache
     }
