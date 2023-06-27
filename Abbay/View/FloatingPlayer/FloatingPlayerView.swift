@@ -7,10 +7,10 @@
 
 import SwiftUI
 
-struct FloatingPlayer: View {
+struct FloatingPlayerView: View {
     // MARK: States
     @StateObject
-    private var model: FloatingPlayerModel
+    private var model: FloatingPlayerViewModel
 
     // MARK: Stored properties
     var player: Player {
@@ -70,15 +70,14 @@ struct FloatingPlayer: View {
         HStack(spacing: SpaceConstants.sx8.value) {
             DataImageView(data: model.imageData)
                 .foregroundColor(ColorConstants.white.value)
-                .frame(side: SpaceConstants.sx64.value)
-                .cornerRadius(8)
+                .frame(side: SpaceConstants.sx72.value)
+                .cornerRadius(SpaceConstants.sx8.value)
             VStack(spacing: SpaceConstants.sx8.value) {
                 PlayerTitleView(
                     isPlaying: $model.isPlaying,
                     text: model.title
                 )
                 .font(.system(size: SpaceConstants.sx16.value))
-                .padding(.bottom, SpaceConstants.sx8.value)
                 timestamp
                 HStack {
                     Spacer()
@@ -102,7 +101,7 @@ struct FloatingPlayer: View {
 // MARK: - Preview
 struct FloatingPlayer_Previews: PreviewProvider {
     static var previews: some View {
-        FloatingPlayer(
+        FloatingPlayerView(
             AudioModel(
                 title: "title",
                 albumName: "album name",
