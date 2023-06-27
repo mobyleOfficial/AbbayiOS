@@ -7,7 +7,7 @@
 
 import Foundation
 
-final class FloatingPlayerModel: ObservableObject {
+final class FloatingPlayerViewModel: ObservableObject {
     // MARK: - Properties
     let title: String
     let duration: Double
@@ -41,11 +41,11 @@ final class FloatingPlayerModel: ObservableObject {
         self.currentChapter = currentChapter
 
         defer {
-            player.addObserver(interval: 1) { [weak self] time in
-                guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.url)
-            }
+//            player.addObserver(interval: 1) { [weak self] time in
+//                guard let self = self else { return }
+//                self.currentTime = time.seconds
+//                self.isPlaying = self.player.isPlaying(self.url)
+//            }
         }
     }
 }
