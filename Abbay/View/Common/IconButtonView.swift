@@ -10,7 +10,7 @@ import SwiftUI
 struct IconButtonView: View {
     // MARK: - Properties
     let systemName: String
-    let onTap: VoidCallback?
+    var onTap: VoidCallback?
 
     // MARK: - Body
     var body: some View {
