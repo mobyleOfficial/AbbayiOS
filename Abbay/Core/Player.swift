@@ -21,7 +21,7 @@ protocol PlayerProtocol {
 final class Player: PlayerProtocol {
     private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
-    private var observers = [Observer]()
+    private var observers = [Any]()
 
     var url: URL?
 
@@ -29,6 +29,7 @@ final class Player: PlayerProtocol {
         for observer in observers {
             player.removeTimeObserver(observer)
         }
+        observers.removeAll()
     }
 
     func play(_ url: URL?) {
@@ -69,7 +70,7 @@ final class Player: PlayerProtocol {
 
     func addObserver(interval seconds: Double, observer: @escaping Observer) {
         let second = CMTime(seconds: seconds, preferredTimescale: 1)
-        player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
+        let observer = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
         observers.append(observer)
     }
 
