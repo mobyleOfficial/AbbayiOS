@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct AudioModel {
+struct AudioModel: Codable {
     var title = String()
     var albumName = String()
     var artist = String()

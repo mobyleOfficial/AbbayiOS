@@ -13,12 +13,20 @@ protocol FileLoaderProtocol {
 }
 
 final class FileLoader: FileLoaderProtocol {
+    private let cache = Cache<URL, AudioModel>.load(withName: "audios")
+
     func load(urls: [URL]) async -> [AudioModel] {
         var files = [AudioModel]()
         for url in urls {
-            let file = await load(url: url)
-            files.append(file)
+            if let file = cache[url] {
+                files.append(file)
+            } else {
+                let file = await load(url: url)
+                cache[url] = file
+                files.append(file)
+            }
         }
+        try? cache.save(withName: "audios")
         return files
     }
 

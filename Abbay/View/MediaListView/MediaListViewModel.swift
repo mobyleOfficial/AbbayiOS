@@ -20,4 +20,12 @@ final class MediaListViewModel: ObservableObject {
     var selectedAudio: AudioModel?
     @Published
     var isShowingFilePicker = false
+
+    // MARK: - Init
+    init() {
+        defer {
+            let cache = Cache<URL, AudioModel>.load(withName: "audios")
+            audioList = cache.getAllValues() ?? []
+        }
+    }
 }
