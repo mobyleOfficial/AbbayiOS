@@ -11,7 +11,7 @@ import SwiftUI
 struct AbbayApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MediaListView()
         }
     }
 }
