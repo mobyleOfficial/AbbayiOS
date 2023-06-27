@@ -15,6 +15,8 @@ struct IconButtonView: View {
     // MARK: - Body
     var body: some View {
         Image(systemName: systemName)
+            .resizable()
+            .scaledToFit()
             .onTapGesture {
                 onTap?()
             }
