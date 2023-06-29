@@ -19,12 +19,14 @@ protocol PlayerProtocol {
 }
 
 final class Player: PlayerProtocol {
+    // MARK: - Properties
     private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
     private var observers = [Any]()
 
     var url: URL?
 
+    // MARK: - Deinit
     deinit {
         for observer in observers {
             player.removeTimeObserver(observer)
@@ -32,17 +34,15 @@ final class Player: PlayerProtocol {
         observers.removeAll()
     }
 
+    // MARK: - PlayerProtocol
     func play(_ url: URL?) {
         guard let url = url else { return }
         if url != self.url {
             if let url = self.url {
                 timeCache[url] = player.currentTime().seconds
             }
-            let item = AVPlayerItem(url: url)
-            player.replaceCurrentItem(with: item)
-            let time = CMTime(seconds: timeCache[url] ?? .zero, preferredTimescale: 1)
-            seek(time)
-            self.url = url
+            updatePlayItem(with: url)
+            seek(timeCache[url] ?? .zero)
         }
         player.play()
     }
@@ -57,15 +57,13 @@ final class Player: PlayerProtocol {
     func forward(withSeconds seconds: Double) {
         let currentSeconds = player.currentTime().seconds
         let newSeconds = currentSeconds.advanced(by: seconds)
-        let newTime = CMTime(seconds: newSeconds, preferredTimescale: 1)
-        seek(newTime)
+        seek(newSeconds)
     }
 
     func backward(withSeconds seconds: Double) {
         let currentSeconds = player.currentTime().seconds
         let newSeconds = currentSeconds.advanced(by: -seconds)
-        let newTime = CMTime(seconds: newSeconds, preferredTimescale: 1)
-        seek(newTime)
+        seek(newSeconds)
     }
 
     func addObserver(interval seconds: Double, observer: @escaping Observer) {
@@ -79,7 +77,21 @@ final class Player: PlayerProtocol {
         return self.url == url && player.timeControlStatus == .playing
     }
 
+    // MARK: - Helpers
+    private func seek(_ seconds: Double) {
+        let time = CMTime(seconds: seconds, preferredTimescale: 1)
+        seek(time)
+    }
+
     private func seek(_ time: CMTime) {
         player.seek(to: time)
+    }
+
+    private func updatePlayItem(with url: URL) {
+        let isSecure = url.startAccessingSecurityScopedResource()
+        let item = AVPlayerItem(url: url)
+        player.replaceCurrentItem(with: item)
+        self.url = url
+        if isSecure { url.stopAccessingSecurityScopedResource() }
     }
 }

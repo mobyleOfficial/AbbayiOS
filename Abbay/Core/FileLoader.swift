@@ -8,7 +8,7 @@
 import AVFoundation
 
 protocol FileLoaderProtocol {
-    func load(url: URL) async -> AudioModel
+    func load(url: URL) async -> AudioModel?
     func load(urls: [URL]) async -> [AudioModel]
 }
 
@@ -20,8 +20,7 @@ final class FileLoader: FileLoaderProtocol {
         for url in urls {
             if let file = cache[url] {
                 files.append(file)
-            } else {
-                let file = await load(url: url)
+            } else if let file = await load(url: url) {
                 cache[url] = file
                 files.append(file)
             }
@@ -30,12 +29,14 @@ final class FileLoader: FileLoaderProtocol {
         return files
     }
 
-    func load(url: URL) async -> AudioModel {
+    func load(url: URL) async -> AudioModel? {
+        guard url.startAccessingSecurityScopedResource() else { return nil }
         let asset = AVAsset(url: url)
         var file = AudioModel(url: url)
         await loadDuration(file: &file, asset: asset)
         await loadMetadata(file: &file, asset: asset)
         await loadChapterMetadata(file: &file, asset: asset)
+        url.stopAccessingSecurityScopedResource()
         return file
     }
 }

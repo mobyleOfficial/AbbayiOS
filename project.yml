@@ -31,6 +31,8 @@ targets:
         DEVELOPMENT_TEAM: 2X5PWXY74F
         PROVISIONING_PROFILE:
         PROVISIONING_PROFILE_SPECIFIER:
+    dependencies:
+      - sdk: AVFoundation.framework
 
   AbbayTests:
     type: bundle.unit-test

@@ -25,7 +25,7 @@ final class MediaListViewModel: ObservableObject {
     init() {
         defer {
             let cache = Cache<URL, AudioModel>.load(withName: "audios")
-            audioList = cache.getAllValues() ?? []
+            audioList = (cache.getAllValues() ?? []).sorted { $0.title.lowercased() < $1.title.lowercased() }
         }
     }
 }
