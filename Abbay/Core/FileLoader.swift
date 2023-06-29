@@ -83,6 +83,7 @@ extension FileLoader {
               let value = try? await item.load(.value) as? T else {
             return nil
         }
+        debugPrint(value)
         return value
     }
 }

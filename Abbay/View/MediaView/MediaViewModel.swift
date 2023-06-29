@@ -9,16 +9,11 @@ import Foundation
 
 final class MediaViewModel: ObservableObject {
     // MARK: - Properties
-    let title: String
-    let duration: Double
-    let imageData: Data?
-    let url: URL?
-    let chapters: [String]
-    var currentChapter: String
+    private let player: PlayerProtocol
+    private let onSelect: (AudioModel) -> Void
+    let info: AudioModel
 
     // MARK: - Observed properties
-    @Published
-    private(set) var player = Player()
     @Published
     var currentTime: Double = 0
     @Published
@@ -26,26 +21,35 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - Init
     init(
-        title: String,
-        duration: Double,
-        imageData: Data?,
-        url: URL?,
-        chapters: [String] = [String](),
-        currentChapter: String = String()
+        _ model: AudioModel,
+        player: PlayerProtocol,
+        onSelect: @escaping (AudioModel) -> Void,
+        selected: AudioModel?
     ) {
-        self.title = title
-        self.duration = duration
-        self.imageData = imageData
-        self.url = url
-        self.chapters = chapters
-        self.currentChapter = currentChapter
+        self.info = model
+        self.player = player
+        self.onSelect = onSelect
 
         defer {
-            player.addObserver(interval: 1) { [weak self] time in
-                guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.url)
+            if selected?.url == info.url {
+                player.addObserver(interval: 1, url: model.url) { [weak self] time in
+                    guard let self = self else { return }
+                    self.currentTime = time.seconds
+                    self.isPlaying = self.player.isPlaying(self.info.url)
+                }
+            } else {
+                player.removeObservers(for: info.url)
             }
         }
+    }
+
+    // MARK: - Methods
+    func play() {
+        player.play(info.url)
+        onSelect(info)
+    }
+
+    func pause() {
+        player.pause()
     }
 }

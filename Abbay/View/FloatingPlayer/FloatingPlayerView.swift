@@ -9,23 +9,20 @@ import SwiftUI
 
 struct FloatingPlayerView: View {
     // MARK: States
-    @StateObject
+    @ObservedObject
     private var model: FloatingPlayerViewModel
 
     // MARK: Stored properties
-    var player: Player {
-        model.player
+    private var info: AudioModel {
+        model.info
     }
 
     // MARK: - Init
-    init(_ audioModel: AudioModel) {
+    init(_ audioModel: AudioModel, player: PlayerProtocol) {
         _model = .init(
             wrappedValue: .init(
-                title: audioModel.title,
-                duration: audioModel.duration,
-                imageData: audioModel.imageData,
-                url: audioModel.url,
-                chapters: audioModel.chapters
+                audioModel,
+                player: player
             )
         )
     }
@@ -35,7 +32,7 @@ struct FloatingPlayerView: View {
     var timestamp: some View {
         PlayerProgressView(
             currentTime: $model.currentTime,
-            totalTime: model.duration
+            totalTime: info.duration
         )
         .font(.system(size: SpaceConstants.sx12.value))
         .foregroundColor(ColorConstants.white.value)
@@ -45,21 +42,21 @@ struct FloatingPlayerView: View {
     var playerButtons: some View {
         HStack {
             IconButtonView(systemName: "gobackward.15") {
-                player.backward(withSeconds: 15)
+                model.backward(withSeconds: 15)
             }
             IconButtonView(systemName: "gobackward.30") {
-                player.backward(withSeconds: 30)
+                model.backward(withSeconds: 30)
             }
             PlayButtonView(isPlaying: $model.isPlaying) {
-                player.play(model.url)
+                model.play()
             } onPause: {
-                player.pause()
+                model.pause()
             }
             IconButtonView(systemName: "goforward.15") {
-                player.forward(withSeconds: 15)
+                model.forward(withSeconds: 15)
             }
             IconButtonView(systemName: "goforward.30") {
-                player.forward(withSeconds: 30)
+                model.forward(withSeconds: 30)
             }
         }
         .frame(height: SpaceConstants.sx24.value)
@@ -68,14 +65,14 @@ struct FloatingPlayerView: View {
 
     var body: some View {
         HStack(spacing: SpaceConstants.sx8.value) {
-            DataImageView(data: model.imageData)
+            DataImageView(data: info.imageData)
                 .foregroundColor(ColorConstants.white.value)
                 .frame(side: SpaceConstants.sx72.value)
                 .cornerRadius(SpaceConstants.sx8.value)
             VStack(spacing: SpaceConstants.sx8.value) {
                 PlayerTitleView(
                     isPlaying: $model.isPlaying,
-                    text: model.title
+                    text: info.title
                 )
                 .font(.system(size: SpaceConstants.sx16.value))
                 timestamp
@@ -85,7 +82,7 @@ struct FloatingPlayerView: View {
                     Spacer()
                     ChapterCountView(
                         chapter: .constant(0),
-                        total: model.chapters.count
+                        total: info.chapters.count
                     )
                     .foregroundColor(ColorConstants.white.value)
                 }
@@ -107,7 +104,8 @@ struct FloatingPlayer_Previews: PreviewProvider {
                 albumName: "album name",
                 artist: "",
                 duration: 48657, chapters: ["1", "2", "3"]
-            )
+            ),
+            player: Player()
         )
         .padding(.horizontal, SpaceConstants.sx4.value)
     }

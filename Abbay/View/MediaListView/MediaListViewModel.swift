@@ -9,11 +9,10 @@ import Foundation
 
 final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
-    var fileLoader = FileLoader()
+    let fileLoader = FileLoader()
+    let player = Player()
 
     // MARK: - Observed properties
-    @Published
-    private(set) var player = Player()
     @Published
     var audioList = [AudioModel]()
     @Published
