@@ -9,16 +9,12 @@ import Foundation
 
 final class MediaViewModel: ObservableObject {
     // MARK: - Properties
-    let title: String
-    let duration: Double
-    let imageData: Data?
-    let url: URL?
-    let chapters: [String]
-    var currentChapter: String
+    private let player: PlayerProtocol
+    private let onSelection: MediaSelection
+    private var observer: PlayerProtocol.ObserverId?
+    let info: AudioModel
 
     // MARK: - Observed properties
-    @Published
-    private(set) var player = Player()
     @Published
     var currentTime: Double = 0
     @Published
@@ -26,26 +22,48 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - Init
     init(
-        title: String,
-        duration: Double,
-        imageData: Data?,
-        url: URL?,
-        chapters: [String] = [String](),
-        currentChapter: String = String()
+        _ model: AudioModel,
+        player: PlayerProtocol,
+        onSelection: MediaSelection
     ) {
-        self.title = title
-        self.duration = duration
-        self.imageData = imageData
-        self.url = url
-        self.chapters = chapters
-        self.currentChapter = currentChapter
+        self.info = model
+        self.player = player
+        self.onSelection = onSelection
 
         defer {
-            player.addObserver(interval: 1) { [weak self] time in
+            self.onSelection.subscribe { [weak self] selectedInfo in
                 guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.url)
+                if selectedInfo?.url == self.info.url {
+                    self.observer = self.player.addObserver(interval: 1) { time in
+                        self.currentTime = time.seconds
+                        self.isPlaying = self.player.isPlaying(self.info.url)
+                    }
+                } else {
+                    self.removeObserver()
+                    self.isPlaying = false
+                }
             }
         }
+    }
+
+    // MARK: - deinit
+    deinit {
+        removeObserver()
+    }
+
+    // MARK: - Methods
+    func play() {
+        player.play(info.url)
+        onSelection.select(info)
+    }
+
+    func pause() {
+        player.pause()
+    }
+
+    // MARK: - Helpers
+    private func removeObserver() {
+        player.removeObserver(observer)
+        observer = nil
     }
 }

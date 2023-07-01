@@ -9,12 +9,17 @@ import AVFoundation
 
 protocol PlayerProtocol {
     typealias Observer = (CMTime) -> Void
+    typealias ObserverId = UUID
+
+    var url: URL? { get }
 
     func play(_ url: URL?)
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
-    func addObserver(interval seconds: Double, observer: @escaping Observer)
+    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId
+    func removeObserver(_ id: ObserverId?)
+    func removeObservers()
     func isPlaying(_ url: URL?) -> Bool
 }
 
@@ -22,16 +27,13 @@ final class Player: PlayerProtocol {
     // MARK: - Properties
     private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
-    private var observers = [Any]()
+    private var observers = [ObserverId: Any]()
 
     var url: URL?
 
     // MARK: - Deinit
     deinit {
-        for observer in observers {
-            player.removeTimeObserver(observer)
-        }
-        observers.removeAll()
+        removeObservers()
     }
 
     // MARK: - PlayerProtocol
@@ -66,10 +68,25 @@ final class Player: PlayerProtocol {
         seek(newSeconds)
     }
 
-    func addObserver(interval seconds: Double, observer: @escaping Observer) {
+    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId {
+        let id = UUID()
         let second = CMTime(seconds: seconds, preferredTimescale: 1)
-        let observer = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
-        observers.append(observer)
+        observers[id] = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
+        return id
+    }
+
+    func removeObserver(_ id: ObserverId?) {
+        guard let id = id,
+        let observer = observers.removeValue(forKey: id)
+        else { return }
+        player.removeTimeObserver(observer)
+    }
+
+    func removeObservers() {
+        for id in observers.keys {
+            removeObserver(id)
+        }
+        observers.removeAll()
     }
 
     func isPlaying(_ url: URL?) -> Bool {

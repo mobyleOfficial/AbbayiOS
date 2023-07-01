@@ -13,14 +13,16 @@ struct MediaView: View {
     private var model: MediaViewModel
 
     // MARK: - Init
-    init(_ audioModel: AudioModel) {
+    init(
+        _ audioModel: AudioModel,
+        player: PlayerProtocol,
+        onSelection: MediaSelection
+    ) {
         _model = .init(
             wrappedValue: .init(
-                title: audioModel.title,
-                duration: audioModel.duration,
-                imageData: audioModel.imageData,
-                url: audioModel.url,
-                chapters: audioModel.chapters
+                audioModel,
+                player: player,
+                onSelection: onSelection
             )
         )
     }
@@ -28,25 +30,25 @@ struct MediaView: View {
     // MARK: - Body
     var body: some View {
         HStack {
-            DataImageView(data: model.imageData)
+            DataImageView(data: model.info.imageData)
                 .frame(side: SpaceConstants.sx64.value)
                 .foregroundColor(ColorConstants.white.value)
                 .cornerRadius(SpaceConstants.sx8.value)
             Spacer()
             VStack(alignment: .leading) {
-                PlayerTitleView(isPlaying: $model.isPlaying, text: model.title)
+                PlayerTitleView(isPlaying: $model.isPlaying, text: model.info.title)
                     .font(.system(size: SpaceConstants.sx16.value))
                     .padding(.bottom, SpaceConstants.sx8.value)
                 HStack {
-                    ChapterCountView(chapter: .constant(0), total: model.chapters.count)
+                    ChapterCountView(chapter: .constant(0), total: model.info.chapters.count)
                     Spacer()
-                    TimestampView(current: $model.currentTime, total: model.duration)
+                    TimestampView(current: $model.currentTime, total: model.info.duration)
                 }
             }
             PlayButtonView(isPlaying: $model.isPlaying) {
-                model.player.play(model.url)
+                model.play()
             } onPause: {
-                model.player.pause()
+                model.pause()
             }
             .frame(height: SpaceConstants.sx24.value)
             .padding(.leading, SpaceConstants.sx8.value)
@@ -65,7 +67,9 @@ struct MediaView_Previews: PreviewProvider {
                 albumName: "album name",
                 artist: "",
                 duration: 48657, chapters: ["1", "2", "3"]
-            )
+            ),
+            player: Player(),
+            onSelection: .init()
         )
         .backgroundColor(ColorConstants.background.value)
     }

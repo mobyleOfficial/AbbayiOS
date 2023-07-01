@@ -65,9 +65,13 @@ struct MediaListView: View {
     var listView: some View {
         List {
             ForEach(model.audioList, id: \.url) { file in
-                MediaView(file)
-                    .backgroundColor(ColorConstants.background.value)
-                    .listRowInsets(EdgeInsets())
+                MediaView(
+                    file,
+                    player: model.player,
+                    onSelection: model.mediaSelection
+                )
+                .backgroundColor(ColorConstants.background.value)
+                .listRowInsets(EdgeInsets())
             }
         }
         .listStyle(.plain)
@@ -77,7 +81,7 @@ struct MediaListView: View {
     @ViewBuilder
     var playerView: some View {
         if let selectedAudio = model.selectedAudio {
-            FloatingPlayerView(selectedAudio)
+            FloatingPlayerView(selectedAudio, player: model.player)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)

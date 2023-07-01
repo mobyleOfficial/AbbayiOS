@@ -9,43 +9,49 @@ import Foundation
 
 final class FloatingPlayerViewModel: ObservableObject {
     // MARK: - Properties
-    let title: String
-    let duration: Double
-    let imageData: Data?
-    let url: URL?
-    let chapters: [String]
-    var currentChapter: String
+    private let player: PlayerProtocol
+    private var observer: PlayerProtocol.ObserverId?
+    let info: AudioModel
 
     // MARK: - Observed properties
-    @Published
-    private(set) var player = Player()
     @Published
     var currentTime: Double = 0
     @Published
     var isPlaying: Bool = false
 
     // MARK: - Init
-    init(
-        title: String,
-        duration: Double,
-        imageData: Data?,
-        url: URL?,
-        chapters: [String] = [String](),
-        currentChapter: String = String()
-    ) {
-        self.title = title
-        self.duration = duration
-        self.imageData = imageData
-        self.url = url
-        self.chapters = chapters
-        self.currentChapter = currentChapter
+    init(_ model: AudioModel, player: PlayerProtocol) {
+        self.info = model
+        self.player = player
 
         defer {
-            player.addObserver(interval: 1) { [weak self] time in
+            observer = player.addObserver(interval: 1) { [weak self] time in
                 guard let self = self else { return }
                 self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.url)
+                self.isPlaying = self.player.isPlaying(self.info.url)
             }
         }
+    }
+
+    // MARK: - deinit
+    deinit {
+        player.removeObserver(observer)
+    }
+
+    // MARK: - Methods
+    func play() {
+        player.play(info.url)
+    }
+
+    func pause() {
+        player.pause()
+    }
+
+    func forward(withSeconds seconds: Double) {
+        player.forward(withSeconds: seconds)
+    }
+
+    func backward(withSeconds seconds: Double) {
+        player.backward(withSeconds: seconds)
     }
 }
