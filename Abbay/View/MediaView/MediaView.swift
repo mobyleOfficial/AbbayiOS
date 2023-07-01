@@ -9,20 +9,20 @@ import SwiftUI
 
 struct MediaView: View {
     // MARK: - States
-    @ObservedObject
+    @StateObject
     private var model: MediaViewModel
 
     // MARK: - Init
     init(
         _ audioModel: AudioModel,
         player: PlayerProtocol,
-        onSelect: @escaping (AudioModel) -> Void
+        onSelection: MediaSelection
     ) {
         _model = .init(
             wrappedValue: .init(
                 audioModel,
                 player: player,
-                onSelect: onSelect
+                onSelection: onSelection
             )
         )
     }
@@ -68,8 +68,9 @@ struct MediaView_Previews: PreviewProvider {
                 artist: "",
                 duration: 48657, chapters: ["1", "2", "3"]
             ),
-            player: Player()
-        ) { _ in }
+            player: Player(),
+            onSelection: .init()
+        )
         .backgroundColor(ColorConstants.background.value)
     }
 }

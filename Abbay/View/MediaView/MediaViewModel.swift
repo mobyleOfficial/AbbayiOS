@@ -10,7 +10,7 @@ import Foundation
 final class MediaViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
-    private let onSelect: (AudioModel) -> Void
+    private let onSelection: MediaSelection
     private var observer: PlayerProtocol.ObserverId?
     let info: AudioModel
 
@@ -24,18 +24,23 @@ final class MediaViewModel: ObservableObject {
     init(
         _ model: AudioModel,
         player: PlayerProtocol,
-        onSelect: @escaping (AudioModel) -> Void
+        onSelection: MediaSelection
     ) {
         self.info = model
         self.player = player
-        self.onSelect = onSelect
+        self.onSelection = onSelection
 
         defer {
-            if player.url == info.url {
-                observer = player.addObserver(interval: 1) { [weak self] time in
-                    guard let self = self else { return }
-                    self.currentTime = time.seconds
-                    self.isPlaying = self.player.isPlaying(self.info.url)
+            self.onSelection.subscribe { [weak self] selectedInfo in
+                guard let self = self else { return }
+                if selectedInfo?.url == self.info.url {
+                    self.observer = self.player.addObserver(interval: 1) { time in
+                        self.currentTime = time.seconds
+                        self.isPlaying = self.player.isPlaying(self.info.url)
+                    }
+                } else {
+                    self.removeObserver()
+                    self.isPlaying = false
                 }
             }
         }
@@ -43,16 +48,22 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - deinit
     deinit {
-        player.removeObserver(observer)
+        removeObserver()
     }
 
     // MARK: - Methods
     func play() {
         player.play(info.url)
-        onSelect(info)
+        onSelection.select(info)
     }
 
     func pause() {
         player.pause()
+    }
+
+    // MARK: - Helpers
+    private func removeObserver() {
+        player.removeObserver(observer)
+        observer = nil
     }
 }

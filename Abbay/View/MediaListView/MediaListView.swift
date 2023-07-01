@@ -65,9 +65,11 @@ struct MediaListView: View {
     var listView: some View {
         List {
             ForEach(model.audioList, id: \.url) { file in
-                MediaView(file, player: model.player) { selectedAudio in
-                    model.selectedAudio = selectedAudio
-                }
+                MediaView(
+                    file,
+                    player: model.player,
+                    onSelection: model.mediaSelection
+                )
                 .backgroundColor(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
             }
