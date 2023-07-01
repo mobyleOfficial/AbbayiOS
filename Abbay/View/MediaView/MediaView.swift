@@ -16,15 +16,13 @@ struct MediaView: View {
     init(
         _ audioModel: AudioModel,
         player: PlayerProtocol,
-        selected: AudioModel?,
         onSelect: @escaping (AudioModel) -> Void
     ) {
         _model = .init(
             wrappedValue: .init(
                 audioModel,
                 player: player,
-                onSelect: onSelect,
-                selected: selected
+                onSelect: onSelect
             )
         )
     }
@@ -70,7 +68,7 @@ struct MediaView_Previews: PreviewProvider {
                 artist: "",
                 duration: 48657, chapters: ["1", "2", "3"]
             ),
-            player: Player(), selected: .init()
+            player: Player()
         ) { _ in }
         .backgroundColor(ColorConstants.background.value)
     }

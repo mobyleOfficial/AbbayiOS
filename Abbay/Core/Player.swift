@@ -10,6 +10,8 @@ import AVFoundation
 protocol PlayerProtocol {
     typealias Observer = (CMTime) -> Void
 
+    var url: URL? { get }
+
     func play(_ url: URL?)
     func pause()
     func forward(withSeconds seconds: Double)

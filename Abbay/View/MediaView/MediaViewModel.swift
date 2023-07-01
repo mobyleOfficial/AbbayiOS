@@ -23,15 +23,14 @@ final class MediaViewModel: ObservableObject {
     init(
         _ model: AudioModel,
         player: PlayerProtocol,
-        onSelect: @escaping (AudioModel) -> Void,
-        selected: AudioModel?
+        onSelect: @escaping (AudioModel) -> Void
     ) {
         self.info = model
         self.player = player
         self.onSelect = onSelect
 
         defer {
-            if selected?.url == info.url {
+            if player.url == info.url {
                 player.addObserver(interval: 1, url: model.url) { [weak self] time in
                     guard let self = self else { return }
                     self.currentTime = time.seconds
