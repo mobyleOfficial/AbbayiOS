@@ -10,6 +10,7 @@ import Foundation
 final class FloatingPlayerViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
+    private var observer: PlayerProtocol.ObserverId?
     let info: AudioModel
 
     // MARK: - Observed properties
@@ -24,12 +25,17 @@ final class FloatingPlayerViewModel: ObservableObject {
         self.player = player
 
         defer {
-            player.addObserver(interval: 1, url: info.url) { [weak self] time in
+            observer = player.addObserver(interval: 1) { [weak self] time in
                 guard let self = self else { return }
                 self.currentTime = time.seconds
                 self.isPlaying = self.player.isPlaying(self.info.url)
             }
         }
+    }
+
+    // MARK: - deinit
+    deinit {
+        player.removeObserver(observer)
     }
 
     // MARK: - Methods

@@ -9,6 +9,7 @@ import AVFoundation
 
 protocol PlayerProtocol {
     typealias Observer = (CMTime) -> Void
+    typealias ObserverId = UUID
 
     var url: URL? { get }
 
@@ -16,8 +17,8 @@ protocol PlayerProtocol {
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
-    func addObserver(interval seconds: Double, url: URL?, observer: @escaping Observer)
-    func removeObservers(for url: URL?)
+    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId
+    func removeObserver(_ id: ObserverId?)
     func removeObservers()
     func isPlaying(_ url: URL?) -> Bool
 }
@@ -26,7 +27,7 @@ final class Player: PlayerProtocol {
     // MARK: - Properties
     private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
-    private var observers = [URL: [Any]]()
+    private var observers = [ObserverId: Any]()
 
     var url: URL?
 
@@ -67,26 +68,23 @@ final class Player: PlayerProtocol {
         seek(newSeconds)
     }
 
-    func addObserver(interval seconds: Double, url: URL?, observer: @escaping Observer) {
+    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId {
+        let id = UUID()
         let second = CMTime(seconds: seconds, preferredTimescale: 1)
-        let observer = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
-        if let url = url {
-            var currentObservers = observers[url] ?? []
-            currentObservers.append(observer)
-            observers[url] = currentObservers
-        }
+        observers[id] = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
+        return id
     }
 
-    func removeObservers(for url: URL?) {
-        guard let url = url else { return }
-        observers.removeValue(forKey: url)?.forEach { observer in
-            player.removeTimeObserver(observer)
-        }
+    func removeObserver(_ id: ObserverId?) {
+        guard let id = id,
+        let observer = observers.removeValue(forKey: id)
+        else { return }
+        player.removeTimeObserver(observer)
     }
 
     func removeObservers() {
-        for url in observers.keys {
-            removeObservers(for: url)
+        for id in observers.keys {
+            removeObserver(id)
         }
         observers.removeAll()
     }

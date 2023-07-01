@@ -11,6 +11,7 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
     private let onSelect: (AudioModel) -> Void
+    private var observer: PlayerProtocol.ObserverId?
     let info: AudioModel
 
     // MARK: - Observed properties
@@ -31,15 +32,18 @@ final class MediaViewModel: ObservableObject {
 
         defer {
             if player.url == info.url {
-                player.addObserver(interval: 1, url: model.url) { [weak self] time in
+                observer = player.addObserver(interval: 1) { [weak self] time in
                     guard let self = self else { return }
                     self.currentTime = time.seconds
                     self.isPlaying = self.player.isPlaying(self.info.url)
                 }
-            } else {
-                player.removeObservers(for: info.url)
             }
         }
+    }
+
+    // MARK: - deinit
+    deinit {
+        player.removeObserver(observer)
     }
 
     // MARK: - Methods
