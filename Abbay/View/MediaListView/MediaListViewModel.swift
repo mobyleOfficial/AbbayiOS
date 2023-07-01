@@ -33,6 +33,7 @@ final class MediaListViewModel: ObservableObject {
     }
 }
 
+// MARK: - MediaSelection
 final class MediaSelection {
     typealias SelectionCallback = (AudioModel?) -> Void
 
