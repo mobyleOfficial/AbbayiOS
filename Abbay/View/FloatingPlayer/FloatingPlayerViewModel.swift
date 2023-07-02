@@ -23,6 +23,7 @@ final class FloatingPlayerViewModel: ObservableObject {
     init(_ model: AudioModel, player: PlayerProtocol) {
         self.info = model
         self.player = player
+        self.currentTime = info.currentTime
 
         defer {
             observer = player.addObserver(interval: 1) { [weak self] time in

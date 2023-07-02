@@ -29,6 +29,7 @@ final class MediaViewModel: ObservableObject {
         self.info = model
         self.player = player
         self.onSelection = onSelection
+        self.currentTime = info.currentTime
 
         defer {
             self.onSelection.subscribe { [weak self] selectedInfo in

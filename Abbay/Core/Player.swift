@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import UIKit
 
 protocol PlayerProtocol {
     typealias Observer = (CMTime) -> Void
@@ -25,14 +26,27 @@ protocol PlayerProtocol {
 
 final class Player: PlayerProtocol {
     // MARK: - Properties
-    private let timeCache = Cache<URL, Double>()
+    static let cacheKey = "timestamps"
+    private let timeCache = Cache<URL, Double>.load(withName: Player.cacheKey)
     private let player = AVPlayer()
     private var observers = [ObserverId: Any]()
 
     var url: URL?
 
+    // MARK: - Init
+    init() {
+        observers[UUID()] = NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveTime(for: self?.url)
+        }
+    }
+
     // MARK: - Deinit
     deinit {
+        saveTime(for: self.url)
         removeObservers()
     }
 
@@ -40,9 +54,7 @@ final class Player: PlayerProtocol {
     func play(_ url: URL?) {
         guard let url = url else { return }
         if url != self.url {
-            if let url = self.url {
-                timeCache[url] = player.currentTime().seconds
-            }
+            saveTime(for: self.url)
             updatePlayItem(with: url)
             seek(timeCache[url] ?? .zero)
         }
@@ -50,9 +62,7 @@ final class Player: PlayerProtocol {
     }
 
     func pause() {
-        if let url = url {
-            timeCache[url] = player.currentTime().seconds
-        }
+        saveTime(for: url)
         player.pause()
     }
 
@@ -110,5 +120,13 @@ final class Player: PlayerProtocol {
         player.replaceCurrentItem(with: item)
         self.url = url
         if isSecure { url.stopAccessingSecurityScopedResource() }
+    }
+
+    private func saveTime(for url: URL? = nil) {
+        let currentTime = player.currentTime().seconds
+        if let url = url, !currentTime.isNaN {
+            timeCache[url] = currentTime
+        }
+        try? timeCache.save(withName: Player.cacheKey)
     }
 }
