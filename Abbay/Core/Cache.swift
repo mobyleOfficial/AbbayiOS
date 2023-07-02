@@ -22,6 +22,12 @@ final class Cache<Key: Hashable, Value>: CacheProtocol {
     private let cache = NSCache<WrappedKey, WrappedValue>()
     private let keyStorage = KeyStorage()
 
+    // MARK: Init
+    init() {
+        cache.delegate = keyStorage
+    }
+
+    // MARK: - CacheProtocol
     func insert(_ value: Value, withKey key: Key) {
         let value = WrappedValue(key: key, value: value)
         let key = WrappedKey(key: key)
