@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import UIKit
 
 protocol PlayerProtocol {
     typealias Observer = (CMTime) -> Void
@@ -32,9 +33,20 @@ final class Player: PlayerProtocol {
 
     var url: URL?
 
+    // MARK: - Init
+    init() {
+        observers[UUID()] = NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveTime(for: self?.url)
+        }
+    }
+
     // MARK: - Deinit
     deinit {
-        saveTime()
+        saveTime(for: self.url)
         removeObservers()
     }
 
