@@ -41,11 +41,11 @@ struct FloatingPlayerView: View {
     @ViewBuilder
     var playerButtons: some View {
         HStack {
-            IconButtonView(systemName: "gobackward.15") {
-                model.backward(withSeconds: 15)
-            }
             IconButtonView(systemName: "gobackward.30") {
                 model.backward(withSeconds: 30)
+            }
+            IconButtonView(systemName: "gobackward.15") {
+                model.backward(withSeconds: 15)
             }
             PlayButtonView(isPlaying: $model.isPlaying) {
                 model.play()

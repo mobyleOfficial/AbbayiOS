@@ -30,17 +30,20 @@ final class Player: PlayerProtocol {
     private let timeCache = Cache<URL, Double>.load(withName: Player.cacheKey)
     private let player = AVPlayer()
     private var observers = [ObserverId: Any]()
+    private var stateObserver: NSObjectProtocol?
 
     var url: URL?
 
     // MARK: - Init
     init() {
-        observers[UUID()] = NotificationCenter.default.addObserver(
-            forName: UIApplication.willTerminateNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.saveTime(for: self?.url)
+        defer {
+            stateObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willTerminateNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.saveTime(for: self?.url)
+            }
         }
     }
 
@@ -96,7 +99,8 @@ final class Player: PlayerProtocol {
         for id in observers.keys {
             removeObserver(id)
         }
-        observers.removeAll()
+        guard let stateObserver = stateObserver else { return }
+        NotificationCenter.default.removeObserver(stateObserver)
     }
 
     func isPlaying(_ url: URL?) -> Bool {
