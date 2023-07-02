@@ -13,8 +13,7 @@ protocol FileLoaderProtocol {
 }
 
 final class FileLoader: FileLoaderProtocol {
-    static let cacheKey = "audios"
-    private let cache = Cache<URL, AudioModel>.load(withName: FileLoader.cacheKey)
+    private let cache = Cache<URL, AudioModel>()
 
     func load(urls: [URL]) async -> [AudioModel] {
         var files = [AudioModel]()
@@ -26,7 +25,6 @@ final class FileLoader: FileLoaderProtocol {
                 files.append(file)
             }
         }
-        try? cache.save(withName: FileLoader.cacheKey)
         return files
     }
 

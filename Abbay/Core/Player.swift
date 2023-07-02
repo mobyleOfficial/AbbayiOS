@@ -27,8 +27,7 @@ protocol PlayerProtocol {
 
 final class Player: PlayerProtocol {
     // MARK: - Properties
-    static let cacheKey = "timestamps"
-    private let timeCache = Cache<URL, Double>.load(withName: Player.cacheKey)
+    private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
     private var observers = [ObserverId: Any]()
     private var stateObserver: NSObjectProtocol?
@@ -132,6 +131,5 @@ final class Player: PlayerProtocol {
         if let url = url, !currentTime.isNaN {
             timeCache[url] = currentTime
         }
-        try? timeCache.save(withName: Player.cacheKey)
     }
 }
