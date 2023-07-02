@@ -40,7 +40,10 @@ struct MediaView: View {
                     .font(.system(size: SpaceConstants.sx16.value))
                     .padding(.bottom, SpaceConstants.sx8.value)
                 HStack {
-                    ChapterCountView(chapter: .constant(0), total: model.info.chapters.count)
+                    ChapterCountView(
+                        chapter: $model.currentChapter,
+                        total: model.info.chapters.count + 1
+                    )
                     Spacer()
                     TimestampView(current: $model.currentTime, total: model.info.duration)
                 }
@@ -66,7 +69,11 @@ struct MediaView_Previews: PreviewProvider {
                 title: "title",
                 albumName: "album name",
                 artist: "",
-                duration: 48657, chapters: ["1", "2", "3"]
+                duration: 48657,
+                chapters: [ChapterModel].init(
+                    repeating: ChapterModel(),
+                    count: 3
+                )
             ),
             player: Player(),
             onSelection: .init()

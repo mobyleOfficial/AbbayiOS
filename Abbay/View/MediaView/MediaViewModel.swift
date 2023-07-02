@@ -19,6 +19,8 @@ final class MediaViewModel: ObservableObject {
     var currentTime: Double = 0
     @Published
     var isPlaying: Bool = false
+    @Published
+    var currentChapter: Int = 0
 
     // MARK: - Init
     init(
@@ -30,6 +32,7 @@ final class MediaViewModel: ObservableObject {
         self.player = player
         self.onSelection = onSelection
         self.currentTime = info.currentTime
+        self.currentChapter = info.currentChapter(for: currentTime)
 
         defer {
             self.onSelection.subscribe { [weak self] selectedInfo in
@@ -38,6 +41,7 @@ final class MediaViewModel: ObservableObject {
                     self.observer = self.player.addObserver(interval: 1) { time in
                         self.currentTime = time.seconds
                         self.isPlaying = self.player.isPlaying(self.info.url)
+                        self.currentChapter = self.info.currentChapter(for: self.currentTime)
                     }
                 } else {
                     self.removeObserver()

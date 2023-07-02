@@ -14,30 +14,23 @@ struct AudioModel: Codable {
     var duration: Double = .zero
     var currentTime: Double = .zero
     var imageData: Data?
-    var chapters = [String]()
+    var chapters = [ChapterModel]()
     var url: URL?
+
+    func currentChapter(for time: Double) -> Int {
+        chapters.firstIndex { chapter in
+            chapter.startTime > time
+        } ?? 1
+    }
 }
 
 extension AudioModel {
-    func copyWith(
-        title: String? = nil,
-        albumName: String? = nil,
-        artist: String? = nil,
-        duration: Double? = nil,
-        currentTime: Double? = nil,
-        imageData: Data? = nil,
-        chapters: [String]? = nil,
-        url: URL? = nil
+    func copyWith<Value>(
+        _ key: WritableKeyPath<Self, Value>,
+        value: Value
     ) -> AudioModel {
-        .init(
-            title: title ?? self.title,
-            albumName: albumName ?? self.albumName,
-            artist: artist ?? self.artist,
-            duration: duration ?? self.duration,
-            currentTime: currentTime ?? self.currentTime,
-            imageData: imageData ?? self.imageData,
-            chapters: chapters ?? self.chapters,
-            url: url ?? self.url
-        )
+        var copy = self
+        copy[keyPath: key] = value
+        return copy
     }
 }

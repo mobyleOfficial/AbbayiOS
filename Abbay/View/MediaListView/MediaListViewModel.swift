@@ -27,7 +27,7 @@ final class MediaListViewModel: ObservableObject {
             let files = Cache<URL, AudioModel>.load(withName: FileLoader.cacheKey)
             let times = Cache<URL, Double>.load(withName: Player.cacheKey)
             let models = files.getAllPairs().compactMap { key, value in
-                value.copyWith(currentTime: times[key])
+                value.copyWith(\.currentTime, value: times[key] ?? .zero)
             }
             audioList = models.sorted { $0.title.lowercased() < $1.title.lowercased() }
             mediaSelection.subscribe { [weak self] selectedAudio in
