@@ -81,8 +81,8 @@ struct FloatingPlayerView: View {
                     playerButtons
                     Spacer()
                     ChapterCountView(
-                        chapter: .constant(0),
-                        total: info.chapters.count
+                        chapter: $model.currentChapter,
+                        total: info.chapters.count + 1
                     )
                     .foregroundColor(ColorConstants.white.value)
                 }
@@ -103,7 +103,11 @@ struct FloatingPlayer_Previews: PreviewProvider {
                 title: "title",
                 albumName: "album name",
                 artist: "",
-                duration: 48657, chapters: ["1", "2", "3"]
+                duration: 48657,
+                chapters: [ChapterModel].init(
+                    repeating: ChapterModel(),
+                    count: 3
+                )
             ),
             player: Player()
         )

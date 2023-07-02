@@ -18,18 +18,22 @@ final class FloatingPlayerViewModel: ObservableObject {
     var currentTime: Double = 0
     @Published
     var isPlaying: Bool = false
+    @Published
+    var currentChapter: Int = 0
 
     // MARK: - Init
     init(_ model: AudioModel, player: PlayerProtocol) {
         self.info = model
         self.player = player
         self.currentTime = info.currentTime
+        self.currentChapter = info.currentChapter(for: currentTime)
 
         defer {
             observer = player.addObserver(interval: 1) { [weak self] time in
                 guard let self = self else { return }
                 self.currentTime = time.seconds
                 self.isPlaying = self.player.isPlaying(self.info.url)
+                self.currentChapter = self.info.currentChapter(for: self.currentTime)
             }
         }
     }

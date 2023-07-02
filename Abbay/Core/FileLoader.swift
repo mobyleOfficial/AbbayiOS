@@ -66,17 +66,22 @@ extension FileLoader {
         ) else {
             return
         }
-        file.chapters = await loadChapterTitles(chapters)
+        file.chapters = await loadChapterInfo(chapters)
     }
 
-    private func loadChapterTitles(_ chapters: [AVTimedMetadataGroup]) async -> [String] {
-        var chapterTitles = [String]()
+    private func loadChapterInfo(_ chapters: [AVTimedMetadataGroup]) async -> [ChapterModel] {
+        var chapterModels = [ChapterModel]()
         for chapter in chapters {
-            if let title: String = await loadMetadataItem(chapter.items, key: .commonKeyTitle) {
-                chapterTitles.append(title)
-            }
+            let title = await loadMetadataItem(chapter.items, key: .commonKeyTitle) ?? String()
+            let timeInfo = chapter.timeRange
+            let model = ChapterModel(
+                title: title,
+                startTime: timeInfo.start.seconds,
+                duration: timeInfo.duration.seconds
+            )
+            chapterModels.append(model)
         }
-        return chapterTitles
+        return chapterModels
     }
 
     private func loadMetadataItem<T>(_ items: [AVMetadataItem], key: AVMetadataKey) async -> T? {
