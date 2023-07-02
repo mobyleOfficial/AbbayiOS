@@ -25,7 +25,8 @@ protocol PlayerProtocol {
 
 final class Player: PlayerProtocol {
     // MARK: - Properties
-    private let timeCache = Cache<URL, Double>()
+    static let cacheKey = "timestamps"
+    private let timeCache = Cache<URL, Double>.load(withName: Player.cacheKey)
     private let player = AVPlayer()
     private var observers = [ObserverId: Any]()
 
@@ -33,6 +34,7 @@ final class Player: PlayerProtocol {
 
     // MARK: - Deinit
     deinit {
+        saveTime()
         removeObservers()
     }
 
@@ -40,9 +42,7 @@ final class Player: PlayerProtocol {
     func play(_ url: URL?) {
         guard let url = url else { return }
         if url != self.url {
-            if let url = self.url {
-                timeCache[url] = player.currentTime().seconds
-            }
+            saveTime(for: self.url)
             updatePlayItem(with: url)
             seek(timeCache[url] ?? .zero)
         }
@@ -50,9 +50,7 @@ final class Player: PlayerProtocol {
     }
 
     func pause() {
-        if let url = url {
-            timeCache[url] = player.currentTime().seconds
-        }
+        saveTime(for: url)
         player.pause()
     }
 
@@ -110,5 +108,13 @@ final class Player: PlayerProtocol {
         player.replaceCurrentItem(with: item)
         self.url = url
         if isSecure { url.stopAccessingSecurityScopedResource() }
+    }
+
+    private func saveTime(for url: URL? = nil) {
+        let currentTime = player.currentTime().seconds
+        if let url = url, !currentTime.isNaN {
+            timeCache[url] = currentTime
+        }
+        try? timeCache.save(withName: Player.cacheKey)
     }
 }
