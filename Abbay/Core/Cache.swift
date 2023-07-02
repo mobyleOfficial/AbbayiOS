@@ -13,7 +13,8 @@ protocol CacheProtocol {
 
     func insert(_ value: Value, withKey key: Key)
     func getValue(forKey key: Key) -> Value?
-    func getAllValues() -> [Value]?
+    func getAllValues() -> [Value]
+    func getAllPairs() -> [Key: Value]
     func removeValue(forKey key: Key)
 }
 
@@ -34,9 +35,15 @@ final class Cache<Key: Hashable, Value>: CacheProtocol {
         return cache.object(forKey: key)?.value
     }
 
-    func getAllValues() -> [Value]? {
+    func getAllValues() -> [Value] {
         keyStorage.keys.compactMap { key in
             getValue(forKey: key)
+        }
+    }
+
+    func getAllPairs() -> [Key: Value] {
+        keyStorage.keys.reduce(into: [Key: Value]()) { total, key in
+            total[key] = getValue(forKey: key)
         }
     }
 
