@@ -22,4 +22,24 @@ extension View {
             self
         }
     }
+
+    func onTouch(
+        limitToBounds: Bool = true,
+        onTouchesBegan: OnTouchCallback? = nil,
+        onTouchesMoved: OnTouchCallback? = nil,
+        onTouchesEnded: OnTouchCallback? = nil,
+        onTouchesCancelled: OnTouchCallback? = nil
+    ) -> some View {
+        modifier(
+            OnTouchViewModifier(limitToBounds: limitToBounds) { point in
+                onTouchesBegan?(point)
+            } onTouchesMoved: { point in
+                onTouchesMoved?(point)
+            } onTouchesEnded: { point in
+                onTouchesEnded?(point)
+            } onTouchesCancelled: { point in
+                onTouchesCancelled?(point)
+            }
+        )
+    }
 }
