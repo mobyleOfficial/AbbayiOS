@@ -14,12 +14,33 @@ extension View {
     }
 
     @inlinable
-    func backgroundColor(_ color: Color) -> some View {
-        ZStack {
-            ContainerRelativeShape()
-                .fill(color)
-                .ignoresSafeArea()
-            self
+    func backgroundColor(_ color: Color, ignoresSafeArea: Bool = true) -> some View {
+        self.background {
+            if ignoresSafeArea {
+                color.ignoresSafeArea()
+            } else {
+                color
+            }
         }
+    }
+
+    func onTouch(
+        limitToBounds: Bool = true,
+        onTouchesBegan: OnTouchCallback? = nil,
+        onTouchesMoved: OnTouchCallback? = nil,
+        onTouchesEnded: OnTouchCallback? = nil,
+        onTouchesCancelled: OnTouchCallback? = nil
+    ) -> some View {
+        modifier(
+            OnTouchViewModifier(limitToBounds: limitToBounds) { point in
+                onTouchesBegan?(point)
+            } onTouchesMoved: { point in
+                onTouchesMoved?(point)
+            } onTouchesEnded: { point in
+                onTouchesEnded?(point)
+            } onTouchesCancelled: { point in
+                onTouchesCancelled?(point)
+            }
+        )
     }
 }
