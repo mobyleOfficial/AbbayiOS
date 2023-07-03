@@ -14,12 +14,13 @@ extension View {
     }
 
     @inlinable
-    func backgroundColor(_ color: Color) -> some View {
-        ZStack {
-            ContainerRelativeShape()
-                .fill(color)
-                .ignoresSafeArea()
-            self
+    func backgroundColor(_ color: Color, ignoresSafeArea: Bool = true) -> some View {
+        self.background {
+            if ignoresSafeArea {
+                color.ignoresSafeArea()
+            } else {
+                color
+            }
         }
     }
 
