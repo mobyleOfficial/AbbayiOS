@@ -24,6 +24,7 @@ final class MediaListViewModel: ObservableObject {
     // MARK: - Init
     init() {
         defer {
+            audioList = AudioModel.load()
             mediaSelection.subscribe { [weak self] selectedAudio in
                 self?.selectedAudio = selectedAudio
             }

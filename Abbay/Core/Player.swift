@@ -14,7 +14,7 @@ protocol PlayerProtocol {
 
     var url: URL? { get }
 
-    func play(_ url: URL?)
+    func play(_ model: inout AudioModel)
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
@@ -27,12 +27,14 @@ protocol PlayerProtocol {
 
 final class Player: PlayerProtocol {
     // MARK: - Properties
-    private let timeCache = Cache<URL, Double>()
     private let player = AVPlayer()
     private var observers = [ObserverId: Any]()
     private var stateObserver: NSObjectProtocol?
+    private var model: AudioModel?
 
-    var url: URL?
+    var url: URL? {
+        model?.url
+    }
 
     // MARK: - Init
     init() {
@@ -42,30 +44,30 @@ final class Player: PlayerProtocol {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.saveTime(for: self?.url)
+                self?.saveTime()
             }
         }
     }
 
     // MARK: - Deinit
     deinit {
-        saveTime(for: self.url)
+        saveTime()
         removeObservers()
     }
 
     // MARK: - PlayerProtocol
-    func play(_ url: URL?) {
-        guard let url = url else { return }
+    func play(_ model: inout AudioModel) {
+        guard let url = model.url else { return }
         if url != self.url {
-            saveTime(for: self.url)
-            updatePlayItem(with: url)
-            seek(timeCache[url] ?? .zero)
+            saveTime()
+            updatePlayItem(model)
+            seek(model.currentTime)
         }
         player.play()
     }
 
     func pause() {
-        saveTime(for: url)
+        saveTime()
         player.pause()
     }
 
@@ -118,18 +120,20 @@ final class Player: PlayerProtocol {
         player.seek(to: time)
     }
 
-    private func updatePlayItem(with url: URL) {
+    private func updatePlayItem(_ item: AudioModel) {
+        guard let url = item.url else { return }
+        model = item
         let isSecure = url.startAccessingSecurityScopedResource()
         let item = AVPlayerItem(url: url)
         player.replaceCurrentItem(with: item)
-        self.url = url
         if isSecure { url.stopAccessingSecurityScopedResource() }
     }
 
-    private func saveTime(for url: URL? = nil) {
+    private func saveTime() {
         let currentTime = player.currentTime().seconds
-        if let url = url, !currentTime.isNaN {
-            timeCache[url] = currentTime
+        if !currentTime.isNaN {
+            model?.currentTime = currentTime
+            model?.save()
         }
     }
 }

@@ -11,7 +11,7 @@ final class FloatingPlayerViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
     private var observer: PlayerProtocol.ObserverId?
-    let info: AudioModel
+    private(set) var info: AudioModel
 
     // MARK: - Observed properties
     @Published
@@ -40,7 +40,7 @@ final class FloatingPlayerViewModel: ObservableObject {
 
     // MARK: - Methods
     func play() {
-        player.play(info.url)
+        player.play(&info)
     }
 
     func pause() {
