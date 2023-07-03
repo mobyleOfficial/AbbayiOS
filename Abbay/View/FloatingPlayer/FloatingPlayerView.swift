@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+struct FloatingPlayerViewFactory {
+    @ViewBuilder
+    static func build(_ audioModel: AudioModel, player: PlayerProtocol) -> some View {
+        let model = FloatingPlayerViewModel(audioModel, player: player)
+        FloatingPlayerView(model).id(UUID())
+    }
+}
+
 struct FloatingPlayerView: View {
     // MARK: States
     @ObservedObject
@@ -18,13 +26,8 @@ struct FloatingPlayerView: View {
     }
 
     // MARK: - Init
-    init(_ audioModel: AudioModel, player: PlayerProtocol) {
-        _model = .init(
-            wrappedValue: .init(
-                audioModel,
-                player: player
-            )
-        )
+    init(_ model: FloatingPlayerViewModel) {
+        self.model = model
     }
 
     // MARK: - Body
@@ -107,7 +110,7 @@ struct FloatingPlayerView: View {
 // MARK: - Preview
 struct FloatingPlayer_Previews: PreviewProvider {
     static var previews: some View {
-        FloatingPlayerView(
+        FloatingPlayerViewFactory.build(
             AudioModel(
                 title: "title",
                 albumName: "album name",
