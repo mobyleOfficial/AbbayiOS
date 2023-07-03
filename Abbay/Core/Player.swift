@@ -22,6 +22,7 @@ protocol PlayerProtocol {
     func removeObserver(_ id: ObserverId?)
     func removeObservers()
     func isPlaying(_ url: URL?) -> Bool
+    func seek(_ seconds: Double)
 }
 
 final class Player: PlayerProtocol {
@@ -108,12 +109,12 @@ final class Player: PlayerProtocol {
         return self.url == url && player.timeControlStatus == .playing
     }
 
-    // MARK: - Helpers
-    private func seek(_ seconds: Double) {
+    func seek(_ seconds: Double) {
         let time = CMTime(seconds: seconds, preferredTimescale: 1)
         seek(time)
     }
 
+    // MARK: - Helpers
     private func seek(_ time: CMTime) {
         player.seek(to: time)
     }

@@ -26,21 +26,16 @@ final class FloatingPlayerViewModel: ObservableObject {
         self.info = model
         self.player = player
         self.currentTime = info.currentTime
-        self.currentChapter = info.currentChapter(for: currentTime)
+        setCurrentChapter(for: info.currentTime)
 
         defer {
-            observer = player.addObserver(interval: 1) { [weak self] time in
-                guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.info.url)
-                self.currentChapter = self.info.currentChapter(for: self.currentTime)
-            }
+            addObserver()
         }
     }
 
     // MARK: - deinit
     deinit {
-        player.removeObserver(observer)
+        removeObserver()
     }
 
     // MARK: - Methods
@@ -58,5 +53,32 @@ final class FloatingPlayerViewModel: ObservableObject {
 
     func backward(withSeconds seconds: Double) {
         player.backward(withSeconds: seconds)
+    }
+
+    func willSeek() {
+        removeObserver()
+    }
+
+    func seek(_ seconds: Double) {
+        player.seek(seconds)
+        addObserver()
+    }
+
+    func setCurrentChapter(for time: Double) {
+        currentChapter = info.currentChapter(for: currentTime)
+    }
+
+    // MARK: - Helpers
+    private func addObserver() {
+        observer = player.addObserver(interval: 1) { [weak self] time in
+            guard let self = self else { return }
+            self.currentTime = time.seconds
+            self.isPlaying = self.player.isPlaying(self.info.url)
+        }
+    }
+
+    private func removeObserver() {
+        player.removeObserver(observer)
+        observer = nil
     }
 }

@@ -32,10 +32,19 @@ struct FloatingPlayerView: View {
     var timestamp: some View {
         PlayerProgressView(
             currentTime: $model.currentTime,
-            totalTime: info.duration
+            totalTime: info.duration,
+            onStartUpdate: {
+                model.willSeek()
+            },
+            onFinishUpdate: { time in
+                model.seek(time)
+            }
         )
         .font(.system(size: SpaceConstants.sx12.value))
         .foregroundColor(ColorConstants.white.value)
+        .onChange(of: model.currentTime) { time in
+            model.setCurrentChapter(for: time)
+        }
     }
 
     @ViewBuilder
