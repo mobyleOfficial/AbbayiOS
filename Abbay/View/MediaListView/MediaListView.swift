@@ -32,6 +32,7 @@ struct MediaListView: View {
                 .backgroundColor(ColorConstants.background.value)
                 .foregroundColor(ColorConstants.white.value)
         }
+        .navigationViewStyle(.stack)
         .preferredColorScheme(.dark)
     }
 
