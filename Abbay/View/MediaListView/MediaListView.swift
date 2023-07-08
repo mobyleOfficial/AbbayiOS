@@ -82,7 +82,7 @@ struct MediaListView: View {
     @ViewBuilder
     var playerView: some View {
         if let selectedAudio = model.selectedAudio {
-            FloatingPlayerView(selectedAudio, player: model.player)
+            FloatingPlayerViewFactory.build(selectedAudio, player: model.player)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)
