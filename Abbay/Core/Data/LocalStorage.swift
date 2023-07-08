@@ -9,6 +9,7 @@ import Foundation
 
 final class LocalStorage {
     static let data = Cache<String, Any>()
+    static let persistent = DataStack(modelName: "AudioDataModel")
 
     private init() {}
 }

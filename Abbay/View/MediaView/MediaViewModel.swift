@@ -12,7 +12,7 @@ final class MediaViewModel: ObservableObject {
     private let player: PlayerProtocol
     private let onSelection: MediaSelection
     private var observer: PlayerProtocol.ObserverId?
-    let info: AudioModel
+    private(set) var info: AudioModel
 
     // MARK: - Observed properties
     @Published
@@ -58,7 +58,7 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - Methods
     func play() {
-        player.play(info.url)
+        player.play(&info)
         onSelection.select(info)
     }
 

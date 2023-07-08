@@ -18,7 +18,10 @@ struct FloatingPlayerView: View {
     }
 
     // MARK: - Init
-    init(_ audioModel: AudioModel, player: PlayerProtocol) {
+    init(
+        _ audioModel: AudioModel,
+        player: PlayerProtocol
+    ) {
         _model = .init(
             wrappedValue: .init(
                 audioModel,
@@ -101,6 +104,7 @@ struct FloatingPlayerView: View {
         .background(ColorConstants.onyx.value)
         .cornerRadius(SpaceConstants.sx8.value)
         .shadow(radius: SpaceConstants.sx40.value)
+        .id(UUID())
     }
 }
 
