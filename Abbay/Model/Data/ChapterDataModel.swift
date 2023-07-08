@@ -9,6 +9,11 @@
 import Foundation
 import CoreData
 
+public class ChapterDataModel: NSManagedObject {
+    /* Empty */
+}
+
+// MARK: - CoreDataProperties
 extension ChapterDataModel {
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<ChapterDataModel> {
@@ -22,6 +27,7 @@ extension ChapterDataModel {
 
 }
 
+// MARK: - Identifiable
 extension ChapterDataModel: Identifiable {
-
+    /* Empty */
 }

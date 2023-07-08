@@ -9,6 +9,11 @@
 import Foundation
 import CoreData
 
+public class AudioDataModel: NSManagedObject {
+    /* Empty */
+}
+
+// MARK: - CoreDataProperties
 extension AudioDataModel {
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<AudioDataModel> {
@@ -26,7 +31,7 @@ extension AudioDataModel {
 
 }
 
-// MARK: Generated accessors for chapters
+// MARK: - Generated accessors for chapters
 extension AudioDataModel {
 
     @objc(insertObject:inChaptersAtIndex:)
@@ -61,6 +66,7 @@ extension AudioDataModel {
 
 }
 
+// MARK: - Identifiable
 extension AudioDataModel: Identifiable {
-
+    /* Empty */
 }
