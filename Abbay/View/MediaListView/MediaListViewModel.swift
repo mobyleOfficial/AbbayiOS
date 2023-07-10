@@ -20,6 +20,10 @@ final class MediaListViewModel: ObservableObject {
     var selectedAudio: AudioModel?
     @Published
     var isShowingFilePicker = false
+    @Published
+    var tappedAudio: AudioModel?
+    @Published
+    var isShowingPlayer = false
 
     // MARK: - Init
     init() {

@@ -29,6 +29,11 @@ struct MediaListView: View {
                 .sheet(isPresented: $model.isShowingFilePicker) {
                     DocumentPickerView(selectedFiles: $model.audioList, fileLoader: model.fileLoader)
                 }
+                .sheet(isPresented: $model.isShowingPlayer) {
+                    if let file = model.tappedAudio {
+                        PlayerView(file, player: model.player)
+                    }
+                }
                 .backgroundColor(ColorConstants.background.value)
                 .foregroundColor(ColorConstants.white.value)
         }
@@ -86,6 +91,10 @@ struct MediaListView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)
+                .onTapGesture {
+                    model.tappedAudio = selectedAudio
+                    model.isShowingPlayer = true
+                }
         }
     }
 }
