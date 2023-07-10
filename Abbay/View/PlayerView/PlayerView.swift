@@ -62,7 +62,8 @@ struct PlayerView: View {
                 .frame(side: SpaceConstants.sx64.value * SpaceConstants.sx4.value)
             PlayerTitleView(
                 isPlaying: $model.isPlaying,
-                text: model.info.title
+                text: model.info.title,
+                alignment: .center
             )
             .font(.system(size: SpaceConstants.sx24.value))
         }
@@ -147,7 +148,7 @@ struct PlayerView: View {
                     .font(.system(size: SpaceConstants.sx16.value))
                     .onTapGesture {
                         model.willSeek()
-                        model.seek(chapter.startTime)
+                        model.seek(chapter.startTime+1)
                     }
                 }
             }

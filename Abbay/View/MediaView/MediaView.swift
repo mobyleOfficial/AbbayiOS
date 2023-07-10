@@ -36,9 +36,12 @@ struct MediaView: View {
                 .cornerRadius(SpaceConstants.sx8.value)
             Spacer()
             VStack(alignment: .leading) {
-                PlayerTitleView(isPlaying: $model.isPlaying, text: model.info.title)
-                    .font(.system(size: SpaceConstants.sx16.value))
-                    .padding(.bottom, SpaceConstants.sx8.value)
+                PlayerTitleView(
+                    isPlaying: $model.isPlaying,
+                    text: model.info.title
+                )
+                .font(.system(size: SpaceConstants.sx16.value))
+                .padding(.bottom, SpaceConstants.sx8.value)
                 HStack {
                     ChapterCountView(
                         chapter: $model.currentChapter,
