@@ -13,14 +13,15 @@ struct SlidingTextView: View {
     var duration: Double?
     var startDelay: Double = 3
     var endDelay: Double = 3
+    var alignment: Alignment = .leading
 
     // MARK: - States
     @State
     private var customId = UUID()
     @State
-    private var offset: CGFloat = 0
+    private var offset: CGFloat = .zero
     @State
-    private var height: CGFloat = 0
+    private var size: CGSize = .zero
 
     // MARK: - Computed properties
     private var animationDuration: Double {
@@ -41,10 +42,14 @@ struct SlidingTextView: View {
                         )
                     }
                 }
+                .frame(
+                    width: viewGeometry.size.width,
+                    alignment: alignment,
+                    conditional: size.width <= viewGeometry.size.width
+                )
         }
         .clipped()
-        .frame(height: height)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(height: size.height)
         .id(customId)
     }
 
@@ -56,16 +61,18 @@ struct SlidingTextView: View {
     ) -> some View {
         ZStack {}
             .onAppear {
-                height = textGeometry.size.height
+                size = textGeometry.size
                 withAnimation(
                     Animation.linear(
                         duration: animationDuration
                     ).delay(startDelay)
                 ) {
-                    startAnimation(
-                        with: textGeometry.size.width < viewGeometry.size.width ? 0
-                        : viewGeometry.size.width - textGeometry.size.width
-                    )
+                    if textGeometry.size.width > viewGeometry.size.width {
+                        startAnimation(
+                            with: textGeometry.size.width < viewGeometry.size.width ? 0
+                            : viewGeometry.size.width - textGeometry.size.width
+                        )
+                    }
                 }
             }
     }
@@ -82,11 +89,18 @@ struct SlidingTextView: View {
 }
 
 // MARK: - Preview
+// swiftlint:disable line_length
 struct SlidingTextView_Previews: PreviewProvider {
     static var previews: some View {
-        SlidingTextView(
-            text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec cursus sagittis risus quis bibendum."
-        )
+        VStack {
+            SlidingTextView(
+                text: "Lorem ipsum dolor sit amet"
+            )
+            SlidingTextView(
+                text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec cursus sagittis risus quis bibendum."
+            )
+        }
         .padding(SpaceConstants.sx8.value)
     }
 }
+// swiftlint:enable line_length

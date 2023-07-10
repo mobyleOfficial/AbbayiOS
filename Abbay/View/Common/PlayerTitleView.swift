@@ -12,10 +12,11 @@ struct PlayerTitleView: View {
     @Binding
     var isPlaying: Bool
     let text: String
+    var alignment: Alignment = .leading
 
     // MARK: - Body
     var body: some View {
-        SlidingTextView(text: text)
+        SlidingTextView(text: text, alignment: alignment)
         .foregroundColor(
             isPlaying ? ColorConstants.malachite.value : ColorConstants.white.value
         )

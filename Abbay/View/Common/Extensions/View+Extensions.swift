@@ -14,6 +14,19 @@ extension View {
     }
 
     @inlinable
+    func frame(
+        width: CGFloat? = nil,
+        height: CGFloat? = nil,
+        alignment: Alignment = .center,
+        conditional: @autoclosure () -> Bool
+    ) -> some View {
+        if conditional() {
+            return frame(width: width, height: height, alignment: alignment)
+        }
+        return frame(alignment: .center)
+    }
+
+    @inlinable
     func backgroundColor(_ color: Color) -> some View {
         ZStack {
             ContainerRelativeShape()
