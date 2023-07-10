@@ -109,7 +109,7 @@ struct FloatingPlayerView: View {
                         Spacer()
                         ChapterCountView(
                             chapter: $model.currentChapter,
-                            total: info.chapters.count + 1
+                            total: info.chapters.count
                         )
                         .foregroundColor(ColorConstants.white.value)
                     }
