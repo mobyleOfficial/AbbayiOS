@@ -71,7 +71,7 @@ struct MediaListView: View {
                     player: model.player,
                     onSelection: model.mediaSelection
                 )
-                .backgroundColor(ColorConstants.background.value)
+                .listRowBackground(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
             }
         }
