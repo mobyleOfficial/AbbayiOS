@@ -42,7 +42,7 @@ struct MediaView: View {
                 HStack {
                     ChapterCountView(
                         chapter: $model.currentChapter,
-                        total: model.info.chapters.count + 1
+                        total: model.info.chapters.count
                     )
                     Spacer()
                     TimestampView(current: $model.currentTime, total: model.info.duration)
