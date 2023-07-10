@@ -84,27 +84,35 @@ struct FloatingPlayerView: View {
     }
 
     var body: some View {
-        HStack(spacing: SpaceConstants.sx8.value) {
-            DataImageView(data: info.imageData)
-                .foregroundColor(ColorConstants.white.value)
-                .frame(side: SpaceConstants.sx72.value)
-                .cornerRadius(SpaceConstants.sx8.value)
-            VStack(spacing: SpaceConstants.sx8.value) {
-                PlayerTitleView(
-                    isPlaying: $model.isPlaying,
-                    text: info.title
+        VStack {
+            Rectangle()
+                .foregroundColor(ColorConstants.spanishGray.value)
+                .frame(
+                    width: SpaceConstants.sx24.value,
+                    height: SpaceConstants.sx2.value
                 )
-                .font(.system(size: SpaceConstants.sx16.value))
-                timestamp
-                HStack {
-                    Spacer()
-                    playerButtons
-                    Spacer()
-                    ChapterCountView(
-                        chapter: $model.currentChapter,
-                        total: info.chapters.count + 1
-                    )
+            HStack(spacing: SpaceConstants.sx8.value) {
+                DataImageView(data: info.imageData)
                     .foregroundColor(ColorConstants.white.value)
+                    .frame(side: SpaceConstants.sx72.value)
+                    .cornerRadius(SpaceConstants.sx8.value)
+                VStack(spacing: SpaceConstants.sx8.value) {
+                    PlayerTitleView(
+                        isPlaying: $model.isPlaying,
+                        text: info.title
+                    )
+                    .font(.system(size: SpaceConstants.sx16.value))
+                    timestamp
+                    HStack {
+                        Spacer()
+                        playerButtons
+                        Spacer()
+                        ChapterCountView(
+                            chapter: $model.currentChapter,
+                            total: info.chapters.count + 1
+                        )
+                        .foregroundColor(ColorConstants.white.value)
+                    }
                 }
             }
         }
