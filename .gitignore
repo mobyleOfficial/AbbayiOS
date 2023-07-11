@@ -51,3 +51,6 @@ xcuserdata/
 
 ### Tests ###
 TestResults*
+
+### Build ###
+Build/
