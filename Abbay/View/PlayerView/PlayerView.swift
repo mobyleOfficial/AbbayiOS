@@ -26,11 +26,11 @@ struct PlayerView: View {
 
     // MARK: - Body
     var body: some View {
-        VStack {
+        VStack(spacing: SpaceConstants.sx16.value) {
             topButtonsView
-            coverView.padding(.vertical, SpaceConstants.sx32.value)
+            coverView
             playerView
-            chaptersView.padding(.vertical, SpaceConstants.sx24.value)
+            chaptersView
         }
         .padding(.horizontal, SpaceConstants.sx32.value)
         .backgroundColor(ColorConstants.onyx.value)
@@ -59,7 +59,7 @@ struct PlayerView: View {
             DataImageView(data: model.info.imageData)
                 .scaledToFit()
                 .cornerRadius(SpaceConstants.sx32.value)
-                .frame(side: SpaceConstants.sx64.value * SpaceConstants.sx4.value)
+                .frame(side: SpaceConstants.sx72.value * SpaceConstants.sx4.value)
             PlayerTitleView(
                 isPlaying: $model.isPlaying,
                 text: model.info.title,
@@ -91,7 +91,7 @@ struct PlayerView: View {
                 model.forward(withSeconds: 30)
             }
         }
-        .frame(height: SpaceConstants.sx36.value)
+        .frame(height: SpaceConstants.sx32.value)
         .foregroundColor(ColorConstants.white.value)
     }
 
