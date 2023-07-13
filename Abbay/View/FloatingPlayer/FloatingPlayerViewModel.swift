@@ -65,7 +65,7 @@ final class FloatingPlayerViewModel: ObservableObject {
     }
 
     func setCurrentChapter(for time: Double) {
-        currentChapter = info.currentChapter(for: currentTime)
+        currentChapter = info.currentChapter(for: currentTime) + 1
     }
 
     // MARK: - Helpers
