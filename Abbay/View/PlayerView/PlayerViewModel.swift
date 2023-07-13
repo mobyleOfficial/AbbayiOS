@@ -62,8 +62,8 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func seek(_ seconds: Double) {
-        player.seek(seconds)
         addObserver()
+        player.seek(seconds)
     }
 
     func setCurrentChapter(for time: Double) {

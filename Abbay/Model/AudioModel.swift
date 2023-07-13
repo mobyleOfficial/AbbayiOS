@@ -19,8 +19,8 @@ struct AudioModel: Codable {
 
     func currentChapter(for time: Double) -> Int {
         chapters.firstIndex { chapter in
-            chapter.startTime > time
-        } ?? 1
+            chapter.startTime..<chapter.endTime ~= time+1
+        } ?? 0
     }
 }
 

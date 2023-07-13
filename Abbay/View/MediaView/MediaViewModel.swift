@@ -41,7 +41,7 @@ final class MediaViewModel: ObservableObject {
                     self.observer = self.player.addObserver(interval: 1) { time in
                         self.currentTime = time.seconds
                         self.isPlaying = self.player.isPlaying(self.info.url)
-                        self.currentChapter = self.info.currentChapter(for: self.currentTime)
+                        self.currentChapter = self.info.currentChapter(for: self.currentTime) + 1
                     }
                 } else {
                     self.removeObserver()

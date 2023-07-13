@@ -139,7 +139,7 @@ struct PlayerView: View {
             List {
                 ForEach(Array(model.info.chapters.enumerated()), id: \.offset) { index, chapter in
                     PlayerTitleView(
-                        isPlaying: .constant(model.currentChapter == index+1),
+                        isPlaying: .constant(model.currentChapter == index),
                         text: chapter.title
                     )
                     .contentShape(Rectangle())
@@ -148,7 +148,7 @@ struct PlayerView: View {
                     .font(.system(size: SpaceConstants.sx16.value))
                     .onTapGesture {
                         model.willSeek()
-                        model.seek(chapter.startTime+1)
+                        model.seek(chapter.startTime)
                     }
                 }
             }
