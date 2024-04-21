@@ -23,6 +23,8 @@ targets:
         PRODUCT_NAME: $(TARGET_NAME)
         INFOPLIST_FILE: Abbay/Resources/Info.plist
         ENABLE_BITCODE: NO
+        SWIFT_EMIT_LOC_STRINGS: NO
+        LOCALIZED_STRING_SWIFTUI_SUPPORT: NO
         PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.$(PRODUCT_NAME)
         SDKROOT: iphoneos
         TARGET_DEVICE_FAMILY: 1

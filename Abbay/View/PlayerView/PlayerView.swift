@@ -39,10 +39,6 @@ struct PlayerView: View {
     // MARK: - Top buttons
     @ViewBuilder
     private var topButtonsView: some View {
-        // Icons:
-        // "xmark"
-        // "stopwatch"
-        // "hifispeaker.2"
         Rectangle()
             .foregroundColor(ColorConstants.spanishGray.value)
             .frame(
@@ -129,7 +125,7 @@ struct PlayerView: View {
         VStack {
             let listSpacing = SpaceConstants.sx16.value
             HStack {
-                Text("Chapter select")
+                Text(Localizable.chapterSelectionTitle.localized)
                     .foregroundColor(ColorConstants.white.value)
                     .font(.system(size: SpaceConstants.sx16.value))
                 Spacer()
