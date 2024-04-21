@@ -1,0 +1,84 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "chapterCount" : {
+      "comment" : "Current chapter / Total chapters",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d/%d"
+          }
+        }
+      }
+    },
+    "chapterSelectionTitle" : {
+      "comment" : "Chapter selection title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter selection"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleção de capítulos"
+          }
+        }
+      }
+    },
+    "emptyLibraryTitle" : {
+      "comment" : "Title for empty library body",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So empty..."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada para mostrar"
+          }
+        }
+      }
+    },
+    "libraryTitle" : {
+      "comment" : "Library navigation title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Audiobooks"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca"
+          }
+        }
+      }
+    },
+    "timestamp" : {
+      "comment" : "Current timestamp / total time",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%@"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -16,7 +16,7 @@ struct MediaListView: View {
     var body: some View {
         NavigationView {
             contentView
-                .navigationTitle("Your Audiobooks")
+                .navigationTitle(Localizable.libraryTitle.localized)
                 .toolbar {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
                         IconButtonView(systemName: "magnifyingglass")
@@ -62,7 +62,7 @@ struct MediaListView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: SpaceConstants.sx32.value)
-            Text("So empty...")
+            Text(Localizable.emptyLibraryTitle.localized)
         }
     }
 

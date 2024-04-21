@@ -17,7 +17,11 @@ struct TimestampView: View {
     var body: some View {
         HStack {
             Image(systemName: "clock")
-            Text("\(current.timestamp)/\(total.timestamp)")
+            Text(
+                Localizable.timestamp.localized(
+                    with: current.timestamp, total.timestamp
+                )
+            )
         }
     }
 }

@@ -17,7 +17,7 @@ struct ChapterCountView: View {
     var body: some View {
         HStack {
             Image(systemName: "book.closed")
-            Text("\(chapter)/\(total)")
+            Text(Localizable.chapterCount.localized(with: chapter, total))
         }
     }
 }
