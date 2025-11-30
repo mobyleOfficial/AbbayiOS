@@ -1,0 +1,140 @@
+# frozen_string_literal: true
+# rubocop:disable Style/MultilineOperationIndentation, Style/StringConcatenation, Metrics/BlockLength
+
+require 'yaml'
+
+default_platform(:ios)
+
+platform :ios do
+  project_yml = YAML.load_file('../project.yml')
+  project_name = project_yml['name']
+
+  def message(message)
+    UI.message("⚙️ #{message}")
+  end
+
+  def error(message)
+    UI.error("❌ #{message}")
+  end
+
+  desc "Generates the project
+
+#### Optional parameters
+  * open: true - Open the project after generation"
+  lane :generate_project do |options|
+    clean_project
+    Dir.chdir('..') do
+      message('Generating Xcode project')
+      sh 'bundle exec Scripts/xcodegen'
+    end
+    update_version
+    open_project if options[:open].nil? || options[:open]
+  end
+
+  desc 'Opens the project'
+  lane :open_project do
+    Dir.chdir('..') do
+      sleep 2 # Wait for the project to be fully written to disk
+      sh "open #{project_name}.xcodeproj"
+    end
+  end
+
+  desc "Tests the project
+
+#### Optional parameters
+  * open: true - Open the test results after running tests"
+  lane :test_project do |options|
+    generate_project(open: false)
+    message('Running tests')
+
+    actions_config = YAML.load_file('../.actions.yml')
+
+    begin
+      # https://docs.fastlane.tools/actions/run_tests/#parameters
+      setup_ci if ENV['CI']
+      run_tests(
+        project: "#{project_name}.xcodeproj",
+        scheme: project_name.to_s,
+        device: actions_config['test_device'].to_s,
+        derived_data_path: './build_data',
+        result_bundle_path: 'TestResults.xcresult'
+      )
+    ensure
+      sh 'open ../TestResults.xcresult' if options[:open].nil? || options[:open]
+    end
+  end
+
+  desc "Generate app (xcarchive)
+
+#### Optional parameters
+  * open: true - Open the archive after generation"
+  lane :generate_app do |options|
+    generate_project(open: false)
+    message('Generating .app')
+
+    project_dir = File.expand_path('..', Dir.pwd)
+    archive_path = "#{project_dir}/build/#{project_name}-iossimulator.xcarchive"
+
+    # https://docs.fastlane.tools/actions/build_app/#parameters
+    setup_ci if ENV['CI']
+    build_app(
+      project: "#{project_name}.xcodeproj",
+      scheme: project_name.to_s,
+      configuration: 'Release',
+      derived_data_path: './build_data',
+      archive_path: archive_path,
+      destination: 'generic/platform=iOS Simulator',
+      skip_package_ipa: true
+    )
+
+    sh "open #{archive_path}" if options[:open].nil? || options[:open]
+  end
+
+  desc 'Clean build artifacts'
+  lane :clean_project do
+    Dir.chdir('..') do
+      message('Removing auto generated files')
+      sh "find . -maxdepth 3 -type d -name '*.xcodeproj' -exec rm -rf {} +"
+      sh "find . -maxdepth 3 -type d -name '*.xcworkspace' -exec rm -rf {} +"
+      sh "find . -maxdepth 3 -type d -name 'DerivedData' -exec rm -rf {} +"
+      sh 'rm -rf DerivedData build build_data'
+      sh 'rm -rf TestResults TestResults.xcresult'
+    end
+  end
+
+  desc 'Updates the project version based on version file'
+  lane :update_version do
+    Dir.chdir('..') do
+      message('Updating project version')
+
+      project_dir = Dir.pwd
+      xcodeproj_path = "#{project_dir}/#{project_name}.xcodeproj"
+      version_file = File.read('version').split
+
+      marketing_version = version_file[0]
+      project_version = version_file[1]
+
+      increment_version_number(
+        version_number: marketing_version,
+        xcodeproj: xcodeproj_path
+      )
+
+      increment_build_number(
+        build_number: project_version,
+        xcodeproj: xcodeproj_path
+      )
+    end
+  end
+
+  desc 'Run swiftlint'
+  lane :lint_project do
+    Dir.chdir('..') do
+      message('Linting project')
+      begin
+        sh 'bundle exec Scripts/swiftlint' unless ENV['CI']
+      rescue StandardError
+        error('SwiftLint failed, please check log above for more information')
+      end
+    end
+  end
+end

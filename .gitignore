@@ -55,3 +55,15 @@ TestResults*
 
 ### Build ###
 Build/
+build/
+build_data/
+
+### Fastlane ###
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+### Ruby ###
+Gemfile.lock
+vendor/bundle
