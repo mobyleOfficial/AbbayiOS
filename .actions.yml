@@ -1,0 +1,4 @@
+run_swiftlint: true
+run_tests: true
+# run `xcrun simctl list devices` to list devices
+test_device: iPhone 16
