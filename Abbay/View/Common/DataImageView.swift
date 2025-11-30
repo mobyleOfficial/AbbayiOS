@@ -10,7 +10,7 @@ import SwiftUI
 struct DataImageView: View {
     // MARK: - Properties
     var data: Data?
-    var defaultImage: Image = Image(systemName: "photo")
+    var defaultImage = Image(systemName: "photo")
 
     // MARK: - Body
     var body: some View {
