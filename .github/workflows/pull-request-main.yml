@@ -49,6 +49,7 @@ jobs:
     if: ${{ needs.load_settings.outputs.run_tests == 'true' }}
     permissions:
       checks: write
+      contents: read
     runs-on: macos-14
     steps:
       - name: Checkout
