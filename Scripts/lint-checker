@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo "⚙️  Running swiftlint"
+
+if [ "$GITHUB_ACTIONS" = "true" ]; then
+  echo "⚙️ Running in GitHub Actions, there is no need to validate swiftlint"
+  exit
+fi
+
+chmod +x ./Scripts/swiftlint
+./Scripts/swiftlint
