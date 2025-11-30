@@ -39,12 +39,17 @@ final class FileLoader: FileLoaderProtocol {
 
     func load(url: URL) async -> AudioModel? {
         guard url.startAccessingSecurityScopedResource() else { return nil }
-        let asset = AVAsset(url: url)
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        let asset = AVURLAsset(url: url)
         var file = AudioModel(url: url)
         await loadDuration(file: &file, asset: asset)
         await loadMetadata(file: &file, asset: asset)
         await loadChapterMetadata(file: &file, asset: asset)
-        url.stopAccessingSecurityScopedResource()
+
+        // Create bookmark while we have security-scoped access
+        file.bookmarkData = url.createBookmarkData()
+
         return file
     }
 }

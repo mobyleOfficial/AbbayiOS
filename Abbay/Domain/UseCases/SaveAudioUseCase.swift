@@ -15,6 +15,6 @@ protocol SaveAudioUseCaseProtocol {
 final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
     func execute(_ audio: AudioModel) throws {
         _ = audio.dataModel
-        try LocalStorage.persistent.managedContext.save()
+        LocalStorage.persistent.saveContext()
     }
 }

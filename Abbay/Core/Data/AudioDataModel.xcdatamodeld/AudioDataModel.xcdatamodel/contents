@@ -3,6 +3,7 @@
     <entity name="AudioDataModel" representedClassName=".AudioDataModel" syncable="YES">
         <attribute name="albumName" optional="YES" attributeType="String"/>
         <attribute name="artist" optional="YES" attributeType="String"/>
+        <attribute name="bookmarkData" optional="YES" attributeType="Binary"/>
         <attribute name="currentTime" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="duration" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="imageData" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>

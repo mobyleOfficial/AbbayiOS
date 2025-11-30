@@ -34,7 +34,7 @@ final class DataStack: ObservableObject {
         do {
             try managedContext.save()
         } catch let error as NSError {
-            print("Unresolved error \(error), \(error.userInfo)")
+            print("❌ Unresolved error \(error), \(error.userInfo)")
         }
     }
 }
