@@ -31,13 +31,15 @@ final class Player: PlayerProtocol {
     private var observers = [ObserverId: Any]()
     private var stateObserver: NSObjectProtocol?
     private var model: AudioModel?
+    private let saveAudioUseCase: SaveAudioUseCaseProtocol
 
     var url: URL? {
         model?.url
     }
 
     // MARK: - Init
-    init() {
+    init(saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()) {
+        self.saveAudioUseCase = saveAudioUseCase
         defer {
             stateObserver = NotificationCenter.default.addObserver(
                 forName: UIApplication.willTerminateNotification,
@@ -131,9 +133,9 @@ final class Player: PlayerProtocol {
 
     private func saveTime() {
         let currentTime = player.currentTime().seconds
-        if !currentTime.isNaN {
-            model?.currentTime = currentTime
-            model?.save()
+        if !currentTime.isNaN, var model = model {
+            model.currentTime = currentTime
+            try? saveAudioUseCase.execute(model)
         }
     }
 }
