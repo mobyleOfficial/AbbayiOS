@@ -5,8 +5,8 @@
 //  Created by Edson Yudi Toma on 14/06/23.
 //
 
-import XCTest
 @testable import Abbay
+import XCTest
 
 final class AbbayTests: XCTestCase {
 

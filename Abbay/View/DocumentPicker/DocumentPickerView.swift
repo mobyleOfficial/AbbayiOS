@@ -48,10 +48,10 @@ extension DocumentPickerView {
 
         // MARK: - UIDocumentPickerDelegate
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            Task.init {
+            Task {
                 let newFiles = await fileLoader.load(urls: urls)
                 for file in newFiles {
-                    if view.selectedFiles.first(where: { $0.url == file.url }) != nil {
+                    if view.selectedFiles.contains(where: { $0.url == file.url }) {
                         continue
                     }
                     view.selectedFiles.append(file)

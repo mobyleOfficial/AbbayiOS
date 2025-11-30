@@ -163,7 +163,7 @@ struct PlayerView_Previews: PreviewProvider {
                 title: "title",
                 albumName: "album name",
                 artist: "",
-                duration: 48657,
+                duration: 48_657,
                 chapters: [ChapterModel].init(
                     repeating: ChapterModel(title: "Chapter"),
                     count: 3

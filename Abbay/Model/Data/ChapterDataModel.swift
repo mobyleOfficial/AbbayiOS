@@ -6,24 +6,24 @@
 //
 //
 
-import Foundation
 import CoreData
+import Foundation
 
-public class ChapterDataModel: NSManagedObject {
+class ChapterDataModel: NSManagedObject {
     /* Empty */
 }
 
 // MARK: - CoreDataProperties
 extension ChapterDataModel {
 
-    @nonobjc public class func fetchRequest() -> NSFetchRequest<ChapterDataModel> {
+    @nonobjc class func fetchRequest() -> NSFetchRequest<ChapterDataModel> {
         return NSFetchRequest<ChapterDataModel>(entityName: "ChapterDataModel")
     }
 
-    @NSManaged public var title: String?
-    @NSManaged public var startTime: Double
-    @NSManaged public var duration: Double
-    @NSManaged public var audio: AudioDataModel?
+    @NSManaged var title: String?
+    @NSManaged var startTime: Double
+    @NSManaged var duration: Double
+    @NSManaged var audio: AudioDataModel?
 
 }
 
