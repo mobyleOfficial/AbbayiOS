@@ -12,6 +12,7 @@ final class MediaListViewModel: ObservableObject {
     let fileLoader = FileLoader()
     let player = Player()
     let mediaSelection = MediaSelection()
+    private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
 
     // MARK: - Observed properties
     @Published
@@ -26,9 +27,10 @@ final class MediaListViewModel: ObservableObject {
     var isShowingPlayer = false
 
     // MARK: - Init
-    init() {
+    init(loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+        self.loadAllAudiosUseCase = loadAllAudiosUseCase
         defer {
-            audioList = AudioModel.load()
+            audioList = loadAllAudiosUseCase.execute()
             mediaSelection.subscribe { [weak self] selectedAudio in
                 self?.selectedAudio = selectedAudio
             }

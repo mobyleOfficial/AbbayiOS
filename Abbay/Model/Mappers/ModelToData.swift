@@ -31,21 +31,6 @@ extension AudioModel {
         }
         return model
     }
-
-    func save() {
-        _ = dataModel
-        try? LocalStorage.persistent.managedContext.save()
-    }
-
-    static func load(_ url: URL?) -> AudioModel? {
-        AudioDataModel.load(url)?.model
-    }
-
-    static func load() -> [AudioModel] {
-        AudioDataModel.load()
-            .compactMap({ $0.model })
-            .sorted(by: { $0.title.lowercased() < $1.title.lowercased() })
-    }
 }
 
 extension ChapterModel {

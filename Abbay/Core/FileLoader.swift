@@ -13,14 +13,25 @@ protocol FileLoaderProtocol {
 }
 
 final class FileLoader: FileLoaderProtocol {
+    private let loadAudioUseCase: LoadAudioUseCaseProtocol
+    private let saveAudioUseCase: SaveAudioUseCaseProtocol
+
+    init(
+        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
+        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()
+    ) {
+        self.loadAudioUseCase = loadAudioUseCase
+        self.saveAudioUseCase = saveAudioUseCase
+    }
+
     func load(urls: [URL]) async -> [AudioModel] {
         var files = [AudioModel]()
         for url in urls {
-            if let file = AudioModel.load(url) {
+            if let file = loadAudioUseCase.execute(url: url) {
                 files.append(file)
             } else if let file = await load(url: url) {
                 files.append(file)
-                file.save()
+                try? saveAudioUseCase.execute(file)
             }
         }
         return files
