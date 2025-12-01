@@ -12,7 +12,6 @@ extension URL {
     func createBookmarkData() -> Data? {
         // TODO: Add logging for bookmark creation using logging library
         do {
-            // On iOS, use empty options for security-scoped resources from document picker
             let bookmarkData = try self.bookmarkData(
                 options: [],
                 includingResourceValuesForKeys: nil,
@@ -33,7 +32,6 @@ extension URL {
         // TODO: Add logging for bookmark resolution using logging library
         var isStale = false
         do {
-            // On iOS, use .withoutUI for resolving security-scoped bookmarks
             let url = try URL(
                 resolvingBookmarkData: bookmarkData,
                 options: .withoutUI,
