@@ -19,11 +19,7 @@ extension AudioDataModel {
         model.bookmarkData = bookmarkData
 
         // Try to resolve bookmark first, fallback to URL
-        if let bookmarkData = bookmarkData {
-            model.url = URL.resolveBookmark(from: bookmarkData) ?? url
-        } else {
-            model.url = url
-        }
+        model.url = URL.resolveBookmark(from: bookmarkData) ?? url
 
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []
         return model

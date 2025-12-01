@@ -28,7 +28,8 @@ extension URL {
     }
 
     /// Resolves a security-scoped bookmark to a URL
-    static func resolveBookmark(from bookmarkData: Data) -> URL? {
+    static func resolveBookmark(from bookmarkData: Data?) -> URL? {
+        guard let bookmarkData else { return nil }
         // TODO: Add logging for bookmark resolution using logging library
         var isStale = false
         do {
