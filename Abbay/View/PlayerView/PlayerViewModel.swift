@@ -5,13 +5,14 @@
 //  Created by Edson Yudi Toma on 10/07/23.
 //
 
+import Combine
 import Foundation
 
 final class PlayerViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
-    private var observer: PlayerProtocol.ObserverId?
     private(set) var info: AudioModel
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Observed properties
     @Published
@@ -30,14 +31,9 @@ final class PlayerViewModel: ObservableObject {
 
         defer {
             if player.url == model.url {
-                addObserver()
+                setupObserver()
             }
         }
-    }
-
-    // MARK: - deinit
-    deinit {
-        removeObserver()
     }
 
     // MARK: - Methods
@@ -62,7 +58,7 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func seek(_ seconds: Double) {
-        addObserver()
+        setupObserver()
         player.seek(seconds)
     }
 
@@ -70,17 +66,18 @@ final class PlayerViewModel: ObservableObject {
         currentChapter = info.currentChapter(for: currentTime)
     }
 
-    // MARK: - Helpers
-    private func addObserver() {
-        observer = player.addObserver(interval: 1) { [weak self] time in
-            guard let self = self else { return }
-            self.currentTime = time.seconds
-            self.isPlaying = self.player.isPlaying(self.info.url)
-        }
+    // MARK: - Setups
+    private func setupObserver() {
+        player.currentTimePublisher
+            .sink { [weak self] time in
+                guard let self = self else { return }
+                self.currentTime = time.seconds
+                self.isPlaying = self.player.isPlaying(self.info.url)
+            }
+            .store(in: &cancellables)
     }
 
     private func removeObserver() {
-        player.removeObserver(observer)
-        observer = nil
+        cancellables.removeAll()
     }
 }

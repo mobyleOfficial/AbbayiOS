@@ -10,18 +10,13 @@ import Combine
 import UIKit
 
 protocol PlayerProtocol {
-    typealias Observer = (CMTime) -> Void
-    typealias ObserverId = UUID
-
     var url: URL? { get }
+    var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
 
     func play(_ model: inout AudioModel)
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
-    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId
-    func removeObserver(_ id: ObserverId?)
-    func removeObservers()
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
 }
@@ -29,36 +24,35 @@ protocol PlayerProtocol {
 final class Player: PlayerProtocol {
     // MARK: - Properties
     private let player = AVPlayer()
-    private var observers = [ObserverId: Any]()
-    private var stateObserver: NSObjectProtocol?
     private var model: AudioModel?
     private let saveAudioUseCase: SaveAudioUseCaseProtocol
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
+    private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
+    private var timeObserverToken: Any?
 
     var url: URL? {
         model?.url
     }
 
+    var currentTimePublisher: AnyPublisher<CMTime, Never> {
+        currentTimeSubject.eraseToAnyPublisher()
+    }
+
     // MARK: - Init
     init(saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()) {
         self.saveAudioUseCase = saveAudioUseCase
-        defer {
-            stateObserver = NotificationCenter.default.addObserver(
-                forName: UIApplication.willTerminateNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.saveTime()
-            }
-        }
+        setupTimeObserver()
+        setupAppTerminationObserver()
     }
 
     // MARK: - Deinit
     deinit {
         saveTime()
         stopAccessingCurrentURL()
-        removeObservers()
+        if let timeObserverToken {
+            player.removeTimeObserver(timeObserverToken)
+        }
     }
 
     // MARK: - PlayerProtocol
@@ -95,27 +89,6 @@ final class Player: PlayerProtocol {
         seek(newSeconds)
     }
 
-    func addObserver(interval seconds: Double, observer: @escaping Observer) -> ObserverId {
-        let id = UUID()
-        let second = CMTime(seconds: seconds, preferredTimescale: 1)
-        observers[id] = player.addPeriodicTimeObserver(forInterval: second, queue: .main, using: observer)
-        return id
-    }
-
-    func removeObserver(_ id: ObserverId?) {
-        guard let id = id,
-        let observer = observers.removeValue(forKey: id)
-        else { return }
-        player.removeTimeObserver(observer)
-    }
-
-    func removeObservers() {
-        for id in observers.keys {
-            removeObserver(id)
-        }
-        guard let stateObserver = stateObserver else { return }
-        NotificationCenter.default.removeObserver(stateObserver)
-    }
 
     func isPlaying(_ url: URL?) -> Bool {
         guard let url = url else { return false }
@@ -202,5 +175,24 @@ final class Player: PlayerProtocol {
             model.currentTime = currentTime
             try? saveAudioUseCase.execute(model)
         }
+    }
+
+    // MARK: - Setups
+    private func setupTimeObserver() {
+        let interval = CMTime(seconds: 1, preferredTimescale: 1)
+        timeObserverToken = player.addPeriodicTimeObserver(
+            forInterval: interval,
+            queue: .main
+        ) { [weak self] time in
+            self?.currentTimeSubject.send(time)
+        }
+    }
+
+    private func setupAppTerminationObserver() {
+        NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)
+            .sink { [weak self] _ in
+                self?.saveTime()
+            }
+            .store(in: &cancellables)
     }
 }
