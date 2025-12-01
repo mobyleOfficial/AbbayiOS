@@ -139,6 +139,9 @@ final class Player: PlayerProtocol {
             return
         }
 
+        // Clean up previous player item subscriptions
+        cancellables.removeAll()
+
         // Stop accessing previous URL before switching
         stopAccessingCurrentURL()
 
