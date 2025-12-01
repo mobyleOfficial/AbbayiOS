@@ -27,6 +27,7 @@ extension AudioDataModel {
     @NSManaged var imageData: Data?
     @NSManaged var title: String?
     @NSManaged var url: URL?
+    @NSManaged var bookmarkData: Data?
     @NSManaged var chapters: NSOrderedSet?
 
 }

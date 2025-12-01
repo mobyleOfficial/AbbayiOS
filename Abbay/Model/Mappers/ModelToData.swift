@@ -24,6 +24,12 @@ extension AudioModel {
         model.setValue(imageData, forKey: #keyPath(AudioDataModel.imageData))
         model.setValue(title, forKey: #keyPath(AudioDataModel.title))
         model.setValue(url, forKey: #keyPath(AudioDataModel.url))
+
+        // Set bookmark data if available
+        if let bookmarkData = bookmarkData {
+            model.setValue(bookmarkData, forKey: #keyPath(AudioDataModel.bookmarkData))
+        }
+
         if shouldSaveChapters {
             for chapter in chapters {
                 model.addToChapters(chapter.dataModel)

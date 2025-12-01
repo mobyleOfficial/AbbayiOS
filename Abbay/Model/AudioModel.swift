@@ -16,6 +16,7 @@ struct AudioModel: Codable {
     var imageData: Data?
     var chapters = [ChapterModel]()
     var url: URL?
+    var bookmarkData: Data?
 
     func currentChapter(for time: Double) -> Int {
         chapters.firstIndex { chapter in
