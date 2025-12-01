@@ -12,8 +12,8 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
     private let onSelection: MediaSelection
+    private let playerObserver: PlayerObserverProtocol
     private(set) var info: AudioModel
-    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Observed properties
     @Published
@@ -27,11 +27,13 @@ final class MediaViewModel: ObservableObject {
     init(
         _ model: AudioModel,
         player: PlayerProtocol,
-        onSelection: MediaSelection
+        onSelection: MediaSelection,
+        playerObserver: PlayerObserverProtocol? = nil,
     ) {
         self.info = model
         self.player = player
         self.onSelection = onSelection
+        self.playerObserver = playerObserver ?? PlayerObserver(player)
         self.currentTime = info.currentTime
         self.currentChapter = info.currentChapter(for: currentTime)
 
@@ -60,17 +62,15 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - Helpers
     private func setupObserver() {
-        player.currentTimePublisher
-            .sink { [weak self] time in
-                guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.info.url)
-                self.currentChapter = self.info.currentChapter(for: self.currentTime) + 1
-            }
-            .store(in: &cancellables)
+        playerObserver.subscribeToTimePublisher { [weak self] time in
+            guard let self = self else { return }
+            self.currentTime = time.seconds
+            self.isPlaying = self.player.isPlaying(self.info.url)
+            self.currentChapter = self.info.currentChapter(for: self.currentTime) + 1
+        }
     }
 
     private func removeObserver() {
-        cancellables.removeAll()
+        playerObserver.cancelTimeSubscription()
     }
 }

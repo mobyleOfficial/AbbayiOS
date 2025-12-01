@@ -12,7 +12,7 @@ final class FloatingPlayerViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
     private(set) var info: AudioModel
-    private var cancellables = Set<AnyCancellable>()
+    private let playerObserver: PlayerObserverProtocol
 
     // MARK: - Observed properties
     @Published
@@ -23,9 +23,14 @@ final class FloatingPlayerViewModel: ObservableObject {
     var currentChapter: Int = 0
 
     // MARK: - Init
-    init(_ model: AudioModel, player: PlayerProtocol) {
+    init(
+        _ model: AudioModel,
+        player: PlayerProtocol,
+        playerObserver: PlayerObserverProtocol? = nil
+    ) {
         self.info = model
         self.player = player
+        self.playerObserver = playerObserver ?? PlayerObserver(player)
         self.currentTime = info.currentTime
         setCurrentChapter(for: info.currentTime)
 
@@ -66,16 +71,14 @@ final class FloatingPlayerViewModel: ObservableObject {
 
     // MARK: - Helpers
     private func setupObserver() {
-        player.currentTimePublisher
-            .sink { [weak self] time in
-                guard let self = self else { return }
-                self.currentTime = time.seconds
-                self.isPlaying = self.player.isPlaying(self.info.url)
-            }
-            .store(in: &cancellables)
+        playerObserver.subscribeToTimePublisher { [weak self] time in
+            guard let self = self else { return }
+            self.currentTime = time.seconds
+            self.isPlaying = self.player.isPlaying(self.info.url)
+        }
     }
 
     private func removeObserver() {
-        cancellables.removeAll()
+        playerObserver.cancelTimeSubscription()
     }
 }
