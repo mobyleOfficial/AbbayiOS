@@ -11,7 +11,6 @@ import Foundation
 final class MediaViewModel: ObservableObject {
     // MARK: - Properties
     private let player: PlayerProtocol
-    private let onSelection: MediaSelection
     private let playerObserver: PlayerObserverProtocol
     private(set) var info: AudioModel
 
@@ -27,20 +26,18 @@ final class MediaViewModel: ObservableObject {
     init(
         _ model: AudioModel,
         player: PlayerProtocol,
-        onSelection: MediaSelection,
         playerObserver: PlayerObserverProtocol? = nil,
     ) {
         self.info = model
         self.player = player
-        self.onSelection = onSelection
         self.playerObserver = playerObserver ?? PlayerObserver(player)
         self.currentTime = info.currentTime
         self.currentChapter = info.currentChapter(for: currentTime)
 
         defer {
-            self.onSelection.subscribe { [weak self] selectedInfo in
+            self.playerObserver.subscribeToPlayUrlPublisher { [weak self, oldUrl = self.info.url] newInfo in
                 guard let self = self else { return }
-                if selectedInfo?.url == self.info.url {
+                if newInfo.url == oldUrl {
                     self.setupObserver()
                 } else {
                     self.removeObserver()
@@ -53,7 +50,6 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Methods
     func play() {
         player.play(&info)
-        onSelection.select(info)
     }
 
     func pause() {

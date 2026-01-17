@@ -11,7 +11,7 @@ final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
     let fileLoader = FileLoader()
     let player = Player()
-    let mediaSelection = MediaSelection()
+    lazy var playerObserver = PlayerObserver(player)
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
 
     // MARK: - Observed properties
@@ -31,26 +31,9 @@ final class MediaListViewModel: ObservableObject {
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
         defer {
             audioList = loadAllAudiosUseCase.execute()
-            mediaSelection.subscribe { [weak self] selectedAudio in
-                self?.selectedAudio = selectedAudio
+            self.playerObserver.subscribeToPlayUrlPublisher { [weak self] newItem in
+               self?.selectedAudio = newItem
             }
-        }
-    }
-}
-
-// MARK: - MediaSelection
-final class MediaSelection {
-    typealias SelectionCallback = (AudioModel?) -> Void
-
-    private var subscriptions = [SelectionCallback]()
-
-    func subscribe(with subscription: @escaping SelectionCallback) {
-        subscriptions.append(subscription)
-    }
-
-    func select(_ model: AudioModel) {
-        for subscription in subscriptions {
-            subscription(model)
         }
     }
 }

@@ -73,11 +73,14 @@ struct MediaListView: View {
             ForEach(model.audioList, id: \.url) { file in
                 MediaView(
                     file,
-                    player: model.player,
-                    onSelection: model.mediaSelection
+                    player: model.player
                 )
                 .listRowBackground(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
+                .onTapGesture {
+                    model.tappedAudio = file
+                    model.isShowingPlayer = true
+                }
             }
         }
         .listStyle(.plain)

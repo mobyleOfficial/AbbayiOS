@@ -38,6 +38,15 @@ final class PlayerViewModel: ObservableObject {
             if player.url == model.url {
                 setupObserver()
             }
+            self.playerObserver.subscribeToPlayUrlPublisher { [weak self, oldUrl = self.info.url] newInfo in
+                guard let self = self else { return }
+                if newInfo.url == oldUrl {
+                    self.setupObserver()
+                } else {
+                    self.removeObserver()
+                    self.isPlaying = false
+                }
+            }
         }
     }
 

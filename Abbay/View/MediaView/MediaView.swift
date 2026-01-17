@@ -15,14 +15,12 @@ struct MediaView: View {
     // MARK: - Init
     init(
         _ audioModel: AudioModel,
-        player: PlayerProtocol,
-        onSelection: MediaSelection
+        player: PlayerProtocol
     ) {
         _model = .init(
             wrappedValue: .init(
                 audioModel,
-                player: player,
-                onSelection: onSelection
+                player: player
             )
         )
     }
@@ -78,8 +76,7 @@ struct MediaView_Previews: PreviewProvider {
                     count: 3
                 )
             ),
-            player: Player(),
-            onSelection: .init()
+            player: Player()
         )
         .backgroundColor(ColorConstants.background.value)
     }
