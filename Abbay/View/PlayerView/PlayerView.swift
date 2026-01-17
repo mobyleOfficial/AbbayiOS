@@ -149,9 +149,11 @@ struct PlayerView: View {
                 }
             }
             .listStyle(.plain)
+            .disabled(!model.isPlaying)
         }
         .background(ColorConstants.background.value)
         .cornerRadius(SpaceConstants.sx32.value)
+        .opacity(model.isPlaying ? 1.0 : 0.5)
     }
 }
 
