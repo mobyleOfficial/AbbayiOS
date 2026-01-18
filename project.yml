@@ -4,7 +4,7 @@ options:
   defaultConfig: Release
   postGenCommand: Scripts/postinstall
   deploymentTarget:
-    iOS: 15.0
+    iOS: 16.2
 
 configs:
   Debug: debug
@@ -22,7 +22,7 @@ settings:
     PRODUCT_NAME: $(TARGET_NAME)
 
     # Target
-    IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '16.2'
     TARGET_DEVICE_FAMILY: '1'
 
     # Signing
@@ -59,7 +59,27 @@ targets:
         INFOPLIST_FILE: Abbay/Resources/Info.plist
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
     dependencies:
+      - target: AbbayWidget
+        embed: true
       - sdk: AVFoundation.framework
+
+  AbbayWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - AbbayWidget
+      - path: Abbay/Shared
+        name: Shared
+    settings:
+      base:
+        INFOPLIST_FILE: AbbayWidget/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.Abbay.$(PRODUCT_NAME)
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME: WidgetBackground
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
 
   AbbayTests:
     type: bundle.unit-test

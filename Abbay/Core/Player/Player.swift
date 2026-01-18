@@ -59,6 +59,7 @@ final class Player: PlayerProtocol {
         if let timeObserverToken {
             player.removeTimeObserver(timeObserverToken)
         }
+        LiveActivityManager.shared.endActivity()
     }
 
     // MARK: - PlayerProtocol
@@ -76,11 +77,21 @@ final class Player: PlayerProtocol {
         }
         player.play()
         print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
+
+        // Start or update Live Activity
+        if !LiveActivityManager.shared.isActivityActive {
+            LiveActivityManager.shared.startActivity(for: model, isPlaying: true)
+        } else {
+            LiveActivityManager.shared.updatePlayingState(isPlaying: true)
+        }
     }
 
     func pause() {
         saveTime()
         player.pause()
+
+        // Update Live Activity playing state
+        LiveActivityManager.shared.updatePlayingState(isPlaying: false)
     }
 
     func forward(withSeconds seconds: Double) {
@@ -188,6 +199,17 @@ final class Player: PlayerProtocol {
             queue: .main
         ) { [weak self] time in
             self?.currentTimeSubject.send(time)
+
+            // Update Live Activity with current time
+            guard let self = self, let model = self.model else { return }
+            let currentTime = time.seconds
+            let isPlaying = self.player.timeControlStatus == .playing
+            let currentChapter = model.currentChapter(for: currentTime)
+            LiveActivityManager.shared.updateActivity(
+                currentTime: currentTime,
+                isPlaying: isPlaying,
+                currentChapter: currentChapter
+            )
         }
     }
 
