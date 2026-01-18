@@ -20,6 +20,7 @@ protocol PlayerProtocol {
     func backward(withSeconds seconds: Double)
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
+    func cleanup()
 }
 
 final class Player: PlayerProtocol {
@@ -53,7 +54,6 @@ final class Player: PlayerProtocol {
     ) {
         self.saveAudioUseCase = saveAudioUseCase
         setupTimeObserver()
-        setupAppTerminationObserver()
 
         // Initialize Now Playing and set player reference
         NowPlayingManager.shared.setPlayer(self, currentAudio: nil)
@@ -61,6 +61,11 @@ final class Player: PlayerProtocol {
 
     // MARK: - Deinit
     deinit {
+        cleanup()
+    }
+
+    // MARK: - Cleanup
+    func cleanup() {
         saveTime()
         stopAccessingCurrentURL()
         if let timeObserverToken {
@@ -211,13 +216,5 @@ final class Player: PlayerProtocol {
                 isPlaying: isPlaying
             )
         }
-    }
-
-    private func setupAppTerminationObserver() {
-        NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)
-            .sink { [weak self] _ in
-                self?.saveTime()
-            }
-            .store(in: &cancellables)
     }
 }

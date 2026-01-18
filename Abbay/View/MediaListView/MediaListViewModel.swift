@@ -10,8 +10,7 @@ import Foundation
 final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
     let fileLoader = FileLoader()
-    let player = Player()
-    lazy var playerObserver = PlayerObserver(player)
+    private let playerObserver: PlayerObserverProtocol
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
 
     // MARK: - Observed properties
@@ -28,8 +27,10 @@ final class MediaListViewModel: ObservableObject {
 
     // MARK: - Init
     init(
+        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
         loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(repository: LoadAllAudiosRepository())
     ) {
+        self.playerObserver = playerObserver
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
         defer {
             audioList = loadAllAudiosUseCase.execute()

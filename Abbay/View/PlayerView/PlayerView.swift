@@ -13,15 +13,8 @@ struct PlayerView: View {
     private var model: PlayerViewModel
 
     // MARK: - Inits
-    init(
-        _ audioModel: AudioModel,
-        player: PlayerProtocol
-    ) {
-        self._model = .init(
-            wrappedValue: .init(
-                audioModel, player: player
-            )
-        )
+    init(_ audioModel: AudioModel) {
+        self._model = .init(wrappedValue: .init(audioModel))
     }
 
     // MARK: - Body
@@ -170,8 +163,7 @@ struct PlayerView_Previews: PreviewProvider {
                     repeating: ChapterModel(title: "Chapter"),
                     count: 3
                 )
-            ),
-            player: Player()
+            )
         )
     }
 }

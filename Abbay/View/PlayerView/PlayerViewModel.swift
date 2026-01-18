@@ -10,7 +10,6 @@ import Foundation
 
 final class PlayerViewModel: ObservableObject {
     // MARK: - Properties
-    private let player: PlayerProtocol
     private(set) var info: AudioModel
     private let playerObserver: PlayerObserverProtocol
 
@@ -25,17 +24,15 @@ final class PlayerViewModel: ObservableObject {
     // MARK: - Init
     init(
         _ model: AudioModel,
-        player: PlayerProtocol,
-        playerObserver: PlayerObserverProtocol? = nil
+        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
     ) {
         self.info = model
-        self.player = player
-        self.playerObserver = playerObserver ?? PlayerObserver(player)
+        self.playerObserver = playerObserver
         self.currentTime = info.currentTime
         setCurrentChapter(for: info.currentTime)
 
         defer {
-            if player.url == model.url {
+            if playerObserver.player.url == model.url {
                 setupObserver()
             }
             self.playerObserver.subscribeToPlayUrlPublisher { [weak self, oldUrl = self.info.url] newInfo in
@@ -52,19 +49,19 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Methods
     func play() {
-        player.play(&info)
+        playerObserver.player.play(&info)
     }
 
     func pause() {
-        player.pause()
+        playerObserver.player.pause()
     }
 
     func forward(withSeconds seconds: Double) {
-        player.forward(withSeconds: seconds)
+        playerObserver.player.forward(withSeconds: seconds)
     }
 
     func backward(withSeconds seconds: Double) {
-        player.backward(withSeconds: seconds)
+        playerObserver.player.backward(withSeconds: seconds)
     }
 
     func willSeek() {
@@ -73,7 +70,7 @@ final class PlayerViewModel: ObservableObject {
 
     func seek(_ seconds: Double) {
         setupObserver()
-        player.seek(seconds)
+        playerObserver.player.seek(seconds)
     }
 
     func setCurrentChapter(for time: Double) {
@@ -85,7 +82,7 @@ final class PlayerViewModel: ObservableObject {
         playerObserver.subscribeToTimePublisher { [weak self] time in
             guard let self = self else { return }
             self.currentTime = time.seconds
-            self.isPlaying = self.player.isPlaying(self.info.url)
+            self.isPlaying = self.playerObserver.player.isPlaying(self.info.url)
         }
     }
 
