@@ -12,6 +12,7 @@ import UIKit
 protocol PlayerProtocol {
     var url: URL? { get }
     var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
+    var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
 
     func play(_ model: inout AudioModel)
     func pause()
@@ -29,6 +30,7 @@ final class Player: PlayerProtocol {
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
+    private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
     private var timeObserverToken: Any?
 
     var url: URL? {
@@ -37,6 +39,10 @@ final class Player: PlayerProtocol {
 
     var currentTimePublisher: AnyPublisher<CMTime, Never> {
         currentTimeSubject.eraseToAnyPublisher()
+    }
+
+    var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
+        playUrlSubject.eraseToAnyPublisher()
     }
 
     // MARK: - Init
@@ -112,13 +118,10 @@ final class Player: PlayerProtocol {
             return
         }
 
-        // Clean up previous player item subscriptions
         cancellables.removeAll()
 
-        // Stop accessing previous URL before switching
         stopAccessingCurrentURL()
 
-        // Start accessing new URL and update model
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
@@ -157,11 +160,11 @@ final class Player: PlayerProtocol {
             .store(in: &cancellables)
 
         player.replaceCurrentItem(with: playerItem)
+        playUrlSubject.send(item)
     }
 
     private func stopAccessingCurrentURL() {
         // TODO: Add logging for security scope access using logging library
-        // Only stop if we successfully started accessing
         if hasSecurityAccess, let url = url {
             url.stopAccessingSecurityScopedResource()
             print("🔒 Stopped accessing: \(url.lastPathComponent)")

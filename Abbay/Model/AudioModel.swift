@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct AudioModel: Codable {
+struct AudioModel {
     var title = String()
     var albumName = String()
     var artist = String()
@@ -22,16 +22,5 @@ struct AudioModel: Codable {
         chapters.firstIndex { chapter in
             chapter.startTime..<chapter.endTime ~= time + 1
         } ?? 0
-    }
-}
-
-extension AudioModel {
-    func copyWith<Value>(
-        _ key: WritableKeyPath<Self, Value>,
-        value: Value
-    ) -> AudioModel {
-        var copy = self
-        copy[keyPath: key] = value
-        return copy
     }
 }
