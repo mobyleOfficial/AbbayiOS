@@ -5,7 +5,6 @@
 //  Created by Edson Yudi Toma on 30/11/24.
 //
 
-import CoreData
 import Foundation
 
 protocol LoadAllAudiosUseCaseProtocol {
