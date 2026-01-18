@@ -50,6 +50,9 @@ final class Player: PlayerProtocol {
         self.saveAudioUseCase = saveAudioUseCase
         setupTimeObserver()
         setupAppTerminationObserver()
+
+        // Initialize Now Playing and set player reference
+        NowPlayingManager.shared.setPlayer(self, currentAudio: nil)
     }
 
     // MARK: - Deinit
@@ -59,6 +62,7 @@ final class Player: PlayerProtocol {
         if let timeObserverToken {
             player.removeTimeObserver(timeObserverToken)
         }
+        NowPlayingManager.shared.clearNowPlaying()
     }
 
     // MARK: - PlayerProtocol
@@ -126,6 +130,9 @@ final class Player: PlayerProtocol {
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
 
+        // Update NowPlayingManager with current audio
+        NowPlayingManager.shared.setPlayer(self, currentAudio: item)
+
         let playerItem = AVPlayerItem(url: url)
 
         // TODO: Add logging for player item failures using logging library
@@ -188,6 +195,17 @@ final class Player: PlayerProtocol {
             queue: .main
         ) { [weak self] time in
             self?.currentTimeSubject.send(time)
+
+            // Update Now Playing with current time
+            guard let self = self, let model = self.model else { return }
+            let currentTime = time.seconds
+            let isPlaying = self.player.timeControlStatus == .playing
+
+            NowPlayingManager.shared.updateNowPlaying(
+                for: model,
+                currentTime: currentTime,
+                isPlaying: isPlaying
+            )
         }
     }
 
