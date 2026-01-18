@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        DependencyContainer.configure()
+
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -20,6 +22,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             fatalError("Could not start player session: \(error)")
         }
         return true
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        DependencyContainer.shared.player.cleanup()
     }
 }
 

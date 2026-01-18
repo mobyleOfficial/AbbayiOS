@@ -31,7 +31,7 @@ struct MediaListView: View {
                 }
                 .sheet(isPresented: $model.isShowingPlayer) {
                     if let file = model.tappedAudio {
-                        PlayerView(file, player: model.player)
+                        PlayerView(file)
                     }
                 }
                 .backgroundColor(ColorConstants.background.value)
@@ -71,10 +71,7 @@ struct MediaListView: View {
     var listView: some View {
         List {
             ForEach(model.audioList, id: \.url) { file in
-                MediaView(
-                    file,
-                    player: model.player
-                )
+                MediaView(file)
                 .listRowBackground(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
                 .onTapGesture {
@@ -90,7 +87,7 @@ struct MediaListView: View {
     @ViewBuilder
     var playerView: some View {
         if let selectedAudio = model.selectedAudio {
-            FloatingPlayerViewFactory.build(selectedAudio, player: model.player)
+            FloatingPlayerViewFactory.build(selectedAudio)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)

@@ -10,7 +10,6 @@ import Foundation
 
 final class MediaViewModel: ObservableObject {
     // MARK: - Properties
-    private let player: PlayerProtocol
     private let playerObserver: PlayerObserverProtocol
     private(set) var info: AudioModel
 
@@ -25,12 +24,10 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Init
     init(
         _ model: AudioModel,
-        player: PlayerProtocol,
-        playerObserver: PlayerObserverProtocol? = nil,
+        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
     ) {
         self.info = model
-        self.player = player
-        self.playerObserver = playerObserver ?? PlayerObserver(player)
+        self.playerObserver = playerObserver
         self.currentTime = info.currentTime
         self.currentChapter = info.currentChapter(for: currentTime)
 
@@ -49,11 +46,11 @@ final class MediaViewModel: ObservableObject {
 
     // MARK: - Methods
     func play() {
-        player.play(&info)
+        playerObserver.player.play(&info)
     }
 
     func pause() {
-        player.pause()
+        playerObserver.player.pause()
     }
 
     // MARK: - Helpers
@@ -61,7 +58,7 @@ final class MediaViewModel: ObservableObject {
         playerObserver.subscribeToTimePublisher { [weak self] time in
             guard let self = self else { return }
             self.currentTime = time.seconds
-            self.isPlaying = self.player.isPlaying(self.info.url)
+            self.isPlaying = self.playerObserver.player.isPlaying(self.info.url)
             self.currentChapter = self.info.currentChapter(for: self.currentTime) + 1
         }
     }

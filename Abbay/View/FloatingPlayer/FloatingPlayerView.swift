@@ -13,11 +13,8 @@ struct FloatingPlayerViewFactory {
     }
 
     @ViewBuilder
-    static func build(
-        _ audioModel: AudioModel,
-        player: PlayerProtocol
-    ) -> some View {
-        let model = FloatingPlayerViewModel(audioModel, player: player)
+    static func build(_ audioModel: AudioModel) -> some View {
+        let model = FloatingPlayerViewModel(audioModel)
         FloatingPlayerView(model)
             .id(UUID())
     }
@@ -136,8 +133,7 @@ struct FloatingPlayer_Previews: PreviewProvider {
                     repeating: ChapterModel(),
                     count: 3
                 )
-            ),
-            player: Player()
+            )
         )
         .padding(.horizontal, SpaceConstants.sx4.value)
     }

@@ -9,14 +9,16 @@ import AVFoundation
 import Combine
 
 protocol PlayerObserverProtocol {
+    var player: PlayerProtocol { get }
+
     func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void)
     func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void)
     func cancelTimeSubscription()
 }
 
-final class PlayerObserver {
+final class PlayerObserver: PlayerObserverProtocol {
     // MARK: - Properties
-    private let player: PlayerProtocol
+    let player: PlayerProtocol
     private var timeCancellables = Set<AnyCancellable>()
     private var urlCancellables = Set<AnyCancellable>()
 
@@ -26,8 +28,8 @@ final class PlayerObserver {
     }
 }
 
-// MARK: - PlayerObserverProtocol
-extension PlayerObserver: PlayerObserverProtocol {
+// MARK: - Protocol Methods
+extension PlayerObserver {
     func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void) {
         guard timeCancellables.isEmpty else { return }
         player.currentTimePublisher

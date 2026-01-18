@@ -13,16 +13,8 @@ struct MediaView: View {
     private var model: MediaViewModel
 
     // MARK: - Init
-    init(
-        _ audioModel: AudioModel,
-        player: PlayerProtocol
-    ) {
-        _model = .init(
-            wrappedValue: .init(
-                audioModel,
-                player: player
-            )
-        )
+    init(_ audioModel: AudioModel) {
+        _model = .init(wrappedValue: .init(audioModel))
     }
 
     // MARK: - Body
@@ -75,8 +67,7 @@ struct MediaView_Previews: PreviewProvider {
                     repeating: ChapterModel(),
                     count: 3
                 )
-            ),
-            player: Player()
+            )
         )
         .backgroundColor(ColorConstants.background.value)
     }
