@@ -136,13 +136,13 @@ struct PlayerView: View {
                     .listRowInsets(.init(all: listSpacing))
                     .font(.system(size: SpaceConstants.sx16.value))
                     .onTapGesture {
+                        guard model.isPlaying else { return }
                         model.willSeek()
                         model.seek(chapter.startTime)
                     }
                 }
             }
             .listStyle(.plain)
-            .disabled(!model.isPlaying)
         }
         .background(ColorConstants.background.value)
         .cornerRadius(SpaceConstants.sx32.value)
