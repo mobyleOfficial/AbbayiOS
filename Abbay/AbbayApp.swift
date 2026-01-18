@@ -31,24 +31,6 @@ struct AbbayApp: App {
     var body: some Scene {
         WindowGroup {
             MediaListView()
-                .onOpenURL { url in
-                    handleDeepLink(url)
-                }
-        }
-    }
-
-    private func handleDeepLink(_ url: URL) {
-        guard url.scheme == "abbay" else { return }
-
-        switch url.host {
-        case "play-pause":
-            NotificationCenter.default.post(name: .liveActivityPlayPause, object: nil)
-        case "skip-forward":
-            NotificationCenter.default.post(name: .liveActivitySkipForward, object: nil)
-        case "skip-backward":
-            NotificationCenter.default.post(name: .liveActivitySkipBackward, object: nil)
-        default:
-            break
         }
     }
 }

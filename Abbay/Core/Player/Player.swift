@@ -50,6 +50,9 @@ final class Player: PlayerProtocol {
         self.saveAudioUseCase = saveAudioUseCase
         setupTimeObserver()
         setupAppTerminationObserver()
+
+        // Initialize Now Playing and set player reference
+        NowPlayingManager.shared.setPlayer(self, currentAudio: nil)
     }
 
     // MARK: - Deinit
@@ -59,7 +62,7 @@ final class Player: PlayerProtocol {
         if let timeObserverToken {
             player.removeTimeObserver(timeObserverToken)
         }
-        LiveActivityManager.shared.endActivity()
+        NowPlayingManager.shared.clearNowPlaying()
     }
 
     // MARK: - PlayerProtocol
@@ -77,21 +80,11 @@ final class Player: PlayerProtocol {
         }
         player.play()
         print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
-
-        // Start or update Live Activity
-        if !LiveActivityManager.shared.isActivityActive {
-            LiveActivityManager.shared.startActivity(for: model, isPlaying: true)
-        } else {
-            LiveActivityManager.shared.updatePlayingState(isPlaying: true)
-        }
     }
 
     func pause() {
         saveTime()
         player.pause()
-
-        // Update Live Activity playing state
-        LiveActivityManager.shared.updatePlayingState(isPlaying: false)
     }
 
     func forward(withSeconds seconds: Double) {
@@ -136,6 +129,9 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
+
+        // Update NowPlayingManager with current audio
+        NowPlayingManager.shared.setPlayer(self, currentAudio: item)
 
         let playerItem = AVPlayerItem(url: url)
 
@@ -200,15 +196,15 @@ final class Player: PlayerProtocol {
         ) { [weak self] time in
             self?.currentTimeSubject.send(time)
 
-            // Update Live Activity with current time
+            // Update Now Playing with current time
             guard let self = self, let model = self.model else { return }
             let currentTime = time.seconds
             let isPlaying = self.player.timeControlStatus == .playing
-            let currentChapter = model.currentChapter(for: currentTime)
-            LiveActivityManager.shared.updateActivity(
+
+            NowPlayingManager.shared.updateNowPlaying(
+                for: model,
                 currentTime: currentTime,
-                isPlaying: isPlaying,
-                currentChapter: currentChapter
+                isPlaying: isPlaying
             )
         }
     }
