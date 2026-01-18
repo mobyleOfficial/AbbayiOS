@@ -27,7 +27,9 @@ final class MediaListViewModel: ObservableObject {
     var isShowingPlayer = false
 
     // MARK: - Init
-    init(loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+    init(
+        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(repository: LoadAllAudiosRepository())
+    ) {
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
         defer {
             audioList = loadAllAudiosUseCase.execute()

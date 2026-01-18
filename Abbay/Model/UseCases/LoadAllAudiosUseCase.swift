@@ -13,17 +13,14 @@ protocol LoadAllAudiosUseCaseProtocol {
 }
 
 final class LoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
+    private let repository: LoadAllAudiosRepositoryProtocol
+
+    init(repository: LoadAllAudiosRepositoryProtocol) {
+        self.repository = repository
+    }
+
     func execute() -> [AudioModel] {
-        let request = AudioDataModel.fetchRequest()
-        let sortByTitle = NSSortDescriptor(key: #keyPath(AudioDataModel.title), ascending: false)
-        request.sortDescriptors = [sortByTitle]
-        do {
-            let context = LocalStorage.persistent.managedContext
-            let result = try context.fetch(request)
-            return result.compactMap { $0.model }
-        } catch let error as NSError {
-            print("Fetch error: \(error) description: \(error.userInfo)")
-        }
-        return [AudioModel]()
+        let dataModel = repository.execute() ?? []
+        return dataModel.compactMap { $0.model }
     }
 }
