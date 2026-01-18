@@ -13,7 +13,15 @@ protocol LoadAudioUseCaseProtocol {
 }
 
 final class LoadAudioUseCase: LoadAudioUseCaseProtocol {
+    private let repository: LoadAudioRepositoryProtocol
+
+    init(repository: LoadAudioRepositoryProtocol) {
+        self.repository = repository
+    }
+
     func execute(url: URL?) -> AudioModel? {
-        AudioDataModel.load(url)?.model
+        guard let url = url else { return nil }
+        let dataModel = repository.execute(url: url)
+        return dataModel?.model
     }
 }
