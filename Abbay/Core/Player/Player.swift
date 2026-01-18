@@ -46,7 +46,11 @@ final class Player: PlayerProtocol {
     }
 
     // MARK: - Init
-    init(saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()) {
+    init(
+        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(
+            repository: LoadAudioRepository()
+        )
+    ) {
         self.saveAudioUseCase = saveAudioUseCase
         setupTimeObserver()
         setupAppTerminationObserver()

@@ -5,7 +5,6 @@
 //  Created by Edson Yudi Toma on 30/11/24.
 //
 
-import CoreData
 import Foundation
 
 protocol LoadAllAudiosUseCaseProtocol {
@@ -13,9 +12,14 @@ protocol LoadAllAudiosUseCaseProtocol {
 }
 
 final class LoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
+    private let repository: LoadAllAudiosRepositoryProtocol
+
+    init(repository: LoadAllAudiosRepositoryProtocol) {
+        self.repository = repository
+    }
+
     func execute() -> [AudioModel] {
-        AudioDataModel.load()
-            .compactMap { $0.model }
-            .sorted(by: { $0.title.lowercased() < $1.title.lowercased() })
+        let dataModel = repository.execute() ?? []
+        return dataModel.compactMap { $0.model }
     }
 }
