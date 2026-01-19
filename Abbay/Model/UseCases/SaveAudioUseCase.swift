@@ -14,7 +14,7 @@ protocol SaveAudioUseCaseProtocol {
 final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
     private let repository: LoadAudioRepositoryProtocol
 
-    init(repository: LoadAudioRepositoryProtocol) {
+    init(repository: LoadAudioRepositoryProtocol = LoadAudioRepository()) {
         self.repository = repository
     }
 

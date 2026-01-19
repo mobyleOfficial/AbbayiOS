@@ -13,6 +13,7 @@ enum Localizable: String {
     case chapterSelectionTitle
     case chapterCount
     case timestamp
+    case delete
 }
 
 extension Localizable {
