@@ -78,6 +78,13 @@ struct MediaListView: View {
                     model.tappedAudio = file
                     model.isShowingPlayer = true
                 }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        model.deleteAudio(file)
+                    } label: {
+                        Label(Localizable.delete.localized, systemImage: "trash")
+                    }
+                }
             }
         }
         .listStyle(.plain)

@@ -13,6 +13,24 @@
         }
       }
     },
+    "delete" : {
+      "comment" : "Delete action label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir"
+          }
+        }
+      }
+    },
     "chapterSelectionTitle" : {
       "comment" : "Chapter selection title",
       "extractionState" : "manual",

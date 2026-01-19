@@ -12,6 +12,7 @@ final class MediaListViewModel: ObservableObject {
     let fileLoader = FileLoader()
     private let playerObserver: PlayerObserverProtocol
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
+    private let deleteAudioUseCase: DeleteAudioUseCaseProtocol
 
     // MARK: - Observed properties
     @Published
@@ -28,15 +29,23 @@ final class MediaListViewModel: ObservableObject {
     // MARK: - Init
     init(
         playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
-        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(repository: LoadAllAudiosRepository())
+        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(repository: LoadAllAudiosRepository()),
+        deleteAudioUseCase: DeleteAudioUseCaseProtocol = DeleteAudioUseCase()
     ) {
         self.playerObserver = playerObserver
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
+        self.deleteAudioUseCase = deleteAudioUseCase
         defer {
             audioList = loadAllAudiosUseCase.execute()
             self.playerObserver.subscribeToPlayUrlPublisher { [weak self] newItem in
                self?.selectedAudio = newItem
             }
         }
+    }
+
+    // MARK: - Methods
+    func deleteAudio(_ audio: AudioModel) {
+        deleteAudioUseCase.execute(audio)
+        audioList.removeAll { $0.url == audio.url }
     }
 }
