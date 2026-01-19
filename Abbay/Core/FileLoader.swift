@@ -17,8 +17,8 @@ final class FileLoader: FileLoaderProtocol {
     private let saveAudioUseCase: SaveAudioUseCaseProtocol
 
     init(
-        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase(repository: LoadAudioRepository()),
-        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(repository: LoadAudioRepository())
+        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
+        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()
     ) {
         self.loadAudioUseCase = loadAudioUseCase
         self.saveAudioUseCase = saveAudioUseCase

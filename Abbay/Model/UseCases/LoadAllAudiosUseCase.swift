@@ -14,7 +14,7 @@ protocol LoadAllAudiosUseCaseProtocol {
 final class LoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
     private let repository: LoadAllAudiosRepositoryProtocol
 
-    init(repository: LoadAllAudiosRepositoryProtocol) {
+    init(repository: LoadAllAudiosRepositoryProtocol = LoadAllAudiosRepository()) {
         self.repository = repository
     }
 

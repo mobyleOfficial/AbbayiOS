@@ -29,7 +29,7 @@ final class MediaListViewModel: ObservableObject {
     // MARK: - Init
     init(
         playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
-        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(repository: LoadAllAudiosRepository()),
+        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         deleteAudioUseCase: DeleteAudioUseCaseProtocol = DeleteAudioUseCase()
     ) {
         self.playerObserver = playerObserver
