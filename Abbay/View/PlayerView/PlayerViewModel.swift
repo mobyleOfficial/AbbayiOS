@@ -77,6 +77,14 @@ final class PlayerViewModel: ObservableObject {
         currentChapter = info.currentChapter(for: currentTime)
     }
 
+    func skipToNextChapter() {
+        playerObserver.player.skipToNextChapter()
+    }
+
+    func skipToPreviousChapter() {
+        playerObserver.player.skipToPreviousChapter()
+    }
+
     // MARK: - Setups
     private func setupObserver() {
         playerObserver.subscribeToTimePublisher { [weak self] time in

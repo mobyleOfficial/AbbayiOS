@@ -75,6 +75,14 @@ final class FloatingPlayerViewModel: ObservableObject {
         currentChapter = info.currentChapter(for: currentTime) + 1
     }
 
+    func skipToNextChapter() {
+        playerObserver.player.skipToNextChapter()
+    }
+
+    func skipToPreviousChapter() {
+        playerObserver.player.skipToPreviousChapter()
+    }
+
     // MARK: - Helpers
     private func setupObserver() {
         playerObserver.subscribeToTimePublisher { [weak self] time in
