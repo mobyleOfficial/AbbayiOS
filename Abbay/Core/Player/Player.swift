@@ -11,6 +11,7 @@ import UIKit
 
 protocol PlayerProtocol {
     var url: URL? { get }
+    var currentTime: Double { get }
     var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
 
@@ -21,6 +22,8 @@ protocol PlayerProtocol {
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
     func cleanup()
+    func skipToNextChapter()
+    func skipToPreviousChapter()
 }
 
 final class Player: PlayerProtocol {
@@ -44,6 +47,10 @@ final class Player: PlayerProtocol {
 
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
+    }
+
+    var currentTime: Double {
+        player.currentTime().seconds
     }
 
     // MARK: - Init
@@ -117,6 +124,30 @@ final class Player: PlayerProtocol {
     func seek(_ seconds: Double) {
         let time = CMTime(seconds: seconds, preferredTimescale: 1)
         seek(time)
+    }
+
+    func skipToNextChapter() {
+        guard let model = model else { return }
+        let currentChapterIndex = model.currentChapter(for: currentTime)
+        let nextChapterIndex = currentChapterIndex + 1
+        guard nextChapterIndex < model.chapters.count else { return }
+        seek(model.chapters[nextChapterIndex].startTime)
+    }
+
+    func skipToPreviousChapter() {
+        guard let model = model else { return }
+        let currentChapterIndex = model.currentChapter(for: currentTime)
+        let currentChapter = model.chapters[currentChapterIndex]
+
+        // If more than 15 seconds into the chapter, go to start of current chapter
+        // Otherwise, go to previous chapter
+        if currentTime - currentChapter.startTime > 15 {
+            seek(currentChapter.startTime)
+        } else if currentChapterIndex > 0 {
+            seek(model.chapters[currentChapterIndex - 1].startTime)
+        } else {
+            seek(0)
+        }
     }
 
     // MARK: - Helpers

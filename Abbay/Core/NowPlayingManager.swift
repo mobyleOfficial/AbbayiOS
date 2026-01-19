@@ -43,10 +43,13 @@ final class NowPlayingManager {
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
         }
 
-        // Chapter info in album artist field
+        // Chapter info
         let currentChapter = audio.currentChapter(for: currentTime)
         if !audio.chapters.isEmpty {
             nowPlayingInfo[MPMediaItemPropertyAlbumArtist] = "Chapter \(currentChapter + 1) of \(audio.chapters.count)"
+            nowPlayingInfo[MPNowPlayingInfoPropertyChapterNumber] = currentChapter
+            nowPlayingInfo[MPNowPlayingInfoPropertyChapterCount] = audio.chapters.count
+            nowPlayingInfo[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
@@ -64,6 +67,7 @@ final class NowPlayingManager {
         let commandCenter = MPRemoteCommandCenter.shared()
         setupPlaybackCommands(commandCenter)
         setupSkipCommands(commandCenter)
+        setupTrackCommands(commandCenter)
         setupSeekCommand(commandCenter)
         print("📻 NowPlaying: Remote Command Center configured")
     }
@@ -129,6 +133,22 @@ final class NowPlayingManager {
             } else {
                 player.backward(withSeconds: 15)
             }
+            return .success
+        }
+    }
+
+    private func setupTrackCommands(_ commandCenter: MPRemoteCommandCenter) {
+        commandCenter.nextTrackCommand.isEnabled = true
+        commandCenter.nextTrackCommand.addTarget { [weak self] _ in
+            guard let player = self?.player else { return .commandFailed }
+            player.skipToNextChapter()
+            return .success
+        }
+
+        commandCenter.previousTrackCommand.isEnabled = true
+        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
+            guard let player = self?.player else { return .commandFailed }
+            player.skipToPreviousChapter()
             return .success
         }
     }
