@@ -28,7 +28,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         let nowPlaying = CPNowPlayingTemplate.shared
         nowPlaying.isUpNextButtonEnabled = true
-        nowPlaying.upNextTitle = "Chapters"
+        nowPlaying.upNextTitle = Localizable.chapterSelectionTitle.localized
         nowPlaying.add(self)
 
         setupObservers()
@@ -77,7 +77,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         let section = CPListSection(items: listItems)
-        let template = CPListTemplate(title: "Library", sections: [section])
+        let template = CPListTemplate(title: Localizable.libraryTitle.localized, sections: [section])
 
         return template
     }
@@ -121,7 +121,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         let items = audio.chapters.enumerated().map { index, chapter -> CPListItem in
             let item = CPListItem(
                 text: chapter.title,
-                detailText: formatTime(chapter.startTime)
+                detailText: chapter.startTime.timestamp
             )
 
             if index == currentChapterIndex {
@@ -140,7 +140,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         let section = CPListSection(items: items)
-        return CPListTemplate(title: "Chapters", sections: [section])
+        return CPListTemplate(title: Localizable.chapterSelectionTitle.localized, sections: [section])
     }
 
     // MARK: - Playback
@@ -151,18 +151,6 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         playerObserver.player.play(&freshAudio)
 
         interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
-    }
-
-    // MARK: - Helpers
-
-    private func formatTime(_ seconds: Double) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        let secs = Int(seconds) % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        }
-        return String(format: "%d:%02d", minutes, secs)
     }
 }
 
