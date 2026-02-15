@@ -53,6 +53,7 @@ final class NowPlayingManager {
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
 
         print("📻 NowPlaying: Updated - \(audio.title) at \(currentTime)s, playing: \(isPlaying)")
     }

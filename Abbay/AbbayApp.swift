@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import CarPlay
 import SwiftUI
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -21,6 +22,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         DependencyContainer.configure()
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        if connectingSceneSession.role == UISceneSession.Role.carTemplateApplication {
+            let config = UISceneConfiguration(
+                name: "CarPlay",
+                sessionRole: connectingSceneSession.role
+            )
+            config.delegateClass = CarPlaySceneDelegate.self
+            return config
+        }
+        return UISceneConfiguration(
+            name: nil,
+            sessionRole: connectingSceneSession.role
+        )
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
