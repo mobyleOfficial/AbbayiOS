@@ -81,6 +81,7 @@ bundle exec fastlane clean_project
 - Chapter navigation
 - Bookmark support
 - Progress tracking
+- CarPlay support
 - Dark mode support
 - Localization support
 
