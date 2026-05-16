@@ -22,9 +22,10 @@ Five intents:
 
 ### Known v1 failure modes
 
-The "Otherwise: `player.play(&model)`" branch in `ResumeAbbayIntent` and `PlayBookByNameIntent` assumes a successful app launch. v1 inherits one cold-launch failure mode from the existing `AppDelegate`:
+The "Otherwise: `player.play(&model)`" branch in `ResumeAbbayIntent` and `PlayBookByNameIntent` assumes a successful app launch. v1 inherits two cold-launch failure modes:
 
 - **Cold launch while another app holds the audio session** (active phone call, Focus mode with audio restrictions, system narration mid-launch). `AVAudioSession.setActive(true)` throws → `fatalError`. The intent body never runs; the user perceives no playback and no spoken response. See Cold-start contract and Risks for details and the phase-2 graceful-recovery task.
+- **"Play" verb cold-routing collides with Siri's media router.** Confirmed at implementation time: with the app **not running**, `"Hey Siri, play in Abbay"` and `"Hey Siri, play on Abbay"` route to the system's default media app (YouTube Music / Apple Music) rather than to `ResumeAbbayIntent`, even though Siri correctly identifies the Abbay application. Siri's media-domain router intercepts the "play" verb and prefers `INPlayMediaIntent` providers, which v1 does NOT register. Non-"play" verbs (`pause`, `next chapter`, `previous chapter`, `continue audiobook in Abbay`) **do** cold-route correctly through `AppShortcuts`. AppShortcuts also fire correctly for ALL phrases (including "play") when the app is **already running**. Phase-2 task: ship `INPlayMediaIntent` extension to win the media-router priority and enable true cold-start `"play in Abbay"` (Spotify-style routing).
 
 ## Non-goals (deferred to phase 2)
 
