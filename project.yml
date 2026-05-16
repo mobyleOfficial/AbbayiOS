@@ -4,7 +4,7 @@ options:
   defaultConfig: Release
   postGenCommand: Scripts/postinstall
   deploymentTarget:
-    iOS: 15.0
+    iOS: 17.0
 
 configs:
   Debug: debug
@@ -22,7 +22,7 @@ settings:
     PRODUCT_NAME: $(TARGET_NAME)
 
     # Target
-    IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
     TARGET_DEVICE_FAMILY: '1'
 
     # Signing
