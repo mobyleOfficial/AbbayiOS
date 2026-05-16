@@ -159,3 +159,44 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
         return .result(dialog: IntentDialog(stringLiteral: Self.previousChapterDialog))
     }
 }
+
+// MARK: - Play book by name
+
+struct PlayBookByNameIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play audiobook in Abbay"
+    static let description = IntentDescription("Plays a specific audiobook in Abbay by name.")
+
+    @Parameter(title: "Audiobook", requestValueDialog: IntentDialog("Which audiobook?"))
+    var bookName: String
+
+    init() {}
+
+    // Spec-locked dialog text. v1 ships English only (non-goal: localization).
+    // Lift into constants so a unit test catches regressions on wording / punctuation.
+    static func noMatchDialog(_ input: String) -> String {
+        "No audiobook matches '\(input)'."
+    }
+    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+    static func playingDialog(title: String) -> String {
+        "Playing \(title)."
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let library = DependencyContainer.shared.loadAllAudios.execute()
+        let lastPlayed = LastPlayedStore.lastPlayedURL()
+        guard let hit = fuzzyMatch(input: bookName, audios: library, lastPlayedURL: lastPlayed),
+              let url = hit.url else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.noMatchDialog(bookName)))
+        }
+        guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
+            // Stuck-state guard: clear pointer only if the dead match is the saved one.
+            if LastPlayedStore.lastPlayedURL() == url {
+                LastPlayedStore.save(url: nil)
+            }
+            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+        }
+        DependencyContainer.shared.player.play(&model)
+        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+    }
+}

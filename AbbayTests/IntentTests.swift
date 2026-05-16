@@ -155,4 +155,73 @@ final class IntentTests: XCTestCase {
         _ = try await PreviousChapterIntent().perform()
         XCTAssertEqual(player.skipPreviousCallCount, 1)
     }
+
+    // MARK: Play by name
+
+    func test_playByName_dialogConstants_matchSpecVerbatim() {
+        XCTAssertEqual(PlayBookByNameIntent.noMatchDialog("Foo"),
+                       "No audiobook matches 'Foo'.")
+        XCTAssertEqual(PlayBookByNameIntent.cannotFindDialog,
+                       "Cannot find that audiobook. It may have been removed or is not downloaded.")
+        XCTAssertEqual(PlayBookByNameIntent.playingDialog(title: "Foo"),
+                       "Playing Foo.")
+    }
+
+    func test_playByName_noMatch_doesNotPlay_doesNotClearStore() async throws {
+        let saved = try XCTUnwrap(URL(string: "file:///saved.m4b"))
+        LastPlayedStore.save(url: saved)
+        lister.stub = []  // empty library → fuzzyMatch returns nil
+
+        var intent = PlayBookByNameIntent()
+        intent.bookName = "anything"
+        _ = try await intent.perform()
+
+        XCTAssertEqual(player.playCalls.count, 0)
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL(), saved, "no-match must not touch the store")
+    }
+
+    func test_playByName_unreachable_andIsLastPlayed_clearsStore() async throws {
+        let url = try XCTUnwrap(URL(string: "file:///gone.m4b"))
+        let book = audio(title: "Gone Book", url: url.absoluteString)
+        lister.stub = [book]
+        LastPlayedStore.save(url: url)
+        // loader has no stub for url → returns nil (file unreachable)
+
+        var intent = PlayBookByNameIntent()
+        intent.bookName = "Gone Book"
+        _ = try await intent.perform()
+
+        XCTAssertNil(LastPlayedStore.lastPlayedURL(), "store must be cleared when the dead match was the saved pointer")
+        XCTAssertEqual(player.playCalls.count, 0)
+    }
+
+    func test_playByName_unreachable_andNotLastPlayed_doesNotClearStore() async throws {
+        let saved = try XCTUnwrap(URL(string: "file:///saved.m4b"))
+        let dead = try XCTUnwrap(URL(string: "file:///dead.m4b"))
+        let book = audio(title: "Dead Book", url: dead.absoluteString)
+        lister.stub = [book]
+        LastPlayedStore.save(url: saved)
+        // loader has no stub for dead.absoluteString → returns nil
+
+        var intent = PlayBookByNameIntent()
+        intent.bookName = "Dead Book"
+        _ = try await intent.perform()
+
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL(), saved, "store must NOT be cleared when the dead match was a different book")
+        XCTAssertEqual(player.playCalls.count, 0)
+    }
+
+    func test_playByName_reachable_plays() async throws {
+        let url = try XCTUnwrap(URL(string: "file:///hp.m4b"))
+        let book = audio(title: "Harry Potter", url: url.absoluteString)
+        lister.stub = [book]
+        loader.stubs[url.absoluteString] = book
+
+        var intent = PlayBookByNameIntent()
+        intent.bookName = "Harry Potter"
+        _ = try await intent.perform()
+
+        XCTAssertEqual(player.playCalls.count, 1)
+        XCTAssertEqual(player.playCalls.first?.url, url)
+    }
 }
