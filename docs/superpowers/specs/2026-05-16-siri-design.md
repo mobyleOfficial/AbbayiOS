@@ -14,11 +14,11 @@ Five intents:
 
 | Intent | Phrases | Behavior |
 | --- | --- | --- |
-| `ResumeAbbayIntent` | "Play in Abbay", "Resume Abbay", "Continue audiobook in Abbay" | Load last-played URL from `LastPlayedStore`. If nil: dialog `"Add a book in Abbay first."`. If `LoadAudioUseCase.execute(url:)` returns nil (file deleted / iCloud not downloaded): dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. Otherwise: `player.play(&model)` and dialog `"Playing \(title)."` |
+| `ResumeAbbayIntent` | "Play in Abbay", "Resume Abbay", "Continue audiobook in Abbay" | Load last-played URL from `LastPlayedStore`. If nil: dialog `"Add a book in Abbay first."`. If `LoadAudioUseCase.execute(url:)` returns nil (file deleted / iCloud not downloaded): **clear `LastPlayedStore` first** (`LastPlayedStore.save(url: nil)`) to avoid a stuck-state loop on subsequent invocations, then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. If `AVAudioSession` activation failed at launch (see Cold-start contract): dialog `"Cannot start playback right now."`. Otherwise: `player.play(&model)` and dialog `"Playing \(title)."` |
 | `PauseAbbayIntent` | "Pause Abbay" | If `NowPlayingManager.shared.currentAudio == nil`: dialog `"Nothing is playing."`. Else `player.pause()` and dialog `"Paused."` |
 | `NextChapterIntent` | "Next chapter in Abbay", "Skip chapter in Abbay" | Requires active playback. If `NowPlayingManager.shared.currentAudio == nil`: dialog `"Nothing is playing. Say 'Play in Abbay' to start."`. Else `player.skipToNextChapter()` and dialog `"Next chapter."` |
 | `PreviousChapterIntent` | "Previous chapter in Abbay" | Same precondition as Next. Else `player.skipToPreviousChapter()` and dialog `"Previous chapter."` |
-| `PlayBookByNameIntent` | "Play \\($book) in Abbay" | Fuzzy-match library by title (see rule below). No match: dialog `"No audiobook matches '\(input)'."`. Match found but file unreachable: dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. Else `player.play(&model)` and dialog `"Playing \(title)."` |
+| `PlayBookByNameIntent` | "Play \\($book) in Abbay" | Fuzzy-match library by title (see rule below). No match: dialog `"No audiobook matches '\(input)'."`. Match found but file unreachable: if the failing URL equals `LastPlayedStore.lastPlayedURL()`, **clear `LastPlayedStore`** first; then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. If `AVAudioSession` activation failed at launch: dialog `"Cannot start playback right now."`. Else `player.play(&model)` and dialog `"Playing \(title)."` |
 
 ## Non-goals (deferred to phase 2)
 
@@ -36,19 +36,29 @@ Five intents:
 
 - All intent code lives in the existing `Abbay` application target.
 - No new framework, no extension target, no App Group.
-- Uses Apple's `AppIntents` framework, with all five intents conforming to `AudioPlaybackIntent`. **Deployment target bump from iOS 15 to iOS 17 is required** — update `IPHONEOS_DEPLOYMENT_TARGET` in `project.yml` from `'15.0'` to `'17.0'`. `AudioPlaybackIntent` is iOS 17+ and is the documented marker for intents that play, pause, skip, or otherwise control audio (Apple docs).
+- Uses Apple's `AppIntents` framework, with all five intents conforming to `AudioPlaybackIntent`. **Deployment target bump from iOS 15 to iOS 17 is required** — update `IPHONEOS_DEPLOYMENT_TARGET` in `project.yml` from `'15.0'` to `'17.0'`. `AudioPlaybackIntent` is iOS 17+ and is the documented marker for intents that play, pause, skip, or otherwise control audio ([Apple docs](https://developer.apple.com/documentation/appintents/audioplaybackintent)).
 - `AudioPlaybackIntent` removes the need for `openAppWhenRun = true`: the system either launches the app to background-audio context or routes the intent to a media-playback extension if available. The app does not foreground on every voice command.
-- `@MainActor` is applied at type level to each intent struct, following Apple's `AudioPlaybackIntent` sample pattern (perform() bodies touch `Player` / `NowPlayingManager` / `MPNowPlayingInfoCenter`, which are main-actor-bound in practice).
+- `@MainActor` is applied **on `perform()` only** ([per Apple's AudioPlaybackIntent docs](https://developer.apple.com/documentation/appintents/audioplaybackintent): "If the intent updates the app's user interface, you should annotate the `perform()` method with `@MainActor`"). The intent struct itself is not main-actor-isolated — this keeps `init()`, parameter resolution, static `title`/`description` access free of unnecessary actor isolation, and lets pure helpers like `fuzzyMatch(input:audios:lastPlayedURL:)` and `LastPlayedStore` reads run on whatever actor calls them (callable from `Task.detached { }` inside `perform()` if the library grows large enough that fuzzy match blocks responsiveness).
 - Intents reach the live player via `DependencyContainer.shared.player` (already singleton-configured at launch). Existing `DependencyContainer.configure(with:)` permits mock injection for tests.
 - Library access via existing `LoadAllAudiosUseCase` and `LoadAudioUseCase`.
 - Last-played URL persisted in `UserDefaults.standard` via a small `LastPlayedStore`.
+
+### iOS-16 fallback path — considered and rejected
+
+An iOS-16-compatible path exists (gate `AudioPlaybackIntent` conformance behind `@available(iOS 17, *)`, fall back to plain `AppIntent` with `openAppWhenRun = false` on iOS 16, accept that cold-launch on iOS 16 may briefly foreground the app). Rejected for v1 because:
+
+1. The user explicitly approved bumping the minimum.
+2. The conditional-conformance path doubles the maintenance surface (two intent shapes, two cold-start contracts, two test matrices) for a small remaining iOS-16 device population (iPhone 7 / 8 / X — devices that won't get iOS 17).
+3. Phase-2 work (`AppIntentsExtension`, no-app-name routing) is already iOS-17-first in Apple's docs; an iOS-16 floor would have to be removed anyway before phase 2.
+
+If the iOS-16 user share is later shown to be material, the fallback is additive — `@available` gates around the conformance and `openAppWhenRun = false` on the iOS-16 path. Not blocked by v1 decisions.
 
 ### CarPlay scope (v1)
 
 v1 covers two CarPlay flows:
 
 1. **In-CarPlay UI playback controls** — already supported via `MPRemoteCommandCenter` in `NowPlayingManager`. Not new in this PR.
-2. **Explicit-app-name Siri** — phrases like `"... in Abbay"` work because the system routes the intent (running app or background-audio launch). `AudioPlaybackIntent` conformance means the iPhone does not foreground while CarPlay is connected — playback continues in the CarPlay scene. The existing `CarPlaySceneDelegate` is unaffected.
+2. **Explicit-app-name Siri** — phrases like `"... in Abbay"` work because the system routes the intent (running app or background-audio launch). `AudioPlaybackIntent` is documented to run in the app process and let the system avoid foregrounding the UI; specific CarPlay-vs-iPhone scene-routing behavior (does the iPhone foreground while CarPlay is connected?) is **not** explicitly pinned by Apple docs and is expected behavior to be verified during the manual CarPlay test (see Risks). The existing `CarPlaySceneDelegate` is unaffected by the intent code.
 
 **Not covered in v1:** no-app-name Siri routing in CarPlay (`"Play my audiobook"`). `AudioPlaybackIntent` alone does not register the app as a system-wide media provider — that still requires `INPlayMediaIntent` (SiriKit) or future App Intents media-provider APIs. Deferred to phase 2.
 
@@ -119,9 +129,13 @@ Test vectors that must be locked in (`FuzzyMatchTests`):
 With `AudioPlaybackIntent` adoption, the system has two execution paths:
 
 1. **App running in background** (typical: user already played something, audio session active). Intent runs in-process. `DependencyContainer.shared.player` is live. Zero orchestration required.
-2. **App not running** (cold). System launches the app **into background audio context** (no foreground UI). `AppDelegate.application(_:didFinishLaunchingWithOptions:)` runs to completion before the intent body — activates `AVAudioSession`, calls `DependencyContainer.configure()`. Both synchronous. Intent body then runs.
+2. **App not running** (cold). System launches the app **into background audio context** (no foreground UI). `AppDelegate.application(_:didFinishLaunchingWithOptions:)` runs to completion before the intent body — calls `AVAudioSession.sharedInstance().setActive(true)` (synchronous but **throwing**) and then `DependencyContainer.configure()` (synchronous, non-throwing). Intent body then runs.
 
-In both paths `DependencyContainer.shared.player` and an active `AVAudioSession` are guaranteed when any intent body executes. UI is never forced to foreground.
+`DependencyContainer.shared.player` is guaranteed when any intent body executes.
+
+**`AVAudioSession` activation is NOT guaranteed.** `setActive(true)` can throw on cold launch when another app holds the audio session (active phone call, Focus mode with audio restrictions, system narration). The current `AppDelegate` calls `fatalError` on this throw — for v1 this stays, but intent bodies must defensively check the audio session state before calling `player.play()` and surface the `"Cannot start playback right now."` dialog if `AVAudioSession.sharedInstance().isOtherAudioPlaying` is true or activation has failed (track via a `AVAudioSession`-state flag set in `AppDelegate.didFinishLaunching`'s catch branch — implementation detail, captured in the plan).
+
+UI is never forced to foreground.
 
 `NowPlayingManager.shared.currentAudio` is `nil` until the user has played at least once in the current process. `NextChapterIntent` and `PreviousChapterIntent` **do not** attempt to resume + skip in the same call — that would race against asynchronous `AVPlayerItem` loading (the skip would target either no asset or stale state before `readyToPlay`). They short-circuit with a clear spoken prompt instead (see Scope table).
 
@@ -129,8 +143,12 @@ In both paths `DependencyContainer.shared.player` and an active `AVAudioSession`
 
 These items intentionally accept brittleness now to keep v1 small. Each is a known wiring change at phase-2 time, not a rewrite:
 
-- **`AppIntentsExtension` migration:** intents would run in a separate process where `AppDelegate.didFinishLaunching` never runs and `DependencyContainer.shared` is a fresh instance. Phase-2 task will introduce an explicit per-process bootstrap (e.g. a `BootstrapLoader` invoked from both `AppDelegate` and the extension's principal class) before touching `DependencyContainer.shared`. v1 keeps the existing `fatalError`-on-unconfigured contract from `DependencyContainer.swift`.
-- **`LastPlayedStore` cross-process migration:** v1 uses `UserDefaults.standard`. Phase-2 extension cannot read that. Migration plan: switch `LastPlayedStore.defaults` to `UserDefaults(suiteName: "group.com.edyuto.abbay")` and, at first launch of the phase-2 build, copy the existing `UserDefaults.standard` value into the App Group suite under the same key. Users keep their last-played pointer.
+- **`AppIntentsExtension` migration:** intents would run in a separate process where `AppDelegate.didFinishLaunching` never runs and `DependencyContainer.shared` is a fresh instance. Phase-2 task will introduce an explicit per-process bootstrap (e.g. a `BootstrapLoader` invoked from both `AppDelegate` and the extension's principal class) before touching `DependencyContainer.shared`. v1 keeps the existing `fatalError`-on-unconfigured contract from `DependencyContainer.swift`. **Note:** if any non-host-app target is added before phase-2 wiring (Widget, Watch app, Live Activity, intent extension) — any of which can touch container code via shared sources without going through `AppDelegate` — the `DependencyContainer.shared` contract MUST be re-evaluated before that target ships, otherwise the new target will `fatalError` at launch.
+- **`LastPlayedStore` cross-process migration:** v1 uses `UserDefaults.standard`. Phase-2 extension cannot read that. Migration plan, ordered to avoid a first-invocation-from-extension race:
+  - Switch `LastPlayedStore.defaults` to `UserDefaults(suiteName: "group.com.edyuto.abbay")`.
+  - **On read:** if the App Group suite has no value AND `UserDefaults.standard` does, return the `.standard` value (no copy yet — the extension may not have App Group write privileges depending on timing).
+  - **On write (from main app only):** write to the App Group suite, then once, write the `.standard` legacy value into the suite to complete the migration. Subsequent reads find the value in the suite.
+  - Net effect: zero-loss migration regardless of whether the extension or the main app runs first after the upgrade.
 
 ## Tests
 
@@ -141,11 +159,13 @@ Live in `AbbayTests`:
 - Intent `perform()` smoke tests using a mock `DependencyContainerProtocol` (the container already supports `configure(with:)`), asserting:
   - `ResumeAbbayIntent` plays last-played audio when present
   - `ResumeAbbayIntent` returns expected dialog when no last-played
-  - `ResumeAbbayIntent` returns "cannot find" dialog when `LoadAudioUseCase` returns nil for a saved URL
+  - `ResumeAbbayIntent` returns "cannot find" dialog when `LoadAudioUseCase` returns nil for a saved URL **AND** clears `LastPlayedStore` so the next invocation does not loop
+  - `ResumeAbbayIntent` returns "cannot start playback right now" dialog when audio session activation has failed
   - `PauseAbbayIntent` calls `player.pause()` when `currentAudio != nil`; returns "Nothing is playing." otherwise
   - `NextChapterIntent` returns the "say 'Play in Abbay'" prompt when `currentAudio == nil`; calls `skipToNextChapter()` otherwise
   - `PreviousChapterIntent` same precondition behavior as Next
   - `PlayBookByNameIntent` picks the correct entity given fixed library + last-played, including the `&` vs `and` normalization vector
+  - `PlayBookByNameIntent` clears `LastPlayedStore` when the unreachable matched book equals the saved pointer
 
 ## Manual verification checklist
 
@@ -159,10 +179,12 @@ Live in `AbbayTests`:
 
 ## Risks
 
-- Intent body holds the main actor (where applied) while `player.play()` mutates state. Should be fast; if it becomes slow, push heavy work off-main and short-circuit the dialog.
-- `LoadAudioUseCase` returns nil if the underlying file URL is no longer reachable (book deleted, iCloud not downloaded). Dialog strings for this case are pinned in the Scope table.
+- Intent `perform()` runs on the main actor while `player.play()` mutates state. Should be fast; if it becomes slow, push heavy work off-main (`Task.detached`) and short-circuit the dialog. Pure helpers (`fuzzyMatch`, `LastPlayedStore`) are not main-actor-isolated and can be offloaded if needed.
+- `LoadAudioUseCase` returns nil if the underlying file URL is no longer reachable (book deleted, iCloud not downloaded). Dialog strings pinned in the Scope table. Stuck-state loop guarded by clearing `LastPlayedStore` on the unreachable branch when the failing URL matches the saved pointer.
+- `AVAudioSession.setActive(true)` may throw at launch when another app holds the session (call, Focus mode, system narration). Intent bodies surface `"Cannot start playback right now."` rather than silently failing. Implementation detail — defensive guard in each `perform()` before calling `player.play()`.
 - `currentAudio` nil edge case for skip intents — handled by short-circuiting with a spoken prompt, not by attempting an in-flight resume + skip (see Cold-start contract).
-- Deployment target bump from iOS 15 to iOS 17 drops support for iOS 15 and iOS 16 devices (no iPhone 7 / 8 / X — iOS 17 supports iPhone XS and newer). Accepted cost for `AudioPlaybackIntent` availability; user explicitly approved bumping the minimum.
+- Deployment target bump from iOS 15 to iOS 17 drops support for iOS 15 and iOS 16 devices (no iPhone 7 / 8 / X — iOS 17 supports iPhone XS and newer). Accepted cost for `AudioPlaybackIntent` availability; user explicitly approved bumping the minimum. iOS-16 fallback path is documented under Architecture as considered-and-rejected.
+- CarPlay scene-routing behavior of `AudioPlaybackIntent` (does the iPhone foreground while CarPlay is connected?) is **not** explicitly pinned by Apple docs. The manual verification checklist must observe this on a real CarPlay session; if the iPhone does foreground unexpectedly, v1 ships with that behavior and phase-2 adds an explicit `CPTemplateApplicationScene` routing hook.
 
 ## Out of scope, but candidate for phase 2
 
