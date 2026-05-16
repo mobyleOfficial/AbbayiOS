@@ -113,4 +113,25 @@ final class IntentTests: XCTestCase {
         _ = try await PauseAbbayIntent().perform()
         XCTAssertEqual(player.pauseCallCount, 1)
     }
+
+    // MARK: Next chapter
+
+    func test_nextChapter_dialogConstants_matchSpecVerbatim() {
+        XCTAssertEqual(NextChapterIntent.nothingPlayingDialog,
+                       "Nothing is playing. Say 'Play in Abbay' to start.")
+        XCTAssertEqual(NextChapterIntent.nextChapterDialog, "Next chapter.")
+    }
+
+    func test_nextChapter_noCurrentAudio_doesNotSkip() async throws {
+        NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
+        _ = try await NextChapterIntent().perform()
+        XCTAssertEqual(player.skipNextCallCount, 0)
+    }
+
+    func test_nextChapter_activeAudio_callsSkip() async throws {
+        let book = audio(title: "Book", url: "file:///b.m4b")
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        _ = try await NextChapterIntent().perform()
+        XCTAssertEqual(player.skipNextCallCount, 1)
+    }
 }
