@@ -200,3 +200,63 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
         return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
     }
 }
+
+// MARK: - App Shortcuts (phrase registration)
+
+struct AbbayAppShortcuts: AppShortcutsProvider {
+    @AppShortcutsBuilder
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: ResumeAbbayIntent(),
+            phrases: [
+                "Play in \(.applicationName)",
+                "Resume \(.applicationName)",
+                "Continue audiobook in \(.applicationName)"
+            ],
+            shortTitle: "Play",
+            systemImageName: "play.fill"
+        )
+        AppShortcut(
+            intent: PauseAbbayIntent(),
+            phrases: [
+                "Pause \(.applicationName)"
+            ],
+            shortTitle: "Pause",
+            systemImageName: "pause.fill"
+        )
+        AppShortcut(
+            intent: NextChapterIntent(),
+            phrases: [
+                "Next chapter in \(.applicationName)",
+                "Skip chapter in \(.applicationName)"
+            ],
+            shortTitle: "Next chapter",
+            systemImageName: "forward.fill"
+        )
+        AppShortcut(
+            intent: PreviousChapterIntent(),
+            phrases: [
+                "Previous chapter in \(.applicationName)"
+            ],
+            shortTitle: "Previous chapter",
+            systemImageName: "backward.fill"
+        )
+        // PlayBookByNameIntent.bookName is `String`, which AppIntents disallows in
+        // `\(\.$bookName)` phrase interpolations (the toolchain rejects with "AppEntity
+        // and AppEnum are the only allowed types"). The v1 design (plan Task 7) keeps
+        // the parameter as String to preserve the spec-locked no-match dialog with
+        // input echo (`"No audiobook matches '\(input)'."`). The trade-off: Siri
+        // routes a parameter-less phrase like "Play audiobook in Abbay", then prompts
+        // "Which audiobook?" via `requestValueDialog`, and the user names the book in
+        // a second utterance. The String parameter still flows into perform().
+        AppShortcut(
+            intent: PlayBookByNameIntent(),
+            phrases: [
+                "Play audiobook in \(.applicationName)",
+                "Pick audiobook in \(.applicationName)"
+            ],
+            shortTitle: "Play audiobook",
+            systemImageName: "book.fill"
+        )
+    }
+}
