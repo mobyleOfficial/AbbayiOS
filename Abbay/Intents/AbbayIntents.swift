@@ -117,3 +117,24 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
         return .result(dialog: IntentDialog(stringLiteral: Self.pausedDialog))
     }
 }
+
+// MARK: - Next chapter
+
+struct NextChapterIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Next chapter in Abbay"
+    static let description = IntentDescription("Skips to the next chapter of the audiobook playing in Abbay.")
+
+    init() {}
+
+    static let nothingPlayingDialog = "Nothing is playing. Say 'Play in Abbay' to start."
+    static let nextChapterDialog = "Next chapter."
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard NowPlayingManager.shared.currentAudio != nil else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
+        }
+        DependencyContainer.shared.player.skipToNextChapter()
+        return .result(dialog: IntentDialog(stringLiteral: Self.nextChapterDialog))
+    }
+}
