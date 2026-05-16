@@ -14,11 +14,11 @@ Five intents:
 
 | Intent | Phrases | Behavior |
 | --- | --- | --- |
-| `ResumeAbbayIntent` | "Play in Abbay", "Resume Abbay", "Continue audiobook in Abbay" | Load last-played URL from `LastPlayedStore`. If nil: dialog `"Add a book in Abbay first."`. If `LoadAudioUseCase.execute(url:)` returns nil (file deleted / iCloud not downloaded): **clear `LastPlayedStore` first** (`LastPlayedStore.save(url: nil)`) to avoid a stuck-state loop on subsequent invocations, then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. If `AVAudioSession` activation failed at launch (see Cold-start contract): dialog `"Cannot start playback right now."`. Otherwise: `player.play(&model)` and dialog `"Playing \(title)."` |
+| `ResumeAbbayIntent` | "Play in Abbay", "Resume Abbay", "Continue audiobook in Abbay" | Load last-played URL from `LastPlayedStore`. If nil: dialog `"Add a book in Abbay first."`. If `LoadAudioUseCase.execute(url:)` returns nil (file deleted / iCloud not downloaded): **clear `LastPlayedStore` first** (`LastPlayedStore.save(url: nil)`) to avoid a stuck-state loop on subsequent invocations, then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. Otherwise: `player.play(&model)` and dialog `"Playing \(title)."` |
 | `PauseAbbayIntent` | "Pause Abbay" | If `NowPlayingManager.shared.currentAudio == nil`: dialog `"Nothing is playing."`. Else `player.pause()` and dialog `"Paused."` |
 | `NextChapterIntent` | "Next chapter in Abbay", "Skip chapter in Abbay" | Requires active playback. If `NowPlayingManager.shared.currentAudio == nil`: dialog `"Nothing is playing. Say 'Play in Abbay' to start."`. Else `player.skipToNextChapter()` and dialog `"Next chapter."` |
 | `PreviousChapterIntent` | "Previous chapter in Abbay" | Same precondition as Next. Else `player.skipToPreviousChapter()` and dialog `"Previous chapter."` |
-| `PlayBookByNameIntent` | "Play \\($book) in Abbay" | Fuzzy-match library by title (see rule below). No match: dialog `"No audiobook matches '\(input)'."`. Match found but file unreachable: if the failing URL equals `LastPlayedStore.lastPlayedURL()`, **clear `LastPlayedStore`** first; then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. If `AVAudioSession` activation failed at launch: dialog `"Cannot start playback right now."`. Else `player.play(&model)` and dialog `"Playing \(title)."` |
+| `PlayBookByNameIntent` | "Play \\($book) in Abbay" | Fuzzy-match library by title (see rule below). No match: dialog `"No audiobook matches '\(input)'."`. Match found but file unreachable: if the failing URL equals `LastPlayedStore.lastPlayedURL()`, **clear `LastPlayedStore`** first; then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. Else `player.play(&model)` and dialog `"Playing \(title)."` |
 
 ## Non-goals (deferred to phase 2)
 
@@ -133,7 +133,7 @@ With `AudioPlaybackIntent` adoption, the system has two execution paths:
 
 `DependencyContainer.shared.player` is guaranteed when any intent body executes.
 
-**`AVAudioSession` activation is NOT guaranteed.** `setActive(true)` can throw on cold launch when another app holds the audio session (active phone call, Focus mode with audio restrictions, system narration). The current `AppDelegate` calls `fatalError` on this throw — for v1 this stays, but intent bodies must defensively check the audio session state before calling `player.play()` and surface the `"Cannot start playback right now."` dialog if `AVAudioSession.sharedInstance().isOtherAudioPlaying` is true or activation has failed (track via a `AVAudioSession`-state flag set in `AppDelegate.didFinishLaunching`'s catch branch — implementation detail, captured in the plan).
+**`AVAudioSession` activation failure path:** the existing `AppDelegate` calls `fatalError` when `setActive(true)` throws (active phone call, Focus mode with audio restrictions, system narration mid-launch). v1 inherits this behavior — the app crashes on cold launch in those conditions; intent bodies do not need a defensive guard because they never run if launch crashed. Replacing `fatalError` with graceful flag-based recovery is a deliberate phase-2 task; see Risks for the consequence.
 
 UI is never forced to foreground.
 
@@ -144,10 +144,14 @@ UI is never forced to foreground.
 These items intentionally accept brittleness now to keep v1 small. Each is a known wiring change at phase-2 time, not a rewrite:
 
 - **`AppIntentsExtension` migration:** intents would run in a separate process where `AppDelegate.didFinishLaunching` never runs and `DependencyContainer.shared` is a fresh instance. Phase-2 task will introduce an explicit per-process bootstrap (e.g. a `BootstrapLoader` invoked from both `AppDelegate` and the extension's principal class) before touching `DependencyContainer.shared`. v1 keeps the existing `fatalError`-on-unconfigured contract from `DependencyContainer.swift`. **Note:** if any non-host-app target is added before phase-2 wiring (Widget, Watch app, Live Activity, intent extension) — any of which can touch container code via shared sources without going through `AppDelegate` — the `DependencyContainer.shared` contract MUST be re-evaluated before that target ships, otherwise the new target will `fatalError` at launch.
-- **`LastPlayedStore` cross-process migration:** v1 uses `UserDefaults.standard`. Phase-2 extension cannot read that. Migration plan, ordered to avoid a first-invocation-from-extension race:
+- **`LastPlayedStore` cross-process migration:** v1 uses `UserDefaults.standard`. Phase-2 extension cannot read that. Migration plan, ordered to avoid a first-invocation-from-extension race AND avoid overwriting fresh writes with stale legacy values:
   - Switch `LastPlayedStore.defaults` to `UserDefaults(suiteName: "group.com.edyuto.abbay")`.
   - **On read:** if the App Group suite has no value AND `UserDefaults.standard` does, return the `.standard` value (no copy yet — the extension may not have App Group write privileges depending on timing).
-  - **On write (from main app only):** write to the App Group suite, then once, write the `.standard` legacy value into the suite to complete the migration. Subsequent reads find the value in the suite.
+  - **On write (from main app only):**
+    1. **First**, if the App Group suite has no value for the key AND `.standard` does, copy `.standard` into the suite (one-time seed). Skip this step if the suite already has a value.
+    2. **Then**, write the new value to the suite (always last).
+
+    Ordering matters: seeding *before* the fresh write means the seed never overwrites the new value. Once the suite has any value, the seed branch is a no-op forever after.
   - Net effect: zero-loss migration regardless of whether the extension or the main app runs first after the upgrade.
 
 ## Tests
@@ -160,7 +164,6 @@ Live in `AbbayTests`:
   - `ResumeAbbayIntent` plays last-played audio when present
   - `ResumeAbbayIntent` returns expected dialog when no last-played
   - `ResumeAbbayIntent` returns "cannot find" dialog when `LoadAudioUseCase` returns nil for a saved URL **AND** clears `LastPlayedStore` so the next invocation does not loop
-  - `ResumeAbbayIntent` returns "cannot start playback right now" dialog when audio session activation has failed
   - `PauseAbbayIntent` calls `player.pause()` when `currentAudio != nil`; returns "Nothing is playing." otherwise
   - `NextChapterIntent` returns the "say 'Play in Abbay'" prompt when `currentAudio == nil`; calls `skipToNextChapter()` otherwise
   - `PreviousChapterIntent` same precondition behavior as Next
@@ -181,7 +184,7 @@ Live in `AbbayTests`:
 
 - Intent `perform()` runs on the main actor while `player.play()` mutates state. Should be fast; if it becomes slow, push heavy work off-main (`Task.detached`) and short-circuit the dialog. Pure helpers (`fuzzyMatch`, `LastPlayedStore`) are not main-actor-isolated and can be offloaded if needed.
 - `LoadAudioUseCase` returns nil if the underlying file URL is no longer reachable (book deleted, iCloud not downloaded). Dialog strings pinned in the Scope table. Stuck-state loop guarded by clearing `LastPlayedStore` on the unreachable branch when the failing URL matches the saved pointer.
-- `AVAudioSession.setActive(true)` may throw at launch when another app holds the session (call, Focus mode, system narration). Intent bodies surface `"Cannot start playback right now."` rather than silently failing. Implementation detail — defensive guard in each `perform()` before calling `player.play()`.
+- `AVAudioSession.setActive(true)` may throw at launch when another app holds the session (call, Focus mode, system narration). The existing `AppDelegate` calls `fatalError` on this throw — v1 inherits that crash-on-launch behavior. No intent-level guard (the intent body never executes if launch crashed). Phase-2 task: replace `fatalError` with a launch-state flag and an "audio temporarily unavailable" dialog; once that lands, intent bodies gain a defensive read of the flag.
 - `currentAudio` nil edge case for skip intents — handled by short-circuiting with a spoken prompt, not by attempting an in-flight resume + skip (see Cold-start contract).
 - Deployment target bump from iOS 15 to iOS 17 drops support for iOS 15 and iOS 16 devices (no iPhone 7 / 8 / X — iOS 17 supports iPhone XS and newer). Accepted cost for `AudioPlaybackIntent` availability; user explicitly approved bumping the minimum. iOS-16 fallback path is documented under Architecture as considered-and-rejected.
 - CarPlay scene-routing behavior of `AudioPlaybackIntent` (does the iPhone foreground while CarPlay is connected?) is **not** explicitly pinned by Apple docs. The manual verification checklist must observe this on a real CarPlay session; if the iPhone does foreground unexpectedly, v1 ships with that behavior and phase-2 adds an explicit `CPTemplateApplicationScene` routing hook.
@@ -190,5 +193,6 @@ Live in `AbbayTests`:
 
 - `INPlayMediaIntent` extension to enable "Hey Siri, play [book name]" without saying "in Abbay" (system-wide media provider registration).
 - `AppIntentsExtension` target (intents in their own process) with App Group + `LastPlayedStore` migration plan above.
+- Replace `AppDelegate.didFinishLaunching` `fatalError` on `AVAudioSession.setActive` throw with a launch-state flag and an "audio temporarily unavailable" intent dialog (graceful recovery from cold-launch-during-call).
 - Play specific chapter by number or by name.
 - Spoken language localization.
