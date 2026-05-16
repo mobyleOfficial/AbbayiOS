@@ -81,4 +81,36 @@ final class FuzzyMatchTests: XCTestCase {
         let library = [audio(title: "Harry Potter", url: "file:///a")]
         XCTAssertNil(fuzzyMatch(input: "", audios: library, lastPlayedURL: nil))
     }
+
+    func test_scoreDiscrimination_exactBeatsPrefixBeatsContains() {
+        // Library has one of each scoring tier for query "harry":
+        //   "Old Harry Tales"      → contains "harry" but not prefix → 1
+        //   "Harry"                → exact match after normalize     → 3
+        //   "Harry the Adventurer" → hasPrefix "harry"               → 2
+        // Exercises the comparator's score tier in a multi-entry library so a
+        // future `<`→`>` flip can't silently pass.
+        let library = [
+            audio(title: "Old Harry Tales", url: "file:///a"),
+            audio(title: "Harry", url: "file:///b"),
+            audio(title: "Harry the Adventurer", url: "file:///c")
+        ]
+        let result = fuzzyMatch(input: "harry", audios: library, lastPlayedURL: nil)
+        XCTAssertEqual(result?.url, URL(string: "file:///b"),
+                       "exact match (score 3) must beat prefix (2) and contains (1)")
+    }
+
+    func test_scoreBeatsLastPlayed_whenScoresDiffer() {
+        // "Book One" is last-played but only contains "book" (score 1).
+        // "book" is an exact match (score 3) and NOT last-played.
+        // Score must win over last-played status; protects against a reorder
+        // bug that checks `isLastPlayed` before `score`.
+        let library = [
+            audio(title: "Book One", url: "file:///a"),
+            audio(title: "book", url: "file:///b")
+        ]
+        let result = fuzzyMatch(input: "book", audios: library,
+                                lastPlayedURL: URL(string: "file:///a"))
+        XCTAssertEqual(result?.url, URL(string: "file:///b"),
+                       "higher score must win even when a lower-scored entry is last-played")
+    }
 }
