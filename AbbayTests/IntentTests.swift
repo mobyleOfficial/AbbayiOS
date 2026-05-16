@@ -93,4 +93,24 @@ final class IntentTests: XCTestCase {
         XCTAssertEqual(player.playCalls.first?.url, url)
         XCTAssertEqual(LastPlayedStore.lastPlayedURL(), url)
     }
+
+    // MARK: Pause
+
+    func test_pause_dialogConstants_matchSpecVerbatim() {
+        XCTAssertEqual(PauseAbbayIntent.nothingPlayingDialog, "Nothing is playing.")
+        XCTAssertEqual(PauseAbbayIntent.pausedDialog, "Paused.")
+    }
+
+    func test_pause_noCurrentAudio_doesNotPause() async throws {
+        NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
+        _ = try await PauseAbbayIntent().perform()
+        XCTAssertEqual(player.pauseCallCount, 0)
+    }
+
+    func test_pause_currentAudioActive_pauses() async throws {
+        let book = audio(title: "Book", url: "file:///b.m4b")
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        _ = try await PauseAbbayIntent().perform()
+        XCTAssertEqual(player.pauseCallCount, 1)
+    }
 }

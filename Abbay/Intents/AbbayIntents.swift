@@ -96,3 +96,24 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
         return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
     }
 }
+
+// MARK: - Pause
+
+struct PauseAbbayIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Pause Abbay"
+    static let description = IntentDescription("Pauses the current audiobook in Abbay.")
+
+    init() {}
+
+    static let nothingPlayingDialog = "Nothing is playing."
+    static let pausedDialog = "Paused."
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard NowPlayingManager.shared.currentAudio != nil else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
+        }
+        DependencyContainer.shared.player.pause()
+        return .result(dialog: IntentDialog(stringLiteral: Self.pausedDialog))
+    }
+}
