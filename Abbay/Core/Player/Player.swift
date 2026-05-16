@@ -169,6 +169,7 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
+        LastPlayedStore.save(url: url)
 
         // Update NowPlayingManager with current audio
         NowPlayingManager.shared.setPlayer(self, currentAudio: item)
