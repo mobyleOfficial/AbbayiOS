@@ -20,6 +20,12 @@ Five intents:
 | `PreviousChapterIntent` | "Previous chapter in Abbay" | Same precondition as Next. Else `player.skipToPreviousChapter()` and dialog `"Previous chapter."` |
 | `PlayBookByNameIntent` | "Play \\($book) in Abbay" | Fuzzy-match library by title (see rule below). No match: dialog `"No audiobook matches '\(input)'."`. Match found but file unreachable: if the failing URL equals `LastPlayedStore.lastPlayedURL()`, **clear `LastPlayedStore`** first; then dialog `"Cannot find that audiobook. It may have been removed or is not downloaded."`. Else `player.play(&model)` and dialog `"Playing \(title)."` |
 
+### Known v1 failure modes
+
+The "Otherwise: `player.play(&model)`" branch in `ResumeAbbayIntent` and `PlayBookByNameIntent` assumes a successful app launch. v1 inherits one cold-launch failure mode from the existing `AppDelegate`:
+
+- **Cold launch while another app holds the audio session** (active phone call, Focus mode with audio restrictions, system narration mid-launch). `AVAudioSession.setActive(true)` throws → `fatalError`. The intent body never runs; the user perceives no playback and no spoken response. See Cold-start contract and Risks for details and the phase-2 graceful-recovery task.
+
 ## Non-goals (deferred to phase 2)
 
 - Play chapter by number or by name (user marked problematic, defer until base works)
@@ -179,6 +185,7 @@ Live in `AbbayTests`:
 - "Hey Siri, play [partial title] in Abbay" — plays the fuzzy match.
 - Empty library cold start. "Hey Siri, play in Abbay" — spoken dialog: "Add a book in Abbay first."
 - CarPlay session: connect device, launch Abbay on CarPlay, repeat the four playback-control phrases above.
+- **Cold-launch-during-call verification (documented v1 failure mode):** kill Abbay. Start an active phone call. Invoke "Hey Siri, play in Abbay". Expected v1 outcome: app does not start playback. Verify the documented crash by inspecting the device console / crash log for the `AVAudioSession` `setActive` throw and the matching `fatalError`. Phase-2 task replaces this with a spoken "audio temporarily unavailable" dialog; this checklist entry exists to confirm v1 actually exhibits the documented behavior, not silent failure.
 
 ## Risks
 
@@ -192,7 +199,7 @@ Live in `AbbayTests`:
 ## Out of scope, but candidate for phase 2
 
 - `INPlayMediaIntent` extension to enable "Hey Siri, play [book name]" without saying "in Abbay" (system-wide media provider registration).
-- `AppIntentsExtension` target (intents in their own process) with App Group + `LastPlayedStore` migration plan above.
-- Replace `AppDelegate.didFinishLaunching` `fatalError` on `AVAudioSession.setActive` throw with a launch-state flag and an "audio temporarily unavailable" intent dialog (graceful recovery from cold-launch-during-call).
+- **`AppIntentsExtension` target (intents in their own process)** with App Group + `LastPlayedStore` migration plan above. *(Coupled with the next item — see dependency note.)*
+- **Replace `AppDelegate.didFinishLaunching` `fatalError`** on `AVAudioSession.setActive` throw with a launch-state flag and an "audio temporarily unavailable" intent dialog (graceful recovery from cold-launch-during-call). *(Dependency note: the flag's home depends on extension sequencing. If `AppIntentsExtension` migration lands first or simultaneously, the flag must live in App Group `UserDefaults` (same shape as `LastPlayedStore`'s phase-2 migration), and the extension needs its own bootstrap path covering the case where Siri launches the extension cold without ever launching the main app. If this lands first against today's single-process shape, plan to revisit during the extension migration — the in-memory flag will not survive the process split.)*
 - Play specific chapter by number or by name.
 - Spoken language localization.
