@@ -65,3 +65,34 @@ private func normalize(_ s: String) -> String {
     let parts = out.split(whereSeparator: { $0.isWhitespace })
     return parts.joined(separator: " ")
 }
+
+// MARK: - Resume
+
+struct ResumeAbbayIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play in Abbay"
+    static let description = IntentDescription("Resumes the last audiobook you played in Abbay.")
+
+    init() {}
+
+    // Spec-locked dialog text. v1 English-only (localization is a phase-2 non-goal).
+    // Lifted into constants so a unit test catches regressions on wording / punctuation.
+    static let addBookDialog = "Add a book in Abbay first."
+    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+    static func playingDialog(title: String) -> String {
+        "Playing \(title)."
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let url = LastPlayedStore.lastPlayedURL() else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.addBookDialog))
+        }
+        guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
+            // Stuck-state guard: don't loop on a dead pointer.
+            LastPlayedStore.save(url: nil)
+            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+        }
+        DependencyContainer.shared.player.play(&model)
+        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+    }
+}
