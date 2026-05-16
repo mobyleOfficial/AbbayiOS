@@ -36,8 +36,9 @@ Five intents:
 
 - All intent code lives in the existing `Abbay` application target.
 - No new framework, no extension target, no App Group.
-- Uses Apple's `AppIntents` framework. **Deployment target bump from iOS 15 to iOS 16 is required** — update `IPHONEOS_DEPLOYMENT_TARGET` in `project.yml` from `'15.0'` to `'16.0'`.
-- Each intent declares `openAppWhenRun = true`. `@MainActor` is applied **only** to `perform()` bodies that touch main-actor-isolated state (the `Player` and `NowPlayingManager` interact with `AVPlayer` / `MPNowPlayingInfoCenter`, so all current perform() bodies do qualify). No type-level `@MainActor`.
+- Uses Apple's `AppIntents` framework, with all five intents conforming to `AudioPlaybackIntent`. **Deployment target bump from iOS 15 to iOS 17 is required** — update `IPHONEOS_DEPLOYMENT_TARGET` in `project.yml` from `'15.0'` to `'17.0'`. `AudioPlaybackIntent` is iOS 17+ and is the documented marker for intents that play, pause, skip, or otherwise control audio (Apple docs).
+- `AudioPlaybackIntent` removes the need for `openAppWhenRun = true`: the system either launches the app to background-audio context or routes the intent to a media-playback extension if available. The app does not foreground on every voice command.
+- `@MainActor` is applied at type level to each intent struct, following Apple's `AudioPlaybackIntent` sample pattern (perform() bodies touch `Player` / `NowPlayingManager` / `MPNowPlayingInfoCenter`, which are main-actor-bound in practice).
 - Intents reach the live player via `DependencyContainer.shared.player` (already singleton-configured at launch). Existing `DependencyContainer.configure(with:)` permits mock injection for tests.
 - Library access via existing `LoadAllAudiosUseCase` and `LoadAudioUseCase`.
 - Last-played URL persisted in `UserDefaults.standard` via a small `LastPlayedStore`.
@@ -47,9 +48,9 @@ Five intents:
 v1 covers two CarPlay flows:
 
 1. **In-CarPlay UI playback controls** — already supported via `MPRemoteCommandCenter` in `NowPlayingManager`. Not new in this PR.
-2. **Explicit-app-name Siri** — phrases like `"... in Abbay"` work because the system launches the app (or routes to the running app); the existing `CarPlaySceneDelegate` is unaffected.
+2. **Explicit-app-name Siri** — phrases like `"... in Abbay"` work because the system routes the intent (running app or background-audio launch). `AudioPlaybackIntent` conformance means the iPhone does not foreground while CarPlay is connected — playback continues in the CarPlay scene. The existing `CarPlaySceneDelegate` is unaffected.
 
-**Not covered in v1:** no-app-name Siri routing in CarPlay (`"Play my audiobook"`). That requires either `INPlayMediaIntent` (SiriKit) or `AudioPlaybackIntent` (iOS 17+ AppIntents). Both deferred to phase 2 — see Non-goals.
+**Not covered in v1:** no-app-name Siri routing in CarPlay (`"Play my audiobook"`). `AudioPlaybackIntent` alone does not register the app as a system-wide media provider — that still requires `INPlayMediaIntent` (SiriKit) or future App Intents media-provider APIs. Deferred to phase 2.
 
 ## Fuzzy match rule (centralized helper, unit-tested)
 
@@ -106,7 +107,7 @@ Test vectors that must be locked in (`FuzzyMatchTests`):
 
 - `Abbay/Core/Player/Player.swift` — single line in `updatePlayItem`: `LastPlayedStore.save(url: url)`. `url` here is `AudioModel.url` — the book-level file URL (one URL per audiobook; chapters are timestamp metadata inside that file, not separate files).
 - `Abbay/View/MediaListView/MediaListViewModel.swift` — after library load and after delete, call `AbbayAppShortcuts.updateAppShortcutParameters()` so Siri picks up entity changes
-- `project.yml` — bump `IPHONEOS_DEPLOYMENT_TARGET` from `'15.0'` to `'16.0'` (required for `AppIntents`)
+- `project.yml` — bump `IPHONEOS_DEPLOYMENT_TARGET` from `'15.0'` to `'17.0'` (required for `AudioPlaybackIntent`)
 
 ### Info.plist and entitlements — explicitly NOT changed in v1
 
@@ -115,13 +116,12 @@ Test vectors that must be locked in (`FuzzyMatchTests`):
 
 ## Cold-start contract
 
-For v1 (in-app `AppIntent` with `openAppWhenRun = true` and the existing UIKit `AppDelegate`):
+With `AudioPlaybackIntent` adoption, the system has two execution paths:
 
-1. The system brings the app to the foreground if it is not running.
-2. `application(_:didFinishLaunchingWithOptions:)` runs to completion — activates `AVAudioSession` for `.playback`, then calls `DependencyContainer.configure()`. Both are synchronous.
-3. The intent body runs.
+1. **App running in background** (typical: user already played something, audio session active). Intent runs in-process. `DependencyContainer.shared.player` is live. Zero orchestration required.
+2. **App not running** (cold). System launches the app **into background audio context** (no foreground UI). `AppDelegate.application(_:didFinishLaunchingWithOptions:)` runs to completion before the intent body — activates `AVAudioSession`, calls `DependencyContainer.configure()`. Both synchronous. Intent body then runs.
 
-Therefore `DependencyContainer.shared.player` and an active `AVAudioSession` are both guaranteed by the time any intent body executes. No extra orchestration needed for v1.
+In both paths `DependencyContainer.shared.player` and an active `AVAudioSession` are guaranteed when any intent body executes. UI is never forced to foreground.
 
 `NowPlayingManager.shared.currentAudio` is `nil` until the user has played at least once in the current process. `NextChapterIntent` and `PreviousChapterIntent` **do not** attempt to resume + skip in the same call — that would race against asynchronous `AVPlayerItem` loading (the skip would target either no asset or stale state before `readyToPlay`). They short-circuit with a clear spoken prompt instead (see Scope table).
 
@@ -131,7 +131,6 @@ These items intentionally accept brittleness now to keep v1 small. Each is a kno
 
 - **`AppIntentsExtension` migration:** intents would run in a separate process where `AppDelegate.didFinishLaunching` never runs and `DependencyContainer.shared` is a fresh instance. Phase-2 task will introduce an explicit per-process bootstrap (e.g. a `BootstrapLoader` invoked from both `AppDelegate` and the extension's principal class) before touching `DependencyContainer.shared`. v1 keeps the existing `fatalError`-on-unconfigured contract from `DependencyContainer.swift`.
 - **`LastPlayedStore` cross-process migration:** v1 uses `UserDefaults.standard`. Phase-2 extension cannot read that. Migration plan: switch `LastPlayedStore.defaults` to `UserDefaults(suiteName: "group.com.edyuto.abbay")` and, at first launch of the phase-2 build, copy the existing `UserDefaults.standard` value into the App Group suite under the same key. Users keep their last-played pointer.
-- **`AudioPlaybackIntent` adoption:** requires iOS 17+. Once the project bumps deployment to iOS 17, conform `ResumeAbbayIntent`, `PauseAbbayIntent`, `NextChapterIntent`, `PreviousChapterIntent`, and `PlayBookByNameIntent` to `AudioPlaybackIntent` and drop `openAppWhenRun = true` on the four control intents. This unlocks lock-screen / AirPods / no-app-name CarPlay routing without foregrounding the UI.
 
 ## Tests
 
@@ -163,12 +162,11 @@ Live in `AbbayTests`:
 - Intent body holds the main actor (where applied) while `player.play()` mutates state. Should be fast; if it becomes slow, push heavy work off-main and short-circuit the dialog.
 - `LoadAudioUseCase` returns nil if the underlying file URL is no longer reachable (book deleted, iCloud not downloaded). Dialog strings for this case are pinned in the Scope table.
 - `currentAudio` nil edge case for skip intents — handled by short-circuiting with a spoken prompt, not by attempting an in-flight resume + skip (see Cold-start contract).
-- Deployment target bump from iOS 15 to iOS 16 drops support for iOS 15 devices. Accepted cost for AppIntents availability.
+- Deployment target bump from iOS 15 to iOS 17 drops support for iOS 15 and iOS 16 devices (no iPhone 7 / 8 / X — iOS 17 supports iPhone XS and newer). Accepted cost for `AudioPlaybackIntent` availability; user explicitly approved bumping the minimum.
 
 ## Out of scope, but candidate for phase 2
 
-- `AudioPlaybackIntent` adoption (iOS 17+ requirement) — unlocks lock-screen / AirPods / no-app-name CarPlay routing without foregrounding the UI.
-- `INPlayMediaIntent` extension to enable "Hey Siri, play [book name]" without saying "in Abbay".
-- `AppIntentsExtension` target (background intent execution) with App Group + `LastPlayedStore` migration plan above.
+- `INPlayMediaIntent` extension to enable "Hey Siri, play [book name]" without saying "in Abbay" (system-wide media provider registration).
+- `AppIntentsExtension` target (intents in their own process) with App Group + `LastPlayedStore` migration plan above.
 - Play specific chapter by number or by name.
 - Spoken language localization.
