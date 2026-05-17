@@ -110,6 +110,15 @@ final class Player: PlayerProtocol {
             return
         }
 
+        // Step 2 — lazy bookmark population on the inout model.
+        // MUST happen BEFORE updatePlayItem so the playItem observer + any future Player
+        // observer of the model see the populated bookmark via the copy.
+        if model.bookmarkData == nil, let bookmark = bookmarkProvider.createBookmarkData(for: url) {
+            model.bookmarkData = bookmark
+            try? saveAudioUseCase.execute(model)
+            librarySnapshotWriter.refresh()
+        }
+
         print("▶️ Player.play: Attempting to play \(url.lastPathComponent)")
         if url != self.url {
             saveTime()

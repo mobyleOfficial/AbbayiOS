@@ -101,6 +101,35 @@ final class PlayerTests: XCTestCase {
         XCTAssertEqual(storeSuite.string(forKey: LastPlayedStore.key), "file:///book.m4a")
     }
 
+    func test_play_firstPlayOfBookWithoutBookmark_populatesBookmarkDataOnInoutModel_callsSnapshotRefresh() throws {
+        var model = AudioModel(url: URL(string: "file:///book.m4a"))
+        XCTAssertNil(model.bookmarkData)
+        let bookmarkMock = try XCTUnwrap(bookmarkProvider)
+        bookmarkMock.bookmarkToReturn = Data([7, 8, 9])
+
+        let player = try XCTUnwrap(self.player)
+        let writerMock = try XCTUnwrap(snapshotWriter)
+        player.play(&model)
+
+        XCTAssertEqual(model.bookmarkData, Data([7, 8, 9]))
+        XCTAssertEqual(writerMock.refreshCallCount, 1)
+        XCTAssertEqual(bookmarkMock.createCallCount, 1)
+    }
+
+    func test_play_firstPlayOfBookWithBookmark_doesNotRePopulate_doesNotCallSnapshotRefresh() throws {
+        var model = AudioModel(url: URL(string: "file:///book.m4a"))
+        model.bookmarkData = Data([1, 2, 3])
+
+        let player = try XCTUnwrap(self.player)
+        let writerMock = try XCTUnwrap(snapshotWriter)
+        let bookmarkMock = try XCTUnwrap(bookmarkProvider)
+        player.play(&model)
+
+        XCTAssertEqual(writerMock.refreshCallCount, 0)
+        XCTAssertEqual(bookmarkMock.createCallCount, 0)
+        XCTAssertEqual(model.bookmarkData, Data([1, 2, 3]))
+    }
+
     func test_play_setActiveThrows_setsFlag_doesNotDonate() throws {
         let activator = try XCTUnwrap(sessionActivator)
         activator.shouldThrow = true
