@@ -80,6 +80,27 @@ final class PlayerTests: XCTestCase {
         XCTAssertEqual(donorMock.donateCallCount, 1)
     }
 
+    func test_play_sameURLReplay_savesLastPlayedEachTime() throws {
+        let storeSuiteName = "test.store.\(UUID().uuidString)"
+        let storeSuite = try XCTUnwrap(UserDefaults(suiteName: storeSuiteName))
+        let originalDefaults = LastPlayedStore.defaults
+        LastPlayedStore.defaults = storeSuite
+        defer {
+            storeSuite.removePersistentDomain(forName: storeSuiteName)
+            LastPlayedStore.defaults = originalDefaults
+        }
+
+        var model = AudioModel(url: URL(string: "file:///book.m4a"))
+        let player = try XCTUnwrap(self.player)
+        player.play(&model)
+        XCTAssertEqual(storeSuite.string(forKey: LastPlayedStore.key), "file:///book.m4a")
+
+        // Simulate the store being mutated elsewhere; same-URL play should re-save
+        storeSuite.set("file:///other.m4a", forKey: LastPlayedStore.key)
+        player.play(&model)
+        XCTAssertEqual(storeSuite.string(forKey: LastPlayedStore.key), "file:///book.m4a")
+    }
+
     func test_play_setActiveThrows_setsFlag_doesNotDonate() throws {
         let activator = try XCTUnwrap(sessionActivator)
         activator.shouldThrow = true
