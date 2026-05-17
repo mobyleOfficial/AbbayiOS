@@ -70,3 +70,4 @@ vendor/bundle
 
 ### Worktrees ###
 .worktrees/
+.derived-data-log-*
