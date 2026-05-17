@@ -17,7 +17,7 @@ Three coupled changes that ship in one PR:
 
 1. **`INPlayMediaIntent` extension target `AbbayIntents`.** New app-extension target conforming to `INPlayMediaIntentHandling`. Wins Siri's media-router priority for the "play" verb cold-start; carries `INMediaSearch.mediaName` as an arbitrary spoken string; supports custom no-match dialog with input echo; supports multi-match disambiguation.
 2. **App Group `group.com.edyuto.abbay` enabled on both targets.** Canonical cross-process store via `UserDefaults(suiteName:)`. Hosts the migrated `LastPlayedStore`, the new library snapshot, and the new launch-state flag.
-3. **`AppDelegate.fatalError` → graceful launch-state flag.** Replace the existing `try AVAudioSession.sharedInstance().setCategory(.playback)` + `try AVAudioSession.sharedInstance().setActive(true)` / `fatalError` pattern (both calls share one `do/catch` block in `AbbayApp.swift:17-22`) with a flag write to the App Group. **Both throws** (setCategory + setActive) route through the same catch and set `LaunchStateFlag.markUnavailable()`. All five existing AppIntents AND the new extension read the flag; when set, they speak `"Audio temporarily unavailable. Try again in a moment."` instead of crashing.
+3. **`AppDelegate.fatalError` → graceful launch-state flag with retry-on-play recovery.** Replace the existing `try AVAudioSession.sharedInstance().setCategory(.playback)` + `try AVAudioSession.sharedInstance().setActive(true)` / `fatalError` pattern (both calls share one `do/catch` block in `AbbayApp.swift:17-22`) with a flag write to the App Group. **Both throws** (setCategory + setActive) route through the same catch and set `LaunchStateFlag.markUnavailable()`. All five existing AppIntents AND the new extension read the flag; when set, they speak `"Audio temporarily unavailable. Try again in a moment."` instead of crashing. **Recovery:** `Player.play(_:)` re-attempts `setCategory` + `setActive` at the top of every play; on success it clears the flag, on throw it returns early without playing (caller's flag-gate check spoke the dialog, so silent no-op is acceptable defense-in-depth).
 
 Plus two UX polish items that the extension enables:
 
@@ -29,23 +29,25 @@ Plus two UX polish items that the extension enables:
 | # | Phase 1 limitation | Phase 2 fix |
 |---|---|---|
 | 1 | Cold-start `"play"` → wrong app | `INPlayMediaIntent` extension wins media-router priority |
-| 2 | Cold-launch-during-call crash | `LaunchStateFlag` replaces `fatalError`; intent dialogs read flag |
+| 2 | Cold-launch-during-call crash | `LaunchStateFlag` replaces `fatalError`; `Player.play` retries `setActive` |
 | 3 | `PlayBookByNameIntent` is two-step | `INMediaSearch.mediaName` is arbitrary String; one-shot phrase works |
 | 5 | AppShortcut entity-parameter restriction | Bypassed — extension is not AppIntents |
 | 9 | No multi-match disambiguation | `INPlayMediaMediaItemResolutionResult.disambiguation(with:)` |
 
-Limitations #4 (security-scoped URL round-trip), #6 (iOS 17 minimum), #7 (CarPlay scene routing), #8 (English-only dialogs), #10 (AppShortcuts indexing requires one launch), #11 (`IntentDialog` not introspectable), #12 (`"Abbay"` STT phonetic ambiguity) are unchanged from phase 1. #4's `bookmarkData` round-trip is partially addressed here — the snapshot carries the persisted `AudioModel.bookmarkData` field where present. The existing `AudioModel.bookmarkData` field is currently empty for books imported under phase 1 (per phase-1 limitation #4 — v1 didn't change it); phase 2 lazily populates it as books are played (see "bookmarkData population" below). The legacy `LastPlayedStore.lastPlayedURL()` `absoluteString` path is unchanged; a future phase migrates it.
+Limitations #4 (security-scoped URL round-trip), #6 (iOS 17 minimum), #7 (CarPlay scene routing), #8 (English-only dialogs), #10 (AppShortcuts indexing requires one launch), #11 (`IntentDialog` not introspectable), #12 (`"Abbay"` STT phonetic ambiguity) are unchanged from phase 1. #4's `bookmarkData` round-trip is partially addressed here — the snapshot carries the persisted `AudioModel.bookmarkData` field where present. `FileLoader.load(url:)` already populates `AudioModel.bookmarkData` (`FileLoader.swift:51`) for newly-imported books via `url.createBookmarkData()`; phase 1's #4 referred to the legacy `LastPlayedStore.lastPlayedURL()` `absoluteString` path, NOT to the `AudioModel.bookmarkData` field. **Legacy books** — those imported under pre-FileLoader-bookmark versions and stored in Core Data without `bookmarkData` — are migrated lazily in `Player.play(_:)` on first play under phase 2.
 
 ## Non-goals (deferred to phase 3 / later)
 
-- **Full `AbbayKit` framework extraction.** Phase 2 uses a JSON snapshot in App Group `UserDefaults` and minimal source-sharing (a single `FuzzyMatch.swift` file added to both target memberships, OR duplicated — decided during plan). The framework extraction path is deferred to phase 3 once the snapshot-and-handleInApp wire protocol is validated on-device. Trigger for phase 3: concrete need for in-extension playback, materially larger shared state, or maintenance pain from the duplication.
+- **Full `AbbayKit` framework extraction.** Phase 2 uses a JSON snapshot in App Group `UserDefaults` and minimal source-sharing (a single `FuzzyMatch.swift` file added to both target memberships, OR duplicated — decided during plan). The framework extraction path is deferred to phase 3.
 - **AppIntents `AssistantSchemas`** (`playMedia` / `playAudiobook`). Captured as a GitHub issue on AbbayiOS for a future phase. Apple Intelligence-eligible devices only; additive on top of the current AppIntents stack.
-- **`AppIntentsExtension` target** for the phase-1 AppIntents. Still useful for non-Siri AppIntents background execution, but not required by `INPlayMediaIntent` (which has its own extension already).
-- **Localization of all Siri dialog strings.** Both phase-1 dialogs and the new phase-2 dialogs (`"Audio temporarily unavailable"`, `"No audiobook matches '<input>'"`, etc.) stay English. Future migration swaps `static let` constants to `LocalizedStringResource`; phase-2 spec is structured so this swap is additive.
+- **`AppIntentsExtension` target** for the phase-1 AppIntents.
+- **Localization of all Siri dialog strings.** Both phase-1 dialogs and the new phase-2 dialogs stay English. Future migration swaps `static let` constants to `LocalizedStringResource`; phase-2 spec is structured so this swap is additive.
 - **Security-scoped URL `bookmarkData` round-trip in the legacy `LastPlayedStore.lastPlayedURL()` path** used by `ResumeAbbayIntent`. Independent fix; not blocking phase 2 since the snapshot/extension path carries `bookmarkData` per the rules below.
 - **CarPlay-specific scene routing hooks.** Added only if phase-2 on-device CarPlay observation reveals unwanted iPhone foregrounding.
-- **`"Abbay"` STT phonetic ambiguity remedy** (e.g. `CFBundleDisplayName` rename). Needs marketing call; out of scope.
-- **`INMediaItem` artwork in Siri lock-screen sheet.** Spec opted to ship phase 2 with `artwork: nil` to keep the snapshot footprint small. The Siri confirmation sheet shows a blank tile. `AudioModel.imageData` exists; surfacing it via `INImage(imageData:)` is a low-effort phase-3 follow-up. Trade-off is one blank-tile generation in exchange for not encoding imageData (potentially 100KB+ per book) into the JSON snapshot.
+- **`"Abbay"` STT phonetic ambiguity remedy** (e.g. `CFBundleDisplayName` rename). Needs marketing call.
+- **`INMediaItem` artwork in Siri lock-screen sheet.** Spec opted to ship phase 2 with `artwork: nil` to keep the snapshot footprint small.
+
+Each phase-3 candidate has a concrete trigger condition listed in the "Phase 3 candidates" section.
 
 ## Architecture
 
@@ -60,12 +62,12 @@ Abbay.xcodeproj
 │   ├── Core/LaunchStateFlag.swift         NEW
 │   ├── Core/IntentDonor.swift             NEW
 │   ├── Core/LastPlayedStore.swift         EDIT (migrate to App Group)
-│   ├── Core/Player/Player.swift           EDIT (donation hook + flag clear in play())
+│   ├── Core/Player/Player.swift           EDIT (retry-setActive, donation, flag clear, lazy bookmark)
 │   ├── Intents/AbbayIntents.swift         EDIT (LaunchStateFlag reads in perform())
-│   ├── AbbayApp.swift                     EDIT (AppDelegate: replace fatalError, add handle())
+│   ├── AbbayApp.swift                     EDIT (AppDelegate: replace fatalError, eager seeds, add handle())
 │   └── View/MediaListView/
-│       ├── MediaListViewModel.swift       EDIT (snapshot writes; new importAudio method)
-│       └── DocumentPickerView.swift       EDIT (route import through view model)
+│       ├── MediaListViewModel.swift       EDIT (snapshot writes; new importAudio async method)
+│       └── DocumentPicker/DocumentPickerView.swift  EDIT (route import through view model)
 └── AbbayIntents (app-extension)           NEW TARGET
     ├── IntentHandler.swift
     ├── PlayMediaIntentHandler.swift
@@ -84,9 +86,9 @@ Single `UserDefaults(suiteName:)` keyed namespace. Three values:
 
 | Key | Type | Writer | Reader |
 |---|---|---|---|
-| `abbay.lastPlayedAudioURL` | String? | main app (`Player.play(_:)`) | main app, extension |
-| `abbay.librarySnapshot.v1` | Data (JSON) | main app (`LibrarySnapshotWriter` on every library load + delete + import + on AppDelegate.handle resolving to nil URL) | extension (`LibrarySnapshotReader`) |
-| `abbay.audioSessionUnavailable` | Bool | main app (`AppDelegate.didFinishLaunching` catch branch; cleared by `Player.play(_:)`) | main app (existing AppIntents), extension (resolveMediaItems), main app (AppDelegate.handle) |
+| `abbay.lastPlayedAudioURL` | String? | main app (`Player.play(_:)`; AppDelegate eager-seed on launch) | main app, extension |
+| `abbay.librarySnapshot.v1` | Data (JSON) | main app (`LibrarySnapshotWriter`: on every library load + delete + import + lazy-bookmark-population in `Player.play` + AppDelegate eager-seed on launch + `AppDelegate.handle` resolving to nil URL) | extension (`LibrarySnapshotReader`) |
+| `abbay.audioSessionUnavailable` | Bool | main app (`AppDelegate.didFinishLaunching` catch branch; `Player.play(_:)` retry-clear or retry-fail; cleared by successful `setActive`) | main app (existing AppIntents, AppDelegate.handle), extension (resolveMediaItems + handle) |
 
 Snapshot JSON shape (versioned, future-proof):
 
@@ -104,7 +106,7 @@ Snapshot JSON shape (versioned, future-proof):
 }
 ```
 
-`bookmarkData` is included if and only if `AudioModel.bookmarkData` (the existing persisted field on the model) is non-empty for that book at snapshot-write time. See "bookmarkData population" below.
+`bookmarkData` is included iff `AudioModel.bookmarkData` is non-empty for that book at snapshot-write time. See "bookmarkData population" below.
 
 The snapshot is read-only from the extension. Main app is sole writer. Writes are atomic at the UserDefaults level; no locking needed.
 
@@ -129,9 +131,9 @@ The snapshot is read-only from the extension. Main app is sole writer. Writes ar
 
 All five phase-1 AppIntents (`ResumeAbbayIntent`, `PauseAbbayIntent`, `NextChapterIntent`, `PreviousChapterIntent`, `PlayBookByNameIntent`) ship unchanged in shape. Edits:
 
-- Top of each `perform()` reads `LaunchStateFlag.isUnavailable()`. If true, returns `.result(dialog: IntentDialog(Self.audioUnavailableDialog))` immediately. This is the only behavior change to phase-1 AppIntents.
-- They keep handling Shortcuts, widgets, AppShortcuts phrases for non-"play" verbs (`"continue audiobook in Abbay"`, `"next chapter in Abbay"`, etc.) and the warm-state `"play in Abbay"` case.
-- `PlayBookByNameIntent` is NOT retired. With `INPlayMediaIntent` live, users naturally say `"play <book> on Abbay"` and hit the extension; `PlayBookByNameIntent` remains the Shortcuts-app path (where users type a book name into the Shortcuts UI).
+- Top of each `perform()` reads `LaunchStateFlag.isUnavailable()`. If true, returns `.result(dialog: IntentDialog(Self.audioUnavailableDialog))` immediately. Note this is a fast-path check — `Player.play(_:)` re-attempts setActive defense-in-depth even if the AppIntent gate misses a race.
+- They keep handling Shortcuts, widgets, AppShortcuts phrases for non-"play" verbs (`"continue audiobook in Abbay"`, etc.) and the warm-state `"play in Abbay"` case.
+- `PlayBookByNameIntent` is NOT retired. Remains the Shortcuts-app path.
 
 ### Disambiguation rule
 
@@ -152,19 +154,28 @@ Cap of 5 is Apple's typical Siri-prompted list size. The `>5` fallback preserves
 ### `LaunchStateFlag` lifecycle
 
 - **Set:** `AppDelegate.didFinishLaunching` catch branch in `AbbayApp.swift` covers BOTH `setCategory(.playback)` and `setActive(true)` throws (they share one `do/catch`). Either throw routes to `LaunchStateFlag.markUnavailable()`.
-- **Cleared:** at the END of `Player.play(_:)`, AFTER `player.play()` has been issued. NOT inside `updatePlayItem` — `updatePlayItem` only runs when `url != self.url`, so a same-URL replay (pause/resume, `ResumeAbbayIntent` warm-state) would skip the clear. The clear must fire on every successful `play(_:)` call regardless of URL-change.
-- **Read by:** extension `resolveMediaItems`, main app `AppDelegate.application(_:handle:completionHandler:)`, all phase-1 AppIntent `perform()` methods.
-- Expected lifetime: cleared on the next successful play. A stale `true` value persists only if the user kills the app while the flag is set AND never plays anything before next Siri invocation — acceptable; user gets the graceful dialog instead of a crash.
+- **Cleared:** at the TOP of every `Player.play(_:)`. Specifically: `Player.play` always re-attempts `try setCategory(.playback); try setActive(true)` at the top. On success → `LaunchStateFlag.clear()` and continue with playback. On throw → mark flag (idempotent if already set) and **return early without calling `player.play()` or donating**. This is the recovery path. Reasoning: `setActive` is idempotent — calling it when already active is a fast no-op; calling when inactive is the recovery the spec needs. This eliminates the "stale flag set forever" failure mode where audio became available mid-process but the flag never cleared.
+- **Read by:** extension `resolveMediaItems` AND `handle` (returns `.failureUnknownMediaType` on flag-set), main app `AppDelegate.application(_:handle:completionHandler:)`, all phase-1 AppIntent `perform()` methods.
+- Expected lifetime: cleared on the first successful play after a launch-time flag set, OR on any successful play — flag clear is now driven by the actual `setActive` success, not by an optimistic `player.play()`-was-called signal.
 
 ### bookmarkData population
 
-The snapshot's `bookmarkData` field reads `AudioModel.bookmarkData` (the existing persisted field on the model). Three population paths:
+The snapshot's `bookmarkData` field reads `AudioModel.bookmarkData`. Three population paths:
 
-1. **Books imported under phase 1 (pre-phase-2 install):** `bookmarkData` is empty (phase-1 limitation #4). Snapshot writes `bookmarkData: null` for these books. Extension flow falls back to `URL(string: urlString)`. The first time the user plays such a book in-app under phase 2, `Player.updatePlayItem` populates `AudioModel.bookmarkData` via `url.bookmarkData(options: .minimalBookmark)` (this is a new line in `updatePlayItem`), persists the model via `SaveAudioUseCase`, and the next snapshot write carries it. Within a few plays per book, all books migrate.
-2. **Books imported under phase 2 (or later):** the import path (`MediaListViewModel.importAudio`) computes `bookmarkData` at import time while the picker's security-scoped URL is still accessible, and persists it on the model. First snapshot write carries it.
-3. **`AudioModel.bookmarkData` migration:** no batch migration in phase 2. Existing books migrate lazily on play (path 1).
+1. **Books imported under FileLoader's existing bookmark-creation logic (`FileLoader.swift:51`):** `AudioModel.bookmarkData` is populated at import time. Snapshot writes carry it.
+2. **Legacy books (imported before FileLoader populated bookmarkData):** `bookmarkData` is empty. Snapshot writes `bookmarkData: null` for these. Extension flow falls back to `URL(string: urlString)` for resolve. **Lazy migration:** `Player.play(_:)` (BEFORE `updatePlayItem`) checks: if `model.bookmarkData == nil`, attempts `url.createBookmarkData()` while holding security scope. If non-nil, mutates the `inout model` directly (struct-by-reference via `inout`), persists via `try? saveAudioUseCase.execute(model)`, and refreshes the snapshot via `LibrarySnapshotWriter.write(audios: loadAllAudios.execute())`. Mutation MUST land on the `inout model` (not on a local copy inside `updatePlayItem`) so that `IntentDonor.donatePlayMedia(model:)` later in `play(_:)` donates with the populated model AND `self.model = item` inside `updatePlayItem` (which copies the inout-mutated model) stores the populated copy.
+3. **Snapshot refresh after lazy migration:** required so the NEXT Siri invocation against the same book sees the bookmark path. Without this refresh, the snapshot stays stale until the next `MediaListViewModel.loadAllAudios` call.
 
-This makes phase 2 partially address phase-1 limitation #4: the extension's `handle` flow has reliable URL access for any book played at least once under phase 2; books never played remain on the `URL(string:)` fallback (functional but loses iCloud-not-downloaded gracefully via `LoadAudioUseCase.execute(url:)` returning nil).
+This makes phase 2 partially address phase-1 limitation #4: the extension's `handle` flow has reliable URL access for any book played at least once under phase 2.
+
+### Eager seeding at AppDelegate launch
+
+After `AVAudioSession.setActive` succeeds in `didFinishLaunching`, perform two one-shot eager seeds (cheap, idempotent, closes the cold-background-launch empty-snapshot window):
+
+1. **`LastPlayedStore` seed:** if `AppGroup.defaults` has no value AND `UserDefaults.standard` has a value for `abbay.lastPlayedAudioURL`, copy `.standard` → AppGroup. Subsequent reads/writes go to AppGroup.
+2. **`LibrarySnapshot` seed:** if `AppGroup.defaults` has no value for `abbay.librarySnapshot.v1`, run `LoadAllAudiosUseCase().execute()` and write the result via `LibrarySnapshotWriter.write(audios:)`. This guarantees the extension always sees a current snapshot even on cold-background-launch (where `MediaListView` may never instantiate).
+
+Both seeds are no-ops on subsequent launches (key already present). Combined cost: one extra `UserDefaults.object(forKey:)` lookup plus, on first-post-upgrade launch, one Core Data read + one JSON write.
 
 ## Data flow
 
@@ -181,39 +192,76 @@ This makes phase 2 partially address phase-1 limitation #4: the extension's `han
      - **1 match** → `completion([.success(with: INMediaItem(identifier: urlString, title: title, type: .audioBook, artwork: nil))])`.
      - **2–5 matches at top score** → `completion([.disambiguation(with: matches.map(toINMediaItem))])`. Siri prompts `"Did you mean A, B, or C?"`. User picks. Siri re-invokes `resolveMediaItems` with the chosen item already populated in `intent.mediaItems`; handler returns `.success(with:)`.
      - **>5 matches at top score** → fall through to single-best per tiebreak, return `.success(with: [best])`.
-5. Siri calls `handle(intent:completion:)`. Handler returns `INPlayMediaIntentResponse(code: .handleInApp, userActivity: nil)` — per Apple docs, audio playback uses `.handleInApp` (NOT `.continueInApp`); the system background-launches the host app and forwards the intent. (The no-match / unavailable cases above return `.failureUnknownMediaType` from `handle` instead, with custom Response.)
+5. Siri calls `handle(intent:completion:)`. Handler returns `INPlayMediaIntentResponse(code: .handleInApp, userActivity: nil)` — per Apple docs, audio playback uses `.handleInApp` (NOT `.continueInApp`); the system background-launches the host app and forwards the intent. (The no-match / unavailable cases return `.failureUnknownMediaType` instead, with custom Response.)
 6. iOS background-launches Abbay. `AppDelegate.didFinishLaunching` (inside `AbbayApp.swift`) runs:
-   - Existing `DependencyContainer.configure()` (synchronous, non-throwing).
-   - Existing `do { try setCategory(.playback); try setActive(true) } catch { ... }`. On throw of EITHER call: `LaunchStateFlag.markUnavailable()` then `return true` — NO `fatalError`.
+   - `DependencyContainer.configure()` (synchronous, non-throwing).
+   - `do { try setCategory(.playback); try setActive(true) } catch { LaunchStateFlag.markUnavailable(); return true }`. On throw of EITHER call: flag set, return true, no fatalError.
+   - On success: eager-seed `LastPlayedStore` and `LibrarySnapshot` per "Eager seeding" above.
 7. iOS calls `UIApplicationDelegate.application(_: app, handle intent: INIntent, completionHandler:)` on the main app's `AppDelegate`.
 8. `AppDelegate.application(_:handle:completionHandler:)`:
    - `LaunchStateFlag.isUnavailable()` → `completionHandler(INPlayMediaIntentResponse(code: .failureUnknownMediaType))`. Done.
    - Else: `intent.mediaItems?.first?.identifier` → resolve to `URL`. Prefer `bookmarkData` lookup (read the snapshot entry by `urlString`; if its `bookmarkData` is non-empty, resolve via `URL(resolvingBookmarkData:, options: .withoutUI, ...)`). Fall back to `URL(string: identifier)`.
    - Load `AudioModel` via existing `LoadAudioUseCase.execute(url:)`. Nil → completion with `INPlayMediaIntentResponse(code: .failureUnknownMediaType)`; if the URL equals `LastPlayedStore.lastPlayedURL()`, clear it first; ALSO refresh the snapshot (`LibrarySnapshotWriter.write(audios: loadAllAudios.execute())`) so the deleted entry stops misrouting future Siri invocations.
-   - `DependencyContainer.shared.player.play(&model)`. (Player.play internally clears `LaunchStateFlag`, donates the intent, and saves `LastPlayedStore` — see "Player.play donation site" below.)
+   - `DependencyContainer.shared.player.play(&model)`. (Player.play internally retries setActive, lazy-populates bookmark if missing, clears the flag, donates the intent, and saves `LastPlayedStore` — see "Player.play sequence" below.)
    - `completionHandler(INPlayMediaIntentResponse(code: .success))`.
 
 ### Warm-state `"Hey Siri, play X on Abbay"` (app already running)
 
-Same path. iOS still routes through the extension's `resolveMediaItems`, then through main app's `handle`. Main app process is already alive; `didFinishLaunching` does not re-run. `LaunchStateFlag` likely already cleared by an earlier playback cycle.
+Same path. iOS still routes through the extension's `resolveMediaItems`, then through main app's `handle`. Main app process is already alive; `didFinishLaunching` does not re-run.
 
 ### Manual play tap
 
-User taps a book in the app. `Player.play(&model)` runs. After `player.play()` is issued (NOT inside `updatePlayItem`), the donation hook fires: `IntentDonor.shared.donatePlayMedia(model:)`. Implementation synthesizes an `INPlayMediaIntent` with `mediaItems: [INMediaItem(identifier: model.url.absoluteString, title: model.title, type: .audioBook)]` + `mediaSearch: INMediaSearch(mediaType: .audioBook, mediaName: model.title)`, wraps in `INInteraction(intent:response:)`, calls `.donate`. Same payload regardless of trigger source.
+User taps a book in the app. `Player.play(&model)` runs the same sequence as the Siri-triggered path. Donation fires; identical payload (per WWDC19 207).
 
 ### Existing AppIntent (`ResumeAbbayIntent` etc.)
 
-Top of `perform()` reads `LaunchStateFlag.isUnavailable()`. True → return `"Audio temporarily unavailable..."` dialog. False → existing phase-1 behavior. On success, `Player.play(_:)` runs the same donation hook regardless of whether `updatePlayItem` actually swapped the item — `ResumeAbbayIntent`'s common case (resume the already-loaded last-played URL) hits the same-URL branch in `Player.play`, but the donation site is outside `updatePlayItem`, so it still fires.
+Top of `perform()` reads `LaunchStateFlag.isUnavailable()`. True → return `"Audio temporarily unavailable..."` dialog. False → existing phase-1 behavior calls `Player.play(_:)`, which runs the same donation hook (including same-URL replay).
 
-### Player.play donation site
+### Player.play sequence (pinned)
 
-`Player.play(_:)` (in `Abbay/Core/Player/Player.swift`) is extended at the END of the method, AFTER `player.play()` is called. The added lines (in order, all unconditional on URL-change):
-1. `LaunchStateFlag.clear()` — audio session is by definition available now.
-2. `LastPlayedStore.save(url: model.url)` — moved out of `updatePlayItem` to the outer scope so same-URL replays also update the timestamp. (Inside `updatePlayItem` it was only firing on URL change; same-URL replays leave the store stale.)
-3. `AudioModel.bookmarkData` population on first-play (if currently empty) — see "bookmarkData population".
-4. `IntentDonor.shared.donatePlayMedia(model:)` — donate INPlayMediaIntent.
+`Player.play(_:)` (in `Abbay/Core/Player/Player.swift`) runs in this exact order:
 
-Step 2 is moved (not duplicated) — the old call inside `updatePlayItem` is removed. Behavior change: previously, `updatePlayItem` saved to `LastPlayedStore` even before `player.play()`; now save happens after `player.play()` has been issued. Acceptable trade-off: the new ordering means a same-URL replay actually refreshes the store (previously didn't), and the cost is a sub-millisecond delay between `player.play()` and the `UserDefaults.set` (no observable impact).
+```
+func play(_ model: inout AudioModel) {
+    guard let url = model.url else { return }
+
+    // Step 1 — defense-in-depth audio session recovery
+    do {
+        try AVAudioSession.sharedInstance().setCategory(.playback)
+        try AVAudioSession.sharedInstance().setActive(true)
+        LaunchStateFlag.clear()
+    } catch {
+        LaunchStateFlag.markUnavailable()
+        return  // do not play, do not donate; caller's gate already spoke the dialog
+    }
+
+    // Step 2 — lazy bookmark population on the inout model
+    if model.bookmarkData == nil {
+        if url.startAccessingSecurityScopedResource() {
+            model.bookmarkData = url.createBookmarkData()
+            url.stopAccessingSecurityScopedResource()
+            try? saveAudioUseCase.execute(model)
+            librarySnapshotWriter.write(audios: loadAllAudios.execute())
+        }
+    }
+
+    // Step 3 — existing item-switch path
+    if url != self.url {
+        saveTime()
+        updatePlayItem(model)  // sees the populated bookmarkData
+        seek(model.currentTime)
+    }
+
+    // Step 4 — playback + post-play side effects (unconditional on URL-change)
+    player.play()
+    LastPlayedStore.save(url: url)            // moved out of updatePlayItem; fires on every play
+    intentDonor.donatePlayMedia(model: model) // identical payload across triggers
+}
+```
+
+Step 1 makes the `LaunchStateFlag` lifecycle deterministic: a failed launch can recover on any subsequent play attempt (post-call, post-Focus). Step 2's mutation is on the `inout model` parameter, so steps 3 and 4 see the same populated bookmarkData. Step 4's three lines moved out of `updatePlayItem` so they fire on every play, including same-URL replays (closes phase-1 same-URL donation gap).
+
+`updatePlayItem(_ item: AudioModel)` is simplified: it stops accessing the previous security-scoped URL, starts accessing the new one, sets `self.model = item`, wires AVPlayer observers. No bookmark mutation, no `LastPlayedStore.save`, no donation — those moved to `play(_:)`.
 
 ## Components — file-by-file
 
@@ -240,25 +288,13 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
 }
 ```
 
-`resolveMediaItems` reads `LaunchStateFlag` first, then `LibrarySnapshotReader`, runs `fuzzyMatch`, returns the appropriate `INPlayMediaMediaItemResolutionResult` array per the table in §Data flow §Cold-start step 4 + disambiguation rule.
-
-`handle` branches:
-- If `LaunchStateFlag.isUnavailable()` → `INPlayMediaIntentResponse(code: .failureUnknownMediaType)` with the unavailable Response template.
-- If `intent.mediaItems` is empty (resolveMediaItems returned all-unsupported for no-match) → `INPlayMediaIntentResponse(code: .failureUnknownMediaType)` with the no-match Response template (input echoed via `INMediaSearch.mediaName`).
-- Else → `INPlayMediaIntentResponse(code: .handleInApp)` — system background-launches the host app.
-
-The extension never plays audio itself.
+Behavior per §Data flow §Cold-start steps 4–5 + disambiguation rule.
 
 **`LibrarySnapshotReader.swift`** — `~40 lines`. Decodes `LibrarySnapshot` JSON from App Group `UserDefaults`. Exposes `static func read() -> [LibraryEntry]` returning empty array if missing/malformed.
 
-**`FuzzyMatch.swift`** — duplicates the existing pure helper from `Abbay/Intents/AbbayIntents.swift` (or is shared via Xcode source-target-membership; decided during plan). Same normalization rules: `&`→`and`, lowercase, strip punctuation, collapse whitespace, trim. Same scoring: 3 exact, 2 prefix, 1 contains, 0 none. Same tiebreak: last-played first, then library index ascending. **One behavior change for phase 2:** new `matchAll(input:audios:lastPlayedURL:) -> [AudioModel]` variant returns ALL entries at the top score (sorted by tiebreak) rather than just the single best — for the disambiguation path. Existing `fuzzyMatch(input:audios:lastPlayedURL:) -> AudioModel?` keeps its single-result signature for the phase-1 `PlayBookByNameIntent` flow. Both share normalization + scoring code paths; split at the final reduction step.
+**`FuzzyMatch.swift`** — duplicates (or shares via target-membership) the existing pure helper from `Abbay/Intents/AbbayIntents.swift`. New `matchAll(input:audios:lastPlayedURL:) -> [AudioModel]` variant returns all entries at top score; existing `fuzzyMatch(...) -> AudioModel?` keeps single-result signature for phase-1 `PlayBookByNameIntent`.
 
-**`PlayMediaIntent.intentdefinition`** — defines a custom Response with templates for three failure modes:
-1. `"Audio temporarily unavailable. Try again in a moment."` (no parameter)
-2. `"No audiobook matches '<input>'."` (interpolates `INMediaSearch.mediaName`)
-3. `"Add a book in Abbay first."` (no parameter)
-
-Defining the Response in an `.intentdefinition` is the only way to get a custom no-match dialog with input echo for the legacy SiriKit Media domain ([source: phase 1 research](../research/2026-05-17-sirikit-media-providers.md#why-audioplaybackintent--appentity-cannot-match-the-ux)).
+**`PlayMediaIntent.intentdefinition`** — custom Response with three failure templates: `"Audio temporarily unavailable..."`, `"No audiobook matches '<input>'."` (parameter-interpolated), `"Add a book in Abbay first."`.
 
 ### Main-app new files
 
@@ -275,9 +311,21 @@ enum AppGroup {
 }
 ```
 
-The `fatalError` here is intentional and is fundamentally different from the one being removed from `AbbayApp.swift`: this fires only if the entitlement is misconfigured at build time, which would surface immediately in development. The removed `fatalError` fires on a transient runtime condition (audio session contention) that production users hit on every cold launch during a phone call.
+This `fatalError` is intentional: misconfigured entitlement, surfaces immediately in development. Different from the runtime-condition `fatalError` being removed from `AbbayApp.swift`.
 
-**`Abbay/Core/LibrarySnapshotWriter.swift`** — `~50 lines`. Encodes `[AudioModel]` to `LibrarySnapshot` JSON and writes to `AppGroup.defaults`. Called from `MediaListViewModel` after library load + delete + import, AND from `AppDelegate.handle` after a nil-URL resolve (to evict stale entries). Includes `bookmarkData` field only when `AudioModel.bookmarkData` is non-empty.
+**`Abbay/Core/LibrarySnapshotWriter.swift`** — `~60 lines`:
+```swift
+protocol LibrarySnapshotWriterProtocol {
+    func write(audios: [AudioModel])
+}
+
+final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
+    static let shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()
+    func write(audios: [AudioModel])  // encodes JSON, writes to AppGroup.defaults
+}
+```
+
+Protocol-wrapped for `Player` injection (see Player init below).
 
 **`Abbay/Core/LaunchStateFlag.swift`** — `~25 lines`:
 ```swift
@@ -287,7 +335,6 @@ enum LaunchStateFlag {
     static func isUnavailable() -> Bool
 }
 ```
-All operations route through `AppGroup.defaults` keyed at `abbay.audioSessionUnavailable`.
 
 **`Abbay/Core/IntentDonor.swift`** — `~40 lines`:
 ```swift
@@ -297,36 +344,41 @@ protocol IntentDonorProtocol {
 
 final class IntentDonor: IntentDonorProtocol {
     static let shared: IntentDonorProtocol = IntentDonor()
-    func donatePlayMedia(model: AudioModel)  // builds INPlayMediaIntent, calls INInteraction.donate
+    func donatePlayMedia(model: AudioModel)
 }
 ```
-Protocol-wrapped so tests can inject a mock and lock the donation behavior without hitting the real Intents framework.
 
 ### Main-app edits
 
-**`Abbay/Core/LastPlayedStore.swift`** — switch `defaults` to `AppGroup.defaults`. Add migration helper called on first read after upgrade:
+**`Abbay/Core/LastPlayedStore.swift`** — switch `defaults` to `AppGroup.defaults`. Read-side fallback to `UserDefaults.standard` for the upgrade window. AppDelegate-launch-time eager seed (above) closes the remaining empty-store windows.
 
 ```
 On read:
-  if AppGroup.defaults has no value AND UserDefaults.standard has → return .standard value (no seed)
+  if AppGroup.defaults has no value AND UserDefaults.standard has → return .standard value
   else return AppGroup.defaults value (which may be nil)
 On write (main app only):
-  if AppGroup.defaults has no value AND UserDefaults.standard has → copy .standard into AppGroup (seed)
+  if AppGroup.defaults has no value AND .standard has → copy .standard into AppGroup (seed)
   ALWAYS write new value to AppGroup.defaults
 ```
 
-Already pinned in phase-1 spec's "Phase-2 migration notes" section. Behavior copied verbatim here.
+Note: read-side fallback to `.standard` is meaningful in the MAIN APP only (extension has its own separate `.standard` domain). For the extension cold-launch case (before any main-app launch under phase 2), the `lastPlayedURL` is nil in the App Group — which is acceptable for v1 since `fuzzyMatch.lastPlayedTiebreak` simply has no tiebreak and falls back to library-index ordering. The AppDelegate eager-seed on first main-app launch under phase 2 fixes this for all subsequent extension invocations.
 
-**`Abbay/Core/Player/Player.swift`**:
-- Inside `updatePlayItem` (line 158-212 in current source): REMOVE the existing `LastPlayedStore.save(url: url)` call at line 172. (Moved to `play(_:)` outer scope — see below.)
-- ADD inside `updatePlayItem` after `hasSecurityAccess = url.startAccessingSecurityScopedResource()` (line 169): if `hasSecurityAccess && item.bookmarkData == nil`, attempt `let bookmark = try? url.bookmarkData(options: .minimalBookmark)`; if non-nil, mutate `model.bookmarkData = bookmark` and persist via `try? saveAudioUseCase.execute(model)`. This is the lazy bookmarkData migration site.
-- Inside `play(_:)` (line 85-99), AFTER `player.play()` is called (line 97), ADD in order:
-  1. `LaunchStateFlag.clear()`
-  2. `if let url = model.url { LastPlayedStore.save(url: url) }`
-  3. `IntentDonor.shared.donatePlayMedia(model: model)`
+**`Abbay/Core/Player/Player.swift`** — see §Player.play sequence above for the full ordering. Init signature gains two injection seams:
 
-**`Abbay/AbbayApp.swift`** (NOT a new file — this is where `AppDelegate` already lives):
-- Replace the `do { try setCategory; try setActive } catch { fatalError(...) }` block (lines 17-22) with the same `do { ... } catch { LaunchStateFlag.markUnavailable() }` shape. Do not re-raise. Do not crash.
+```swift
+init(
+    saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(),
+    loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
+    intentDonor: IntentDonorProtocol = IntentDonor.shared,
+    librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
+)
+```
+
+The new params have sensible defaults so existing call sites compile unchanged. Tests inject mocks for `intentDonor` and `librarySnapshotWriter`.
+
+**`Abbay/AbbayApp.swift`** (NOT a new file — `AppDelegate` already lives here):
+- Replace the `do { try setCategory; try setActive } catch { fatalError(...) }` block (lines 17-22) with `do { ... } catch { LaunchStateFlag.markUnavailable(); return true }` shape.
+- After the success path of setActive, run eager seeds (LastPlayedStore + LibrarySnapshot) per §Eager seeding.
 - Implement `func application(_ app: UIApplication, handle intent: INIntent, completionHandler: @escaping (INIntentResponse) -> Void)` per §Data flow §Cold-start step 8.
 
 **`Abbay/Intents/AbbayIntents.swift`** — top of each `perform()` in all five phase-1 intents:
@@ -335,13 +387,24 @@ guard !LaunchStateFlag.isUnavailable() else {
     return .result(dialog: IntentDialog(Self.audioUnavailableDialog))
 }
 ```
-With `static let audioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."` added once (e.g., on a shared `IntentDialogs` namespace).
+`static let audioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."`
 
 **`Abbay/View/MediaListView/MediaListViewModel.swift`**:
-- Add `func importAudio(from urls: [URL])` that mutates `audioList` AND triggers a snapshot write AND `AbbayAppShortcuts.updateAppShortcutParameters()`. Bookmark data computed at import time (while picker URLs are accessible) and persisted on the model.
-- After `loadAllAudios` and `deleteAudio`, add `LibrarySnapshotWriter.write(audios: audioList)` calls alongside the existing shortcut-parameter update.
+- Add `func importAudio(from urls: [URL]) async`:
+  ```swift
+  func importAudio(from urls: [URL]) async {
+      let newFiles = await fileLoader.load(urls: urls)  // already populates bookmarkData on each
+      for file in newFiles where !audioList.contains(where: { $0.url == file.url }) {
+          audioList.append(file)
+      }
+      LibrarySnapshotWriter.shared.write(audios: audioList)
+      AbbayAppShortcuts.updateAppShortcutParameters()
+  }
+  ```
+- After `loadAllAudios` and `deleteAudio`, add `LibrarySnapshotWriter.shared.write(audios: audioList)` alongside existing shortcut updates.
 
-**`Abbay/View/MediaListView/DocumentPickerView.swift`** — replace the direct `view.selectedFiles.append(...)` mutation with a call to `view.viewModel.importAudio(from: urls)`. Routes import through the view model so the snapshot write is hit on import, fixing the otherwise-stale-on-just-imported-book Siri case.
+**`Abbay/View/DocumentPicker/DocumentPickerView.swift`**:
+- Replace the direct `view.selectedFiles.append(file)` mutation (current lines 52-58) with a single call: `Task { await view.viewModel.importAudio(from: urls) }`. Requires `DocumentPickerView` to hold a reference to the view model (currently it holds a `@Binding` to `selectedFiles` only; the binding becomes a view-model reference instead). View model surface is the cleaner pin since the snapshot/shortcut updates now have a single trigger.
 
 **`project.yml`** — add the `AbbayIntents` target, App Group entitlement on both targets, Siri entitlement + `NSSiriUsageDescription` on main app.
 
@@ -358,71 +421,78 @@ Lives in `AbbayIntentsTests/`, runs in the extension's build scheme. All tests u
 - `PlayMediaIntentHandlerTests.resolveMediaItems_emptyLibrary_returnsUnsupported_thenHandleReturnsFailureWithEmptyLibraryDialog`
 - `PlayMediaIntentHandlerTests.resolveMediaItems_audioSessionUnavailableFlag_returnsUnsupported_thenHandleReturnsFailureWithUnavailableDialog`
 - `PlayMediaIntentHandlerTests.handle_singleMatchPath_returnsHandleInApp`
-- `ExtensionFuzzyMatchTests` — exact / prefix / contains / no-match / punctuation strip / `&`→`and` normalization / last-played tiebreak / multi-match same-score → all results / multi-match different scores → only top score — same vectors as phase-1's `FuzzyMatchTests`, locked to the extension copy of the helper.
+- `ExtensionFuzzyMatchTests` — exact / prefix / contains / no-match / punctuation strip / `&`→`and` / last-played tiebreak / multi-match same-score (`matchAll`) / multi-match different scores (`matchAll` returns only top score) — same vectors as phase-1's `FuzzyMatchTests`.
 - `LibrarySnapshotReaderTests.read_validJSON_returnsEntries`
 - `LibrarySnapshotReaderTests.read_missingValue_returnsEmpty`
 - `LibrarySnapshotReaderTests.read_malformedJSON_returnsEmpty`
 
 ### Extending `AbbayTests` (main app)
 
-- `AppDelegateTests.audioSessionSetActiveThrow_setsFlag_doesNotCrash` — replaces phase 1's documented crash test; verifies the flag is set and `didFinishLaunching` returns normally.
-- `AppDelegateTests.audioSessionSetCategoryThrow_setsFlag_doesNotCrash` — same for setCategory throw path.
-- `AppDelegateTests.handlePlayMediaIntent_callsPlayer_donates`
+- `AppDelegateTests.audioSessionSetActiveThrow_setsFlag_doesNotCrash`
+- `AppDelegateTests.audioSessionSetCategoryThrow_setsFlag_doesNotCrash`
+- `AppDelegateTests.didFinishLaunching_emptySnapshot_eagerSeedsFromLoadAllAudios`
+- `AppDelegateTests.didFinishLaunching_populatedSnapshot_skipsEagerSeed`
+- `AppDelegateTests.didFinishLaunching_lastPlayedInStandardOnly_seedsAppGroup`
+- `AppDelegateTests.handlePlayMediaIntent_callsPlayer_donatesViaPlayerSideEffect`
 - `AppDelegateTests.handlePlayMediaIntent_audioUnavailable_returnsFailure_doesNotCallPlayer`
 - `AppDelegateTests.handlePlayMediaIntent_loadAudioReturnsNil_returnsFailure_clearsLastPlayedIfMatched_refreshesSnapshot`
-- `LibrarySnapshotWriterTests.write_decodableByExtensionReader_roundTrip` — locks the JSON shape contract; the writer writes, the reader reads back identical entries (run from the main-app test target; reader code shared via a thin source-file linkage so the test compiles).
+- `LibrarySnapshotWriterTests.write_decodableByExtensionReader_roundTrip`
 - `LibrarySnapshotWriterTests.write_afterDelete_removesEntry`
 - `LibrarySnapshotWriterTests.write_excludesBookmarkDataWhenModelEmpty`
 - `LibrarySnapshotWriterTests.write_includesBookmarkDataWhenModelPopulated`
-- `LastPlayedStoreTests.migration_standardToAppGroup_seedThenWrite_zeroLoss` — verifies the seed-then-write ordering preserves a pre-existing `.standard` value when the suite is empty AND does not clobber a fresh suite write.
+- `LastPlayedStoreTests.migration_standardToAppGroup_seedThenWrite_zeroLoss`
 - `LaunchStateFlagTests.markUnavailable_thenClear_roundTrip`
 - `LaunchStateFlagTests.isUnavailable_defaultsFalse`
-- `PlayerTests.play_sameURLReplay_donatesEachTime` — locks the donation-on-every-play promise even when `updatePlayItem` is skipped.
-- `PlayerTests.play_firstPlayOfBookWithoutBookmark_populatesBookmarkData` — lazy bookmark migration path.
+- `PlayerTests.play_setActiveSucceeds_clearsLaunchStateFlag`
+- `PlayerTests.play_setActiveThrows_setsLaunchStateFlag_doesNotCallAVPlayerPlay_doesNotDonate`
+- `PlayerTests.play_sameURLReplay_donatesEachTime`
+- `PlayerTests.play_firstPlayOfBookWithoutBookmark_populatesBookmarkDataOnInoutModel_refreshesSnapshot`
+- `PlayerTests.play_firstPlayOfBookWithBookmark_doesNotRePopulate`
+- `MediaListViewModelTests.importAudio_appendsNonDuplicates_writesSnapshot_updatesShortcuts`
 - Existing `IntentTests` extended: each phase-1 intent's `perform()` test gets a sibling case asserting the `LaunchStateFlag.isUnavailable() == true` branch returns the unavailable dialog and does NOT call `Player`.
 - Existing `IntentTests` extended: assertion that `ResumeAbbayIntent`-driven `Player.play(_:)` triggers `IntentDonor.donatePlayMedia` even when `updatePlayItem` is skipped (warm-state same-URL case).
 
 ## Manual verification checklist
 
-Plan task `Manual on-device verification` will spell these out; capturing the headline cases here:
-
-- **Headline:** Kill Abbay. `"Hey Siri, play Harry Potter and the Goblet of Fire on Abbay"`. Expected: app background-launches, starts that book. ✅ No longer routes to YouTube Music.
-- **Disambiguation:** Library has two Harry Potter books. Kill Abbay. `"Hey Siri, play Harry Potter on Abbay"`. Expected: Siri prompts `"Did you mean Sorcerer's Stone or Chamber of Secrets?"` → user picks → plays.
-- **Many-match cap:** Library has six books containing the word "audiobook". Kill Abbay. `"Hey Siri, play audiobook on Abbay"`. Expected: Siri plays the last-played (tiebreak winner), no 6-way disambiguation prompt.
-- **Graceful launch:** Kill Abbay. Start an active phone call. `"Hey Siri, play in Abbay"`. Expected: spoken `"Audio temporarily unavailable. Try again in a moment."`. NO crash. Verify via Console.app that no `AVAudioSession` `fatalError` is logged.
-- **Background-launch budget:** Invoke Siri 6+ times in close succession during an active phone call (all should hit the unavailable dialog). Confirm iOS doesn't silently stop background-launching the app after the unavailable responses. If it does, document the threshold; the spec's expectation is that iOS will keep honoring the extension because we return early from `resolveMediaItems` (no wasted background-launch) — but verify on-device.
-- **Donation learning:** Fresh device, install Abbay phase 2. Play a book manually 3+ times across separate sessions. Wait. `"Hey Siri, play Harry Potter"` (no `"on Abbay"`). Expected behavior: after enough donations, Siri starts routing to Abbay. Acceptable: this may take time and is system-managed.
-- **Same-URL replay donation:** Play a book. Pause. Tap play again on the same book. Inspect `IntentDonor` test seam (or logs) — donation should fire on the second play too. Verifies the donation-on-every-play promise.
-- **`ResumeAbbayIntent` warm-state donation:** While a book is playing, say `"Hey Siri, pause Abbay"`, then `"Hey Siri, continue audiobook in Abbay"`. Inspect: donation fires on the resume even though `updatePlayItem` was skipped.
-- **No regression:** Phase-1 phrases (`"continue audiobook in Abbay"`, `"pause Abbay"`, `"next chapter in Abbay"`, `"previous chapter in Abbay"`) still work cold-start.
-- **Delete staleness recovery:** Play book A; delete it from the library; immediately kill the app; say `"Hey Siri, play A on Abbay"`. Expected: Siri speaks `"Cannot find that audiobook..."`. Subsequent Siri invocations for A also fail gracefully (snapshot refreshed on the first failure).
-- **Migration:** Upgrade install. Existing user with `LastPlayedStore` in `.standard`. First Siri invocation reads correct last-played; subsequent main-app play writes to App Group; extension reads same value.
-- **Lazy bookmark population:** Cold-start `"Hey Siri, play <book never played under phase 2> on Abbay"`. Extension resolves via `URL(string:)` fallback. Main app plays. Snapshot rewrites with populated `bookmarkData` (verifiable via `defaults read` on the App Group suite). Second Siri invocation uses the bookmark path.
-- **CarPlay:** Connect device to CarPlay. Repeat headline and pause/next chapter phrases. Confirm playback in CarPlay UI; note whether iPhone foregrounds (acceptable either way for phase 2; deferred CarPlay hook if unwanted foregrounding).
+- **Headline:** Kill Abbay. `"Hey Siri, play Harry Potter and the Goblet of Fire on Abbay"`. Expected: background-launches, plays. No YouTube Music mis-route.
+- **Disambiguation:** Library has two Harry Potter books. Kill Abbay. `"Hey Siri, play Harry Potter on Abbay"`. Expected: Siri prompts to pick → user picks → plays.
+- **Many-match cap:** Library has six books containing "audiobook". Kill Abbay. `"Hey Siri, play audiobook on Abbay"`. Expected: plays last-played tiebreak winner, no 6-way prompt.
+- **Graceful launch + recovery:** Kill Abbay. Start a phone call. `"Hey Siri, play in Abbay"`. Expected: `"Audio temporarily unavailable."` NO crash. End the call. `"Hey Siri, play in Abbay"` again. Expected: this time succeeds — `Player.play` retries `setActive` and clears the flag.
+- **Background-launch budget:** Invoke Siri 6+ times in close succession during an active phone call. Expected: each returns the unavailable dialog without iOS rate-limiting the extension (because the extension returns `.failureUnknownMediaType` from `handle`, no host-app launch consumed).
+- **Donation learning:** Fresh device, install phase 2. Play a book manually 3+ times across separate sessions. Wait. `"Hey Siri, play Harry Potter"` (no `"on Abbay"`). Expected: eventually routes to Abbay.
+- **Same-URL replay donation:** Play a book. Pause. Tap play. Donation fires on the resume too.
+- **`ResumeAbbayIntent` warm-state donation:** While playing, `"Hey Siri, pause Abbay"`, then `"Hey Siri, continue audiobook in Abbay"`. Donation fires on the resume.
+- **Delete staleness recovery:** Play book A; delete from library; immediately kill app; `"Hey Siri, play A on Abbay"`. Expected: `"Cannot find that audiobook..."` and snapshot refreshes.
+- **Migration:** Upgrade install. Existing `LastPlayedStore` value in `.standard`. First main-app launch eager-seeds App Group; first Siri invocation reads same value.
+- **Cold-background-launch with no MediaListView open:** Upgrade install, never open MediaListView, kill app, `"Hey Siri, play <book> on Abbay"`. Expected: AppDelegate eager-seed populates snapshot before extension reads (or, if extension reads first via App Group, gets empty → no-match dialog → user opens app → next invocation succeeds). Documented behavior.
+- **Lazy bookmark population:** Legacy book without `bookmarkData`. Cold-start `"Hey Siri, play <book> on Abbay"`. First invocation: extension resolves via `URL(string:)` fallback. Main app plays, populates bookmarkData on the inout model, persists to Core Data, refreshes snapshot. Verify via `defaults read` on the App Group suite that the snapshot entry now has `bookmarkData` populated.
+- **No regression:** Phase-1 phrases work cold-start.
+- **CarPlay:** Connect device, repeat headline and pause/next phrases.
 
 ## Risks
 
-- **`INPlayMediaIntent` mediaSearch reliability.** Apple Developer Forums thread [FB14872048](https://developer.apple.com/forums/thread/762196) (Aug 2024) reports occasional `mediaSearch.mediaName` truncation on long titles. Mitigation: our titles are short relative to song titles; phase-2 includes a manual checklist case verifying a long book title (`"Harry Potter and the Goblet of Fire"`) round-trips correctly. Escalate to a follow-up issue if hit.
-- **Donation rate vs Siri's learning model.** Apple does not publish the threshold for `"play <X>"` (no app name) to route to a third-party media app. WWDC21 session 10231 documents donation cadence but not the routing model. Phase-2 donates on every successful play start (extension + AppIntents + manual taps); this matches Spotify-class apps. Risk: if Apple changes the model in a future iOS update, the no-app-name routing degrades silently. Mitigation: manual checklist tracks behavior; non-blocking for phase 2 since the "on Abbay" case is the headline.
-- **iOS background-launch budget for `INPlayMediaIntent` extensions.** iOS rate-limits how often the host app will be background-launched from an extension's `.handleInApp` response. After repeated failures (e.g., user invokes Siri during many consecutive phone calls and gets the unavailable dialog each time), iOS may stop background-launching Abbay at all for a window. Mitigation: when `LaunchStateFlag.isUnavailable()` is true, the extension returns `.failureUnknownMediaType` from `handle` instead of `.handleInApp` — no host-app launch is requested, no budget consumed. Manual checklist verifies this on-device.
-- **App Group migration on existing installs.** The seed-then-write ordering covers the standard upgrade path. Edge case: user kills the app between the upgrade and first playback, then triggers Siri before re-launching. Extension reads from the App Group — which is empty — and `LastPlayedStore.lastPlayedURL()` returns nil. Handler still routes via `mediaSearch.mediaName` correctly; user sees a `"No audiobook matches..."` only if they say `"play in Abbay"` (no specific book) before re-launching. Acceptable: documented in the manual checklist; not a regression vs phase 1.
-- **JSON snapshot freshness window.** Snapshot is written on library load + delete + import + AppDelegate.handle nil-URL refresh. Edge case: user imports a book, kills app before the write completes, triggers Siri. Window is sub-millisecond (`UserDefaults.set` is synchronous, atomic). Symmetric DELETE staleness is handled by the AppDelegate.handle nil-URL snapshot refresh (above). Acceptable.
-- **`bookmarkData` round-trip for never-played books.** Books imported pre-phase-2 and not yet played under phase 2 ship snapshot entries without bookmarkData. The extension's `handle` flow falls back to `URL(string: identifier)`. The legacy security-scoped URL semantics apply (`URL(string:)` does NOT round-trip the scope) — the URL is technically still openable but `LoadAudioUseCase` may return nil if iCloud-not-downloaded. Mitigation: documented in the manual checklist as "lazy bookmark population"; first play migrates the book; sub-second user-visible cost.
-- **Extension build dependency on entitlements.** A misconfigured App Group entitlement surfaces as `UserDefaults(suiteName:) == nil` at runtime in the extension. `AppGroup.swift`'s `fatalError` catches it immediately in development; CI build smoke test should exercise the extension's `LibrarySnapshotReader.read()` to surface any misconfiguration before merge.
-- **`com.apple.developer.siri` capability + App Store review.** Adds a capability to the main app; profile regen needed. Spotify, YouTube Music, Audible all ship this; no documented App Store review issue.
+- **`INPlayMediaIntent` mediaSearch reliability.** Forum thread [FB14872048](https://developer.apple.com/forums/thread/762196). Mitigation: short titles, manual checklist.
+- **Donation rate vs Siri's learning model.** Apple does not publish thresholds. Phase 2 donates on every play; matches Spotify-class apps.
+- **iOS background-launch budget for `INPlayMediaIntent` extensions.** Mitigation: extension returns `.failureUnknownMediaType` early when flag set, no host-app launch consumed.
+- **App Group migration on existing installs.** Read-side fallback to `.standard` (main app only) + AppDelegate eager seed close the upgrade windows. Extension-only invocation before first main-app launch after upgrade: tiebreak degrades to library-index ordering (acceptable).
+- **JSON snapshot freshness windows.** Writes on: library load, delete, import, lazy-bookmark-population, AppDelegate eager-seed, AppDelegate.handle nil-URL refresh. Remaining window: import-then-kill-before-`UserDefaults.set` (sub-millisecond, acceptable).
+- **`bookmarkData` round-trip for legacy books.** First Siri invocation falls back to `URL(string:)`; main app's lazy migration in `Player.play` populates the bookmark and refreshes the snapshot; subsequent invocations use the bookmark path.
+- **`Player.play(_:)` retry-setActive overhead.** `AVAudioSession.setActive(true)` when already active is a fast no-op per Apple's docs; one call per play is acceptable. If profiling shows otherwise, gate the retry on `LaunchStateFlag.isUnavailable()` (skip-retry when flag is false).
+- **Extension build dependency on entitlements.** Misconfigured App Group surfaces as `UserDefaults(suiteName:) == nil` → `AppGroup.swift`'s `fatalError`. CI build smoke test exercises `LibrarySnapshotReader.read()` to surface misconfiguration before merge.
+- **`com.apple.developer.siri` capability + App Store review.** Spotify, YouTube Music, Audible all ship this; no documented review issue.
 
 ## Open implementation questions (deferred to plan)
 
-- **Whether to share `FuzzyMatch.swift` source between main app and extension via Xcode source-target-membership (one file in both targets' compile-sources lists) OR to duplicate the file in both directories.** Plan-phase decision based on which produces cleaner xcodegen output. Both meet the spec's correctness contract. Tests in both `AbbayTests` and `AbbayIntentsTests` lock identical fuzzy-match vectors regardless.
+- **`FuzzyMatch.swift` source-sharing strategy** between main app and extension (target-membership vs duplicate). Pure code-org; both meet correctness. Tests on both sides lock identical vectors.
 
-(Previously open: donation site in Player.swift and IntentDonor protocol — pinned above in §Components §Player.play donation site and §Main-app new files. Previously open: manual vs Siri-triggered donation differences — pinned: identical payload, per WWDC19 session 207.)
+(Previously open: donation site, IntentDonor protocol, manual-vs-Siri donation payload differences, lazy-bookmark mutation site, snapshot refresh after migration, IntentDonor injection seam — all pinned above.)
 
-## Phase 3 candidates
+## Phase 3 candidates (each with a falsifiable trigger)
 
-- Replace JSON snapshot with shared Core Data store in App Group (or `AbbayKit` framework extraction).
-- `bookmarkData` round-trip in `LastPlayedStore.lastPlayedURL()` for full security-scoped URL durability.
-- iOS 18 AppIntents `AssistantSchemas` (`playMedia` / `playAudiobook`) — see GitHub issue created alongside this spec.
-- `LocalizedStringResource` migration for all Siri dialog strings.
-- `AppIntentsExtension` target for phase-1 AppIntents (background process for non-Siri AppIntents performance).
-- CarPlay scene routing hook if phase 2 observation reveals unwanted iPhone foregrounding.
-- `INMediaItem` artwork in Siri lock-screen sheet — surface `AudioModel.imageData` via `INImage(imageData:)`. Adds JSON-snapshot footprint or a secondary file-based artwork store; weighed against the blank-tile UX cost.
+- **Replace JSON snapshot with shared Core Data store in App Group OR `AbbayKit` framework extraction.** Trigger: maintenance pain from FuzzyMatch source-sharing OR a concrete need for in-extension playback OR shared state grows beyond the snapshot JSON shape.
+- **`bookmarkData` round-trip in `LastPlayedStore.lastPlayedURL()` for full security-scoped URL durability.** Trigger: `ResumeAbbayIntent` cold-launch returns nil URL in production telemetry for users whose books survived `LoadAudioUseCase`.
+- **iOS 18 AppIntents `AssistantSchemas` (`playMedia` / `playAudiobook`).** Trigger: Apple Intelligence rollout reaches a meaningful user share OR Siri's `INPlayMediaIntent` routing is deprecated.
+- **`LocalizedStringResource` migration for all Siri dialog strings.** Trigger: first non-English locale launch of Abbay.
+- **`AppIntentsExtension` target for phase-1 AppIntents.** Trigger: AppIntents background-execution latency becomes user-visible (e.g., `PauseAbbayIntent` lag > 1s in production telemetry).
+- **CarPlay scene routing hook.** Trigger: phase-2 on-device CarPlay observation shows unwanted iPhone foregrounding during voice playback.
+- **`INMediaItem` artwork in Siri lock-screen sheet.** Trigger: user-research signal showing blank-tile causes confusion in CarPlay or Siri lock-screen sheet, OR analytics on the Siri confirmation funnel shows drop-off.
