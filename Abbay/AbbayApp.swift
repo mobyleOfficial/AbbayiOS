@@ -7,6 +7,7 @@
 
 import AVFoundation
 import CarPlay
+import Intents
 import SwiftUI
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -15,6 +16,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     // do NOT fire at AppDelegate-construction time, only inside `didFinishLaunching` after DI configure.
     lazy var audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
     lazy var seeder: AppDelegateSeederProtocol = AppDelegateSeeder()
+    lazy var intentRouter: IntentRouterProtocol = IntentRouter()
 
     func application(
         _ application: UIApplication,
@@ -55,6 +57,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         DependencyContainer.shared.player.cleanup()
+    }
+
+    func application(
+        _ application: UIApplication,
+        handle intent: INIntent,
+        completionHandler: @escaping (INIntentResponse) -> Void
+    ) {
+        if let playIntent = intent as? INPlayMediaIntent {
+            completionHandler(intentRouter.handle(playIntent))
+            return
+        }
+        // Non-INPlayMediaIntent paths return a generic failure response. Phase-1 AppIntents
+        // are dispatched by AppIntents runtime, NOT through this application(_:handle:) hook,
+        // so this branch is defensive only.
+        completionHandler(INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil))
     }
 }
 
