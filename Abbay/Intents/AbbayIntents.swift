@@ -6,6 +6,12 @@
 import AppIntents
 import Foundation
 
+// MARK: - Shared dialogs
+
+/// Spoken when the audio session is unavailable (e.g. another app holds it during a phone call).
+/// Phase-2 contract: dialog text is locked to enable manual verification + regression tests.
+let abbayAudioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."
+
 // MARK: - Fuzzy match helper
 
 /// Returns the best library match for a spoken title, or nil if no audio scores > 0.
@@ -90,6 +96,9 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !LaunchStateFlag.isUnavailable() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard let url = LastPlayedStore.lastPlayedURL() else {
             return .result(dialog: IntentDialog(stringLiteral: Self.addBookDialog))
         }
@@ -114,6 +123,9 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !LaunchStateFlag.isUnavailable() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -133,6 +145,9 @@ struct NextChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !LaunchStateFlag.isUnavailable() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -152,6 +167,9 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !LaunchStateFlag.isUnavailable() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -183,6 +201,9 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !LaunchStateFlag.isUnavailable() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         let library = DependencyContainer.shared.loadAllAudios.execute()
         let lastPlayed = LastPlayedStore.lastPlayedURL()
         guard let hit = fuzzyMatch(input: bookName, audios: library, lastPlayedURL: lastPlayed),
