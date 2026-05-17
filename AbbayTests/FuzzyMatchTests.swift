@@ -9,10 +9,10 @@ import XCTest
 final class FuzzyMatchTests: XCTestCase {
 
     private func audio(title: String, url: String) -> AudioModel {
-        var m = AudioModel()
-        m.title = title
-        m.url = URL(string: url)
-        return m
+        var model = AudioModel()
+        model.title = title
+        model.url = URL(string: url)
+        return model
     }
 
     func test_exactMatch_afterNormalize_scoresHighest() {
@@ -35,8 +35,11 @@ final class FuzzyMatchTests: XCTestCase {
 
     func test_ampersandNormalizesToAnd() {
         let library = [audio(title: "Harry Potter and the Philosophers Stone", url: "file:///a")]
-        let result = fuzzyMatch(input: "Harry Potter & the Philosophers Stone",
-                                audios: library, lastPlayedURL: nil)
+        let result = fuzzyMatch(
+            input: "Harry Potter & the Philosophers Stone",
+            audios: library,
+            lastPlayedURL: nil
+        )
         XCTAssertEqual(result?.title, "Harry Potter and the Philosophers Stone")
     }
 
@@ -55,20 +58,23 @@ final class FuzzyMatchTests: XCTestCase {
     }
 
     func test_lastPlayedWinsTie() {
-        let a = audio(title: "Book One", url: "file:///a")
-        let b = audio(title: "Book Two", url: "file:///b")
-        // Both contain "book" → tie at score 1; b is last-played.
-        let result = fuzzyMatch(input: "book", audios: [a, b],
-                                lastPlayedURL: URL(string: "file:///b"))
+        let bookOne = audio(title: "Book One", url: "file:///a")
+        let bookTwo = audio(title: "Book Two", url: "file:///b")
+        // Both contain "book" → tie at score 1; bookTwo is last-played.
+        let result = fuzzyMatch(
+            input: "book",
+            audios: [bookOne, bookTwo],
+            lastPlayedURL: URL(string: "file:///b")
+        )
         XCTAssertEqual(result?.url, URL(string: "file:///b"))
     }
 
     func test_libraryIndexAscendingTiebreak_whenNoLastPlayed() {
         // Both contain "book" → tie at score 1; neither last-played.
         // Library-order ascending wins → first entry.
-        let a = audio(title: "Book One", url: "file:///a")
-        let b = audio(title: "Book Two", url: "file:///b")
-        let result = fuzzyMatch(input: "book", audios: [a, b], lastPlayedURL: nil)
+        let bookOne = audio(title: "Book One", url: "file:///a")
+        let bookTwo = audio(title: "Book Two", url: "file:///b")
+        let result = fuzzyMatch(input: "book", audios: [bookOne, bookTwo], lastPlayedURL: nil)
         XCTAssertEqual(result?.url, URL(string: "file:///a"))
     }
 
@@ -95,8 +101,11 @@ final class FuzzyMatchTests: XCTestCase {
             audio(title: "Harry the Adventurer", url: "file:///c")
         ]
         let result = fuzzyMatch(input: "harry", audios: library, lastPlayedURL: nil)
-        XCTAssertEqual(result?.url, URL(string: "file:///b"),
-                       "exact match (score 3) must beat prefix (2) and contains (1)")
+        XCTAssertEqual(
+            result?.url,
+            URL(string: "file:///b"),
+            "exact match (score 3) must beat prefix (2) and contains (1)"
+        )
     }
 
     func test_scoreBeatsLastPlayed_whenScoresDiffer() {
@@ -108,9 +117,15 @@ final class FuzzyMatchTests: XCTestCase {
             audio(title: "Book One", url: "file:///a"),
             audio(title: "book", url: "file:///b")
         ]
-        let result = fuzzyMatch(input: "book", audios: library,
-                                lastPlayedURL: URL(string: "file:///a"))
-        XCTAssertEqual(result?.url, URL(string: "file:///b"),
-                       "higher score must win even when a lower-scored entry is last-played")
+        let result = fuzzyMatch(
+            input: "book",
+            audios: library,
+            lastPlayedURL: URL(string: "file:///a")
+        )
+        XCTAssertEqual(
+            result?.url,
+            URL(string: "file:///b"),
+            "higher score must win even when a lower-scored entry is last-played"
+        )
     }
 }

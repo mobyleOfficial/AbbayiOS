@@ -20,8 +20,8 @@ import Foundation
 func fuzzyMatch(input: String,
                 audios: [AudioModel],
                 lastPlayedURL: URL?) -> AudioModel? {
-    let q = normalize(input)
-    guard !q.isEmpty else { return nil }
+    let query = normalize(input)
+    guard !query.isEmpty else { return nil }
 
     struct Scored {
         let audio: AudioModel
@@ -31,23 +31,30 @@ func fuzzyMatch(input: String,
     }
 
     let scored: [Scored] = audios.enumerated().compactMap { idx, audio in
-        let t = normalize(audio.title)
+        let normalizedTitle = normalize(audio.title)
         let score: Int
-        if t == q { score = 3 }
-        else if t.hasPrefix(q) { score = 2 }
-        else if t.contains(q) { score = 1 }
-        else { score = 0 }
+        if normalizedTitle == query {
+            score = 3
+        } else if normalizedTitle.hasPrefix(query) {
+            score = 2
+        } else if normalizedTitle.contains(query) {
+            score = 1
+        } else {
+            score = 0
+        }
         guard score > 0 else { return nil }
-        return Scored(audio: audio,
-                      score: score,
-                      isLastPlayed: audio.url != nil && audio.url == lastPlayedURL,
-                      index: idx)
+        return Scored(
+            audio: audio,
+            score: score,
+            isLastPlayed: audio.url != nil && audio.url == lastPlayedURL,
+            index: idx
+        )
     }
 
-    return scored.max { a, b in
-        if a.score != b.score { return a.score < b.score }
-        if a.isLastPlayed != b.isLastPlayed { return !a.isLastPlayed && b.isLastPlayed }
-        return a.index > b.index
+    return scored.max { lhs, rhs in
+        if lhs.score != rhs.score { return lhs.score < rhs.score }
+        if lhs.isLastPlayed != rhs.isLastPlayed { return !lhs.isLastPlayed && rhs.isLastPlayed }
+        return lhs.index > rhs.index
     }?.audio
 }
 
@@ -57,8 +64,8 @@ func fuzzyMatch(input: String,
 ///   3. Strip CharacterSet.punctuationCharacters ∪ .symbols
 ///   4. Collapse whitespace runs to a single space
 ///   5. Trim
-private func normalize(_ s: String) -> String {
-    var out = s.replacingOccurrences(of: "&", with: " and ")
+private func normalize(_ input: String) -> String {
+    var out = input.replacingOccurrences(of: "&", with: " and ")
     out = out.lowercased()
     let stripped = CharacterSet.punctuationCharacters.union(.symbols)
     out = String(out.unicodeScalars.filter { !stripped.contains($0) })
@@ -72,12 +79,11 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play in Abbay"
     static let description = IntentDescription("Resumes the last audiobook you played in Abbay.")
 
-    init() {}
-
     // Spec-locked dialog text. v1 English-only (localization is a phase-2 non-goal).
     // Lifted into constants so a unit test catches regressions on wording / punctuation.
     static let addBookDialog = "Add a book in Abbay first."
     static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+
     static func playingDialog(title: String) -> String {
         "Playing \(title)."
     }
@@ -103,8 +109,6 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Pause Abbay"
     static let description = IntentDescription("Pauses the current audiobook in Abbay.")
 
-    init() {}
-
     static let nothingPlayingDialog = "Nothing is playing."
     static let pausedDialog = "Paused."
 
@@ -124,8 +128,6 @@ struct NextChapterIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Next chapter in Abbay"
     static let description = IntentDescription("Skips to the next chapter of the audiobook playing in Abbay.")
 
-    init() {}
-
     static let nothingPlayingDialog = "Nothing is playing. Say 'Play in Abbay' to start."
     static let nextChapterDialog = "Next chapter."
 
@@ -144,8 +146,6 @@ struct NextChapterIntent: AudioPlaybackIntent {
 struct PreviousChapterIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Previous chapter in Abbay"
     static let description = IntentDescription("Skips to the previous chapter of the audiobook playing in Abbay.")
-
-    init() {}
 
     static let nothingPlayingDialog = "Nothing is playing. Say 'Play in Abbay' to start."
     static let previousChapterDialog = "Previous chapter."
@@ -169,14 +169,14 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
     @Parameter(title: "Audiobook", requestValueDialog: IntentDialog("Which audiobook?"))
     var bookName: String
 
-    init() {}
-
     // Spec-locked dialog text. v1 ships English only (non-goal: localization).
     // Lift into constants so a unit test catches regressions on wording / punctuation.
     static func noMatchDialog(_ input: String) -> String {
         "No audiobook matches '\(input)'."
     }
+
     static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+
     static func playingDialog(title: String) -> String {
         "Playing \(title)."
     }
