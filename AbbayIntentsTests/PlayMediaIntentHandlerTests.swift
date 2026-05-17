@@ -59,50 +59,88 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
         suite.set(data, forKey: LibrarySnapshotWriter.key)
     }
 
-    func test_resolveMediaItems_singleMatch_returnsSuccess() throws {
+    // Tests target the internal `decide(for:)` method because the public
+    // `resolveMediaItems` wraps results in opaque
+    // `INPlayMediaMediaItemResolutionResult` values with no public accessors —
+    // asserting `results.count == 1` on the wrapper is a tautology.
+
+    func test_decide_singleMatch_returnsSingleMatchOutcome() throws {
         try writeSnapshot([
             LibrarySnapshotEntry(title: "Harry Potter", urlString: "file:///hp", bookmarkData: nil)
         ])
-
-        let exp = expectation(description: "resolve")
         let handler = try XCTUnwrap(self.handler)
-        handler.resolveMediaItems(for: makeIntent(mediaName: "Harry Potter")) { results in
-            XCTAssertEqual(results.count, 1)
-            exp.fulfill()
+        let outcome = handler.decide(for: makeIntent(mediaName: "Harry Potter"))
+
+        guard case .singleMatch(let item) = outcome else {
+            return XCTFail("expected .singleMatch, got \(outcome)")
         }
-        waitForExpectations(timeout: 1)
+        XCTAssertEqual(item.title, "Harry Potter")
+        XCTAssertEqual(item.identifier, "file:///hp")
     }
 
-    func test_resolveMediaItems_multipleMatches_returnsDisambiguation() throws {
+    func test_decide_twoMatchesAtTopScore_returnsDisambiguationOutcome() throws {
         try writeSnapshot([
             LibrarySnapshotEntry(title: "Harry Potter and the Sorcerer's Stone", urlString: "file:///a", bookmarkData: nil),
             LibrarySnapshotEntry(title: "Harry Potter and the Chamber of Secrets", urlString: "file:///b", bookmarkData: nil)
         ])
+        let handler = try XCTUnwrap(self.handler)
+        let outcome = handler.decide(for: makeIntent(mediaName: "Harry Potter"))
 
+        guard case .disambiguation(let items) = outcome else {
+            return XCTFail("expected .disambiguation, got \(outcome)")
+        }
+        XCTAssertEqual(items.count, 2)
+        XCTAssertTrue(items.contains { ($0.title ?? "").contains("Sorcerer") })
+        XCTAssertTrue(items.contains { ($0.title ?? "").contains("Chamber") })
+    }
+
+    func test_decide_moreThanFiveAtTopScore_returnsFallbackBestOutcome() throws {
+        let entries = (0..<6).map { idx in
+            LibrarySnapshotEntry(
+                title: "Audiobook \(idx)",
+                urlString: "file:///book-\(idx)",
+                bookmarkData: nil
+            )
+        }
+        try writeSnapshot(entries)
+        let handler = try XCTUnwrap(self.handler)
+        let outcome = handler.decide(for: makeIntent(mediaName: "Audiobook"))
+
+        guard case .fallbackBest(let item) = outcome else {
+            return XCTFail("expected .fallbackBest (>5 cap), got \(outcome)")
+        }
+        // Tiebreak (no last-played): library-index ASC → first entry wins.
+        XCTAssertEqual(item.identifier, "file:///book-0")
+    }
+
+    func test_decide_emptyLibrary_returnsEmptyLibraryOutcome() throws {
+        let handler = try XCTUnwrap(self.handler)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Anything")), .emptyLibrary)
+    }
+
+    func test_decide_noMatch_returnsNoMatchOutcome() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Harry Potter", urlString: "file:///hp", bookmarkData: nil)
+        ])
+        let handler = try XCTUnwrap(self.handler)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Star Wars")), .noMatch)
+    }
+
+    func test_decide_audioSessionUnavailableFlag_returnsUnavailableOutcome() throws {
+        LaunchStateFlag.markUnavailable()
+        let handler = try XCTUnwrap(self.handler)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Anything")), .unavailable)
+    }
+
+    // Smoke test: ensure resolveMediaItems wraps the outcome and completes.
+    // (Cannot inspect the wrapped resolution result via public API.)
+    func test_resolveMediaItems_callsCompletion() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Harry Potter", urlString: "file:///hp", bookmarkData: nil)
+        ])
         let exp = expectation(description: "resolve")
         let handler = try XCTUnwrap(self.handler)
         handler.resolveMediaItems(for: makeIntent(mediaName: "Harry Potter")) { results in
-            XCTAssertEqual(results.count, 1)
-            exp.fulfill()
-        }
-        waitForExpectations(timeout: 1)
-    }
-
-    func test_resolveMediaItems_emptyLibrary_returnsUnsupported() throws {
-        let exp = expectation(description: "resolve")
-        let handler = try XCTUnwrap(self.handler)
-        handler.resolveMediaItems(for: makeIntent(mediaName: "Anything")) { results in
-            XCTAssertEqual(results.count, 1)
-            exp.fulfill()
-        }
-        waitForExpectations(timeout: 1)
-    }
-
-    func test_resolveMediaItems_audioSessionUnavailableFlag_returnsUnsupported() throws {
-        LaunchStateFlag.markUnavailable()
-        let exp = expectation(description: "resolve")
-        let handler = try XCTUnwrap(self.handler)
-        handler.resolveMediaItems(for: makeIntent(mediaName: "Anything")) { results in
             XCTAssertEqual(results.count, 1)
             exp.fulfill()
         }

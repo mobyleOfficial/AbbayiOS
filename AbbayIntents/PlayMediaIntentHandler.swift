@@ -5,20 +5,30 @@
 
 import Intents
 
+/// Result of `PlayMediaIntentHandler.decide(for:)` — the testable inner decision
+/// that the public `resolveMediaItems` method then maps to opaque
+/// `INPlayMediaMediaItemResolutionResult` values (which have no public accessors).
+enum ResolveOutcome: Equatable {
+    case unavailable
+    case emptyLibrary
+    case noMatch
+    case singleMatch(INMediaItem)
+    case disambiguation([INMediaItem])
+    case fallbackBest(INMediaItem)
+}
+
 final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
-    func resolveMediaItems(
-        for intent: INPlayMediaIntent,
-        with completion: @escaping ([INPlayMediaMediaItemResolutionResult]) -> Void
-    ) {
+    /// Internal decision method exposed for unit testing. Returns the semantic
+    /// outcome before it's wrapped in opaque `INPlayMediaMediaItemResolutionResult`
+    /// values (those expose no public accessors, so the wrap is untestable).
+    func decide(for intent: INPlayMediaIntent) -> ResolveOutcome {
         if LaunchStateFlag.isUnavailable() {
-            completion([.unsupported(forReason: .unsupportedMediaType)])
-            return
+            return .unavailable
         }
 
         let entries = LibrarySnapshotReader.read()
         guard !entries.isEmpty else {
-            completion([.unsupported(forReason: .unsupportedMediaType)])
-            return
+            return .emptyLibrary
         }
 
         let mediaName = intent.mediaSearch?.mediaName ?? ""
@@ -34,8 +44,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
 
         let candidates = matchAll(input: mediaName, audios: audios, lastPlayedURL: lastPlayedURL)
         if candidates.isEmpty {
-            completion([.unsupported(forReason: .unsupportedMediaType)])
-            return
+            return .noMatch
         }
 
         let items: [INMediaItem] = candidates.map { audio in
@@ -48,12 +57,26 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         }
 
         if items.count == 1 {
-            completion([.success(with: items[0])])
+            return .singleMatch(items[0])
         } else if items.count <= 5 {
-            completion([.disambiguation(with: items)])
+            return .disambiguation(items)
         } else {
             // Many-match cap: fall back to the top-ranked candidate (last-played-aware).
-            completion([.success(with: items[0])])
+            return .fallbackBest(items[0])
+        }
+    }
+
+    func resolveMediaItems(
+        for intent: INPlayMediaIntent,
+        with completion: @escaping ([INPlayMediaMediaItemResolutionResult]) -> Void
+    ) {
+        switch decide(for: intent) {
+        case .unavailable, .emptyLibrary, .noMatch:
+            completion([.unsupported(forReason: .unsupportedMediaType)])
+        case .singleMatch(let item), .fallbackBest(let item):
+            completion([.success(with: item)])
+        case .disambiguation(let items):
+            completion([.disambiguation(with: items)])
         }
     }
 

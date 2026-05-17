@@ -44,7 +44,10 @@ final class AppDelegateOrderingTests: XCTestCase {
         let suiteName = "test.flag.\(UUID().uuidString)"
         let flagSuite = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         LaunchStateFlag.defaults = flagSuite
-        defer { LaunchStateFlag.defaults = AppGroup.defaults }
+        defer {
+            flagSuite.removePersistentDomain(forName: suiteName)
+            LaunchStateFlag.defaults = AppGroup.defaults
+        }
 
         struct ThrowingActivator: AudioSessionActivatorProtocol {
             func activate() throws { throw NSError(domain: "test", code: 1) }

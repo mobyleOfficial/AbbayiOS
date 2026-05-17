@@ -24,7 +24,11 @@ enum LastPlayedStore {
 
     static func save(url: URL?) {
         guard let url = url else {
+            // Clear BOTH stores. The phase-1 fallback would otherwise resurface a stale
+            // URL on the next read (re-introducing the stuck-state loop the callers are
+            // explicitly trying to break).
             defaults.removeObject(forKey: key)
+            standardFallback.removeObject(forKey: key)
             return
         }
         // Seed-then-write: if AppGroup empty AND .standard has value, copy first

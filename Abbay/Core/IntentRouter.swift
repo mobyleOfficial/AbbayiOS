@@ -59,6 +59,13 @@ final class IntentRouter: IntentRouterProtocol {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ) {
+                // If the bookmark is stale, ask LibrarySnapshotWriter to refresh so the
+                // next read picks up a freshly-recreated bookmark from AudioModel state.
+                // Player.play's lazy-bookmark migration handles non-nil but stale data
+                // via the same refresh path when the model is loaded.
+                if isStale {
+                    snapshotWriter.refresh()
+                }
                 return resolved
             }
         }

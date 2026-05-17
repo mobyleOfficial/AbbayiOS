@@ -31,7 +31,10 @@ final class IntentTests: XCTestCase {
         DependencyContainer.reset()
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = .standard
+        // Restore to production default (AppGroup) — NOT `.standard` — so a leaked
+        // pointer can't bleed across test suites in the same xctest worker.
+        LastPlayedStore.defaults = AppGroup.defaults
+        LastPlayedStore.standardFallback = .standard
         // NowPlayingManager is a process singleton with stateful currentAudio;
         // reset between tests so case-order independence holds.
         NowPlayingManager.shared.setPlayer(player, currentAudio: nil)

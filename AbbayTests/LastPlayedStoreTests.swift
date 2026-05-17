@@ -52,6 +52,19 @@ final class LastPlayedStoreTests: XCTestCase {
         XCTAssertNil(LastPlayedStore.lastPlayedURL())
     }
 
+    func test_save_nil_alsoClearsStandardFallback_preventsStuckStateLoop() throws {
+        // Phase-1 install path: value lives only in `.standard` (here: injected fallback).
+        // Caller invokes the stuck-state clear via `save(url: nil)` after detecting a
+        // dead pointer. Read must NOT resurface the phase-1 value via the fallback chain.
+        LastPlayedStore.standardFallback.set("file:///dead", forKey: LastPlayedStore.key)
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL()?.absoluteString, "file:///dead")
+
+        LastPlayedStore.save(url: nil)
+
+        XCTAssertNil(LastPlayedStore.lastPlayedURL())
+        XCTAssertNil(LastPlayedStore.standardFallback.string(forKey: LastPlayedStore.key))
+    }
+
     func test_migration_standardToAppGroup_seedThenWrite_zeroLoss() throws {
         let standardSuiteName = "test.standard.\(UUID().uuidString)"
         let appGroupSuiteName = "test.appgroup.\(UUID().uuidString)"
