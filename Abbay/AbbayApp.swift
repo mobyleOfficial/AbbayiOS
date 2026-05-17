@@ -10,17 +10,27 @@ import CarPlay
 import SwiftUI
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    // Injection seams for testing.
+    // `lazy var` so default-args (which touch LibrarySnapshotWriter.shared → LoadAllAudiosUseCase → Core Data)
+    // do NOT fire at AppDelegate-construction time, only inside `didFinishLaunching` after DI configure.
+    lazy var audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
+    lazy var seeder: AppDelegateSeederProtocol = AppDelegateSeeder()
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            fatalError("Could not start player session: \(error)")
-        }
+        // Pinned order: DI configure → audio session → flag clear + eager seeds (on success)
         DependencyContainer.configure()
+
+        do {
+            try audioSessionActivator.activate()
+            LaunchStateFlag.clear()
+            seeder.seedIfNeeded()
+        } catch {
+            LaunchStateFlag.markUnavailable()
+        }
+
         return true
     }
 
