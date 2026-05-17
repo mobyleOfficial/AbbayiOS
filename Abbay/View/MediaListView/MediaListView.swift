@@ -27,7 +27,9 @@ struct MediaListView: View {
                     }
                 }
                 .sheet(isPresented: $model.isShowingFilePicker) {
-                    DocumentPickerView(selectedFiles: $model.audioList, fileLoader: model.fileLoader)
+                    DocumentPickerView(onImport: { urls in
+                        await model.importAudio(from: urls)
+                    })
                 }
                 .sheet(isPresented: $model.isShowingPlayer) {
                     if let file = model.tappedAudio {

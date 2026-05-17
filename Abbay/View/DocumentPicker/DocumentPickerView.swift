@@ -10,12 +10,8 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct DocumentPickerView: UIViewControllerRepresentable {
-    // MARK: - Properties
-    @Binding
-    var selectedFiles: [AudioModel]
-    var fileLoader: FileLoaderProtocol
+    var onImport: ([URL]) async -> Void
 
-    // MARK: - UIViewControllerRepresentable
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let types = [UTType.audio]
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: false)
@@ -24,46 +20,31 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
-        /* empty */
-    }
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(self, fileLoader: fileLoader)
+        Coordinator(onImport: onImport)
     }
 }
 
-// MARK: - Coordinator
 extension DocumentPickerView {
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
-        // MARK: - Properties
-        private var view: DocumentPickerView
-        private var fileLoader: FileLoaderProtocol
+        private let onImport: ([URL]) async -> Void
 
-        // MARK: Init
-        init(_ view: DocumentPickerView, fileLoader: FileLoaderProtocol) {
-            self.view = view
-            self.fileLoader = fileLoader
+        init(onImport: @escaping ([URL]) async -> Void) {
+            self.onImport = onImport
         }
 
-        // MARK: - UIDocumentPickerDelegate
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            Task {
-                let newFiles = await fileLoader.load(urls: urls)
-                for file in newFiles {
-                    if view.selectedFiles.contains(where: { $0.url == file.url }) {
-                        continue
-                    }
-                    view.selectedFiles.append(file)
-                }
+            Task { @MainActor in
+                await onImport(urls)
             }
         }
     }
 }
 
-// MARK: - Preview
 struct DocumentPickerView_Previews: PreviewProvider {
     static var previews: some View {
-        DocumentPickerView(selectedFiles: .constant([]), fileLoader: FileLoader())
+        DocumentPickerView(onImport: { _ in })
     }
 }
