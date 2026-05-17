@@ -68,6 +68,22 @@ final class LibrarySnapshotWriterTests: XCTestCase {
         XCTAssertNil(snapshot.audios.first?.bookmarkData)
     }
 
+    func test_refresh_callsLoadAllAudios_thenWrites() throws {
+        var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
+        modelA.title = "A"
+        let mock = try XCTUnwrap(mockLoadAllAudios)
+        mock.stub = [modelA]
+
+        let writer = try makeWriter()
+        writer.refresh()
+
+        XCTAssertEqual(mock.executeCallCount, 1)
+        let suite = try XCTUnwrap(testSuite)
+        let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
+        let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
+        XCTAssertEqual(snapshot.audios.first?.title, "A")
+    }
+
     func test_write_afterDelete_removesEntry() throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
         modelA.title = "A"

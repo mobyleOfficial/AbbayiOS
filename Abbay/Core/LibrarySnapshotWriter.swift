@@ -49,7 +49,6 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
     }
 
     func refresh() {
-        // Implemented in Task 6
-        fatalError("refresh() implemented in Task 6")
+        write(audios: loadAllAudios.execute())
     }
 }
