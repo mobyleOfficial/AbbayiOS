@@ -19,7 +19,8 @@ final class LastPlayedStoreTests: XCTestCase {
     override func tearDownWithError() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = .standard
+        LastPlayedStore.defaults = AppGroup.defaults
+        LastPlayedStore.standardFallback = .standard
         try super.tearDownWithError()
     }
 
@@ -38,5 +39,45 @@ final class LastPlayedStoreTests: XCTestCase {
         LastPlayedStore.save(url: url)
         LastPlayedStore.save(url: nil)
         XCTAssertNil(LastPlayedStore.lastPlayedURL())
+    }
+
+    func test_migration_standardToAppGroup_seedThenWrite_zeroLoss() throws {
+        let standardSuiteName = "test.standard.\(UUID().uuidString)"
+        let appGroupSuiteName = "test.appgroup.\(UUID().uuidString)"
+        let standard = try XCTUnwrap(UserDefaults(suiteName: standardSuiteName))
+        let appGroup = try XCTUnwrap(UserDefaults(suiteName: appGroupSuiteName))
+        defer {
+            standard.removePersistentDomain(forName: standardSuiteName)
+            appGroup.removePersistentDomain(forName: appGroupSuiteName)
+            LastPlayedStore.defaults = AppGroup.defaults
+            LastPlayedStore.standardFallback = .standard
+        }
+
+        standard.set("file:///old/url", forKey: LastPlayedStore.key)
+        LastPlayedStore.defaults = appGroup
+        LastPlayedStore.standardFallback = standard
+
+        // Pre-migration read: AppGroup empty AND standard has → returns .standard value
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL()?.absoluteString, "file:///old/url")
+        XCTAssertNil(appGroup.string(forKey: LastPlayedStore.key))
+
+        // Write triggers seed-then-write
+        let newURL = try XCTUnwrap(URL(string: "file:///new/url"))
+        LastPlayedStore.save(url: newURL)
+        XCTAssertEqual(appGroup.string(forKey: LastPlayedStore.key), "file:///new/url")
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL()?.absoluteString, "file:///new/url")
+    }
+
+    func test_read_preservesTestInjectionSeam() throws {
+        let suiteName = "test.seam.\(UUID().uuidString)"
+        let suite = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let original = LastPlayedStore.defaults
+        LastPlayedStore.defaults = suite
+        defer {
+            suite.removePersistentDomain(forName: suiteName)
+            LastPlayedStore.defaults = original
+        }
+        suite.set("file:///x", forKey: LastPlayedStore.key)
+        XCTAssertEqual(LastPlayedStore.lastPlayedURL()?.absoluteString, "file:///x")
     }
 }
