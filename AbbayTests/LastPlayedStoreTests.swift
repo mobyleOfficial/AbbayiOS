@@ -7,18 +7,29 @@
 import XCTest
 
 final class LastPlayedStoreTests: XCTestCase {
-    private let suiteName = "abbay.tests.LastPlayedStoreTests"
+    private var suiteName: String = ""
+    private var fallbackSuiteName: String = ""
 
     override func setUpWithError() throws {
         try super.setUpWithError()
+        // Unique suite per test instance so parallel test runs don't collide.
+        suiteName = "abbay.tests.LastPlayedStoreTests.\(UUID().uuidString)"
+        fallbackSuiteName = "abbay.tests.LastPlayedStoreTests.fallback.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
+        let fallback = try XCTUnwrap(UserDefaults(suiteName: fallbackSuiteName))
+        fallback.removePersistentDomain(forName: fallbackSuiteName)
         LastPlayedStore.defaults = defaults
+        // Inject empty fallback so a value leaked into `.standard` by an
+        // earlier test (or this process's first run) cannot bleed through.
+        LastPlayedStore.standardFallback = fallback
     }
 
     override func tearDownWithError() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
+        let fallback = try XCTUnwrap(UserDefaults(suiteName: fallbackSuiteName))
+        fallback.removePersistentDomain(forName: fallbackSuiteName)
         LastPlayedStore.defaults = AppGroup.defaults
         LastPlayedStore.standardFallback = .standard
         try super.tearDownWithError()

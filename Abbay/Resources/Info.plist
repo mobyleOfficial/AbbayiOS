@@ -16,6 +16,8 @@
 	<string>2</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>NSSiriUsageDescription</key>
+	<string>Abbay uses Siri to play your audiobooks and control playback when you say things like 'Play Harry Potter on Abbay' or 'Pause Abbay'.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UISceneConfigurations</key>

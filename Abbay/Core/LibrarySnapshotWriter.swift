@@ -22,6 +22,13 @@ protocol LibrarySnapshotWriterProtocol {
     func refresh()
 }
 
+/// Stub loader used as the extension-target default for `LibrarySnapshotWriter.init`.
+/// The extension never calls `refresh()` (it only reads via `LibrarySnapshotReader`),
+/// but the type system requires a concrete default. Returns empty.
+private final class NoopLoadAllAudios: LoadAllAudiosUseCaseProtocol {
+    func execute() -> [AudioModel] { [] }
+}
+
 final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
     static let key: String = "abbay.librarySnapshot.v1"
 
@@ -30,9 +37,15 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
 
     private let loadAllAudios: LoadAllAudiosUseCaseProtocol
 
+    #if ABBAY_INTENTS_EXTENSION
+    init(loadAllAudios: LoadAllAudiosUseCaseProtocol = NoopLoadAllAudios()) {
+        self.loadAllAudios = loadAllAudios
+    }
+    #else
     init(loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
         self.loadAllAudios = loadAllAudios
     }
+    #endif
 
     func write(audios: [AudioModel]) {
         let entries = audios.map { audio in
