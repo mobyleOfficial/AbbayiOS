@@ -67,7 +67,7 @@ Abbay.xcodeproj
 │   ├── AbbayApp.swift                     EDIT (AppDelegate: re-order DI/session/seeds; replace fatalError; add handle())
 │   └── View/MediaListView/
 │       ├── MediaListView.swift            EDIT (pass closure to DocumentPickerView)
-│       ├── MediaListViewModel.swift       EDIT (@MainActor; importAudio async)
+│       ├── MediaListViewModel.swift       EDIT (importAudio async @MainActor; method-level isolation)
 │       └── DocumentPicker/DocumentPickerView.swift  EDIT (closure-based import handoff)
 └── AbbayIntents (app-extension)           NEW TARGET
     ├── IntentHandler.swift
@@ -282,7 +282,7 @@ protocol LibrarySnapshotWriterProtocol {
 }
 
 final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
-    static let shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()
+    static var shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()  // var so tests can rebind
     private let loadAllAudios: LoadAllAudiosUseCaseProtocol
     init(loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) { ... }
     func write(audios: [AudioModel])
@@ -290,7 +290,7 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
 }
 ```
 
-The `refresh()` method owns the data-layer call so callers (Player, AppDelegate) don't need `LoadAllAudios` injection.
+The `refresh()` method owns the data-layer call so callers (Player, AppDelegate) don't need `LoadAllAudios` injection. `.shared` is `static var` (matching the `LastPlayedStore.defaults` pattern) so tests can rebind it to a mock in `setUp` / restore in `tearDown` — required because `MediaListViewModel.importAudio` and `AppDelegate.application(_:handle:...)` reference `LibrarySnapshotWriter.shared` directly without their own init-time injection seam.
 
 **`Abbay/Core/LaunchStateFlag.swift`**:
 ```swift
@@ -357,7 +357,7 @@ guard !LaunchStateFlag.isUnavailable() else {
 ```
 `static let audioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."`
 
-**`Abbay/View/MediaListView/MediaListViewModel.swift`** — annotate `@MainActor` (class-level). Add:
+**`Abbay/View/MediaListView/MediaListViewModel.swift`** — annotate `@MainActor` on the new `importAudio(from:)` method ONLY (method-level isolation, NOT class-level). Add:
 ```swift
 @MainActor
 func importAudio(from urls: [URL]) async {
@@ -370,7 +370,7 @@ func importAudio(from urls: [URL]) async {
 }
 ```
 
-`@MainActor` annotation eliminates the SwiftUI "publishing from background" warning when `audioList` mutates after the `await`. Existing methods that mutate `audioList` are already implicitly main-actor due to UI binding; the annotation makes the contract explicit.
+Method-level `@MainActor` eliminates the SwiftUI "publishing from background" warning when `audioList` mutates after the `await`. Class-level `@MainActor` would also work for this method but would force every other method on the view model — including the existing Combine sink callback in `init` that observes `PlayerObserver.subscribeToPlayUrlPublisher` (which delivers on the publisher's thread, not main) — to be `@MainActor`-isolated, breaking the sink wiring under strict concurrency. Scoping `@MainActor` to `importAudio` avoids touching the rest of the class.
 
 After `loadAllAudios` and `deleteAudio` (existing methods), call `LibrarySnapshotWriter.shared.write(audios: audioList)` alongside existing shortcut updates.
 
@@ -396,7 +396,7 @@ struct DocumentPickerView_Previews: PreviewProvider {
 }
 ```
 
-Closure form keeps `DocumentPickerView` ignorant of `MediaListViewModel` (trivial preview, cleaner unit tests). The Task body inherits the main actor from the UIKit delegate callback caller; combined with `@MainActor` on `MediaListViewModel.importAudio`, all `audioList` mutations run on the main thread.
+Closure form keeps `DocumentPickerView` ignorant of `MediaListViewModel` (trivial preview, cleaner unit tests). The Task body inherits the main actor from the UIKit delegate callback caller; combined with method-level `@MainActor` on `MediaListViewModel.importAudio`, all `audioList` mutations run on the main thread.
 
 **`Abbay/View/MediaListView/MediaListView.swift`** — call site becomes:
 ```swift
@@ -447,7 +447,7 @@ DocumentPickerView(onImport: { urls in await model.importAudio(from: urls) })
 - `PlayerTests.play_sameURLReplay_donatesEachTime`
 - `PlayerTests.play_firstPlayOfBookWithoutBookmark_populatesBookmarkDataOnInoutModel_callsSnapshotRefresh`
 - `PlayerTests.play_firstPlayOfBookWithBookmark_doesNotRePopulate_doesNotCallSnapshotRefresh`
-- `MediaListViewModelTests.importAudio_appendsNonDuplicates_writesSnapshot_updatesShortcuts` (annotated `@MainActor`)
+- `MediaListViewModelTests.importAudio_appendsNonDuplicates_writesSnapshot_updatesShortcuts` (signature: `@MainActor func testFoo() async throws`; class-level `@MainActor` on test classes is NOT used)
 - Existing `IntentTests` extended: each phase-1 intent's `perform()` gets a sibling case asserting flag=true → unavailable dialog, no `Player` call.
 - Existing `IntentTests` extended: `ResumeAbbayIntent`-driven `Player.play(_:)` triggers `IntentDonor.donatePlayMedia` even when `updatePlayItem` is skipped (warm-state same-URL).
 
