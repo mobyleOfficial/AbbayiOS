@@ -84,17 +84,21 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         intent: INPlayMediaIntent,
         completion: @escaping (INPlayMediaIntentResponse) -> Void
     ) {
+        // Note: SiriKit Media (INPlayMediaIntent) does not support custom Response
+        // templates via .intentdefinition — that surface is for custom INIntent
+        // subclasses only. The system speaks its canned dialog for
+        // `.failureUnknownMediaType`; no in-app input echo (e.g. "No audiobook
+        // matches 'Harry Plotter'") is achievable on this path. Matches Spotify /
+        // YouTube Music / Audible behavior.
         if LaunchStateFlag.isUnavailable() {
-            // TODO(T21): Replace with PlayMediaIntentResponse.unavailable once the
-            // .intentdefinition is created in Xcode. See AbbayIntents/PLAYMEDIAINTENT_TODO.md.
             completion(INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil))
             return
         }
 
-        // Defense-in-depth: per SiriKit lifecycle, when resolveMediaItems returns all-unsupported
-        // (no-match path), Siri normally does NOT call handle — it speaks the failure dialog tied
-        // to the Resolution Result + .intentdefinition Response template (set up in T21) directly.
-        // This branch catches the unlikely case where handle is invoked with empty mediaItems.
+        // Defense-in-depth: per SiriKit lifecycle, when resolveMediaItems returns
+        // all-unsupported, Siri typically speaks its failure dialog directly and
+        // does NOT call handle. This branch covers the rare path where handle is
+        // invoked with empty mediaItems.
         if intent.mediaItems?.isEmpty ?? true {
             completion(INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil))
             return
