@@ -92,6 +92,7 @@ targets:
       - path: Abbay/Core/LaunchStateFlag.swift
       - path: Abbay/Core/LastPlayedStore.swift
       - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
       - path: Abbay/Model/AudioModel.swift
       - path: Abbay/Model/ChapterModel.swift
       - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
@@ -112,9 +113,24 @@ targets:
       - target: AbbayIntents
     sources:
       - path: AbbayIntentsTests
+      # Source-shared with the extension target. The test bundle cannot link
+      # against an app-extension binary, so we compile the same source files
+      # into the test target. `@testable import AbbayIntents` still works for
+      # internal access because Swift module names match by source.
+      - path: AbbayIntents/IntentHandler.swift
+      - path: AbbayIntents/PlayMediaIntentHandler.swift
+      - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/LaunchStateFlag.swift
+      - path: Abbay/Core/LastPlayedStore.swift
+      - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Model/AudioModel.swift
+      - path: Abbay/Model/ChapterModel.swift
+      - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: 'YES'
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
 
 schemes:
   Abbay:
