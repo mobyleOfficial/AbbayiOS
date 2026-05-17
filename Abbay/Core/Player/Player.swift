@@ -100,6 +100,16 @@ final class Player: PlayerProtocol {
             print("⚠️ Player.play: URL is nil")
             return
         }
+
+        // Step 1 — defense-in-depth audio session recovery
+        do {
+            try audioSessionActivator.activate()
+            LaunchStateFlag.clear()
+        } catch {
+            LaunchStateFlag.markUnavailable()
+            return
+        }
+
         print("▶️ Player.play: Attempting to play \(url.lastPathComponent)")
         if url != self.url {
             saveTime()
@@ -108,6 +118,7 @@ final class Player: PlayerProtocol {
         }
         player.play()
         print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
+        intentDonor.donatePlayMedia(model: model)
     }
 
     func pause() {
