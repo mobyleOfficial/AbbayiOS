@@ -31,6 +31,10 @@ final class Player: PlayerProtocol {
     private let player = AVPlayer()
     private var model: AudioModel?
     private let saveAudioUseCase: SaveAudioUseCaseProtocol
+    private let intentDonor: IntentDonorProtocol
+    private let librarySnapshotWriter: LibrarySnapshotWriterProtocol
+    private let audioSessionActivator: AudioSessionActivatorProtocol
+    private let bookmarkProvider: BookmarkProviderProtocol
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
@@ -57,9 +61,17 @@ final class Player: PlayerProtocol {
     init(
         saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(
             repository: LoadAudioRepository()
-        )
+        ),
+        intentDonor: IntentDonorProtocol = IntentDonor.shared,
+        librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
+        audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
+        bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider()
     ) {
         self.saveAudioUseCase = saveAudioUseCase
+        self.intentDonor = intentDonor
+        self.librarySnapshotWriter = librarySnapshotWriter
+        self.audioSessionActivator = audioSessionActivator
+        self.bookmarkProvider = bookmarkProvider
         setupTimeObserver()
 
         // Initialize Now Playing and set player reference
