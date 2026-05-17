@@ -8,9 +8,9 @@ import AppIntents
 import XCTest
 
 final class IntentTests: XCTestCase {
-    private var player: MockPlayer!
-    private var loader: MockLoadAudioUseCase!
-    private var lister: MockLoadAllAudiosUseCase!
+    private var player = MockPlayer()
+    private var loader = MockLoadAudioUseCase()
+    private var lister = MockLoadAllAudiosUseCase()
     private let suiteName = "abbay.tests.IntentTests"
 
     override func setUpWithError() throws {
@@ -48,18 +48,20 @@ final class IntentTests: XCTestCase {
     // text itself is verified by the manual checklist in Task 15.
 
     private func audio(title: String, url: String) -> AudioModel {
-        var m = AudioModel()
-        m.title = title
-        m.url = URL(string: url)
-        return m
+        var model = AudioModel()
+        model.title = title
+        model.url = URL(string: url)
+        return model
     }
 
     // MARK: Resume
 
     func test_resume_dialogConstants_matchSpecVerbatim() {
         XCTAssertEqual(ResumeAbbayIntent.addBookDialog, "Add a book in Abbay first.")
-        XCTAssertEqual(ResumeAbbayIntent.cannotFindDialog,
-                       "Cannot find that audiobook. It may have been removed or is not downloaded.")
+        XCTAssertEqual(
+            ResumeAbbayIntent.cannotFindDialog,
+            "Cannot find that audiobook. It may have been removed or is not downloaded."
+        )
         XCTAssertEqual(ResumeAbbayIntent.playingDialog(title: "Foo"), "Playing Foo.")
     }
 
@@ -117,8 +119,10 @@ final class IntentTests: XCTestCase {
     // MARK: Next chapter
 
     func test_nextChapter_dialogConstants_matchSpecVerbatim() {
-        XCTAssertEqual(NextChapterIntent.nothingPlayingDialog,
-                       "Nothing is playing. Say 'Play in Abbay' to start.")
+        XCTAssertEqual(
+            NextChapterIntent.nothingPlayingDialog,
+            "Nothing is playing. Say 'Play in Abbay' to start."
+        )
         XCTAssertEqual(NextChapterIntent.nextChapterDialog, "Next chapter.")
     }
 
@@ -138,8 +142,10 @@ final class IntentTests: XCTestCase {
     // MARK: Previous chapter
 
     func test_previousChapter_dialogConstants_matchSpecVerbatim() {
-        XCTAssertEqual(PreviousChapterIntent.nothingPlayingDialog,
-                       "Nothing is playing. Say 'Play in Abbay' to start.")
+        XCTAssertEqual(
+            PreviousChapterIntent.nothingPlayingDialog,
+            "Nothing is playing. Say 'Play in Abbay' to start."
+        )
         XCTAssertEqual(PreviousChapterIntent.previousChapterDialog, "Previous chapter.")
     }
 
@@ -159,12 +165,18 @@ final class IntentTests: XCTestCase {
     // MARK: Play by name
 
     func test_playByName_dialogConstants_matchSpecVerbatim() {
-        XCTAssertEqual(PlayBookByNameIntent.noMatchDialog("Foo"),
-                       "No audiobook matches 'Foo'.")
-        XCTAssertEqual(PlayBookByNameIntent.cannotFindDialog,
-                       "Cannot find that audiobook. It may have been removed or is not downloaded.")
-        XCTAssertEqual(PlayBookByNameIntent.playingDialog(title: "Foo"),
-                       "Playing Foo.")
+        XCTAssertEqual(
+            PlayBookByNameIntent.noMatchDialog("Foo"),
+            "No audiobook matches 'Foo'."
+        )
+        XCTAssertEqual(
+            PlayBookByNameIntent.cannotFindDialog,
+            "Cannot find that audiobook. It may have been removed or is not downloaded."
+        )
+        XCTAssertEqual(
+            PlayBookByNameIntent.playingDialog(title: "Foo"),
+            "Playing Foo."
+        )
     }
 
     func test_playByName_noMatch_doesNotPlay_doesNotClearStore() async throws {
@@ -207,7 +219,11 @@ final class IntentTests: XCTestCase {
         intent.bookName = "Dead Book"
         _ = try await intent.perform()
 
-        XCTAssertEqual(LastPlayedStore.lastPlayedURL(), saved, "store must NOT be cleared when the dead match was a different book")
+        XCTAssertEqual(
+            LastPlayedStore.lastPlayedURL(),
+            saved,
+            "store must NOT be cleared when the dead match was a different book"
+        )
         XCTAssertEqual(player.playCalls.count, 0)
     }
 
