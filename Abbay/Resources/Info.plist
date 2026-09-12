@@ -16,6 +16,21 @@
 	<string>2</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryAudiobooks</string>
+		<string>INMediaCategoryGeneral</string>
+	</array>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Abbay needs media access so Siri can start audiobook playback from your library.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
 	<key>NSSiriUsageDescription</key>
 	<string>Abbay uses Siri to play your audiobooks and control playback when you say things like 'Play Harry Potter on Abbay' or 'Pause Abbay'.</string>
 	<key>UIApplicationSceneManifest</key>

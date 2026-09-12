@@ -31,7 +31,11 @@
 			<key>IntentsSupported</key>
 			<array>
 				<string>INPlayMediaIntent</string>
-				<string>PlayMediaIntentIntent</string>
+			</array>
+			<key>SupportedMediaCategories</key>
+			<array>
+				<string>INMediaCategoryAudiobooks</string>
+				<string>INMediaCategoryGeneral</string>
 			</array>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
