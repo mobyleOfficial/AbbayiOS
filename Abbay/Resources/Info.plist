@@ -16,6 +16,27 @@
 	<string>2</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbey</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbay Audiobooks</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey audio books</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>A Bay</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>a bay</string>
+		</dict>
+	</array>
 	<key>INIntentsSupported</key>
 	<array>
 		<string>INPlayMediaIntent</string>
