@@ -4,6 +4,9 @@
 //
 
 import Intents
+import os.log
+
+private let log = OSLog(subsystem: "com.edyuto.Abbay.AbbayIntents", category: "PlayMediaIntent")
 
 /// Result of `PlayMediaIntentHandler.decide(for:)` — the testable inner decision
 /// that the public `resolveMediaItems` method then maps to opaque
@@ -22,18 +25,37 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     /// outcome before it's wrapped in opaque `INPlayMediaMediaItemResolutionResult`
     /// values (those expose no public accessors, so the wrap is untestable).
     func decide(for intent: INPlayMediaIntent) -> ResolveOutcome {
-        if LaunchStateFlag.isUnavailable() {
+        let mediaName = intent.mediaSearch?.mediaName ?? ""
+        let flagValue = LaunchStateFlag.isUnavailable()
+        os_log(
+            // The spoken title is user speech, so it stays private in the log.
+            // Xcode shows it anyway while a debugger is attached.
+            "decide entered: mediaName=%{private}@ flag=%{public}@ suite=%{public}@",
+            log: log, type: .info,
+            mediaName, String(describing: flagValue), AppGroup.suiteName
+        )
+
+        if flagValue {
+            os_log("decide → unavailable (flag set)", log: log, type: .info)
             return .unavailable
         }
 
         let entries = LibrarySnapshotReader.read()
+        os_log("decide read snapshot: %{public}d entries", log: log, type: .info, entries.count)
         guard !entries.isEmpty else {
+            os_log("decide → emptyLibrary", log: log, type: .info)
             return .emptyLibrary
         }
 
-        let mediaName = intent.mediaSearch?.mediaName ?? ""
-        let lastPlayedString = AppGroup.defaults.string(forKey: LastPlayedStore.key)
-        let lastPlayedURL = lastPlayedString.flatMap { URL(string: $0) }
+        // Go through LastPlayedStore rather than reading the App Group suite
+        // directly: the store also consults the phase-1 `.standard` fallback, and
+        // it is the seam tests rebind.
+        let lastPlayedURL = LastPlayedStore.lastPlayedURL()
+        os_log(
+            "decide lastPlayed=%{private}@",
+            log: log, type: .info,
+            lastPlayedURL?.absoluteString ?? "<nil>"
+        )
 
         let audios: [AudioModel] = entries.compactMap { entry in
             guard let url = URL(string: entry.urlString) else { return nil }
@@ -42,8 +64,13 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             return model
         }
 
-        let candidates = matchAll(input: mediaName, audios: audios, lastPlayedURL: lastPlayedURL)
+        let candidates = resolveCandidates(
+            mediaName: mediaName,
+            audios: audios,
+            lastPlayedURL: lastPlayedURL
+        )
         if candidates.isEmpty {
+            os_log("decide → noMatch", log: log, type: .info)
             return .noMatch
         }
 
@@ -64,6 +91,32 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             // Many-match cap: fall back to the top-ranked candidate (last-played-aware).
             return .fallbackBest(items[0])
         }
+    }
+
+    /// Picks the library candidates for a spoken request.
+    ///
+    /// A title-less request — "Hey Siri, play in Abbay", "play on Abbay", or a bare
+    /// "resume" that Siri routes into the media domain — arrives with an empty
+    /// `mediaSearch.mediaName`. `matchAll` deliberately returns nothing for empty
+    /// input, so without this branch every title-less play request answered
+    /// `.noMatch` and Siri spoke its failure dialog. Title-less means "continue what
+    /// I was listening to": prefer the last-played book, else the first in the
+    /// library so a fresh install still starts playing instead of erroring.
+    func resolveCandidates(
+        mediaName: String,
+        audios: [AudioModel],
+        lastPlayedURL: URL?
+    ) -> [AudioModel] {
+        let isTitleless = mediaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard isTitleless else {
+            return matchAll(input: mediaName, audios: audios, lastPlayedURL: lastPlayedURL)
+        }
+        if let lastPlayedURL, let resumed = audios.first(where: { $0.url == lastPlayedURL }) {
+            os_log("decide titleless → resume last played", log: log, type: .info)
+            return [resumed]
+        }
+        os_log("decide titleless → first library entry", log: log, type: .info)
+        return Array(audios.prefix(1))
     }
 
     func resolveMediaItems(

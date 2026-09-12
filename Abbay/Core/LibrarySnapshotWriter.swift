@@ -4,6 +4,9 @@
 //
 
 import Foundation
+import os.log
+
+private let snapshotLog = OSLog(subsystem: "com.edyuto.Abbay", category: "LibrarySnapshot")
 
 struct LibrarySnapshotEntry: Codable, Equatable {
     let title: String
@@ -58,7 +61,23 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         let snapshot = LibrarySnapshot(version: 1, updatedAt: Date(), audios: entries)
         if let data = try? JSONEncoder().encode(snapshot) {
             Self.defaults.set(data, forKey: Self.key)
+            let bookmarkCount = entries.filter { $0.bookmarkData != nil }.count
+            os_log(
+                "snapshot WRITTEN: %{public}d entries (%{public}d with bookmark), suite=%{public}@",
+                log: snapshotLog, type: .info,
+                entries.count, bookmarkCount, AppGroup.suiteName
+            )
+        } else {
+            os_log("snapshot WRITE FAILED: JSON encode error", log: snapshotLog, type: .error)
         }
+
+        #if !ABBAY_INTENTS_EXTENSION
+        // Every library mutation funnels through here, so this is the one place that
+        // keeps Siri's vocabulary, entity phrases and media-affinity signal in step
+        // with the real library. None of those APIs exist in an app extension,
+        // hence the guard.
+        SiriLibraryPublisher.shared.publish(audios: audios)
+        #endif
     }
 
     func refresh() {

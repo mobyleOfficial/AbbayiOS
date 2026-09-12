@@ -126,6 +126,48 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
         XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Star Wars")), .noMatch)
     }
 
+    // MARK: Title-less requests ("play in Abbay" / "resume")
+
+    func test_decide_emptyMediaName_withLastPlayed_resumesThatBook() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Goblet of Fire", urlString: "file:///gof", bookmarkData: nil),
+            LibrarySnapshotEntry(title: "Order of the Phoenix", urlString: "file:///ootp", bookmarkData: nil)
+        ])
+        LastPlayedStore.save(url: try XCTUnwrap(URL(string: "file:///ootp")))
+        let handler = try XCTUnwrap(self.handler)
+        guard case .singleMatch(let item) = handler.decide(for: makeIntent(mediaName: "")) else {
+            return XCTFail("expected singleMatch for title-less request with a last-played book")
+        }
+        XCTAssertEqual(item.identifier, "file:///ootp")
+    }
+
+    func test_decide_emptyMediaName_withoutLastPlayed_usesFirstLibraryEntry() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Goblet of Fire", urlString: "file:///gof", bookmarkData: nil),
+            LibrarySnapshotEntry(title: "Order of the Phoenix", urlString: "file:///ootp", bookmarkData: nil)
+        ])
+        let handler = try XCTUnwrap(self.handler)
+        guard case .singleMatch(let item) = handler.decide(for: makeIntent(mediaName: "")) else {
+            return XCTFail("expected singleMatch for title-less request on a fresh library")
+        }
+        XCTAssertEqual(item.identifier, "file:///gof")
+    }
+
+    func test_decide_whitespaceOnlyMediaName_treatedAsTitleless() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Goblet of Fire", urlString: "file:///gof", bookmarkData: nil)
+        ])
+        let handler = try XCTUnwrap(self.handler)
+        guard case .singleMatch = handler.decide(for: makeIntent(mediaName: "   ")) else {
+            return XCTFail("expected singleMatch for a whitespace-only media name")
+        }
+    }
+
+    func test_decide_emptyMediaName_emptyLibrary_stillReportsEmptyLibrary() throws {
+        let handler = try XCTUnwrap(self.handler)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "")), .emptyLibrary)
+    }
+
     func test_decide_audioSessionUnavailableFlag_returnsUnavailableOutcome() throws {
         LaunchStateFlag.markUnavailable()
         let handler = try XCTUnwrap(self.handler)

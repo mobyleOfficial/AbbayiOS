@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
     lazy var seeder: AppDelegateSeederProtocol = AppDelegateSeeder()
     lazy var intentRouter: IntentRouterProtocol = IntentRouter()
+    lazy var siriLibraryPublisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared
 
     func application(
         _ application: UIApplication,
@@ -32,6 +33,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         } catch {
             LaunchStateFlag.markUnavailable()
         }
+
+        // Request Siri authorization for the INPlayMediaIntent extension. Without
+        // an explicit grant, iOS denies dispatch to the extension at runtime and
+        // Siri responds "Abbay hasn't added support for that with Siri".
+        // First call surfaces the system permission prompt; subsequent calls are
+        // no-ops if status is already determined.
+        INPreferences.requestSiriAuthorization { _ in }
+
+        // Publish the library to Siri on every launch. Apple requires at least one
+        // successful entity fetch before entity-parameter phrases ("Play <title> in
+        // Abbay") resolve at all, and the snapshot seeder only writes when the
+        // snapshot is missing — so launch cannot rely on the write path running.
+        siriLibraryPublisher.publish(audios: DependencyContainer.shared.loadAllAudios.execute())
 
         return true
     }

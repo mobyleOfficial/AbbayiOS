@@ -252,7 +252,15 @@ final class IntentTests: XCTestCase {
         let originalFlagDefaults = LaunchStateFlag.defaults
         LaunchStateFlag.defaults = flagSuite
         LaunchStateFlag.markUnavailable()
+        // The intents now RETRY activation instead of trusting a stale flag, so the
+        // unavailable branch is only reachable when activation itself fails. Stub the
+        // activator to throw — the real AVAudioSession always succeeds in the simulator.
+        let originalActivator = AudioSessionActivator.makeActivator
+        let failing = MockAudioSessionActivator()
+        failing.shouldThrow = true
+        AudioSessionActivator.makeActivator = { failing }
         defer {
+            AudioSessionActivator.makeActivator = originalActivator
             flagSuite.removePersistentDomain(forName: flagSuiteName)
             LaunchStateFlag.defaults = originalFlagDefaults
         }
