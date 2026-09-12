@@ -24,6 +24,8 @@ protocol PlayerProtocol {
     func cleanup()
     func skipToNextChapter()
     func skipToPreviousChapter()
+    @discardableResult
+    func playChapter(at index: Int) -> Bool
 }
 
 final class Player: PlayerProtocol {
@@ -181,6 +183,19 @@ final class Player: PlayerProtocol {
         } else {
             seek(0)
         }
+    }
+
+    /// Jumps the loaded book to the start of a chapter and resumes playback.
+    /// Returns `false` when no book is loaded or the index is out of range, so
+    /// callers (Siri's "play chapter N") can speak the right failure instead of
+    /// silently doing nothing.
+    @discardableResult
+    func playChapter(at index: Int) -> Bool {
+        guard let model = model, model.chapters.indices.contains(index) else { return false }
+        saveTime()
+        seek(model.chapters[index].startTime)
+        player.play()
+        return true
     }
 
     // MARK: - Helpers
