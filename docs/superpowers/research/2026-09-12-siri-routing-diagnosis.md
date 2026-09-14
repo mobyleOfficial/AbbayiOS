@@ -71,43 +71,67 @@ upstream of it: Siri was never handing the request to the extension.
   limitations 3, 5 and 9 — the `String`-parameter restriction that forced a
   second "Which audiobook?" turn does not apply to `AppEntity` parameters.
 
-## Device verification
+## Two further root causes found during device testing
 
-Preconditions: unlock the phone, open Abbay once (the install is already on the
-device), accept the Siri permission prompt, tap a book once, then wait about a
-minute for indexing.
+7. **Speech-to-text heard "A Bay".** With the app name missing from the
+   transcript, no AppShortcut phrase could match and the whole utterance fell
+   through to the media domain. Fixed by declaring `CFBundleDisplayName`,
+   `CFBundleSpokenName` and `INAlternativeAppNames` synonyms, and by adding
+   app-name-first phrase variants so a truncated tail costs nothing.
 
-| Say | Expect | Path |
-| --- | --- | --- |
-| "Hey Siri, open Abbay" | App opens | System app launch |
-| "Hey Siri, play in Abbay" | Resumes last book | AppShortcuts |
-| "Hey Siri, play Harry Potter and the Goblet of Fire in Abbay" | Plays it, one utterance | AppShortcuts entity phrase |
-| "Hey Siri, open Harry Potter and the Goblet of Fire in Abbay" | Same | AppShortcuts entity phrase |
-| "Hey Siri, play chapter 4 in Abbay" | Jumps to chapter 4 | AppShortcuts entity phrase |
-| "Hey Siri, next chapter in Abbay" | Skips | AppShortcuts |
-| "Hey Siri, pause Abbay" | Pauses | AppShortcuts |
-| "Hey Siri, pause" (while playing) | Pauses | MPRemoteCommandCenter |
-| "Hey Siri, play Goblet of Fire from Abbay" | Plays it | SiriKit media extension |
-| "Hey Siri, play Goblet of Fire" (no app name) | May go elsewhere at first | Siri app-selection learning |
+8. **The in-app dispatch path was unserved.** Declaring `INIntentsSupported`
+   made iOS dispatch `INPlayMediaIntent` to the app instead of the extension.
+   The app offered only `application(_:handle:)`, so nothing resolved the media
+   items and the router returned a failure. Once resolution was added, playback
+   started but Siri still spoke a generic error, because a bare completion gives
+   the system no resolve or confirm phase. `InAppPlayMediaHandler`, returned from
+   `application(_:handlerFor:)`, serves the full lifecycle and settled it.
 
-If a media-path phrase still fails, check in this order: Settings → Apps → Abbay
-→ Siri toggle is on; then Console with subsystem `com.edyuto.Abbay.AbbayIntents`
-to see whether `decide entered` is logged at all. No log line means Siri never
-reached the extension (a registration problem); a log line with an outcome means
-the request arrived and the decision is ours.
+## Outcome
 
-## Known remaining limits
+Confirmed working on device (iPhone 15 Plus, iOS 26.6):
 
-- **App-name-less "play <title>"** is not something an app can claim. Siri
-  learns it from donations, `INMediaUserContext` and usage. There is no
-  user-facing default-media-app setting.
-- **Phrase budget.** Apple allows an app 1,000 trigger phrases counting every
-  parameter permutation, so entity suggestions are capped (40 books, 50
-  chapters). Books past the cap still resolve through free-form matching, they
-  just have no pre-expanded phrase.
-- **The iOS 27 path exists but is out of reach here.** Apple's App Intents
-  `.audio` domain (`playAudio`, `audiobook`) is iOS 27 / Xcode 27 only. There is
-  no media domain in the iOS 26 SDK's assistant schemas, and the `.books`
-  schemas are Shortcuts-only and already deprecated in favour of `.audio`. So
-  SiriKit `INPlayMediaIntent` remains correct for an iOS 17 deployment target;
-  revisit when the toolchain moves to Xcode 27.
+| Say | Result |
+| --- | --- |
+| "Hey Siri, play harry potter and the goblet of fire" | Plays in Abbay, **no app name needed** |
+| "Hey Siri, play harry potter and the goblet of fire in abbay" | Plays in Abbay |
+| "Hey Siri, play chapter 4 in Abbay" | Jumps to chapter 4 |
+| "Hey Siri, play in Abbay" | Resumes the last book |
+| "Hey Siri, next chapter in Abbay" / "pause" | Skips / pauses |
+
+The app-name-less case is worth calling out: Siri's media app selection now picks
+Abbay on its own. That is the behaviour the phase-1 notes recorded as
+unreachable, and it came from the media-provider registration as a whole —
+categories, authorization, `INMediaUserContext`, `INVocabulary`, Spotlight
+indexing and playback donations together.
+
+## How to debug this again
+
+`SiriDiagnostics` writes a ring buffer into the App Group. Read it without root
+or a debugger attached:
+
+```
+xcrun devicectl device copy from --device <id> \
+  --domain-type appGroupDataContainer \
+  --domain-identifier group.com.edyuto.abbay \
+  --source Library/Preferences --destination ./pull
+```
+
+Then decode `abbay.diagnostics.v1` from the plist. Entries name the path that
+served a request (`appintent …`, `inapp resolve/confirm/handle`, `ext …`), the
+Siri authorization status at launch, and how many entities the queries returned.
+Absence of an entry is itself the signal: it means Siri never reached that path.
+The trail records outcome labels only, never what was said.
+
+## Remaining limits
+
+- **Phrase budget.** Apple allows 1,000 trigger phrases per app counting every
+  parameter permutation, so entity suggestions are capped at 40 books and 50
+  chapters. Titles past the cap still resolve through free-form matching.
+- **The iOS 27 path.** Apple's App Intents `.audio` domain (`playAudio`,
+  `audiobook`) is iOS 27 / Xcode 27 only. The iOS 26 SDK has no media domain in
+  its assistant schemas, and the `.books` schemas are Shortcuts-only and already
+  deprecated in favour of `.audio`. SiriKit `INPlayMediaIntent` remains correct
+  for an iOS 17 deployment target; revisit when the toolchain moves to Xcode 27.
+- **Diagnostics are shippable but optional.** If the trail is not wanted in
+  release builds, `SiriDiagnostics.record` is the single call site to gate.

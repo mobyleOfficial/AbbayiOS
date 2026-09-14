@@ -6,6 +6,16 @@
 
 ---
 
+> **Status update (2026-09-14).** Phase 2 shipped and was verified on device.
+> Limitations 1, 3, 4, 5, 9 and 12 are resolved; 2 is resolved by the
+> launch-state flag plus activation retry. Entity parameters removed the
+> `String`-in-phrase restriction behind 3, 5 and 9, and the media-provider
+> registration resolved 1 to the point where a spoken title reaches Abbay with no
+> app name at all. See `2026-09-12-siri-routing-diagnosis.md` for the causes, the
+> fixes and the confirmed device results. Items 6, 7, 8, 10 and 11 stand.
+
+---
+
 ## 1. Cold-start "play" verb routes to the system's default media app
 
 **What fails:** With Abbay **not running**, `"Hey Siri, play in Abbay"` and `"Hey Siri, play on Abbay"` route to YouTube Music / Apple Music / Spotify — whichever Siri has learned as the default media provider. Siri correctly identifies the Abbay application by name (e.g. `"play on Abbay"` returns `"Abbay hasn't added support for that"` rather than misrouting), but `"play in Abbay"` is intercepted by Siri's media-domain router before AppShortcuts matching runs.
