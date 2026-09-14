@@ -61,12 +61,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             lastPlayedURL?.absoluteString ?? "<nil>"
         )
 
-        let audios: [AudioModel] = entries.compactMap { entry in
-            guard let url = URL(string: entry.urlString) else { return nil }
-            var model = AudioModel(url: url)
-            model.title = entry.title
-            return model
-        }
+        let audios = MediaSearchResolver.audios(from: entries)
 
         let candidates = resolveCandidates(
             mediaName: mediaName,
@@ -100,30 +95,20 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         }
     }
 
-    /// Picks the library candidates for a spoken request.
-    ///
-    /// A title-less request — "Hey Siri, play in Abbay", "play on Abbay", or a bare
-    /// "resume" that Siri routes into the media domain — arrives with an empty
-    /// `mediaSearch.mediaName`. `matchAll` deliberately returns nothing for empty
-    /// input, so without this branch every title-less play request answered
-    /// `.noMatch` and Siri spoke its failure dialog. Title-less means "continue what
-    /// I was listening to": prefer the last-played book, else the first in the
-    /// library so a fresh install still starts playing instead of erroring.
+    /// Delegates to the shared resolver so the extension and the in-app
+    /// `application(_:handle:)` path rank a spoken request identically.
     func resolveCandidates(
         mediaName: String,
         audios: [AudioModel],
         lastPlayedURL: URL?
     ) -> [AudioModel] {
-        let isTitleless = mediaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        guard isTitleless else {
-            return matchAll(input: mediaName, audios: audios, lastPlayedURL: lastPlayedURL)
-        }
-        if let lastPlayedURL, let resumed = audios.first(where: { $0.url == lastPlayedURL }) {
-            os_log("decide titleless → resume last played", log: log, type: .info)
-            return [resumed]
-        }
-        os_log("decide titleless → first library entry", log: log, type: .info)
-        return Array(audios.prefix(1))
+        let candidates = MediaSearchResolver.candidates(
+            mediaName: mediaName,
+            audios: audios,
+            lastPlayedURL: lastPlayedURL
+        )
+        os_log("decide candidates=%{public}d", log: log, type: .info, candidates.count)
+        return candidates
     }
 
     func resolveMediaItems(

@@ -95,6 +95,7 @@ targets:
       - path: Abbay/Core/LibrarySnapshotReader.swift
       - path: Abbay/Core/SiriDiagnostics.swift
       - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
       - path: Abbay/Model/AudioModel.swift
       - path: Abbay/Model/ChapterModel.swift
       - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
@@ -128,6 +129,7 @@ targets:
       - path: Abbay/Core/LibrarySnapshotReader.swift
       - path: Abbay/Core/SiriDiagnostics.swift
       - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
       - path: Abbay/Model/AudioModel.swift
       - path: Abbay/Model/ChapterModel.swift
       - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
