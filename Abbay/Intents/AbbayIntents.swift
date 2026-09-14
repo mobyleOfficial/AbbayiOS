@@ -274,6 +274,8 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ResumeAbbayIntent(),
             phrases: [
+                "\(.applicationName) play",
+                "\(.applicationName) resume",
                 "Play in \(.applicationName)",
                 "Resume \(.applicationName)",
                 "Continue audiobook in \(.applicationName)"
@@ -316,7 +318,15 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         // a second utterance. The String parameter still flows into perform().
         AppShortcut(
             intent: PlayAudiobookIntent(),
+            // App-name-first variants matter: Siri completes a known media title
+            // from our own registered vocabulary and then ends the utterance,
+            // dropping anything after it. Leading with the app name means the
+            // target app is established before the title, so a truncated tail
+            // costs nothing.
             phrases: [
+                "\(.applicationName) play \(\.$audiobook)",
+                "\(.applicationName) open \(\.$audiobook)",
+                "In \(.applicationName) play \(\.$audiobook)",
                 "Play \(\.$audiobook) in \(.applicationName)",
                 "Open \(\.$audiobook) in \(.applicationName)",
                 "Listen to \(\.$audiobook) in \(.applicationName)"
@@ -327,6 +337,8 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: PlayChapterIntent(),
             phrases: [
+                "\(.applicationName) play \(\.$chapter)",
+                "In \(.applicationName) play \(\.$chapter)",
                 "Play \(\.$chapter) in \(.applicationName)",
                 "Skip to \(\.$chapter) in \(.applicationName)"
             ],
