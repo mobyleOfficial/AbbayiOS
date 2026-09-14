@@ -28,6 +28,7 @@ final class IntentRouter: IntentRouterProtocol {
     }
 
     func handle(_ intent: INPlayMediaIntent) -> INPlayMediaIntentResponse {
+        SiriDiagnostics.record("app handleInApp received")
         if LaunchStateFlag.isUnavailable() {
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
         }

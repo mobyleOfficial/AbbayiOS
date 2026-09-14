@@ -39,7 +39,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Siri responds "Abbay hasn't added support for that with Siri".
         // First call surfaces the system permission prompt; subsequent calls are
         // no-ops if status is already determined.
-        INPreferences.requestSiriAuthorization { _ in }
+        INPreferences.requestSiriAuthorization { status in
+            SiriDiagnostics.record("app launch siriAuth=\(status.rawValue)")
+        }
 
         // Publish the library to Siri on every launch. Apple requires at least one
         // successful entity fetch before entity-parameter phrases ("Play <title> in

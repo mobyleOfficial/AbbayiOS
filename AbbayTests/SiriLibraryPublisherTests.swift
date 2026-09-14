@@ -16,6 +16,14 @@ private final class SpyMediaUserContextDonor: MediaUserContextDonorProtocol {
     }
 }
 
+private final class SpySpotlightIndexer: LibrarySpotlightIndexerProtocol {
+    var indexedTitles = [[String]]()
+
+    func index(audios: [AudioModel]) {
+        indexedTitles.append(audios.map(\.title))
+    }
+}
+
 private final class SpySiriLibraryPublisher: SiriLibraryPublisherProtocol {
     var publishedTitles = [[String]]()
 
@@ -56,8 +64,10 @@ final class SiriLibraryPublisherTests: XCTestCase {
         let donor = SpyMediaUserContextDonor()
         var vocabulary: [String]?
         var refreshCount = 0
+        let spotlight = SpySpotlightIndexer()
         let publisher = SiriLibraryPublisher(
             mediaUserContextDonor: donor,
+            spotlightIndexer: spotlight,
             vocabulary: { vocabulary = $0.compactMap { $0 as? String } },
             refreshShortcutParameters: { refreshCount += 1 }
         )
@@ -68,8 +78,30 @@ final class SiriLibraryPublisherTests: XCTestCase {
         ])
 
         XCTAssertEqual(donor.donatedCounts, [2])
+        XCTAssertEqual(spotlight.indexedTitles, [["First", "Second"]])
         XCTAssertEqual(vocabulary, ["First", "Second"])
         XCTAssertEqual(refreshCount, 1)
+    }
+
+    func test_spotlightItem_carriesTitleAndStableIdentifier() throws {
+        let item = try XCTUnwrap(
+            LibrarySpotlightIndexer.searchableItem(for: audio(title: "Dune", url: "file:///dune"))
+        )
+        XCTAssertEqual(item.uniqueIdentifier, "file:///dune")
+        XCTAssertEqual(item.attributeSet.title, "Dune")
+    }
+
+    func test_spotlightItem_skipsUntitledOrUrllessBooks() {
+        XCTAssertNil(LibrarySpotlightIndexer.searchableItem(for: audio(title: "", url: "file:///a")))
+        var noURL = AudioModel()
+        noURL.title = "Titled"
+        XCTAssertNil(LibrarySpotlightIndexer.searchableItem(for: noURL))
+    }
+
+    func test_spotlightIndexer_skipsIndexCallForEmptyLibrary() {
+        var calls = 0
+        LibrarySpotlightIndexer(indexItems: { _ in calls += 1 }).index(audios: [])
+        XCTAssertEqual(calls, 0)
     }
 
     func test_orderedTitles_putsLastPlayedFirst() throws {

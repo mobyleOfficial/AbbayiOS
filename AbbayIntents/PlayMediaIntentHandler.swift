@@ -35,8 +35,11 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             mediaName, String(describing: flagValue), AppGroup.suiteName
         )
 
+        SiriDiagnostics.record("ext decide entered titleless=\(mediaName.isEmpty)")
+
         if flagValue {
             os_log("decide → unavailable (flag set)", log: log, type: .info)
+            SiriDiagnostics.record("ext outcome=unavailable")
             return .unavailable
         }
 
@@ -44,6 +47,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         os_log("decide read snapshot: %{public}d entries", log: log, type: .info, entries.count)
         guard !entries.isEmpty else {
             os_log("decide → emptyLibrary", log: log, type: .info)
+            SiriDiagnostics.record("ext outcome=emptyLibrary")
             return .emptyLibrary
         }
 
@@ -71,6 +75,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         )
         if candidates.isEmpty {
             os_log("decide → noMatch", log: log, type: .info)
+            SiriDiagnostics.record("ext outcome=noMatch")
             return .noMatch
         }
 
@@ -82,6 +87,8 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
                 artwork: nil
             )
         }
+
+        SiriDiagnostics.record("ext outcome=matched count=\(items.count)")
 
         if items.count == 1 {
             return .singleMatch(items[0])

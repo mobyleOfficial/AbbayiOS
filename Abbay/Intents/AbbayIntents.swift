@@ -29,6 +29,7 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent ResumeAbbayIntent fired")
         // Attempt audio session activation. If it succeeds, clears the flag (so a
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
@@ -59,6 +60,7 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PauseAbbayIntent fired")
         // Attempt audio session activation. If it succeeds, clears the flag (so a
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
@@ -84,6 +86,7 @@ struct NextChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent NextChapterIntent fired")
         // Attempt audio session activation. If it succeeds, clears the flag (so a
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
@@ -109,6 +112,7 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PreviousChapterIntent fired")
         // Attempt audio session activation. If it succeeds, clears the flag (so a
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
@@ -146,6 +150,7 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayBookByNameIntent fired")
         // Attempt audio session activation. If it succeeds, clears the flag (so a
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
@@ -193,6 +198,7 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayAudiobookIntent fired")
         guard AudioSessionActivator.attemptActivation() else {
             return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
         }
@@ -232,6 +238,7 @@ struct PlayChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayChapterIntent fired")
         guard AudioSessionActivator.attemptActivation() else {
             return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
         }

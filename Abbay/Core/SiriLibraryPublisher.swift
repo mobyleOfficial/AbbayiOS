@@ -21,6 +21,8 @@ import Intents
 ///   first launch.
 /// * `INMediaUserContext` reports library size as an app-affinity signal for
 ///   Siri's media app selection.
+/// * Core Spotlight indexing lets the system associate a spoken title with this
+///   app while the app is not running.
 protocol SiriLibraryPublisherProtocol {
     func publish(audios: [AudioModel])
 }
@@ -34,11 +36,13 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     static let vocabularyLimit = 100
 
     private let mediaUserContextDonor: MediaUserContextDonorProtocol
+    private let spotlightIndexer: LibrarySpotlightIndexerProtocol
     private let vocabulary: (NSOrderedSet) -> Void
     private let refreshShortcutParameters: () -> Void
 
     init(
         mediaUserContextDonor: MediaUserContextDonorProtocol = MediaUserContextDonor.shared,
+        spotlightIndexer: LibrarySpotlightIndexerProtocol = LibrarySpotlightIndexer.shared,
         vocabulary: @escaping (NSOrderedSet) -> Void = { strings in
             INVocabulary.shared().setVocabularyStrings(strings, of: .mediaAudiobookTitle)
         },
@@ -47,12 +51,14 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         }
     ) {
         self.mediaUserContextDonor = mediaUserContextDonor
+        self.spotlightIndexer = spotlightIndexer
         self.vocabulary = vocabulary
         self.refreshShortcutParameters = refreshShortcutParameters
     }
 
     func publish(audios: [AudioModel]) {
         mediaUserContextDonor.donate(libraryItemCount: audios.count)
+        spotlightIndexer.index(audios: audios)
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
         refreshShortcutParameters()
     }
