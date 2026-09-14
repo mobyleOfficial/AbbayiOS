@@ -74,9 +74,11 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
 
     func entities(for identifiers: [AudiobookEntity.ID]) async throws -> [AudiobookEntity] {
         let wanted = Set(identifiers)
-        return AudiobookLibrary.all()
+        let found = AudiobookLibrary.all()
             .compactMap(AudiobookEntity.init(model:))
             .filter { wanted.contains($0.id) }
+        SiriDiagnostics.record("query book byId asked=\(identifiers.count) found=\(found.count)")
+        return found
     }
 
     func suggestedEntities() async throws -> [AudiobookEntity] {
@@ -87,7 +89,9 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
             let recent = ordered.remove(at: index)
             ordered.insert(recent, at: 0)
         }
-        return Array(ordered.prefix(Self.suggestionLimit))
+        let suggestions = Array(ordered.prefix(Self.suggestionLimit))
+        SiriDiagnostics.record("query book suggested count=\(suggestions.count)")
+        return suggestions
     }
 
     /// Free-form resolution. Siri calls this with whatever the user actually said,
@@ -100,6 +104,8 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
             audios: library,
             lastPlayedURL: LastPlayedStore.lastPlayedURL()
         )
-        return matches.compactMap(AudiobookEntity.init(model:))
+        let entities = matches.compactMap(AudiobookEntity.init(model:))
+        SiriDiagnostics.record("query book matching found=\(entities.count) library=\(library.count)")
+        return entities
     }
 }

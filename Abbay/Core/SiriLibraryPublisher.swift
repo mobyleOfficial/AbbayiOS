@@ -60,6 +60,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         mediaUserContextDonor.donate(libraryItemCount: audios.count)
         spotlightIndexer.index(audios: audios)
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
+        SiriDiagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
         refreshShortcutParameters()
     }
 

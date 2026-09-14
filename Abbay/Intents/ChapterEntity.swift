@@ -54,6 +54,7 @@ struct ChapterEntityQuery: EntityQuery, EntityStringQuery {
 
     func suggestedEntities() async throws -> [ChapterEntity] {
         let count = ChapterContext.currentBook()?.chapters.count ?? 0
+        SiriDiagnostics.record("query chapter suggested count=\(min(count, Self.suggestionLimit))")
         return (0..<min(count, Self.suggestionLimit)).map(ChapterEntity.init(id:))
     }
 
