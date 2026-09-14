@@ -46,20 +46,33 @@ final class IntentRouterTests: XCTestCase {
         )
     }
 
+    private static func search(for name: String) -> INMediaSearch {
+        INMediaSearch(
+            mediaType: .audioBook,
+            sortOrder: .unknown,
+            mediaName: name,
+            artistName: nil,
+            albumName: nil,
+            genreNames: nil,
+            moodNames: nil,
+            releaseDate: nil,
+            reference: .unknown,
+            mediaIdentifier: nil
+        )
+    }
+
     /// The in-app dispatch path: iOS hands `INPlayMediaIntent` straight to the app
     /// with nothing resolved, so only `mediaSearch` is populated.
     private func makeUnresolvedIntent(mediaName: String?) -> INPlayMediaIntent {
         INPlayMediaIntent(
-            mediaItems: nil, mediaContainer: nil, playShuffled: nil,
-            playbackRepeatMode: .none, resumePlayback: nil,
-            playbackQueueLocation: .now, playbackSpeed: nil,
-            mediaSearch: mediaName.map { name in
-                INMediaSearch(
-                    mediaType: .audioBook, sortOrder: .unknown, mediaName: name,
-                    artistName: nil, albumName: nil, genreNames: nil, moodNames: nil,
-                    releaseDate: nil, reference: .unknown, mediaIdentifier: nil
-                )
-            }
+            mediaItems: nil,
+            mediaContainer: nil,
+            playShuffled: nil,
+            playbackRepeatMode: .none,
+            resumePlayback: nil,
+            playbackQueueLocation: .now,
+            playbackSpeed: nil,
+            mediaSearch: mediaName.map(Self.search(for:))
         )
     }
 
@@ -148,15 +161,20 @@ final class IntentRouterTests: XCTestCase {
         try XCTUnwrap(loadAudio).stubs[url.absoluteString] = book
 
         let router = try makeRouter(snapshotEntries: [
-            LibrarySnapshotEntry(title: "Harry Potter and the Goblet of Fire",
-                                 urlString: url.absoluteString, bookmarkData: nil),
+            LibrarySnapshotEntry(
+                title: "Harry Potter and the Goblet of Fire",
+                urlString: url.absoluteString,
+                bookmarkData: nil
+            ),
             LibrarySnapshotEntry(title: "The Hobbit", urlString: "file:///hobbit", bookmarkData: nil)
         ])
         let response = router.handle(makeUnresolvedIntent(mediaName: "goblet of fire"))
 
         XCTAssertEqual(response.code, .success)
-        XCTAssertEqual(try XCTUnwrap(playerMock).playCalls.map(\.title),
-                       ["Harry Potter and the Goblet of Fire"])
+        XCTAssertEqual(
+            try XCTUnwrap(playerMock).playCalls.map(\.title),
+            ["Harry Potter and the Goblet of Fire"]
+        )
     }
 
     func test_handle_unresolvedIntent_noMediaSearch_resumesLastPlayed() throws {
@@ -167,8 +185,11 @@ final class IntentRouterTests: XCTestCase {
         try XCTUnwrap(loadAudio).stubs[url.absoluteString] = book
 
         let router = try makeRouter(snapshotEntries: [
-            LibrarySnapshotEntry(title: "Order of the Phoenix",
-                                 urlString: url.absoluteString, bookmarkData: nil)
+            LibrarySnapshotEntry(
+                title: "Order of the Phoenix",
+                urlString: url.absoluteString,
+                bookmarkData: nil
+            )
         ])
         let response = router.handle(makeUnresolvedIntent(mediaName: nil))
 
