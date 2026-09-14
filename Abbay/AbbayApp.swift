@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var seeder: AppDelegateSeederProtocol = AppDelegateSeeder()
     lazy var intentRouter: IntentRouterProtocol = IntentRouter()
     lazy var siriLibraryPublisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared
+    lazy var playMediaHandler = InAppPlayMediaHandler()
 
     func application(
         _ application: UIApplication,
@@ -73,6 +74,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         DependencyContainer.shared.player.cleanup()
+    }
+
+    /// Hand the system a real SiriKit handler so it runs resolve, confirm and
+    /// handle. Returning nil here leaves it with the bare `handle` hook below,
+    /// which makes Siri speak a generic error even when playback succeeds.
+    func application(_ application: UIApplication, handlerFor intent: INIntent) -> Any? {
+        guard intent is INPlayMediaIntent else { return nil }
+        return playMediaHandler
     }
 
     func application(
