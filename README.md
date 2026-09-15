@@ -14,7 +14,9 @@ This is a lightweight audiobook player that prioritizes your privacy:
 
 This project uses [Xcodegen](https://github.com/yonaskolb/XcodeGen), [Fastlane](https://fastlane.tools/) and [Bundler](https://bundler.io/) to minimize setup time and ensure consistency across development environments. It also uses [Swiftlint](https://realm.github.io/SwiftLint/) to maintain code quality and consistency.
 
-Please use `Xcode 26` to run this project (CI is pinned to `26.0.1`). The deployment target is **iOS 17.0** (iPhone). Tests run on the `iPhone 17 (26.0)` simulator.
+Please use **Xcode 26** to run this project. GitHub Actions is pinned to `26.0.1` on `macos-15`. The app's deployment target is **iOS 17.0** (iPhone). Tests use the simulator named in `.actions.yml`: `iPhone 17 (26.0)`.
+
+Ruby is pinned to **3.2.0** via `.ruby-version`. The app version lives in the `version` file (currently `0.2.0` / build `2`).
 
 ### Why those tools?
 
@@ -72,7 +74,7 @@ bundle exec fastlane generate_app
 # Run SwiftLint
 bundle exec fastlane lint_project
 
-# Update MARKETING_VERSION / CURRENT_PROJECT_VERSION from the version file
+# Stamp MARKETING_VERSION / CURRENT_PROJECT_VERSION from the version file
 bundle exec fastlane update_version
 
 # Clean build artifacts
@@ -83,28 +85,30 @@ Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to sk
 
 ## Features
 
-- Audio playback with standard controls (play, pause, skip 15s/30s)
-- Chapter navigation (list + next/previous chapter)
-- Progress tracking (Core Data, including security-scoped file bookmarks so Files access survives relaunch)
-- Lock Screen / Control Center / Now Playing via `MPRemoteCommandCenter`
-- CarPlay support (library, Now Playing, chapters)
+- Import local audio files (Files picker, `UTType.audio`)
+- Audio playback with standard controls (play, pause, skip back/forward 15s and 30s)
+- Chapter navigation (in-player list, next/previous chapter)
+- Progress tracking via Core Data; security-scoped file bookmarks keep Files access after relaunch
+- Lock Screen / Control Center / Now Playing (`MPRemoteCommandCenter`: play/pause, skip 15s, next/previous chapter, seek)
+- CarPlay support (library list, Now Playing, chapters)
 - Siri support:
-  - App Intents (`AudioPlaybackIntent`) for play/pause, chapters, and play by name
-  - SiriKit `INPlayMediaIntent` via the `AbbayIntents` extension (media-domain routing, including one-shot “play \<title\> on Abbay”)
+  - App Intents (`AudioPlaybackIntent`) for resume, pause, next/previous chapter, play by name, play chapter
+  - SiriKit `INPlayMediaIntent` via the `AbbayIntents` extension (media-domain routing, including title-only “play \<book\>”)
 - Core Spotlight indexing of the library to help Siri match titles
 - Dark mode support
-- Localization support (in-app String Catalog; Siri dialogs are English-only for now)
+- Localization support (String Catalog, source language English; Siri dialogs are English-only)
+- Swipe-to-delete in the library
 
 ## Architecture
 
 The app is built using SwiftUI with a clean architecture approach, separating concerns into distinct layers:
-- **UI Layer**: SwiftUI views and view models (`Abbay/View`)
-- **Domain Layer**: Business logic and use cases (`Abbay/Model`)
-- **Data Layer**: Local storage and file management (`Abbay/Core/Data`)
+- **UI Layer**: SwiftUI views and view models
+- **Domain Layer**: Business logic and use cases
+- **Data Layer**: Local storage and file management
 
-All audio playback is handled using AVFoundation, Apple's native framework for working with audiovisual media. Now Playing and remote commands go through `NowPlayingManager`.
+All audio playback is handled using AVFoundation, Apple's native framework for working with audiovisual media. Lock Screen / Control Center commands go through `NowPlayingManager`.
 
-Siri is split across the app target (`Abbay/Intents`, App Intents) and the `AbbayIntents` app extension (SiriKit). Shared Siri state (last played, library snapshot, launch-unavailable flag) lives in the App Group `group.com.edyuto.abbay`. Design notes, plans, and research are under `docs/superpowers/`.
+Siri is implemented in the app target (`Abbay/Intents`) and in the `AbbayIntents` SiriKit extension. Shared Siri state uses the App Group `group.com.edyuto.abbay`. Design notes live under `docs/superpowers/`.
 
 `project.yml` generates four targets: **Abbay**, **AbbayTests**, **AbbayIntents**, and **AbbayIntentsTests**.
 
@@ -118,15 +122,15 @@ run_tests: false
 test_device: iPhone 17 (26.0)
 ```
 
-`run_tests` is currently `false` to keep Actions time down. Run `bundle exec fastlane test_project` locally before submitting a PR.
+`run_tests` is currently `false`. Run `bundle exec fastlane test_project` locally before submitting a PR.
+
+Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main` (simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs use Xcode `26.0.1`.
 
 Actions used:
-* [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint)
-* [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version) (`26.0.1` on `macos-15`)
+* [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint) (`0.59.1`)
+* [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version)
 * [xcresulttool](https://github.com/marketplace/actions/xcresulttool)
 * [Fastlane](https://fastlane.tools/)
-
-PRs into `main` or `develop` run the validate-branch workflow. Pushes to `main` run the release workflow (simulator archive attached to a GitHub Release tagged from the `version` file).
 
 ## Contributing
 
