@@ -14,6 +14,11 @@ final class NowPlayingManager {
     private var player: PlayerProtocol?
     private var model: AudioModel?
 
+    /// Read-only view of the audio currently associated with the playback session.
+    /// Set via `setPlayer(_:currentAudio:)`. Consumed by App Intents to gate
+    /// commands that require something to be playing (Pause / Next / Previous).
+    var currentAudio: AudioModel? { model }
+
     private init() {
         setupRemoteCommandCenter()
     }

@@ -7,6 +7,8 @@ import Foundation
 
 protocol DependencyContainerProtocol {
     var player: PlayerProtocol { get }
+    var loadAudio: LoadAudioUseCaseProtocol { get }
+    var loadAllAudios: LoadAllAudiosUseCaseProtocol { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -28,8 +30,12 @@ final class DependencyContainer: DependencyContainerProtocol {
     }
 
     let player: PlayerProtocol
+    let loadAudio: LoadAudioUseCaseProtocol
+    let loadAllAudios: LoadAllAudiosUseCaseProtocol
 
     private init() {
         self.player = Player()
+        self.loadAudio = LoadAudioUseCase()
+        self.loadAllAudios = LoadAllAudiosUseCase()
     }
 }
