@@ -31,7 +31,10 @@ final class IntentTests: XCTestCase {
         DependencyContainer.reset()
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = .standard
+        // Restore to production default (AppGroup) — NOT `.standard` — so a leaked
+        // pointer can't bleed across test suites in the same xctest worker.
+        LastPlayedStore.defaults = AppGroup.defaults
+        LastPlayedStore.standardFallback = .standard
         // NowPlayingManager is a process singleton with stateful currentAudio;
         // reset between tests so case-order independence holds.
         NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
@@ -239,5 +242,76 @@ final class IntentTests: XCTestCase {
 
         XCTAssertEqual(player.playCalls.count, 1)
         XCTAssertEqual(player.playCalls.first?.url, url)
+    }
+
+    // MARK: - LaunchStateFlag gate
+
+    private func withUnavailableFlag(_ body: () async throws -> Void) async throws {
+        let flagSuiteName = "test.flag.\(UUID().uuidString)"
+        let flagSuite = try XCTUnwrap(UserDefaults(suiteName: flagSuiteName))
+        let originalFlagDefaults = LaunchStateFlag.defaults
+        LaunchStateFlag.defaults = flagSuite
+        LaunchStateFlag.markUnavailable()
+        // The intents now RETRY activation instead of trusting a stale flag, so the
+        // unavailable branch is only reachable when activation itself fails. Stub the
+        // activator to throw — the real AVAudioSession always succeeds in the simulator.
+        let originalActivator = AudioSessionActivator.makeActivator
+        let failing = MockAudioSessionActivator()
+        failing.shouldThrow = true
+        AudioSessionActivator.makeActivator = { failing }
+        defer {
+            AudioSessionActivator.makeActivator = originalActivator
+            flagSuite.removePersistentDomain(forName: flagSuiteName)
+            LaunchStateFlag.defaults = originalFlagDefaults
+        }
+        try await body()
+    }
+
+    func test_resumeAbbayIntent_audioUnavailable_doesNotCallPlayer() async throws {
+        try await withUnavailableFlag {
+            _ = try await ResumeAbbayIntent().perform()
+            XCTAssertTrue(player.playCalls.isEmpty)
+        }
+    }
+
+    func test_pauseAbbayIntent_audioUnavailable_doesNotPause() async throws {
+        let book = audio(title: "Book", url: "file:///b.m4b")
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        try await withUnavailableFlag {
+            _ = try await PauseAbbayIntent().perform()
+            XCTAssertEqual(player.pauseCallCount, 0)
+        }
+    }
+
+    func test_nextChapterIntent_audioUnavailable_doesNotSkip() async throws {
+        let book = audio(title: "Book", url: "file:///b.m4b")
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        try await withUnavailableFlag {
+            _ = try await NextChapterIntent().perform()
+            XCTAssertEqual(player.skipNextCallCount, 0)
+        }
+    }
+
+    func test_previousChapterIntent_audioUnavailable_doesNotSkip() async throws {
+        let book = audio(title: "Book", url: "file:///b.m4b")
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        try await withUnavailableFlag {
+            _ = try await PreviousChapterIntent().perform()
+            XCTAssertEqual(player.skipPreviousCallCount, 0)
+        }
+    }
+
+    func test_playBookByNameIntent_audioUnavailable_doesNotPlay() async throws {
+        let url = try XCTUnwrap(URL(string: "file:///hp.m4b"))
+        let book = audio(title: "Harry Potter", url: url.absoluteString)
+        lister.stub = [book]
+        loader.stubs[url.absoluteString] = book
+
+        try await withUnavailableFlag {
+            var intent = PlayBookByNameIntent()
+            intent.bookName = "Harry Potter"
+            _ = try await intent.perform()
+            XCTAssertEqual(player.playCalls.count, 0)
+        }
     }
 }

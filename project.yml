@@ -62,6 +62,9 @@ targets:
     dependencies:
       - sdk: AVFoundation.framework
       - sdk: CarPlay.framework
+      - sdk: Intents.framework
+      - target: AbbayIntents
+        embed: true
 
   AbbayTests:
     type: bundle.unit-test
@@ -80,19 +83,78 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Abbay.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Abbay
 
+  AbbayIntents:
+    type: app-extension
+    platform: iOS
+    sources:
+      - AbbayIntents
+      - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/LaunchStateFlag.swift
+      - path: Abbay/Core/LastPlayedStore.swift
+      - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/SiriDiagnostics.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
+      - path: Abbay/Model/AudioModel.swift
+      - path: Abbay/Model/ChapterModel.swift
+      - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
+    settings:
+      base:
+        INFOPLIST_FILE: AbbayIntents/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AbbayIntents/AbbayIntents.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.Abbay.AbbayIntents
+    dependencies:
+      - sdk: Intents.framework
+
+  AbbayIntentsTests:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - target: AbbayIntents
+    sources:
+      - path: AbbayIntentsTests
+      # Source-shared with the extension target. The test bundle cannot link
+      # against an app-extension binary, so we compile the same source files
+      # into the test target. `@testable import AbbayIntents` still works for
+      # internal access because Swift module names match by source.
+      - path: AbbayIntents/IntentHandler.swift
+      - path: AbbayIntents/PlayMediaIntentHandler.swift
+      - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/LaunchStateFlag.swift
+      - path: Abbay/Core/LastPlayedStore.swift
+      - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/SiriDiagnostics.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
+      - path: Abbay/Model/AudioModel.swift
+      - path: Abbay/Model/ChapterModel.swift
+      - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
+
 schemes:
   Abbay:
     build:
       targets:
         Abbay: all
         AbbayTests: [test]
+        AbbayIntents: all
+        AbbayIntentsTests: [test]
     test:
       gatherCoverageData: YES
       coverageTargets:
         - Abbay
       targets:
         - name: AbbayTests
-          paralelizable: true
+          parallelizable: true
+        - name: AbbayIntentsTests
+          parallelizable: true
       environmentVariables:
         - variable: FB_REFERENCE_IMAGE_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/ReferenceImages

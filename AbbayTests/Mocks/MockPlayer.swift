@@ -45,4 +45,14 @@ final class MockPlayer: PlayerProtocol {
     func cleanup() { cleanupCallCount += 1 }
     func skipToNextChapter() { skipNextCallCount += 1 }
     func skipToPreviousChapter() { skipPreviousCallCount += 1 }
+
+    /// Chapter indices requested through `playChapter(at:)`.
+    var playChapterCalls = [Int]()
+    /// What `playChapter(at:)` should report — mirrors "a book is loaded and the
+    /// index exists".
+    var playChapterResult = true
+    func playChapter(at index: Int) -> Bool {
+        playChapterCalls.append(index)
+        return playChapterResult
+    }
 }

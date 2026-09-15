@@ -6,72 +6,11 @@
 import AppIntents
 import Foundation
 
-// MARK: - Fuzzy match helper
+// MARK: - Shared dialogs
 
-/// Returns the best library match for a spoken title, or nil if no audio scores > 0.
-///
-/// Scoring (after `normalize`):
-///   3 — exact equality
-///   2 — title starts with input
-///   1 — title contains input
-///   0 — no overlap (filtered out)
-///
-/// Tie-break: an audio whose `url` equals `lastPlayedURL` is preferred over library order.
-func fuzzyMatch(input: String,
-                audios: [AudioModel],
-                lastPlayedURL: URL?) -> AudioModel? {
-    let query = normalize(input)
-    guard !query.isEmpty else { return nil }
-
-    struct Scored {
-        let audio: AudioModel
-        let score: Int
-        let isLastPlayed: Bool
-        let index: Int
-    }
-
-    let scored: [Scored] = audios.enumerated().compactMap { idx, audio in
-        let normalizedTitle = normalize(audio.title)
-        let score: Int
-        if normalizedTitle == query {
-            score = 3
-        } else if normalizedTitle.hasPrefix(query) {
-            score = 2
-        } else if normalizedTitle.contains(query) {
-            score = 1
-        } else {
-            score = 0
-        }
-        guard score > 0 else { return nil }
-        return Scored(
-            audio: audio,
-            score: score,
-            isLastPlayed: audio.url != nil && audio.url == lastPlayedURL,
-            index: idx
-        )
-    }
-
-    return scored.max { lhs, rhs in
-        if lhs.score != rhs.score { return lhs.score < rhs.score }
-        if lhs.isLastPlayed != rhs.isLastPlayed { return !lhs.isLastPlayed && rhs.isLastPlayed }
-        return lhs.index > rhs.index
-    }?.audio
-}
-
-/// Normalization for fuzzy-match comparison. Order is load-bearing:
-///   1. Replace "&" with " and " (before stripping, otherwise & is lost)
-///   2. Lowercase
-///   3. Strip CharacterSet.punctuationCharacters ∪ .symbols
-///   4. Collapse whitespace runs to a single space
-///   5. Trim
-private func normalize(_ input: String) -> String {
-    var out = input.replacingOccurrences(of: "&", with: " and ")
-    out = out.lowercased()
-    let stripped = CharacterSet.punctuationCharacters.union(.symbols)
-    out = String(out.unicodeScalars.filter { !stripped.contains($0) })
-    let parts = out.split(whereSeparator: { $0.isWhitespace })
-    return parts.joined(separator: " ")
-}
+/// Spoken when the audio session is unavailable (e.g. another app holds it during a phone call).
+/// Phase-2 contract: dialog text is locked to enable manual verification + regression tests.
+let abbayAudioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."
 
 // MARK: - Resume
 
@@ -90,6 +29,13 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent ResumeAbbayIntent fired")
+        // Attempt audio session activation. If it succeeds, clears the flag (so a
+        // stale `true` from a previous cold-launch failure no longer sticks). If
+        // it still throws, sets the flag and exits with the unavailable dialog.
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard let url = LastPlayedStore.lastPlayedURL() else {
             return .result(dialog: IntentDialog(stringLiteral: Self.addBookDialog))
         }
@@ -114,6 +60,13 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PauseAbbayIntent fired")
+        // Attempt audio session activation. If it succeeds, clears the flag (so a
+        // stale `true` from a previous cold-launch failure no longer sticks). If
+        // it still throws, sets the flag and exits with the unavailable dialog.
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -133,6 +86,13 @@ struct NextChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent NextChapterIntent fired")
+        // Attempt audio session activation. If it succeeds, clears the flag (so a
+        // stale `true` from a previous cold-launch failure no longer sticks). If
+        // it still throws, sets the flag and exits with the unavailable dialog.
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -152,6 +112,13 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PreviousChapterIntent fired")
+        // Attempt audio session activation. If it succeeds, clears the flag (so a
+        // stale `true` from a previous cold-launch failure no longer sticks). If
+        // it still throws, sets the flag and exits with the unavailable dialog.
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         guard NowPlayingManager.shared.currentAudio != nil else {
             return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
         }
@@ -183,6 +150,13 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayBookByNameIntent fired")
+        // Attempt audio session activation. If it succeeds, clears the flag (so a
+        // stale `true` from a previous cold-launch failure no longer sticks). If
+        // it still throws, sets the flag and exits with the unavailable dialog.
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
         let library = DependencyContainer.shared.loadAllAudios.execute()
         let lastPlayed = LastPlayedStore.lastPlayedURL()
         guard let hit = fuzzyMatch(input: bookName, audios: library, lastPlayedURL: lastPlayed),
@@ -201,6 +175,97 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
     }
 }
 
+// MARK: - Play a specific audiobook (one-shot, entity parameter)
+
+/// One-utterance "Play <title> in Abbay".
+///
+/// Unlike `PlayBookByNameIntent` (a `String` parameter, which AppIntents refuses
+/// to interpolate into a spoken phrase and therefore always costs a second
+/// "Which audiobook?" turn), this intent takes an `AudiobookEntity`, so the title
+/// can live inside the phrase itself.
+struct PlayAudiobookIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play audiobook"
+    static let description = IntentDescription("Plays one of your Abbay audiobooks by name.")
+
+    @Parameter(title: "Audiobook")
+    var audiobook: AudiobookEntity
+
+    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+
+    static func playingDialog(title: String) -> String {
+        "Playing \(title)."
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayAudiobookIntent fired")
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
+        guard let url = audiobook.url,
+              var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
+            // Stuck-state guard: clear the pointer only if the dead book is the saved one.
+            if let url = audiobook.url, LastPlayedStore.lastPlayedURL() == url {
+                LastPlayedStore.save(url: nil)
+            }
+            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+        }
+        DependencyContainer.shared.player.play(&model)
+        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+    }
+}
+
+// MARK: - Play a specific chapter
+
+/// "Play chapter 4 in Abbay". Acts on the book that is playing, or resumes the
+/// last-played book positioned at the requested chapter when nothing is loaded.
+struct PlayChapterIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play chapter"
+    static let description = IntentDescription("Jumps to a chapter of the audiobook you are listening to.")
+
+    @Parameter(title: "Chapter")
+    var chapter: ChapterEntity
+
+    static let nothingToPlayDialog = "Nothing to play. Say 'Play in Abbay' to start a book."
+
+    static func noChapterDialog(_ number: Int) -> String {
+        "That audiobook doesn't have a chapter \(number)."
+    }
+
+    static func playingChapterDialog(_ number: Int) -> String {
+        "Playing chapter \(number)."
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        SiriDiagnostics.record("appintent PlayChapterIntent fired")
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+        }
+        let index = chapter.id
+
+        // Already listening: a seek is enough, and it avoids reloading the item.
+        if NowPlayingManager.shared.currentAudio != nil,
+           DependencyContainer.shared.player.playChapter(at: index) {
+            return .result(dialog: IntentDialog(stringLiteral: Self.playingChapterDialog(chapter.number)))
+        }
+
+        // Cold: resume the last-played book, but start it at the requested chapter.
+        // Setting `currentTime` before `play` avoids racing the seek against
+        // AVPlayerItem loading.
+        guard let url = LastPlayedStore.lastPlayedURL(),
+              var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.nothingToPlayDialog))
+        }
+        guard model.chapters.indices.contains(index) else {
+            return .result(dialog: IntentDialog(stringLiteral: Self.noChapterDialog(chapter.number)))
+        }
+        model.currentTime = model.chapters[index].startTime
+        DependencyContainer.shared.player.play(&model)
+        return .result(dialog: IntentDialog(stringLiteral: Self.playingChapterDialog(chapter.number)))
+    }
+}
+
 // MARK: - App Shortcuts (phrase registration)
 
 struct AbbayAppShortcuts: AppShortcutsProvider {
@@ -209,6 +274,8 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ResumeAbbayIntent(),
             phrases: [
+                "\(.applicationName) play",
+                "\(.applicationName) resume",
                 "Play in \(.applicationName)",
                 "Resume \(.applicationName)",
                 "Continue audiobook in \(.applicationName)"
@@ -249,6 +316,35 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         // routes a parameter-less phrase like "Play audiobook in Abbay", then prompts
         // "Which audiobook?" via `requestValueDialog`, and the user names the book in
         // a second utterance. The String parameter still flows into perform().
+        AppShortcut(
+            intent: PlayAudiobookIntent(),
+            // App-name-first variants matter: Siri completes a known media title
+            // from our own registered vocabulary and then ends the utterance,
+            // dropping anything after it. Leading with the app name means the
+            // target app is established before the title, so a truncated tail
+            // costs nothing.
+            phrases: [
+                "\(.applicationName) play \(\.$audiobook)",
+                "\(.applicationName) open \(\.$audiobook)",
+                "In \(.applicationName) play \(\.$audiobook)",
+                "Play \(\.$audiobook) in \(.applicationName)",
+                "Open \(\.$audiobook) in \(.applicationName)",
+                "Listen to \(\.$audiobook) in \(.applicationName)"
+            ],
+            shortTitle: "Play audiobook",
+            systemImageName: "books.vertical.fill"
+        )
+        AppShortcut(
+            intent: PlayChapterIntent(),
+            phrases: [
+                "\(.applicationName) play \(\.$chapter)",
+                "In \(.applicationName) play \(\.$chapter)",
+                "Play \(\.$chapter) in \(.applicationName)",
+                "Skip to \(\.$chapter) in \(.applicationName)"
+            ],
+            shortTitle: "Play chapter",
+            systemImageName: "list.number"
+        )
         AppShortcut(
             intent: PlayBookByNameIntent(),
             phrases: [

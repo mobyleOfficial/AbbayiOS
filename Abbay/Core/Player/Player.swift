@@ -24,6 +24,8 @@ protocol PlayerProtocol {
     func cleanup()
     func skipToNextChapter()
     func skipToPreviousChapter()
+    @discardableResult
+    func playChapter(at index: Int) -> Bool
 }
 
 final class Player: PlayerProtocol {
@@ -31,6 +33,10 @@ final class Player: PlayerProtocol {
     private let player = AVPlayer()
     private var model: AudioModel?
     private let saveAudioUseCase: SaveAudioUseCaseProtocol
+    private let intentDonor: IntentDonorProtocol
+    private let librarySnapshotWriter: LibrarySnapshotWriterProtocol
+    private let audioSessionActivator: AudioSessionActivatorProtocol
+    private let bookmarkProvider: BookmarkProviderProtocol
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
@@ -57,9 +63,17 @@ final class Player: PlayerProtocol {
     init(
         saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(
             repository: LoadAudioRepository()
-        )
+        ),
+        intentDonor: IntentDonorProtocol = IntentDonor.shared,
+        librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
+        audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
+        bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider()
     ) {
         self.saveAudioUseCase = saveAudioUseCase
+        self.intentDonor = intentDonor
+        self.librarySnapshotWriter = librarySnapshotWriter
+        self.audioSessionActivator = audioSessionActivator
+        self.bookmarkProvider = bookmarkProvider
         setupTimeObserver()
 
         // Initialize Now Playing and set player reference
@@ -88,6 +102,25 @@ final class Player: PlayerProtocol {
             print("⚠️ Player.play: URL is nil")
             return
         }
+
+        // Step 1 — defense-in-depth audio session recovery
+        do {
+            try audioSessionActivator.activate()
+            LaunchStateFlag.clear()
+        } catch {
+            LaunchStateFlag.markUnavailable()
+            return
+        }
+
+        // Step 2 — lazy bookmark population on the inout model.
+        // MUST happen BEFORE updatePlayItem so the playItem observer + any future Player
+        // observer of the model see the populated bookmark via the copy.
+        if model.bookmarkData == nil, let bookmark = bookmarkProvider.createBookmarkData(for: url) {
+            model.bookmarkData = bookmark
+            try? saveAudioUseCase.execute(model)
+            librarySnapshotWriter.refresh()
+        }
+
         print("▶️ Player.play: Attempting to play \(url.lastPathComponent)")
         if url != self.url {
             saveTime()
@@ -96,6 +129,8 @@ final class Player: PlayerProtocol {
         }
         player.play()
         print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
+        LastPlayedStore.save(url: url)
+        intentDonor.donatePlayMedia(model: model)
     }
 
     func pause() {
@@ -150,6 +185,19 @@ final class Player: PlayerProtocol {
         }
     }
 
+    /// Jumps the loaded book to the start of a chapter and resumes playback.
+    /// Returns `false` when no book is loaded or the index is out of range, so
+    /// callers (Siri's "play chapter N") can speak the right failure instead of
+    /// silently doing nothing.
+    @discardableResult
+    func playChapter(at index: Int) -> Bool {
+        guard let model = model, model.chapters.indices.contains(index) else { return false }
+        saveTime()
+        seek(model.chapters[index].startTime)
+        player.play()
+        return true
+    }
+
     // MARK: - Helpers
     private func seek(_ time: CMTime) {
         player.seek(to: time)
@@ -169,7 +217,6 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
-        LastPlayedStore.save(url: url)
 
         // Update NowPlayingManager with current audio
         NowPlayingManager.shared.setPlayer(self, currentAudio: item)

@@ -7,10 +7,6 @@
 
 import Foundation
 
-protocol LoadAllAudiosUseCaseProtocol {
-    func execute() -> [AudioModel]
-}
-
 final class LoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
     private let repository: LoadAllAudiosRepositoryProtocol
 

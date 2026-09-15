@@ -6,6 +6,10 @@
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Abbay</string>
+	<key>CFBundleSpokenName</key>
+	<string>Abbay</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -16,6 +20,44 @@
 	<string>2</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbey</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbay Audiobooks</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey audio books</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>A Bay</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>a bay</string>
+		</dict>
+	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryAudiobooks</string>
+		<string>INMediaCategoryGeneral</string>
+	</array>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Abbay needs media access so Siri can start audiobook playback from your library.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>Abbay uses Siri to play your audiobooks and control playback when you say things like 'Play Harry Potter on Abbay' or 'Pause Abbay'.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UISceneConfigurations</key>

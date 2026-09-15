@@ -21,6 +21,13 @@ final class DependencyContainer: DependencyContainerProtocol {
         return container
     }
 
+    /// True once `configure()` has run. AppIntents entity queries can be evaluated
+    /// before/without the normal launch path, and `shared` traps when unconfigured,
+    /// so those call sites check this and fall back to the App Group snapshot.
+    static var isConfigured: Bool {
+        _shared != nil
+    }
+
     static func configure(with container: DependencyContainerProtocol? = nil) {
         _shared = container ?? DependencyContainer()
     }
