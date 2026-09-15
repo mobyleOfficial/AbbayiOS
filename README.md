@@ -1,118 +1,149 @@
 # Abbay
 
-A simple, privacy-focused audiobook player built with SwiftUI. 100% native iOS implementation with zero third-party dependencies.
+A privacy-focused audiobook player for iPhone, built with SwiftUI. Native iOS only — no SPM, CocoaPods, or analytics SDKs.
+
+Current version: **0.2.0** (see the `version` file).
 
 ## Why Abbay?
 
-This is a lightweight audiobook player that prioritizes your privacy:
-- **No external dependencies** - Pure native Swift/SwiftUI implementation
-- **No data collection** - Your listening habits stay on your device
-- **No tracking or observability tools** - What you listen to is your business
-- **Lightweight** - Minimal footprint, maximum performance
+- **No app-store dependencies** — playback, storage, Siri, and CarPlay all use Apple frameworks
+- **No data collection** — the library and listening position stay on device
+- **No tracking** — diagnostic logs used for Siri routing stay local
+- **Local files** — import audio from Files; nothing is streamed from a catalog
 
-## Dependencies
+## Requirements
 
-This project uses [Xcodegen](https://github.com/yonaskolb/XcodeGen), [Fastlane](https://fastlane.tools/) and [Bundler](https://bundler.io/) to minimize setup time and ensure consistency across development environments. It also uses [Swiftlint](https://realm.github.io/SwiftLint/) to maintain code quality and consistency.
+- macOS with [Xcode 16.2](https://developer.apple.com/xcode/)
+- iOS **17.0+** (iPhone; `TARGET_DEVICE_FAMILY` is `1`)
+- Ruby **3.2.0** (for Fastlane / Bundler)
 
-Please use `Xcode 16.2` to run this project.
-
-### Why those tools?
-
-[Xcodegen](https://github.com/yonaskolb/XcodeGen) is ideal for team collaboration as it eliminates the need to commit `.xcodeproj` and `.xcworkspace` files to version control. Instead, we use a configuration file (`project.yml`) that generates the Xcode project on the fly. This prevents merge conflicts and keeps the repository clean.
-
-[Fastlane](https://fastlane.tools/) provides powerful automation for building, testing, and releasing. It consolidates common development tasks into simple lanes that can be run locally or in CI/CD pipelines.
-
-[Bundler](https://bundler.io/) ensures all developers and CI environments use the same versions of Ruby dependencies, eliminating "works on my machine" issues.
-
-[Swiftlint](https://realm.github.io/SwiftLint/) enforces consistent code style and best practices across the codebase.
-
-## Setup
-
-Although not required, it is recommended to use [rbenv](https://rbenv.org/) to manage your Ruby environment:
+Although not required, [rbenv](https://rbenv.org/) is the recommended way to pin Ruby:
 
 ```bash
 brew install rbenv
-```
-
-```bash
 rbenv install 3.2.0
-```
-
-```bash
 rbenv local 3.2.0
 ```
 
-First, install dependencies with:
+## Setup
+
 ```bash
 bundle install
-```
-
-Then generate and open the Xcode project:
-```bash
 bundle exec fastlane generate_project
 ```
 
-The project will automatically open in Xcode. Press `Cmd+R` to build and run.
+That generates `Abbay.xcodeproj` from `project.yml` (via the vendored `Scripts/xcodegen` binary), stamps the version from the `version` file, and opens Xcode. Press `Cmd+R` to run.
 
-## Available Fastlane Commands
+The `.xcodeproj` is gitignored. Do not commit it.
+
+## Features
+
+- Import local audio files (multi-select document picker, `UTType.audio`)
+- Playback with play/pause, skip back/forward 15s and 30s
+- Chapter list and skip to next/previous chapter
+- Progress persisted in Core Data (including security-scoped bookmarks so Files access survives relaunch)
+- Lock Screen / Control Center / Now Playing metadata via `MPRemoteCommandCenter`
+- CarPlay audio scene: library list, Now Playing, chapter list
+- Siri:
+  - App Intents (`AudioPlaybackIntent`) for play/pause, next/previous chapter, play by name, play chapter
+  - SiriKit `INPlayMediaIntent` via the `AbbayIntents` app extension (media-domain routing, including one-shot “play \<title\> on Abbay”)
+- Core Spotlight indexing of the library to help Siri match titles
+- Dark UI (forced `preferredColorScheme(.dark)`)
+- String Catalog localization (`Localizable.xcstrings`) for in-app copy; Siri dialogs are English-only for now
+
+Not currently in the app: playback-speed control, sleep timer, or user-created bookmarks.
+
+## Architecture
+
+SwiftUI on top of a small layered stack:
+
+| Layer | Location | Role |
+| --- | --- | --- |
+| UI | `Abbay/View` | Screens and view models |
+| Domain | `Abbay/Model` | Models, use cases, repositories |
+| Data | `Abbay/Core/Data` | Core Data stack and local storage |
+| Playback | `Abbay/Core/Player`, `NowPlayingManager` | `AVFoundation` player + Now Playing |
+| Voice | `Abbay/Intents`, `AbbayIntents` | App Intents in the app target; SiriKit extension for `INPlayMediaIntent` |
+
+Shared Siri state (last played, library snapshot, launch-unavailable flag) lives in the App Group `group.com.edyuto.abbay`.
+
+`DependencyContainer` is configured at launch and is the single entry point for the live `Player`. Combine publishers replace manual observers for playback time and “now playing” URL.
+
+Siri design notes, plans, and research live under `docs/superpowers/`.
+
+## Targets
+
+Generated from `project.yml`:
+
+- **Abbay** — application
+- **AbbayTests** — app unit tests
+- **AbbayIntents** — SiriKit intents extension
+- **AbbayIntentsTests** — extension unit tests (sources are compiled into the test bundle; an app-extension binary cannot be linked as a test host)
+
+## Tooling
+
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) keeps the Xcode project out of git. The source of truth is `project.yml`; a vendored generator lives at `Scripts/xcodegen`.
+
+[Fastlane](https://fastlane.tools/) wraps generate / test / archive / lint. [Bundler](https://bundler.io/) pins the Ruby gems (`fastlane`, `xcodeproj`, `yaml`). `Gemfile.lock` is gitignored; `.ruby-version` is `3.2.0`.
+
+[SwiftLint](https://realm.github.io/SwiftLint/) runs from `Scripts/swiftlint` on local builds (Xcode build phase + `lint_project` lane) and in CI via the official container.
+
+### Fastlane lanes
 
 ```bash
-# Generate the Xcode project
+# Generate the Xcode project (opens Xcode unless open:false)
 bundle exec fastlane generate_project
 
-# Run tests
+# Open an already-generated project
+bundle exec fastlane open_project
+
+# Run tests (uses test_device from .actions.yml)
 bundle exec fastlane test_project
 
-# Generate a release build
+# Generate a simulator Release archive
 bundle exec fastlane generate_app
 
 # Run SwiftLint
 bundle exec fastlane lint_project
 
-# Clean build artifacts
+# Stamp MARKETING_VERSION / CURRENT_PROJECT_VERSION from the version file
+bundle exec fastlane update_version
+
+# Remove generated projects and build artifacts
 bundle exec fastlane clean_project
 ```
 
-## Features
+Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to skip opening the result.
 
-- Audio playback with standard controls (play, pause, skip, rewind)
-- Playback speed control
-- Sleep timer
-- Chapter navigation
-- Bookmark support
-- Progress tracking
-- CarPlay support
-- Dark mode support
-- Localization support
-
-## Architecture
-
-The app is built using SwiftUI with a clean architecture approach, separating concerns into distinct layers:
-- **UI Layer**: SwiftUI views and view models
-- **Domain Layer**: Business logic and use cases
-- **Data Layer**: Local storage and file management
-
-All audio playback is handled using AVFoundation, Apple's native framework for working with audiovisual media.
+The `version` file is two lines: marketing version, then build number. `Scripts/postinstall` (XcodeGen `postGenCommand`) applies it after project generation.
 
 ## GitHub Actions
 
-We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.actions.yml`:
+CI is configured in `.github/workflows/` and toggled from `.actions.yml`:
 
 ```yaml
 run_swiftlint: true
-run_tests: true
+run_tests: false
 test_device: iPhone 16
 ```
 
+- **Validate branch** (PRs into `main` or `develop`): SwiftLint is on. Unit tests are currently **off** (`run_tests: false`) to keep Actions time down; run `bundle exec fastlane test_project open:false` locally before merging.
+- **Release .app** (push to `main`): builds a simulator archive with Fastlane and attaches `App.zip` to a GitHub Release tagged from the `version` file.
+
 Actions used:
-* [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint)
-* [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version)
-* [xcresulttool](https://github.com/marketplace/actions/xcresulttool)
-* [Fastlane](https://fastlane.tools/)
+
+- [SwiftLint container](https://github.com/realm/SwiftLint/pkgs/container/swiftlint) `0.59.1`
+- [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version) `16.2`
+- [xcresulttool](https://github.com/marketplace/actions/xcresulttool)
+- [Fastlane](https://fastlane.tools/)
 
 ## Contributing
 
-Contributions are welcome! Please ensure all tests pass and SwiftLint validation succeeds before submitting a PR.
+Contributions are welcome. Before opening a PR against `develop`:
+
+1. Generate the project and run tests locally
+2. Keep SwiftLint clean (`bundle exec fastlane lint_project`)
+3. Do not commit `.xcodeproj`, `.xcworkspace`, or `DerivedData`
 
 ## License
 
