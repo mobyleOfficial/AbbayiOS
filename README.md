@@ -14,7 +14,7 @@ This is a lightweight audiobook player that prioritizes your privacy:
 
 This project uses [Xcodegen](https://github.com/yonaskolb/XcodeGen), [Fastlane](https://fastlane.tools/) and [Bundler](https://bundler.io/) to minimize setup time and ensure consistency across development environments. It also uses [Swiftlint](https://realm.github.io/SwiftLint/) to maintain code quality and consistency.
 
-Please use `Xcode 16.2` to run this project. The deployment target is **iOS 17.0** (iPhone).
+Please use `Xcode 26` to run this project (CI is pinned to `26.0.1`). The deployment target is **iOS 17.0** (iPhone). Tests run on the `iPhone 17 (26.0)` simulator.
 
 ### Why those tools?
 
@@ -115,14 +115,14 @@ We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.
 ```yaml
 run_swiftlint: true
 run_tests: false
-test_device: iPhone 16
+test_device: iPhone 17 (26.0)
 ```
 
 `run_tests` is currently `false` to keep Actions time down. Run `bundle exec fastlane test_project` locally before submitting a PR.
 
 Actions used:
 * [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint)
-* [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version)
+* [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version) (`26.0.1` on `macos-15`)
 * [xcresulttool](https://github.com/marketplace/actions/xcresulttool)
 * [Fastlane](https://fastlane.tools/)
 
