@@ -14,7 +14,9 @@ This is a lightweight audiobook player that prioritizes your privacy:
 
 This project uses [Xcodegen](https://github.com/yonaskolb/XcodeGen), [Fastlane](https://fastlane.tools/) and [Bundler](https://bundler.io/) to minimize setup time and ensure consistency across development environments. It also uses [Swiftlint](https://realm.github.io/SwiftLint/) to maintain code quality and consistency.
 
-Please use `Xcode 16.2` to run this project.
+Please use **Xcode 26** to run this project. GitHub Actions is pinned to `26.0.1` on `macos-15`. The app's deployment target is **iOS 17.0** (iPhone). Tests use the simulator named in `.actions.yml`: `iPhone 17 (26.0)`.
+
+Ruby is pinned to **3.2.0** via `.ruby-version`. The app version lives in the `version` file (currently `0.2.0` / build `2`).
 
 ### Why those tools?
 
@@ -60,6 +62,9 @@ The project will automatically open in Xcode. Press `Cmd+R` to build and run.
 # Generate the Xcode project
 bundle exec fastlane generate_project
 
+# Open an already-generated project
+bundle exec fastlane open_project
+
 # Run tests
 bundle exec fastlane test_project
 
@@ -69,21 +74,30 @@ bundle exec fastlane generate_app
 # Run SwiftLint
 bundle exec fastlane lint_project
 
+# Stamp MARKETING_VERSION / CURRENT_PROJECT_VERSION from the version file
+bundle exec fastlane update_version
+
 # Clean build artifacts
 bundle exec fastlane clean_project
 ```
 
+Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to skip opening the result.
+
 ## Features
 
-- Audio playback with standard controls (play, pause, skip, rewind)
-- Playback speed control
-- Sleep timer
-- Chapter navigation
-- Bookmark support
-- Progress tracking
-- CarPlay support
+- Import local audio files (Files picker, `UTType.audio`)
+- Audio playback with standard controls (play, pause, skip back/forward 15s and 30s)
+- Chapter navigation (in-player list, next/previous chapter)
+- Progress tracking via Core Data; security-scoped file bookmarks keep Files access after relaunch
+- Lock Screen / Control Center / Now Playing (`MPRemoteCommandCenter`: play/pause, skip 15s, next/previous chapter, seek)
+- CarPlay support (library list, Now Playing, chapters)
+- Siri support:
+  - App Intents (`AudioPlaybackIntent`) for resume, pause, next/previous chapter, play by name, play chapter
+  - SiriKit `INPlayMediaIntent` via the `AbbayIntents` extension (media-domain routing, including title-only “play \<book\>”)
+- Core Spotlight indexing of the library to help Siri match titles
 - Dark mode support
-- Localization support
+- Localization support (String Catalog, source language English; Siri dialogs are English-only)
+- Swipe-to-delete in the library
 
 ## Architecture
 
@@ -92,7 +106,11 @@ The app is built using SwiftUI with a clean architecture approach, separating co
 - **Domain Layer**: Business logic and use cases
 - **Data Layer**: Local storage and file management
 
-All audio playback is handled using AVFoundation, Apple's native framework for working with audiovisual media.
+All audio playback is handled using AVFoundation, Apple's native framework for working with audiovisual media. Lock Screen / Control Center commands go through `NowPlayingManager`.
+
+Siri is implemented in the app target (`Abbay/Intents`) and in the `AbbayIntents` SiriKit extension. Shared Siri state uses the App Group `group.com.edyuto.abbay`. Design notes live under `docs/superpowers/`.
+
+`project.yml` generates four targets: **Abbay**, **AbbayTests**, **AbbayIntents**, and **AbbayIntentsTests**.
 
 ## GitHub Actions
 
@@ -100,12 +118,16 @@ We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.
 
 ```yaml
 run_swiftlint: true
-run_tests: true
-test_device: iPhone 16
+run_tests: false
+test_device: iPhone 17 (26.0)
 ```
 
+`run_tests` is currently `false`. Run `bundle exec fastlane test_project` locally before submitting a PR.
+
+Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main` (simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs use Xcode `26.0.1`.
+
 Actions used:
-* [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint)
+* [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint) (`0.59.1`)
 * [Setup Xcode version](https://github.com/marketplace/actions/setup-xcode-version)
 * [xcresulttool](https://github.com/marketplace/actions/xcresulttool)
 * [Fastlane](https://fastlane.tools/)
