@@ -35,20 +35,26 @@ func matchAll(input: String,
     let normalizedInput = fuzzyMatchNormalize(input)
     guard !normalizedInput.isEmpty else { return [] }
 
-    let scored: [(AudioModel, Int, Int)] = audios.enumerated().compactMap { idx, audio in
-        let score = fuzzyMatchScore(audio: audio, normalizedInput: normalizedInput)
-        return score > 0 ? (audio, score, idx) : nil
+    struct ScoredMatch {
+        let audio: AudioModel
+        let score: Int
+        let index: Int
     }
 
-    guard let topScore = scored.map(\.1).max() else { return [] }
+    let scored: [ScoredMatch] = audios.enumerated().compactMap { idx, audio in
+        let score = fuzzyMatchScore(audio: audio, normalizedInput: normalizedInput)
+        return score > 0 ? ScoredMatch(audio: audio, score: score, index: idx) : nil
+    }
 
-    let topMatches = scored.filter { $0.1 == topScore }
+    guard let topScore = scored.map(\.score).max() else { return [] }
+
+    let topMatches = scored.filter { $0.score == topScore }
     return topMatches.sorted { lhs, rhs in
-        let lhsIsLast = lastPlayedURL.map { lhs.0.url == $0 } ?? false
-        let rhsIsLast = lastPlayedURL.map { rhs.0.url == $0 } ?? false
+        let lhsIsLast = lastPlayedURL.map { lhs.audio.url == $0 } ?? false
+        let rhsIsLast = lastPlayedURL.map { rhs.audio.url == $0 } ?? false
         if lhsIsLast != rhsIsLast { return lhsIsLast }
-        return lhs.2 < rhs.2
-    }.map { $0.0 }
+        return lhs.index < rhs.index
+    }.map(\.audio)
 }
 
 // MARK: - Internals

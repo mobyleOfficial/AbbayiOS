@@ -64,8 +64,11 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
             let bookmarkCount = entries.filter { $0.bookmarkData != nil }.count
             os_log(
                 "snapshot WRITTEN: %{public}d entries (%{public}d with bookmark), suite=%{public}@",
-                log: snapshotLog, type: .info,
-                entries.count, bookmarkCount, AppGroup.suiteName
+                log: snapshotLog,
+                type: .info,
+                entries.count,
+                bookmarkCount,
+                AppGroup.suiteName
             )
         } else {
             os_log("snapshot WRITE FAILED: JSON encode error", log: snapshotLog, type: .error)
