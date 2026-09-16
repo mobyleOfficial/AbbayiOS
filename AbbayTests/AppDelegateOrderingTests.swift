@@ -9,12 +9,14 @@ import XCTest
 
 final class OrderRecorderActivator: AudioSessionActivatorProtocol {
     let recorder: () -> Void
+
     init(recorder: @escaping () -> Void) { self.recorder = recorder }
     func activate() throws { recorder() }
 }
 
 final class OrderRecorderSeeder: AppDelegateSeederProtocol {
     let recorder: () -> Void
+
     init(recorder: @escaping () -> Void) { self.recorder = recorder }
     func seedIfNeeded() { recorder() }
 }

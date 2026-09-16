@@ -51,6 +51,7 @@ final class MockPlayer: PlayerProtocol {
     /// What `playChapter(at:)` should report — mirrors "a book is loaded and the
     /// index exists".
     var playChapterResult = true
+
     func playChapter(at index: Int) -> Bool {
         playChapterCalls.append(index)
         return playChapterResult

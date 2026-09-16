@@ -40,9 +40,14 @@ final class IntentRouterTests: XCTestCase {
     private func makeIntent(identifier: String) -> INPlayMediaIntent {
         let item = INMediaItem(identifier: identifier, title: "X", type: .audioBook, artwork: nil)
         return INPlayMediaIntent(
-            mediaItems: [item], mediaContainer: nil, playShuffled: nil,
-            playbackRepeatMode: .none, resumePlayback: nil,
-            playbackQueueLocation: .now, playbackSpeed: nil, mediaSearch: nil
+            mediaItems: [item],
+            mediaContainer: nil,
+            playShuffled: nil,
+            playbackRepeatMode: .none,
+            resumePlayback: nil,
+            playbackQueueLocation: .now,
+            playbackSpeed: nil,
+            mediaSearch: nil
         )
     }
 
