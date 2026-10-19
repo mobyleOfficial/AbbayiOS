@@ -57,7 +57,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     private func setupObservers() {
         playerObserver.subscribeToPlayUrlPublisher { [weak self] audio in
-            self?.currentAudio = audio
+            guard let self else { return }
+            // Order matters: both chapter-list entry points gate on `currentAudio`.
+            self.currentAudio = audio
+            // Playback can start from Siri, the phone UI or a remote command. Without this
+            // CarPlay stays on the library list while audio plays, which is indistinguishable
+            // from the trigger having failed.
+            self.showNowPlayingIfNeeded()
         }
 
         playerObserver.subscribeToTimePublisher { [weak self] time in
@@ -150,7 +156,27 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         var freshAudio = loadAudioUseCase.execute(url: audio.url) ?? audio
         playerObserver.player.play(&freshAudio)
 
-        interfaceController?.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
+        showNowPlayingIfNeeded()
+    }
+
+    /// Whether the now-playing template still needs pushing, given the current stack.
+    ///
+    /// False once it is anywhere in the stack: pushing a template that is already present
+    /// duplicates it, and when the user has the chapter list open on top of it they should
+    /// not be yanked back by a track change. Pure and `static` so it is testable without a
+    /// live `CPInterfaceController` (see #96 for the delegate's missing injection seam).
+    static func needsNowPlayingPush(templates: [CPTemplate], nowPlaying: CPTemplate) -> Bool {
+        !templates.contains { $0 === nowPlaying }
+    }
+
+    private func showNowPlayingIfNeeded() {
+        guard let interfaceController else { return }
+        let nowPlaying = CPNowPlayingTemplate.shared
+        guard Self.needsNowPlayingPush(
+            templates: interfaceController.templates,
+            nowPlaying: nowPlaying
+        ) else { return }
+        interfaceController.pushTemplate(nowPlaying, animated: true, completion: nil)
     }
 }
 
