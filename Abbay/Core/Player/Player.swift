@@ -127,6 +127,11 @@ final class Player: PlayerProtocol {
             updatePlayItem(model)
             seek(model.currentTime)
         }
+        // Sync the Now Playing gate on EVERY play, not only when the item changes.
+        // `updatePlayItem` is skipped when the URL is unchanged, and `cleanup()` may have
+        // dropped the gate in between -- so doing this only there leaves `currentAudio`
+        // stale or nil while audio is actually playing.
+        NowPlayingManager.shared.setPlayer(self, currentAudio: model)
         player.play()
         print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
         LastPlayedStore.save(url: url)
@@ -217,9 +222,6 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
-
-        // Update NowPlayingManager with current audio
-        NowPlayingManager.shared.setPlayer(self, currentAudio: item)
 
         let playerItem = AVPlayerItem(url: url)
 

@@ -65,6 +65,17 @@ final class NowPlayingManager {
 
     func clearNowPlaying() {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        // Drop the playback gate alongside the system info. `currentAudio` is what
+        // PauseAbbayIntent, NextChapterIntent, PreviousChapterIntent and PlayChapterIntent
+        // check, so leaving it set here makes Siri answer "Paused." when nothing is playing.
+        //
+        // Only `model` is cleared. `player` must NOT be, because this method is reachable
+        // from `Player.deinit` -> `cleanup()`, and that deinit is itself triggered by the
+        // `player` assignment inside `setPlayer`. Writing `player` here re-enters a property
+        // whose write is still in progress and traps on Swift's exclusive-access check.
+        // Leaving it is also more correct: a dying player must not unregister its successor.
+        // The remote play/toggle handlers guard on `model`, so they fail correctly anyway.
+        model = nil
         print("📻 NowPlaying: Cleared")
     }
 

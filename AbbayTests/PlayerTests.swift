@@ -45,6 +45,7 @@ final class PlayerTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        NowPlayingManager.shared.clearNowPlaying()
         if let name = flagSuiteName, let suite = flagSuite {
             suite.removePersistentDomain(forName: name)
         }
@@ -141,5 +142,27 @@ final class PlayerTests: XCTestCase {
 
         XCTAssertTrue(LaunchStateFlag.isUnavailable())
         XCTAssertEqual(donorMock.donateCallCount, 0)
+    }
+
+    /// `cleanup()` clears the Now Playing info but `self.url` survives it, so a replay of the
+    /// same book skips `updatePlayItem` -- the only writer of the gate before this fix.
+    func test_play_afterCleanup_sameURL_restoresTheNowPlayingGate() throws {
+        var model = AudioModel(title: "Book", url: URL(string: "file:///book.m4a"))
+        let player = try XCTUnwrap(self.player)
+
+        player.play(&model)
+        XCTAssertNotNil(NowPlayingManager.shared.currentAudio)
+
+        player.cleanup()
+        XCTAssertNil(
+            NowPlayingManager.shared.currentAudio,
+            "cleanup() must drop the gate along with the system info"
+        )
+
+        player.play(&model)
+        XCTAssertNotNil(
+            NowPlayingManager.shared.currentAudio,
+            "play() must refresh the gate even when the URL is unchanged"
+        )
     }
 }
