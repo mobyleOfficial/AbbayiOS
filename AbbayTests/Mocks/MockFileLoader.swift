@@ -29,7 +29,37 @@ final class MockDeleteAudioUseCase: DeleteAudioUseCaseProtocol {
 final class MockPlayerObserver: PlayerObserverProtocol {
     var player: PlayerProtocol = MockPlayer()
 
-    func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void) {}
-    func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void) {}
-    func cancelTimeSubscription() {}
+    private(set) var timeSubscriptions: [(CMTime) -> Void] = []
+    private(set) var urlSubscriptions: [(AudioModel) -> Void] = []
+    private(set) var cancelTimeCallCount = 0
+
+    func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void) {
+        timeSubscriptions.append(subscription)
+    }
+
+    func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void) {
+        urlSubscriptions.append(subscription)
+    }
+
+    func cancelTimeSubscription() {
+        cancelTimeCallCount += 1
+        timeSubscriptions.removeAll()
+    }
+
+    // MARK: - Test drivers
+
+    /// Fires every live time subscription, as the real player's periodic observer would.
+    func emitTime(_ seconds: Double) {
+        let time = CMTime(seconds: seconds, preferredTimescale: 600)
+        for subscription in timeSubscriptions {
+            subscription(time)
+        }
+    }
+
+    /// Fires every URL subscription, as `Player.updatePlayItem` would on a new item.
+    func emitPlayUrl(_ model: AudioModel) {
+        for subscription in urlSubscriptions {
+            subscription(model)
+        }
+    }
 }

@@ -36,9 +36,16 @@ $B screenshot player-chapter-2
 $B swipe player.root down                           # dismiss the sheet
 ```
 
-Identifiers to add: `player.root`, `player.cover`, `player.title`,
-`player.transport.{back30,back15,play,forward15,forward30}`,
-`player.progress` (+ `.current`, `.total`), `player.chapters.title`, `player.chapter.<n>`.
+**Verified** (`AccessibilityIdentifierTests`): `player.title`,
+`player.transport.{back30,back15,play,forward15,forward30}`, `player.chapters.title`,
+`player.chapter.<n>`.
+
+**Not addressable:** `player.root` — it overwrote the title, all five transport controls and the
+chapter list. Wait on `player.transport.play` instead to know the sheet is up.
+
+**Not implemented:** `player.cover`, and `player.progress` with its `.current` / `.total`
+labels. The progress view is a composite (a `ProgressView`, a drag handle and two `Text`s) and
+needs identifiers threaded through the component, not applied from the call site.
 
 ## Gotchas
 

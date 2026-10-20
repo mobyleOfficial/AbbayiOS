@@ -3,29 +3,65 @@
 Behaviour-level inventory of what a user can do in Abbay. Agents use it to decide what to drive
 and what evidence counts; humans use it as the regression checklist.
 
-## Status: specification, not yet executable
+## Status: identifiers landed and verified; `abbay-ctl` not built yet
 
-There is no `abbay-ctl` and no `SKILL.md` in this directory yet — this map is deliberately the
-first thing built, because it is the only part with no dependencies. It serves two purposes:
+There is no `abbay-ctl` and no `SKILL.md` in this directory yet, so each file's *Driving it with
+abbay-ctl* section is still a **specification** — the commands we want, not commands that exist.
+Treat a command there as a requirement.
 
-1. **Inventory.** What surfaces exist, how a user reaches them, and where the known traps are.
-2. **Specification for the harness.** Each file's *Driving it with abbay-ctl* section is written
-   as the commands we *want*, not commands that exist. Taken together they define `abbay-ctl`'s
-   surface before a line of it is written. Treat a command here as a requirement.
+Accessibility identifiers, however, are now implemented and **proven by
+`AbbayUITests/AccessibilityIdentifierTests`**. Each feature file marks its identifiers as
+`verified` or `not implemented` so a driver author knows what is actually addressable.
 
-Abbay also has **no accessibility identifiers today** (`grep -c accessibilityIdentifier` → 0).
-Every identifier named in this map is one that has to be *added*. The convention is
-`<screen>.<element>[.<qualifier>]`, matching the shape used in sibling projects.
+### The rule that matters: identifiers go on leaves, never on containers
+
+SwiftUI applies `.accessibilityIdentifier` to **every** accessibility element in the subtree, so
+an identifier on a container silently overwrites its children's. The first attempt at this pass
+put identifiers on containers and destroyed 18 of 21 child identifiers without any build or test
+failure — the accessibility tree simply showed the container's id repeated on every descendant:
+
+```
+Image,      identifier: 'library.row.0', label: 'Photo'
+StaticText, identifier: 'library.row.0', label: 'Seeded Plain Book'
+Button,     identifier: 'library.row.0'
+```
+
+Consequences baked into the current design:
+
+- There is **no `library.root` and no `player.root`** — both clobbered everything beneath them.
+  Use `library.list` / `library.empty` and a specific player control as the "screen is up" signal.
+- `library.row.<n>` is **not** addressable on its own. Address a row through one of its leaves
+  (`library.row.<n>.title` is the usual handle, and tapping it opens the player).
+
+Convention remains `<screen>.<element>[.<qualifier>]`. Constants live in
+`Abbay/Core/AccessibilityID.swift`, compiled into both the app and the UI test target because a
+UI test bundle runs out of process and cannot `import Abbay`.
+
+### Row order is not insertion order
+
+`LoadAllAudiosUseCase` applies no sort, so positional indices do not match the order books were
+added. Resolve a row by matching its title label rather than assuming an index.
 
 ## Baseline preconditions
 
 - Fresh build: the app binary is newer than every source file under `Abbay/`.
 - Portrait iPhone only (`TARGET_DEVICE_FAMILY: 1`), forced dark mode
   (`MediaListView` sets `.preferredColorScheme(.dark)`), deployment target iOS 17.0.
-- The library must be seeded before any playback flow. There is no backend and no fixture in the
-  repo yet; the planned seam is a `-seedLibrary` launch argument plus a committed public-domain
-  LibriVox audiobook with real chapter metadata. Until that exists, every playback feature is
-  blocked on a manual import.
+- The library is seeded through launch arguments, handled by `UITestSeeder` in DEBUG builds and
+  named in `Abbay/Core/LaunchArgument.swift`:
+  - `-seedLibrary` — replaces the library with two deterministic books, one chaptered (three
+    chapters) and one without chapters.
+  - `-resetLibrary` — empties the library, for the empty state.
+
+  Both clear first, so repeated runs are deterministic rather than cumulative. The seeded models
+  carry **no playable audio**, so anything requiring playback to actually start — the floating
+  player, tapping a chapter — is still unreachable this way.
+- A real chaptered audiobook fixture is committed at `AbbayTests/Fixtures/Christmastide.m4b`
+  (public domain; see its README). It is a resource of the **unit** test bundle, so `FileLoader`
+  and the bookmark layer are tested against a real asset. It is not in the app bundle, which is
+  why the UI seed path uses synthetic models instead.
+- UI tests run from their own scheme via `bundle exec fastlane ui_test_project`, kept out of
+  `test_project` so the unit suite stays fast. `run_ui_tests` in `.actions.yml` gates CI.
 - Out-of-band state lives in the App Group `group.com.edyuto.abbay`, readable with
   `xcrun simctl get_app_container booted com.edyuto.Abbay group`. Assert side effects there
   (`abbay.lastPlayedAudioURL`, `abbay.librarySnapshot.v1`, `abbay.diagnostics.v1`,

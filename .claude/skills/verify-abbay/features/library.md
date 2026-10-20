@@ -27,8 +27,8 @@ It is the first and only screen on launch. Everything else is reached from here.
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library
-$B wait library.root
+$B launch --seed-library                     # -seedLibrary
+$B wait library.list
 $B snapshot                                  # expect library.row.<n> per book
 $B tap library.row.0                         # → player sheet
 $B tap library.toolbar.import                # → document picker
@@ -38,9 +38,17 @@ $B tap library.floatingPlayer                # → player sheet on the playing b
 $B appgroup get abbay.librarySnapshot.v1     # assert the delete rewrote the snapshot
 ```
 
-Identifiers to add: `library.root`, `library.empty`, `library.row.<n>`, `library.row.<n>.delete`,
-`library.toolbar.search`, `library.toolbar.import`, `library.toolbar.settings`,
-`library.floatingPlayer`.
+**Verified** (`AccessibilityIdentifierTests`): `library.list`, `library.empty`,
+`library.toolbar.search`, `library.toolbar.import`, `library.toolbar.settings`.
+
+**Not addressable:** `library.row.<n>` on its own — a container identifier would overwrite every
+leaf inside the row, so rows are reached through `library.row.<n>.title` (see
+[media-row](media-row.md)). There is no `library.root`; use `library.list` or `library.empty` as
+the "screen is up" signal depending on the state you expect.
+
+**Not implemented:** `library.row.<n>.delete` (the delete is a swipe action, not a persistent
+element) and `library.floatingPlayer` is declared but unverified — the floating player only
+appears once audio is genuinely playing, which the synthetic seed cannot do.
 
 ## Gotchas
 

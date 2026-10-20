@@ -33,8 +33,16 @@ $B snapshot | jq '.elements[] | select(.id=="library.row.0.timestamp")'
 $B tap library.row.1.play                    # row 0 must stop reporting isPlaying
 ```
 
-Identifiers to add: `library.row.<n>.title`, `library.row.<n>.chapterCount`,
-`library.row.<n>.timestamp`, `library.row.<n>.play`.
+**Verified** (`AccessibilityIdentifierTests`): `library.row.<n>.artwork`,
+`library.row.<n>.title`, `library.row.<n>.chapterCount`, `library.row.<n>.timestamp`,
+`library.row.<n>.play`.
+
+`library.row.<n>.title` doubles as the row handle: the tap gesture sits on the whole row, so
+tapping the title opens the player. There is deliberately no identifier on the row container —
+it would overwrite all five leaves above.
+
+Remember row order is not insertion order (`LoadAllAudiosUseCase` applies no sort), so resolve
+`<n>` by matching the title's label rather than assuming a position.
 
 ## Gotchas
 

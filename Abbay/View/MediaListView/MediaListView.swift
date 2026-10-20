@@ -20,10 +20,13 @@ struct MediaListView: View {
                 .toolbar {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
                         IconButtonView(systemName: "magnifyingglass")
+                            .accessibilityIdentifier(AccessibilityID.Library.toolbarSearch)
                         IconButtonView(systemName: "plus.rectangle.on.folder") {
                             model.isShowingFilePicker = true
                         }
+                        .accessibilityIdentifier(AccessibilityID.Library.toolbarImport)
                         IconButtonView(systemName: "gearshape")
+                            .accessibilityIdentifier(AccessibilityID.Library.toolbarSettings)
                     }
                 }
                 .sheet(isPresented: $model.isShowingFilePicker) {
@@ -66,14 +69,18 @@ struct MediaListView: View {
                 .frame(width: SpaceConstants.sx32.value)
             Text(Localizable.emptyLibraryTitle.localized)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(AccessibilityID.Library.empty)
     }
 
     // MARK: - List View
     @ViewBuilder
     var listView: some View {
         List {
-            ForEach(model.audioList, id: \.url) { file in
-                MediaView(file)
+            // `enumerated()` keeps url-based identity while exposing the positional index the
+            // accessibility identifiers use.
+            ForEach(Array(model.audioList.enumerated()), id: \.element.url) { index, file in
+                MediaView(file, namespace: AccessibilityID.Library.row(index))
                 .listRowBackground(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
                 .onTapGesture {
@@ -90,6 +97,7 @@ struct MediaListView: View {
             }
         }
         .listStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.Library.list)
     }
 
     // MARK: - Player View
@@ -97,6 +105,7 @@ struct MediaListView: View {
     var playerView: some View {
         if let selectedAudio = model.selectedAudio {
             FloatingPlayerViewFactory.build(selectedAudio)
+                .accessibilityIdentifier(AccessibilityID.Library.floatingPlayer)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)

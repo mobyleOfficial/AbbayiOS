@@ -52,6 +52,7 @@ DerivedData/
 
 ### Tests ###
 TestResults*
+UITestResults*
 
 ### Build ###
 Build/

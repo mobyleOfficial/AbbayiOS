@@ -1,4 +1,6 @@
 run_swiftlint: true
-run_tests: false
+run_tests: true
+# UI tests boot the app in the simulator, so they cost more wall-clock than the unit suite.
+run_ui_tests: true
 # run `xcrun simctl list devices` to list devices
-test_device: iPhone 17 (26.0)
+test_device: iPhone 17 (26.4)
