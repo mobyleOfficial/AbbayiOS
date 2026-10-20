@@ -177,6 +177,14 @@ final class Player: PlayerProtocol {
     func skipToPreviousChapter() {
         guard let model = model else { return }
         let currentChapterIndex = model.currentChapter(for: currentTime)
+        // `currentChapter(for:)` falls back to index 0 even when `chapters` is empty (#101),
+        // so this subscript traps on a book with no chapter metadata -- a plain MP3, which is
+        // the common case rather than an edge case (#102). Reachable from PreviousChapterIntent
+        // and from the lock-screen / CarPlay previous-track handler.
+        guard model.chapters.indices.contains(currentChapterIndex) else {
+            seek(0)
+            return
+        }
         let currentChapter = model.chapters[currentChapterIndex]
 
         // If more than 15 seconds into the chapter, go to start of current chapter
