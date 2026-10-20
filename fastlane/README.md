@@ -45,6 +45,20 @@ Tests the project
 #### Optional parameters
   * open: true - Open the test results after running tests
 
+### ios ui_test_project
+
+```sh
+[bundle exec] fastlane ios ui_test_project
+```
+
+Runs the UI test suite
+
+Drives the real app in the simulator. Kept in its own lane and its own scheme because UI tests
+boot the app and are far slower than the unit suite -- `test_project` must stay quick.
+
+#### Optional parameters
+  * open: true - Open the test results after running tests
+
 ### ios generate_app
 
 ```sh
