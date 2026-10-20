@@ -84,7 +84,10 @@ boot the app and are far slower than the unit suite -- `test_project` must stay 
         scheme: "#{project_name}UITests",
         device: actions_config['test_device'].to_s,
         derived_data_path: './build_data',
-        result_bundle_path: 'UITestResults.xcresult'
+        result_bundle_path: 'UITestResults.xcresult',
+        # UI tests drive a real simulator, so they are sensitive to host load in a way the unit
+        # suite is not. Retry rather than let a shared-runner hiccup block a merge.
+        number_of_retries: 2
       )
     ensure
       sh 'open ../UITestResults.xcresult' if options[:open].nil? || options[:open]

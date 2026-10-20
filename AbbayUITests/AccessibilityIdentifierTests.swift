@@ -25,10 +25,10 @@ final class AccessibilityIdentifierTests: XCTestCase {
         app = XCUIApplication()
     }
 
-    override func tearDownWithError() throws {
-        app.terminate()
-        try super.tearDownWithError()
-    }
+    // No `tearDown` terminating the app on purpose. `app.launch()` already terminates and
+    // relaunches a running instance, and an explicit `terminate()` between tests left the
+    // simulator unable to hand out a background assertion on CI -- five of nine tests failed
+    // with "Timed out while acquiring background assertion" at the *next* test's launch.
 
     // MARK: - Helpers
 
