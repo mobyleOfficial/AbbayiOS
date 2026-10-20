@@ -76,6 +76,11 @@ targets:
         excludes:
           - "ReferenceImages/*"
           - "FailureDiffs/*"
+          - "Fixtures/*"
+      # Real audiobook fixture (public domain, see Fixtures/README.md). Declared as a
+      # resource so it lands in the test bundle and tests can read it by name.
+      - path: AbbayTests/Fixtures
+        buildPhase: resources
     settings:
       base:
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: 'YES'
