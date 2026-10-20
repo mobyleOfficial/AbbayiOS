@@ -90,7 +90,7 @@ jobs:
           path: TestResults.zip
 
       - name: Test report
-        uses: slidoapp/xcresulttool@v3.1.0
+        uses: slidoapp/xcresulttool@v3.2.0
         if: success() || failure()
         with:
           path: TestResults.xcresult
@@ -140,7 +140,7 @@ jobs:
           path: UITestResults.zip
 
       - name: UI test report
-        uses: slidoapp/xcresulttool@v3.1.0
+        uses: slidoapp/xcresulttool@v3.2.0
         if: success() || failure()
         with:
           path: UITestResults.xcresult
