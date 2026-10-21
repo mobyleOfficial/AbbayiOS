@@ -44,11 +44,15 @@ enum LibriVoxIdentity {
         return directory
     }
 
+    /// Nil when the remote file name could resolve to the book directory or outside it (empty,
+    /// ".", ".." or containing "/"), since the download manager deletes the destination first.
     static func localFileURL(for chapter: ChapterModel, bookID: String, root: URL = defaultRoot) -> URL? {
-        guard let remoteURL = chapter.remoteURL else { return nil }
+        guard let name = chapter.remoteURL?.lastPathComponent,
+              !name.isEmpty, name != ".", name != "..", !name.contains("/")
+        else { return nil }
         return root
             .appendingPathComponent(bookID, isDirectory: true)
-            .appendingPathComponent(remoteURL.lastPathComponent)
+            .appendingPathComponent(name)
     }
 
     static func isDownloaded(_ chapter: ChapterModel, bookID: String, root: URL = defaultRoot) -> Bool {

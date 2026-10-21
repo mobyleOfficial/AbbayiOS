@@ -49,6 +49,23 @@ final class LibriVoxIdentityTests: XCTestCase {
         XCTAssertNil(LibriVoxIdentity.localFileURL(for: ChapterModel(), bookID: "200", root: root))
     }
 
+    func test_localFileURL_isNilForAMalformedRemoteFileName() {
+        // Each would otherwise resolve to the book directory or above it, which the download
+        // manager's move deletes before replacing.
+        let malformed = [
+            "https://archive.org",
+            "https://archive.org/",
+            "https://archive.org/download/.",
+            "https://archive.org/download/..",
+            "https://archive.org/download/a%2Fb.mp3"
+        ]
+        for string in malformed {
+            let chapter = ChapterModel(remoteURL: URL(string: string))
+            XCTAssertNil(LibriVoxIdentity.localFileURL(for: chapter, bookID: "200", root: root), string)
+            XCTAssertFalse(LibriVoxIdentity.isDownloaded(chapter, bookID: "200", root: root), string)
+        }
+    }
+
     func test_playableURL_streamsUntilDownloaded() throws {
         XCTAssertEqual(
             LibriVoxIdentity.playableURL(for: chapter, bookID: "200", root: root),
