@@ -19,7 +19,12 @@
 	<key>CFBundleVersion</key>
 	<string>2</string>
 	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.utilities</string>
+	<string>public.app-category.books</string>
+	<!-- Abbay uses no non-exempt encryption: no network layer, no crypto beyond what the OS
+	     does for the Keychain and file protection. Declaring it here means App Store Connect
+	     stops asking the export-compliance questions on every single upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>INAlternativeAppNames</key>
 	<array>
 		<dict>

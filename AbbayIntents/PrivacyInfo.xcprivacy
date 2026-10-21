@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Abbay has no analytics, no SDKs and makes no network requests. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- 1C8F.1: defaults shared through the App Group `group.com.edyuto.abbay`
+				     between the app and the AbbayIntents extension. This is Abbay's main
+				     storage pattern: the library snapshot, the last-played pointer, the
+				     audio-session flag and the Siri diagnostics trail all live there so the
+				     extension can read what the app wrote. -->
+				<string>1C8F.1</string>
+				<!-- CA92.1: defaults private to the app itself. `LastPlayedStore` still reads
+				     and clears a `.standard` value as the one-time migration fallback from
+				     phase-1 storage. -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

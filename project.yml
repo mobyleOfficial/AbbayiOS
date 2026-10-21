@@ -26,8 +26,15 @@ settings:
     TARGET_DEVICE_FAMILY: '1'
 
     # Signing
+    #
+    # No CODE_SIGN_IDENTITY here on purpose. With automatic signing Xcode resolves the identity
+    # itself -- Apple Development for Debug, Apple Distribution for Release -- so pinning it is
+    # redundant and risks pinning the wrong one.
+    #
+    # It used to read `CODE_SIGN_IDENTITY: iPhone Developer` at this base level, which applied to
+    # Release as well, where an App Store archive needs a distribution identity. That is the bug
+    # this removal fixes; a deprecated identity name was the lesser half of it.
     CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: iPhone Developer
     DEVELOPMENT_TEAM: 2X5PWXY74F
     PROVISIONING_PROFILE:
     PROVISIONING_PROFILE_SPECIFIER:
