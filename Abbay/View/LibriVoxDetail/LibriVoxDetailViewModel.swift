@@ -30,6 +30,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         downloads: BookDownloadManagerProtocol,
         saveAudio: SaveAudioUseCaseProtocol,
         path: NetworkPathProviding,
+        loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
         onAdded: @escaping (AudioModel) -> Void
     ) {
         self.book = book
@@ -38,6 +39,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.saveAudio = saveAudio
         self.path = path
         self.onAdded = onAdded
+        // A book already in the library shows Play and its progress, and is never added again.
+        addedBook = loadAudio.execute(url: LibriVoxIdentity.bookURL(id: book.id))
         downloads.statesPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] states in

@@ -326,13 +326,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free public-domain audiobooks from LibriVox, read by volunteers."
+            "value" : "Public domain recording by LibriVox volunteers"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Audiolivros gratuitos de domínio público do LibriVox, lidos por voluntários."
+            "value" : "Gravação de domínio público feita por voluntários do LibriVox"
           }
         }
       }

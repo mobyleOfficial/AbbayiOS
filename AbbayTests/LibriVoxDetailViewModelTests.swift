@@ -57,6 +57,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             downloads: downloads,
             saveAudio: save,
             path: path,
+            loadAudio: MockLoadAudioUseCase(),
             onAdded: { [unowned self] in added.append($0) }
         )
         await sut.load()
@@ -72,7 +73,13 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
     func test_load_failureLeavesDetailsNilAndFlagsError() async {
         client.detailsResult = .failure(URLError(.notConnectedToInternet))
         let sut = LibriVoxDetailViewModel(
-            book: book, client: client, downloads: downloads, saveAudio: save, path: path, onAdded: { _ in }
+            book: book,
+            client: client,
+            downloads: downloads,
+            saveAudio: save,
+            path: path,
+            loadAudio: MockLoadAudioUseCase(),
+            onAdded: { _ in }
         )
 
         await sut.load()
@@ -144,6 +151,32 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         XCTAssertEqual(save.savedModels.first?.imageData, Data([1, 2, 3]))
         XCTAssertEqual(added.map(\.librivoxID), ["42"])
         XCTAssertEqual(sut.addedBook?.librivoxID, "42")
+    }
+
+    func test_existingBook_startsAddedAndDownloadDoesNothing() async {
+        var existing = AudioModel(url: LibriVoxIdentity.bookURL(id: "42"))
+        existing.librivoxID = "42"
+        let loadAudio = MockLoadAudioUseCase()
+        loadAudio.stubs["librivox://book/42"] = existing
+        client.detailsResult = .success(LibriVoxBookDetails(book: book, sectionBytes: [1000, 0]))
+        let sut = LibriVoxDetailViewModel(
+            book: book,
+            client: client,
+            downloads: downloads,
+            saveAudio: save,
+            path: path,
+            loadAudio: loadAudio,
+            onAdded: { [unowned self] in added.append($0) }
+        )
+        await sut.load()
+
+        XCTAssertEqual(sut.addedBook?.librivoxID, "42")
+        sut.downloadTapped()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+        XCTAssertTrue(downloads.enqueued.isEmpty)
+        XCTAssertTrue(added.isEmpty)
     }
 
     func test_download_twice_addsOnlyOnce() async {
