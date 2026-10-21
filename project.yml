@@ -78,6 +78,8 @@ targets:
       - sdk: Intents.framework
       - target: AbbayIntents
         embed: true
+      - target: NetworkProvider
+        embed: true
 
   AbbayTests:
     type: bundle.unit-test
@@ -156,6 +158,27 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
 
+  NetworkProvider:
+    type: framework
+    platform: iOS
+    sources:
+      - Modules/NetworkProvider/Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.NetworkProvider
+
+  NetworkProviderTests:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - target: NetworkProvider
+    sources:
+      - Modules/NetworkProvider/Tests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+
   AbbayUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -180,6 +203,7 @@ schemes:
         AbbayTests: [test]
         AbbayIntents: all
         AbbayIntentsTests: [test]
+        NetworkProviderTests: [test]
     test:
       gatherCoverageData: YES
       coverageTargets:
@@ -189,6 +213,9 @@ schemes:
           parallelizable: true
         - name: AbbayIntentsTests
           parallelizable: true
+        # URLProtocolMock keeps shared static state behind a semaphore, so no parallel runs.
+        - name: NetworkProviderTests
+          parallelizable: false
       environmentVariables:
         - variable: FB_REFERENCE_IMAGE_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/ReferenceImages
