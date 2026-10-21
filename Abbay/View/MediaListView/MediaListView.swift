@@ -246,8 +246,7 @@ struct MediaListView: View {
             remoteMessage(Localizable.searchFailed.localized)
         case .loaded:
             ForEach(Array(search.remoteResults.enumerated()), id: \.element.id) { index, book in
-                // Task 10 replaces this placeholder with `LibriVoxDetailView`.
-                NavigationLink(destination: Text(book.title)) {
+                NavigationLink(destination: LibriVoxDetailView(book: book, onAdded: { model.addLibriVoxBook($0) })) {
                     RemoteBookRow(book: book)
                 }
                 .listRowBackground(ColorConstants.background.value)

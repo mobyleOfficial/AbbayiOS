@@ -69,6 +69,29 @@ final class MediaListViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func test_addLibriVoxBook_appendsOnceAndWritesSnapshot() throws {
+        let loadAll = try XCTUnwrap(mockLoadAll)
+        let viewModel = MediaListViewModel(
+            playerObserver: MockPlayerObserver(),
+            loadAllAudiosUseCase: loadAll,
+            deleteAudioUseCase: MockDeleteAudioUseCase(),
+            fileLoader: try XCTUnwrap(mockFileLoader)
+        )
+        var book = AudioModel(url: URL(string: "librivox://book/7"))
+        book.title = "Remote"
+        book.librivoxID = "7"
+
+        viewModel.addLibriVoxBook(book)
+        viewModel.addLibriVoxBook(book)
+
+        XCTAssertEqual(viewModel.audioList.map(\.librivoxID), ["7"])
+        let suite = try XCTUnwrap(testSuite)
+        let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
+        let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
+        XCTAssertEqual(snapshot.audios.first?.title, "Remote")
+    }
+
+    @MainActor
     func test_deleteAudio_writesSnapshot() async throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
         modelA.title = "A"

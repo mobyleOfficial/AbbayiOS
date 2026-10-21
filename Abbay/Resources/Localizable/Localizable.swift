@@ -27,6 +27,18 @@ enum Localizable: String {
     case searchFailed
     case noResults
     case downloadedTag
+    case download
+    case play
+    case chaptersCount
+    case librivoxCredit
+    case more
+    case largeDownloadTitle
+    case largeDownloadMessage
+    case continueDownload
+    case waitForWiFi
+    case waiting
+    case detailsFailed
+    case retry
 }
 
 extension Localizable {

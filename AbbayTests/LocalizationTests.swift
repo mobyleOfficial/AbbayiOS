@@ -28,7 +28,19 @@ final class LocalizationTests: XCTestCase {
         .searchOffline,
         .searchFailed,
         .noResults,
-        .downloadedTag
+        .downloadedTag,
+        .download,
+        .play,
+        .chaptersCount,
+        .librivoxCredit,
+        .more,
+        .largeDownloadTitle,
+        .largeDownloadMessage,
+        .continueDownload,
+        .waitForWiFi,
+        .waiting,
+        .detailsFailed,
+        .retry
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -50,7 +62,19 @@ final class LocalizationTests: XCTestCase {
         .searchOffline,
         .searchFailed,
         .noResults,
-        .downloadedTag
+        .downloadedTag,
+        .download,
+        .play,
+        .chaptersCount,
+        .librivoxCredit,
+        .more,
+        .largeDownloadTitle,
+        .largeDownloadMessage,
+        .continueDownload,
+        .waitForWiFi,
+        .waiting,
+        .detailsFailed,
+        .retry
     ]
 
     /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship

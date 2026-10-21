@@ -54,6 +54,21 @@ enum AccessibilityID {
         }
     }
 
+    enum Detail {
+        static let view = "detail.view"
+        static let download = "detail.download"
+        static let play = "detail.play"
+        static let more = "detail.more"
+        static let retry = "detail.retry"
+        static let progress = "detail.progress"
+        static let cellularContinue = "detail.cellular.continue"
+        static let cellularWait = "detail.cellular.wait"
+
+        static func chapter(_ index: Int) -> String {
+            "detail.chapter.\(index)"
+        }
+    }
+
     enum Player {
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"

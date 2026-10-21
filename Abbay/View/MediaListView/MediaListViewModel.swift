@@ -63,4 +63,12 @@ final class MediaListViewModel: ObservableObject {
         LibrarySnapshotWriter.shared.write(audios: audioList)
         AbbayAppShortcuts.updateAppShortcutParameters()
     }
+
+    /// A LibriVox book the details page just saved. Refreshed like an import.
+    func addLibriVoxBook(_ book: AudioModel) {
+        guard !audioList.contains(where: { $0.url == book.url }) else { return }
+        audioList.append(book)
+        LibrarySnapshotWriter.shared.write(audios: audioList)
+        AbbayAppShortcuts.updateAppShortcutParameters()
+    }
 }

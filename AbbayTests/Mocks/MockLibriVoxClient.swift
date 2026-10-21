@@ -9,6 +9,9 @@ import Foundation
 final class MockLibriVoxClient: LibriVoxClientProtocol {
     var searchResult: Result<[LibriVoxBook], Error> = .success([])
     var popularResult: Result<[LibriVoxBook], Error> = .success([])
+    var detailsResult: Result<LibriVoxBookDetails, Error> = .failure(URLError(.unsupportedURL))
+    var coverResult: Data?
+    private(set) var detailsCalls = 0
     private(set) var searchQueries = [String]()
     private(set) var popularCalls = 0
 
@@ -23,11 +26,12 @@ final class MockLibriVoxClient: LibriVoxClientProtocol {
     }
 
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails {
-        throw URLError(.unsupportedURL)
+        detailsCalls += 1
+        return try detailsResult.get()
     }
 
     func coverData(for book: LibriVoxBook) async -> Data? {
-        nil
+        coverResult
     }
 }
 
