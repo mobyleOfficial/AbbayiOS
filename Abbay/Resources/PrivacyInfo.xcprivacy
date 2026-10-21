@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Abbay has no analytics, no SDKs and makes no network requests. -->
+	<!-- Abbay has no analytics, no SDKs and no tracking. Its only network requests go to librivox.org and archive.org, to search, stream and download public-domain audiobooks; they carry no identifiers and no listening data. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>

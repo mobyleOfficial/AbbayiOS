@@ -87,7 +87,7 @@ Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to sk
 ## Features
 
 - Import local audio files (Files picker, `UTType.audio`)
-- Add public-domain audiobooks from LibriVox: search, browse, download, and start listening while chapters are still downloading (the vendored `NetworkProvider` module under `Modules/` is the only networking code)
+- Add public-domain audiobooks from LibriVox: search, browse, download, and start listening while chapters are still downloading (networking is limited to librivox.org and archive.org: API requests and chapter downloads go through the vendored `NetworkProvider` module under `Modules/`, while streaming and cover images use AVPlayer and AsyncImage)
 - Audio playback with standard controls (play, pause, skip back/forward 15s and 30s)
 - Chapter navigation (in-player list, next/previous chapter)
 - Progress tracking via Core Data; security-scoped file bookmarks keep Files access after relaunch
