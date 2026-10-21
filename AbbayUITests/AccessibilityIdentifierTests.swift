@@ -152,6 +152,39 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Player.title)
     }
 
+    // MARK: - Displayed values
+
+    /// End-to-end guard for #104. The counter is rendered from a 0-based index by
+    /// `ChapterCountView`, so a three-chapter book at rest must read 1/3 -- it previously read
+    /// 0/3 until playback reported a time. Substring rather than equality because the element's
+    /// label is a combination of its icon and text.
+    func test_seededChapteredRow_showsOneBasedChapterCounter() throws {
+        launch([LaunchArgument.seedLibrary])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
+        let counter = element(AccessibilityID.Element.chapterCount(AccessibilityID.Library.row(index)))
+        XCTAssertTrue(counter.waitForExistence(timeout: 15))
+
+        XCTAssertTrue(
+            counter.label.contains("1/3"),
+            "expected a 1-based counter for a three-chapter book, got \"\(counter.label)\""
+        )
+    }
+
+    /// The chapterless seeded book must read 0/0 rather than 1/0.
+    func test_seededPlainRow_showsZeroOfZero() throws {
+        launch([LaunchArgument.seedLibrary])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
+        let counter = element(AccessibilityID.Element.chapterCount(AccessibilityID.Library.row(index)))
+        XCTAssertTrue(counter.waitForExistence(timeout: 15))
+
+        XCTAssertTrue(
+            counter.label.contains("0/0"),
+            "expected 0/0 for a book with no chapters, got \"\(counter.label)\""
+        )
+    }
+
     func test_player_chapterIdentifiersResolve() throws {
         _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
 

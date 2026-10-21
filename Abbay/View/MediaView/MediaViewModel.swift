@@ -59,7 +59,7 @@ final class MediaViewModel: ObservableObject {
             guard let self = self else { return }
             self.currentTime = time.seconds
             self.isPlaying = self.playerObserver.player.isPlaying(self.info.url)
-            self.currentChapter = self.info.currentChapter(for: self.currentTime) + 1
+            self.currentChapter = self.info.currentChapter(for: self.currentTime)
         }
     }
 
