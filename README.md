@@ -7,6 +7,7 @@ A simple, privacy-focused audiobook player built with SwiftUI. 100% native iOS i
 This is a lightweight audiobook player that prioritizes your privacy:
 - **No external dependencies** - Pure native Swift/SwiftUI implementation
 - **No data collection** - Your listening habits stay on your device
+- **Network only when you ask** - The app contacts librivox.org and archive.org solely to search, show and download public-domain audiobooks. It sends no identifiers and no listening data
 - **No tracking or observability tools** - What you listen to is your business
 - **Lightweight** - Minimal footprint, maximum performance
 
@@ -86,6 +87,7 @@ Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to sk
 ## Features
 
 - Import local audio files (Files picker, `UTType.audio`)
+- Add public-domain audiobooks from LibriVox: search, browse, download, and start listening while chapters are still downloading (the vendored `NetworkProvider` module under `Modules/` is the only networking code)
 - Audio playback with standard controls (play, pause, skip back/forward 15s and 30s)
 - Chapter navigation (in-player list, next/previous chapter)
 - Progress tracking via Core Data; security-scoped file bookmarks keep Files access after relaunch
