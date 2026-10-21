@@ -240,6 +240,74 @@ final class CarPlaySceneDelegateTests: XCTestCase {
         XCTAssertEqual(item.playbackProgress, 0.5, accuracy: 0.001)
     }
 
+    /// #92: progress is computed from `currentAudio` but written to `currentPlayingItem`, and
+    /// the two are updated by different paths. Start book A from CarPlay, then start book B from
+    /// the phone or Siri, and A's row animates with B's position -- at B's ratio.
+    func test_playbackSwitchingToAnotherBook_movesProgressToThatBooksRow() {
+        let bookA = book(title: "A", duration: 400, url: "file:///a.m4b")
+        let bookB = book(title: "B", duration: 100, url: "file:///b.m4b")
+        loadAll.stub = [bookA, bookB]
+        player.url = bookA.url
+        let delegate = makeDelegate()
+        let template = delegate.buildLibraryTemplate()
+        let rows = items(of: template)
+        delegate.setupObservers()
+        observer.emitPlayUrl(bookA)
+
+        // Book B takes over from outside CarPlay.
+        observer.emitPlayUrl(bookB)
+        observer.emitTime(50)
+
+        XCTAssertEqual(
+            rows[1].playbackProgress,
+            0.5,
+            accuracy: 0.001,
+            "B's row should show B's position"
+        )
+        XCTAssertNotEqual(
+            rows[0].playbackProgress,
+            0.5,
+            accuracy: 0.001,
+            "A's row must not animate with B's playback"
+        )
+    }
+
+    /// The row being left behind must go back to its own saved position rather than keeping the
+    /// last live value it was given while it was the tracked row.
+    func test_playbackSwitchingAway_restoresTheOldRowsStoredProgress() {
+        let bookA = book(title: "A", duration: 400, currentTime: 100, url: "file:///a.m4b")
+        let bookB = book(title: "B", duration: 100, url: "file:///b.m4b")
+        loadAll.stub = [bookA, bookB]
+        player.url = bookA.url
+        let delegate = makeDelegate()
+        let rows = items(of: delegate.buildLibraryTemplate())
+        delegate.setupObservers()
+        observer.emitPlayUrl(bookA)
+        observer.emitTime(300)
+        XCTAssertEqual(rows[0].playbackProgress, 0.75, accuracy: 0.001)
+
+        observer.emitPlayUrl(bookB)
+
+        XCTAssertEqual(
+            rows[0].playbackProgress,
+            0.25,
+            accuracy: 0.001,
+            "A's row should fall back to its stored 100/400, not keep the live 300/400"
+        )
+    }
+
+    func test_trackRow_unknownBookClearsTheTrackedRow() {
+        loadAll.stub = [book(title: "A", url: "file:///a.m4b")]
+        player.url = URL(string: "file:///a.m4b")
+        let delegate = makeDelegate()
+        _ = delegate.buildLibraryTemplate()
+        XCTAssertNotNil(delegate.currentPlayingItem)
+
+        delegate.trackRow(for: book(title: "Not Listed", url: "file:///elsewhere.m4b"))
+
+        XCTAssertNil(delegate.currentPlayingItem, "no row exists for a book outside the list")
+    }
+
     func test_setupObservers_timeUpdatesAreIgnoredWithoutALoadedBook() {
         player.url = URL(string: "file:///carplay/book.m4b")
         let delegate = makeDelegate()

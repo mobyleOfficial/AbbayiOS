@@ -14,6 +14,7 @@ protocol PlayerObserverProtocol {
     func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void)
     func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void)
     func cancelTimeSubscription()
+    func cancelUrlSubscription()
 }
 
 final class PlayerObserver: PlayerObserverProtocol {
@@ -38,6 +39,10 @@ extension PlayerObserver {
     }
 
     func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void) {
+        // Guarded like the time path. `CarPlaySceneDelegate.setupObservers` runs on every
+        // `didConnect`, so without this a reconnect stacks a second closure and `currentAudio`
+        // is written twice per publish (#94).
+        guard urlCancellables.isEmpty else { return }
         player.playUrlSubjectPublisher
             .sink(receiveValue: subscription)
             .store(in: &urlCancellables)
@@ -45,5 +50,11 @@ extension PlayerObserver {
 
     func cancelTimeSubscription() {
         timeCancellables.removeAll()
+    }
+
+    /// Counterpart to `cancelTimeSubscription`, so a teardown can release both halves of what
+    /// `setupObservers` registered rather than only the time half (#94).
+    func cancelUrlSubscription() {
+        urlCancellables.removeAll()
     }
 }
