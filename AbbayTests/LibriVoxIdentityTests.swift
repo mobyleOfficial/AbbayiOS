@@ -72,4 +72,46 @@ final class LibriVoxIdentityTests: XCTestCase {
         let values = try directory.resourceValues(forKeys: [.isExcludedFromBackupKey])
         XCTAssertEqual(values.isExcludedFromBackup, true)
     }
+
+    // MARK: - isFullyDownloaded (the "Downloaded" tag)
+
+    private func book(chapters: [ChapterModel]? = nil) -> AudioModel {
+        AudioModel(chapters: chapters ?? [chapter], url: LibriVoxIdentity.bookURL(id: "200"), librivoxID: "200")
+    }
+
+    func test_isFullyDownloaded_trueForCompleteTrackedState() {
+        let state = BookDownloadState(chapters: [.downloaded], expectedBytes: [], isPaused: false)
+
+        XCTAssertTrue(LibriVoxIdentity.isFullyDownloaded(book(), state: state, root: root))
+    }
+
+    func test_isFullyDownloaded_falseForIncompleteTrackedState_evenIfFileExists() throws {
+        let local = try XCTUnwrap(LibriVoxIdentity.localFileURL(for: chapter, bookID: "200", root: root))
+        try FileManager.default.createDirectory(
+            at: local.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: local.path, contents: Data())
+        let state = BookDownloadState(chapters: [.downloading(fraction: 0.5)], expectedBytes: [], isPaused: false)
+
+        XCTAssertFalse(LibriVoxIdentity.isFullyDownloaded(book(), state: state, root: root))
+    }
+
+    func test_isFullyDownloaded_untrackedFollowsFilesOnDisk() throws {
+        XCTAssertFalse(LibriVoxIdentity.isFullyDownloaded(book(), state: nil, root: root))
+
+        let local = try XCTUnwrap(LibriVoxIdentity.localFileURL(for: chapter, bookID: "200", root: root))
+        try FileManager.default.createDirectory(
+            at: local.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: local.path, contents: Data())
+
+        XCTAssertTrue(LibriVoxIdentity.isFullyDownloaded(book(), state: nil, root: root))
+    }
+
+    func test_isFullyDownloaded_falseWithoutChaptersOrForImportedBook() {
+        XCTAssertFalse(LibriVoxIdentity.isFullyDownloaded(book(chapters: []), state: nil, root: root))
+        XCTAssertFalse(LibriVoxIdentity.isFullyDownloaded(AudioModel(chapters: [chapter]), state: nil, root: root))
+    }
 }

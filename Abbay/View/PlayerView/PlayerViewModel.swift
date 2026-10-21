@@ -12,6 +12,7 @@ final class PlayerViewModel: ObservableObject {
     // MARK: - Properties
     private(set) var info: AudioModel
     private let playerObserver: PlayerObserverProtocol
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Observed properties
     @Published
@@ -20,16 +21,32 @@ final class PlayerViewModel: ObservableObject {
     var isPlaying: Bool = false
     @Published
     var currentChapter: Int = 0
+    /// Non-nil only for a LibriVox book whose download is still incomplete.
+    @Published
+    private(set) var downloadState: BookDownloadState?
 
     // MARK: - Init
+    /// `downloads` is resolved from the container only for LibriVox books.
     init(
         _ model: AudioModel,
-        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
+        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
+        downloads: BookDownloadManagerProtocol? = nil
     ) {
         self.info = model
         self.playerObserver = playerObserver
         self.currentTime = info.currentTime
         setCurrentChapter(for: info.currentTime)
+        if let id = model.librivoxID {
+            // The manager emits on the main thread.
+            (downloads ?? DependencyContainer.shared.downloads).statesPublisher
+                .map { states -> BookDownloadState? in
+                    guard let state = states[id], !state.isComplete else { return nil }
+                    return state
+                }
+                .removeDuplicates()
+                .sink { [weak self] in self?.downloadState = $0 }
+                .store(in: &cancellables)
+        }
 
         defer {
             if playerObserver.player.url == model.url {

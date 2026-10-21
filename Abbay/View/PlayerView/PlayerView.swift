@@ -132,12 +132,24 @@ struct PlayerView: View {
             }
             .padding(listSpacing)
             .background(ColorConstants.background2.value)
+            if let state = model.downloadState {
+                ProgressView(value: state.fraction)
+                    .tint(ColorConstants.malachite.value)
+                    .scaleEffect(x: 1, y: 0.5)
+                    .frame(height: SpaceConstants.sx2.value)
+                    .accessibilityIdentifier(AccessibilityID.Player.downloadProgress)
+            }
             List {
                 ForEach(Array(model.info.chapters.enumerated()), id: \.offset) { index, chapter in
-                    PlayerTitleView(
-                        isPlaying: .constant(model.currentChapter == index),
-                        text: chapter.title
-                    )
+                    HStack {
+                        PlayerTitleView(
+                            isPlaying: .constant(model.currentChapter == index),
+                            text: chapter.title
+                        )
+                        if let state = model.downloadState, index < state.chapters.count {
+                            ChapterDownloadStatusView(state: state.chapters[index])
+                        }
+                    }
                     .contentShape(Rectangle())
                     .listRowBackground(ColorConstants.clear.value)
                     .listRowInsets(.init(all: listSpacing))

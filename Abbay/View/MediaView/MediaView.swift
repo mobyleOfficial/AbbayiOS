@@ -53,6 +53,11 @@ struct MediaView: View {
                         .accessibilityIdentifier(AccessibilityID.Element.timestamp(namespace))
                 }
             }
+            if let state = model.downloadState {
+                DownloadRingView(state: state) { model.toggleDownloadPause() }
+                    .padding(.leading, SpaceConstants.sx8.value)
+                    .accessibilityIdentifier(AccessibilityID.Element.downloadRing(namespace))
+            }
             PlayButtonView(isPlaying: $model.isPlaying) {
                 model.play()
             } onPause: {

@@ -27,6 +27,8 @@ enum Localizable: String {
     case searchFailed
     case noResults
     case downloadedTag
+    case downloadPaused
+    case downloadingProgress
     case download
     case play
     case chaptersCount

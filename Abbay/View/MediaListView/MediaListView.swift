@@ -17,6 +17,8 @@ struct MediaListView: View {
     private var isSearchPresented = false
     @State
     private var isBrowsing = false
+    @State
+    private var downloadStates: [String: BookDownloadState] = [:]
 
     // MARK: - Body
     var body: some View {
@@ -48,6 +50,7 @@ struct MediaListView: View {
                 .backgroundColor(ColorConstants.background.value)
                 .foregroundColor(ColorConstants.white.value)
                 .onReceive(model.$audioList) { search.update(library: $0) }
+                .onReceive(DependencyContainer.shared.downloads.statesPublisher) { downloadStates = $0 }
         }
         .navigationViewStyle(.stack)
         .preferredColorScheme(.dark)
@@ -215,7 +218,7 @@ struct MediaListView: View {
     private func localRow(_ file: AudioModel, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MediaView(file, namespace: AccessibilityID.Library.localRow(index))
-            if file.isLibriVox {
+            if LibriVoxIdentity.isFullyDownloaded(file, state: file.librivoxID.flatMap { downloadStates[$0] }) {
                 Text(Localizable.downloadedTag.localized)
                     .font(.caption)
                     .foregroundColor(ColorConstants.malachite.value)

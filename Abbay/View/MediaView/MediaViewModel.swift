@@ -12,6 +12,8 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Properties
     private let playerObserver: PlayerObserverProtocol
     private(set) var info: AudioModel
+    private let downloads: BookDownloadManagerProtocol?
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Observed properties
     @Published
@@ -20,16 +22,24 @@ final class MediaViewModel: ObservableObject {
     var isPlaying: Bool = false
     @Published
     var currentChapter: Int = 0
+    /// Non-nil only for a LibriVox book whose download is still incomplete.
+    @Published
+    private(set) var downloadState: BookDownloadState?
 
     // MARK: - Init
+    /// `downloads` is resolved from the container only for LibriVox books, so imported rows never
+    /// need it.
     init(
         _ model: AudioModel,
-        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
+        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
+        downloads: BookDownloadManagerProtocol? = nil
     ) {
         self.info = model
+        self.downloads = model.librivoxID == nil ? nil : (downloads ?? DependencyContainer.shared.downloads)
         self.playerObserver = playerObserver
         self.currentTime = info.currentTime
         self.currentChapter = info.currentChapter(for: currentTime)
+        observeDownloads()
 
         defer {
             self.playerObserver.subscribeToPlayUrlPublisher { [weak self, oldUrl = self.info.url] newInfo in
@@ -53,7 +63,30 @@ final class MediaViewModel: ObservableObject {
         playerObserver.player.pause()
     }
 
+    /// Pauses a running download, or resumes a paused one.
+    func toggleDownloadPause() {
+        guard let id = info.librivoxID, let state = downloadState else { return }
+        if state.isPaused {
+            downloads?.resume(bookID: id)
+        } else {
+            downloads?.pause(bookID: id)
+        }
+    }
+
     // MARK: - Helpers
+    private func observeDownloads() {
+        guard let id = info.librivoxID, let downloads else { return }
+        // The manager emits on the main thread.
+        downloads.statesPublisher
+            .map { states -> BookDownloadState? in
+                guard let state = states[id], !state.isComplete else { return nil }
+                return state
+            }
+            .removeDuplicates()
+            .sink { [weak self] in self?.downloadState = $0 }
+            .store(in: &cancellables)
+    }
+
     private func setupObserver() {
         playerObserver.subscribeToTimePublisher { [weak self] time in
             guard let self = self else { return }

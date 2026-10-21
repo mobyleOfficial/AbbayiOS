@@ -56,6 +56,14 @@ enum LibriVoxIdentity {
         return FileManager.default.fileExists(atPath: local.path)
     }
 
+    /// Whether the "Downloaded" tag applies: a tracked download is complete, or nothing is tracked
+    /// and every chapter's file is on disk.
+    static func isFullyDownloaded(_ book: AudioModel, state: BookDownloadState?, root: URL = defaultRoot) -> Bool {
+        guard let id = book.librivoxID else { return false }
+        if let state { return state.isComplete }
+        return !book.chapters.isEmpty && book.chapters.allSatisfy { isDownloaded($0, bookID: id, root: root) }
+    }
+
     /// Local file if it exists, else the remote URL (streaming).
     static func playableURL(for chapter: ChapterModel, bookID: String, root: URL = defaultRoot) -> URL? {
         if isDownloaded(chapter, bookID: bookID, root: root),

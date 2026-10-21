@@ -175,6 +175,42 @@
         }
       }
     },
+    "downloadPaused" : {
+      "comment" : "Library download ring",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado"
+          }
+        }
+      }
+    },
+    "downloadingProgress" : {
+      "comment" : "Library download ring",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading, %d%%"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixando, %d%%"
+          }
+        }
+      }
+    },
     "downloadedTag" : {
       "comment" : "Tag on LibriVox books in the library",
       "extractionState" : "manual",

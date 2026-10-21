@@ -96,4 +96,82 @@ final class MediaViewModelTests: XCTestCase {
 
         XCTAssertEqual(player.pauseCallCount, 1)
     }
+
+    // MARK: - Download state
+
+    private func libriVoxBook() -> AudioModel {
+        var book = ViewModelSupport.chaptered()
+        book.librivoxID = "42"
+        book.url = LibriVoxIdentity.bookURL(id: "42")
+        return book
+    }
+
+    private func state(
+        _ chapters: [ChapterDownloadState],
+        isPaused: Bool = false
+    ) -> BookDownloadState {
+        BookDownloadState(chapters: chapters, expectedBytes: [], isPaused: isPaused)
+    }
+
+    func test_downloadState_nilForImportedBook() {
+        let model = ViewModelSupport.chaptered()
+        let downloads = MockBookDownloadManager()
+        downloads.statesSubject.send(["42": state([.waiting])])
+
+        let viewModel = MediaViewModel(
+            model,
+            playerObserver: ViewModelSupport.observer(loaded: model),
+            downloads: downloads
+        )
+
+        XCTAssertNil(viewModel.downloadState)
+    }
+
+    func test_downloadState_followsManagerForLibriVoxBook() {
+        let model = libriVoxBook()
+        let downloads = MockBookDownloadManager()
+        let viewModel = MediaViewModel(
+            model,
+            playerObserver: ViewModelSupport.observer(loaded: model),
+            downloads: downloads
+        )
+        XCTAssertNil(viewModel.downloadState)
+
+        let running = state([.downloaded, .downloading(fraction: 0.5), .waiting])
+        downloads.statesSubject.send(["42": running, "other": state([.waiting])])
+
+        XCTAssertEqual(viewModel.downloadState, running)
+    }
+
+    func test_downloadState_nilWhenComplete() {
+        let model = libriVoxBook()
+        let downloads = MockBookDownloadManager()
+        let viewModel = MediaViewModel(
+            model,
+            playerObserver: ViewModelSupport.observer(loaded: model),
+            downloads: downloads
+        )
+
+        downloads.statesSubject.send(["42": state([.downloaded, .downloaded, .downloaded])])
+
+        XCTAssertNil(viewModel.downloadState)
+    }
+
+    func test_toggleDownloadPause_callsPauseThenResume() {
+        let model = libriVoxBook()
+        let downloads = MockBookDownloadManager()
+        let viewModel = MediaViewModel(
+            model,
+            playerObserver: ViewModelSupport.observer(loaded: model),
+            downloads: downloads
+        )
+        downloads.statesSubject.send(["42": state([.downloading(fraction: 0.1), .waiting])])
+
+        viewModel.toggleDownloadPause()
+        downloads.statesSubject.send(["42": state([.waiting, .waiting], isPaused: true)])
+        viewModel.toggleDownloadPause()
+
+        XCTAssertEqual(downloads.paused, ["42"])
+        XCTAssertEqual(downloads.resumed, ["42"])
+    }
 }

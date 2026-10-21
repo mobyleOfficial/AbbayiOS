@@ -135,4 +135,50 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(player.skipNextCallCount, 1)
         XCTAssertEqual(player.skipPreviousCallCount, 1)
     }
+
+    // MARK: - Download state
+
+    private func makeDownloadHarness(
+        librivox: Bool
+    ) -> (viewModel: PlayerViewModel, downloads: MockBookDownloadManager) {
+        var model = ViewModelSupport.chaptered()
+        if librivox {
+            model.librivoxID = "42"
+            model.url = LibriVoxIdentity.bookURL(id: "42")
+        }
+        let downloads = MockBookDownloadManager()
+        let observer = ViewModelSupport.observer(loaded: model)
+        return (PlayerViewModel(model, playerObserver: observer, downloads: downloads), downloads)
+    }
+
+    func test_downloadState_nilForImportedBook() {
+        let harness = makeDownloadHarness(librivox: false)
+        let state = BookDownloadState(chapters: [.waiting], expectedBytes: [], isPaused: false)
+        harness.downloads.statesSubject.send(["42": state])
+
+        XCTAssertNil(harness.viewModel.downloadState)
+    }
+
+    func test_downloadState_followsManagerForLibriVoxBook() {
+        let harness = makeDownloadHarness(librivox: true)
+        let running = BookDownloadState(
+            chapters: [.downloaded, .downloading(fraction: 0.5), .waiting],
+            expectedBytes: [],
+            isPaused: false
+        )
+
+        harness.downloads.statesSubject.send(["42": running])
+
+        XCTAssertEqual(harness.viewModel.downloadState, running)
+    }
+
+    func test_downloadState_nilWhenComplete() {
+        let harness = makeDownloadHarness(librivox: true)
+
+        harness.downloads.statesSubject.send([
+            "42": BookDownloadState(chapters: [.downloaded, .downloaded], expectedBytes: [], isPaused: false)
+        ])
+
+        XCTAssertNil(harness.viewModel.downloadState)
+    }
 }

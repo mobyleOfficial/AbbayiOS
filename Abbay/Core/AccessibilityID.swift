@@ -72,6 +72,7 @@ enum AccessibilityID {
     enum Player {
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
+        static let downloadProgress = "player.download.progress"
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"
@@ -104,6 +105,10 @@ enum AccessibilityID {
 
         static func timestamp(_ namespace: String) -> String {
             "\(namespace).timestamp"
+        }
+
+        static func downloadRing(_ namespace: String) -> String {
+            "\(namespace).downloadRing"
         }
     }
 
