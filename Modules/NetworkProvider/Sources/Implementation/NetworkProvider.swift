@@ -20,29 +20,6 @@ public final class NetworkProvider {
     init(loader: URLSessionDataLoading) {
         self.loader = loader
     }
-
-    private func buildRequest(with request: NetworkRequestProtocol) throws -> URLRequest {
-        let endpoint = try PathTemplate.resolve(request.endpoint, with: request.pathParams)
-        guard var urlComponents = URLComponents(string: endpoint) else {
-            throw NetworkError.invalidUrl
-        }
-        urlComponents.queryItems = request.queryParams?.compactMap { key, value in
-            URLQueryItem(name: key, value: value)
-        }
-
-        guard let url = urlComponents.url else {
-            throw NetworkError.invalidParams
-        }
-
-        var urlRequest = URLRequest(url: url, cachePolicy: request.cachePolicy)
-        urlRequest.httpMethod = request.httpMethod.rawValue
-        urlRequest.httpBody = request.body
-        request.headers?.forEach { key, value in
-            urlRequest.addValue(value, forHTTPHeaderField: key)
-        }
-
-        return urlRequest
-    }
 }
 
 // MARK: - NetworkProviderProtocol
@@ -64,7 +41,7 @@ extension NetworkProvider: NetworkProviderProtocol {
 
     public func makeRequest(_ request: NetworkRequestProtocol) async throws -> NetworkResponse<Data> {
         try checkCancellation()
-        let urlRequest = try buildRequest(with: request)
+        let urlRequest = try URLRequestBuilder.build(from: request)
 
         do {
             let (data, response) = try await loader.load(urlRequest)

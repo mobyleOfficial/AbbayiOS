@@ -9,6 +9,10 @@ public enum NetworkError: Error, Equatable {
     case cancelledRequest
     case connection
     case decoding(description: String, statusCode: Int)
+    /// A downloaded file could not be moved out of URLSession's temporary area.
+    case fileSystem
+    /// The server answered a download with a non-2xx status code.
+    case httpStatus(Int)
     case invalidParams
     case invalidResponse
     case invalidUrl
