@@ -11,12 +11,32 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     // MARK: - Properties
 
     private var interfaceController: CPInterfaceController?
-    private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()
-    private let loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase()
-    private let playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
-    private var audioItems: [AudioModel] = []
-    private var currentAudio: AudioModel?
-    private var currentPlayingItem: CPListItem?
+
+    // MARK: - Injection seams
+    //
+    // UIKit instantiates this type itself (`config.delegateClass = CarPlaySceneDelegate.self`),
+    // so there is no initialiser to inject through -- settable properties are the only option,
+    // the same approach `AppDelegate` takes.
+    //
+    // `lazy var` rather than `let` for the same reason it is lazy in `AppDelegate`: these
+    // defaults reach `DependencyContainer.shared`, which traps when unconfigured, and
+    // `LoadAllAudiosUseCase` touches Core Data. Resolving them at property-initialisation time
+    // would run before `configure()` on any future change to scene-connection ordering.
+    //
+    // Resolved from `DependencyContainer` rather than constructed directly, so CarPlay shares
+    // the one player and the one set of use cases with the rest of the app.
+    lazy var loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = DependencyContainer.shared.loadAllAudios
+    lazy var loadAudioUseCase: LoadAudioUseCaseProtocol = DependencyContainer.shared.loadAudio
+    lazy var playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
+
+    // MARK: - State
+    //
+    // Internal rather than private so tests can assert it. `CPInterfaceController` has no public
+    // initialiser, so `didConnect` cannot be driven from a test and this state is otherwise
+    // unreachable -- see #96.
+    private(set) var audioItems: [AudioModel] = []
+    private(set) var currentAudio: AudioModel?
+    private(set) var currentPlayingItem: CPListItem?
 
     // MARK: - CPTemplateApplicationSceneDelegate
 
@@ -55,7 +75,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Observers
 
-    private func setupObservers() {
+    func setupObservers() {
         playerObserver.subscribeToPlayUrlPublisher { [weak self] audio in
             guard let self else { return }
             // Order matters: both chapter-list entry points gate on `currentAudio`.
@@ -75,7 +95,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Template Builders
 
-    private func buildLibraryTemplate() -> CPListTemplate {
+    func buildLibraryTemplate() -> CPListTemplate {
         audioItems = loadAllAudiosUseCase.execute()
 
         let listItems = audioItems.map { audio in
@@ -88,7 +108,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         return template
     }
 
-    private func buildListItem(for audio: AudioModel) -> CPListItem {
+    func buildListItem(for audio: AudioModel) -> CPListItem {
         let detailText = audio.artist.isEmpty ? audio.albumName : audio.artist
 
         let item = CPListItem(
@@ -120,7 +140,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         return item
     }
 
-    private func buildChapterListTemplate(for audio: AudioModel) -> CPListTemplate {
+    func buildChapterListTemplate(for audio: AudioModel) -> CPListTemplate {
         let player = playerObserver.player
         let currentChapterIndex = audio.currentChapter(for: player.currentTime)
 
@@ -151,7 +171,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     // MARK: - Playback
 
-    private func handleAudioSelection(_ audio: AudioModel) {
+    func handleAudioSelection(_ audio: AudioModel) {
         // Fetch fresh model from CoreData to get the latest saved currentTime
         var freshAudio = loadAudioUseCase.execute(url: audio.url) ?? audio
         playerObserver.player.play(&freshAudio)
