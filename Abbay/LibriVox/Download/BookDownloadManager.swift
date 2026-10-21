@@ -1,0 +1,382 @@
+//
+//  BookDownloadManager.swift
+//  Abbay
+//
+
+import Combine
+import Foundation
+import NetworkProvider
+
+protocol BookDownloadManagerProtocol: ChapterPrioritizing {
+    /// Every known LibriVox book's download state, keyed by librivoxID. Emits on the main thread.
+    var statesPublisher: AnyPublisher<[String: BookDownloadState], Never> { get }
+    /// Starts the chapters not yet on disk, unless the book is paused.
+    func enqueue(_ book: AudioModel)
+    func pause(bookID: String)
+    func resume(bookID: String)
+    /// Cancels every task (dropping resume data) and deletes the book's directory.
+    func remove(bookID: String)
+    /// At launch: re-attaches to running tasks and restarts the missing chapters.
+    func restore()
+    func handleBackgroundEvents(completion: @escaping () -> Void)
+}
+
+/// Downloads LibriVox books chapter by chapter, at most two chapters per book at a time.
+///
+/// Isolation: main-thread confinement. All mutable state is only touched on the main thread:
+/// public methods run inline when called on main and hop there otherwise, and provider events are
+/// consumed by a `@MainActor` task. So `statesPublisher` always emits on main.
+final class BookDownloadManager: BookDownloadManagerProtocol {
+    static let sessionIdentifier = "com.edyuto.Abbay.downloads"
+    static let maxConcurrentChapters = 2
+    static let retryDelay: TimeInterval = 30
+    /// The app's instance. A background session identifier may back only one session per process.
+    static let shared = BookDownloadManager()
+
+    fileprivate struct Book {
+        let id: String
+        let model: AudioModel
+        var chapters: [ChapterDownloadState]
+        var isPaused: Bool
+        /// Chapters waiting for a slot, in start order.
+        var queue: [Int] = []
+        /// Chapters with a live task.
+        var active = Set<Int>()
+        /// Chapters that already used their one retry.
+        var retried = Set<Int>()
+    }
+
+    private let provider: DownloadProviderProtocol
+    private let root: URL
+    private let updateFlags: UpdateDownloadFlagsUseCaseProtocol
+    private let loadAll: LoadAllAudiosUseCaseProtocol
+    private let scheduleRetry: (@escaping () -> Void) -> Void
+    private let statesSubject = CurrentValueSubject<[String: BookDownloadState], Never>([:])
+    private var books: [String: Book] = [:]
+    /// In-flight `provider.pause` calls per book, so `resume`/`remove` act after them.
+    private var pendingPauses: [String: Task<Void, Never>] = [:]
+    private var eventsTask: Task<Void, Never>?
+
+    var statesPublisher: AnyPublisher<[String: BookDownloadState], Never> {
+        statesSubject.eraseToAnyPublisher()
+    }
+
+    /// - Parameter scheduleRetry: Runs a failed chapter's single retry later (30 s by default).
+    init(
+        provider: DownloadProviderProtocol = BookDownloadManager.makeBackgroundProvider(),
+        root: URL = LibriVoxIdentity.defaultRoot,
+        updateFlags: UpdateDownloadFlagsUseCaseProtocol = UpdateDownloadFlagsUseCase(),
+        loadAll: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
+        scheduleRetry: @escaping (@escaping () -> Void) -> Void = { retry in
+            DispatchQueue.main.asyncAfter(deadline: .now() + BookDownloadManager.retryDelay, execute: retry)
+        }
+    ) {
+        self.provider = provider
+        self.root = root
+        self.updateFlags = updateFlags
+        self.loadAll = loadAll
+        self.scheduleRetry = scheduleRetry
+        let events = provider.events
+        eventsTask = Task { @MainActor [weak self] in
+            for await event in events {
+                self?.handle(event)
+            }
+        }
+    }
+
+    deinit {
+        eventsTask?.cancel()
+    }
+
+    static func makeBackgroundProvider() -> DownloadProviderProtocol {
+        let resumeData = LibriVoxIdentity.defaultRoot.deletingLastPathComponent()
+            .appendingPathComponent("LibriVoxResumeData", isDirectory: true)
+        return DownloadProvider(kind: .background(identifier: sessionIdentifier), resumeDataDirectory: resumeData)
+    }
+
+    // MARK: - BookDownloadManagerProtocol
+
+    func enqueue(_ book: AudioModel) {
+        onMain { [self] in
+            guard let id = book.librivoxID, books[id] == nil else { return }
+            books[id] = makeBook(book, id: id)
+            pump(id)
+            publish()
+        }
+    }
+
+    func pause(bookID: String) {
+        onMain { [self] in
+            guard var book = books[bookID], !book.isPaused else { return }
+            let paused = book.active.sorted()
+            book.isPaused = true
+            book.queue = paused + book.queue
+            book.active.removeAll()
+            books[bookID] = book
+            updateFlags.execute(url: book.model.url, isDownloadPaused: true, allowsCellularDownload: nil)
+            publish()
+            let provider = provider
+            let ids = paused.map { Self.taskID(bookID, $0) }
+            let previous = pendingPauses[bookID]
+            pendingPauses[bookID] = Task { @MainActor in
+                await previous?.value
+                for id in ids {
+                    await provider.pause(id: id)
+                }
+            }
+        }
+    }
+
+    func resume(bookID: String) {
+        onMain { [self] in
+            guard var book = books[bookID], book.isPaused else { return }
+            book.isPaused = false
+            books[bookID] = book
+            updateFlags.execute(url: book.model.url, isDownloadPaused: false, allowsCellularDownload: nil)
+            publish()
+            // Resuming before the pause saved its resume data would restart the chapters from zero.
+            guard let pending = pendingPauses.removeValue(forKey: bookID) else {
+                pump(bookID)
+                return
+            }
+            Task { @MainActor [weak self] in
+                await pending.value
+                self?.pump(bookID)
+                self?.publish()
+            }
+        }
+    }
+
+    func remove(bookID: String) {
+        onMain { [self] in
+            let book = books.removeValue(forKey: bookID)
+            try? FileManager.default.removeItem(at: root.appendingPathComponent(bookID, isDirectory: true))
+            publish()
+            let provider = provider
+            let pending = pendingPauses.removeValue(forKey: bookID)
+            let ids = book.map { book in book.model.chapters.indices.map { Self.taskID(bookID, $0) } }
+            if pending == nil, let ids {
+                ids.forEach(provider.cancel(id:))
+                return
+            }
+            Task { @MainActor in
+                // After any pause, so the cancel also deletes the resume data that pause saves.
+                await pending?.value
+                if let ids {
+                    ids.forEach(provider.cancel(id:))
+                } else {
+                    // A book the manager never saw may still have tasks from an earlier launch.
+                    await provider.runningIDs().filter { $0.hasPrefix("\(bookID)#") }.forEach(provider.cancel(id:))
+                }
+            }
+        }
+    }
+
+    func restore() {
+        onMain { [self] in
+            let library = loadAll.execute().filter(\.isLibriVox)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let running = await provider.runningIDs()
+                for model in library {
+                    guard let id = model.librivoxID, books[id] == nil else { continue }
+                    var book = makeBook(model, id: id)
+                    let attached = book.queue.filter { running.contains(Self.taskID(id, $0)) }
+                    book.active.formUnion(attached)
+                    book.queue.removeAll(where: attached.contains)
+                    books[id] = book
+                    pump(id)
+                }
+                publish()
+            }
+        }
+    }
+
+    func handleBackgroundEvents(completion: @escaping () -> Void) {
+        provider.handleBackgroundEvents(completion: completion)
+    }
+
+    // MARK: - ChapterPrioritizing
+
+    func prioritize(chapterIndex: Int, ofBookID id: String) {
+        onMain { [self] in
+            guard var book = books[id], book.chapters.indices.contains(chapterIndex),
+                  book.chapters[chapterIndex] != .downloaded, !book.active.contains(chapterIndex) else { return }
+            book.queue.removeAll { $0 == chapterIndex }
+            book.queue.insert(chapterIndex, at: 0)
+            books[id] = book
+            pump(id)
+            publish()
+        }
+    }
+}
+
+// MARK: - Events
+private extension BookDownloadManager {
+    func handle(_ event: DownloadEvent) {
+        switch event {
+        case let .progress(id, received, expected):
+            progress(id: id, received: received, expected: expected)
+        case let .finished(id, location):
+            finish(id: id, location: location)
+        case let .failed(id, error):
+            fail(id: id, error: error)
+        }
+        publish()
+    }
+
+    func progress(id: String, received: Int64, expected: Int64?) {
+        guard case let (bookID, index)? = locate(id), var book = books[bookID],
+              book.chapters[index] != .downloaded else { return }
+        let total = expected ?? book.model.chapters[index].expectedBytes
+        book.chapters[index] = .downloading(fraction: total > 0 ? min(Double(received) / Double(total), 1) : 0)
+        // A live task the manager lost track of (e.g. a stale cancel event for its id): take it back.
+        if !book.isPaused, !book.active.contains(index) {
+            book.active.insert(index)
+            book.queue.removeAll { $0 == index }
+        }
+        books[bookID] = book
+    }
+
+    func finish(id: String, location: URL) {
+        guard case let (bookID, index)? = locate(id), var book = books[bookID],
+              let destination = LibriVoxIdentity.localFileURL(
+                  for: book.model.chapters[index], bookID: bookID, root: root
+              )
+        else {
+            try? FileManager.default.removeItem(at: location)
+            return
+        }
+        do {
+            _ = try LibriVoxIdentity.directory(forBookID: bookID, root: root)
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.moveItem(at: location, to: destination)
+        } catch {
+            try? FileManager.default.removeItem(at: location)
+            markFailed(index, bookID: bookID)
+            pump(bookID)
+            return
+        }
+        book.active.remove(index)
+        book.queue.removeAll { $0 == index }
+        book.chapters[index] = .downloaded
+        books[bookID] = book
+        pump(bookID)
+    }
+
+    func fail(id: String, error: NetworkError) {
+        guard case let (bookID, index)? = locate(id), var book = books[bookID], book.active.contains(index) else {
+            // Includes the cancel events of a pause: those chapters already left `active`.
+            return
+        }
+        guard error != .cancelledRequest else {
+            // Not a failure: the system cancelled the task (e.g. a force quit). Requeue in chapter
+            // order without restarting now; the next free slot or `restore()` resumes it.
+            book.active.remove(index)
+            book.chapters[index] = .waiting
+            book.queue.insert(index, at: book.queue.firstIndex { $0 > index } ?? book.queue.endIndex)
+            books[bookID] = book
+            return
+        }
+        markFailed(index, bookID: bookID)
+        pump(bookID)
+    }
+
+    /// Puts the chapter back to waiting, and schedules its single retry.
+    func markFailed(_ index: Int, bookID: String) {
+        guard var book = books[bookID] else { return }
+        book.active.remove(index)
+        book.chapters[index] = .waiting
+        if book.retried.insert(index).inserted {
+            scheduleRetry { [weak self] in self?.retry(index, bookID: bookID) }
+        }
+        books[bookID] = book
+    }
+
+    func retry(_ index: Int, bookID: String) {
+        guard var book = books[bookID], book.chapters.indices.contains(index),
+              book.chapters[index] != .downloaded, !book.active.contains(index) else { return }
+        book.queue.removeAll { $0 == index }
+        book.queue.insert(index, at: 0)
+        books[bookID] = book
+        pump(bookID)
+        publish()
+    }
+}
+
+// MARK: - Helpers
+private extension BookDownloadManager {
+    static func taskID(_ bookID: String, _ index: Int) -> String {
+        "\(bookID)#\(index)"
+    }
+
+    /// Splits `"<bookID>#<index>"`, for a known book and a valid chapter index.
+    func locate(_ taskID: String) -> (bookID: String, index: Int)? {
+        guard let separator = taskID.lastIndex(of: "#"),
+              let index = Int(taskID[taskID.index(after: separator)...]) else { return nil }
+        let bookID = String(taskID[..<separator])
+        guard books[bookID]?.chapters.indices.contains(index) == true else { return nil }
+        return (bookID, index)
+    }
+
+    func makeBook(_ model: AudioModel, id: String) -> Book {
+        let chapters: [ChapterDownloadState] = model.chapters.map { chapter in
+            LibriVoxIdentity.isDownloaded(chapter, bookID: id, root: root) ? .downloaded : .waiting
+        }
+        let queue = chapters.indices.filter { chapters[$0] == .waiting && model.chapters[$0].remoteURL != nil }
+        return Book(id: id, model: model, chapters: chapters, isPaused: model.isDownloadPaused, queue: queue)
+    }
+
+    /// Starts queued chapters in order until the book has `maxConcurrentChapters` running.
+    func pump(_ bookID: String) {
+        guard var book = books[bookID], !book.isPaused else { return }
+        while book.active.count < Self.maxConcurrentChapters, !book.queue.isEmpty {
+            let index = book.queue.removeFirst()
+            guard book.chapters[index] != .downloaded else { continue }
+            if begin(index, of: book) {
+                book.active.insert(index)
+            }
+        }
+        books[bookID] = book
+    }
+
+    /// Resumes from saved resume data when there is some, else starts from scratch.
+    func begin(_ index: Int, of book: Book) -> Bool {
+        let id = Self.taskID(book.id, index)
+        let allowsCellular = book.model.allowsCellularDownload
+        do {
+            try provider.resume(id: id, allowsCellularAccess: allowsCellular)
+            return true
+        } catch NetworkError.invalidParams {
+            // No resume data: start below.
+        } catch {
+            return false
+        }
+        guard let url = book.model.chapters[index].remoteURL else { return false }
+        do {
+            let request = NetworkRequest(endpoint: url.absoluteString)
+            try provider.start(request, id: id, allowsCellularAccess: allowsCellular)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func publish() {
+        statesSubject.send(books.mapValues { book in
+            BookDownloadState(
+                chapters: book.chapters,
+                expectedBytes: book.model.chapters.map(\.expectedBytes),
+                isPaused: book.isPaused
+            )
+        })
+    }
+
+    func onMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+}

@@ -34,6 +34,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         UITestSeeder.run()
         #endif
 
+        // Re-attach to the download tasks the system kept running, and restart the missing
+        // chapters. After seeding, so it sees the library the rest of the launch sees.
+        DependencyContainer.shared.downloads.restore()
+
         do {
             try audioSessionActivator.activate()
             LaunchStateFlag.clear()
@@ -77,6 +81,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             name: nil,
             sessionRole: connectingSceneSession.role
         )
+    }
+
+    /// The system relaunched (or woke) the app to deliver the download session's events.
+    /// `didFinishLaunching` already re-created the session through `DependencyContainer`.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        guard identifier == BookDownloadManager.sessionIdentifier else {
+            completionHandler()
+            return
+        }
+        DependencyContainer.shared.downloads.handleBackgroundEvents(completion: completionHandler)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
