@@ -108,7 +108,12 @@ generates the project once and reuses that build for both suites, rather than le
     generate_project(open: false)
     device = YAML.load_file('../.actions.yml')['test_device'].to_s
 
+    # Remove the result bundle first: xcodebuild hard-fails with "Existing file at
+    # -resultBundlePath" rather than overwriting, which made this lane non-idempotent whenever a
+    # previous run left a bundle behind (an interrupted run, or a stray process recreating one
+    # after clean_project had already run).
     message('Unit tests')
+    sh 'rm -rf ../TestResults.xcresult'
     run_tests(
       project: "#{project_name}.xcodeproj",
       scheme: project_name.to_s,
@@ -118,6 +123,7 @@ generates the project once and reuses that build for both suites, rather than le
     )
 
     message('UI tests')
+    sh 'rm -rf ../UITestResults.xcresult'
     run_tests(
       project: "#{project_name}.xcodeproj",
       scheme: "#{project_name}UITests",
