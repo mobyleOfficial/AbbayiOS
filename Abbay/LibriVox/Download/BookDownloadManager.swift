@@ -44,6 +44,8 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         var active = Set<Int>()
         /// Chapters that already used their one retry.
         var retried = Set<Int>()
+        /// Set by `restore()` until it knows which tasks are still running, so nothing starts twice.
+        var isRestoring = false
     }
 
     private let provider: DownloadProviderProtocol
@@ -55,6 +57,10 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
     private var books: [String: Book] = [:]
     /// In-flight `provider.pause` calls per book, so `resume`/`remove` act after them.
     private var pendingPauses: [String: Task<Void, Never>] = [:]
+    /// Task ids whose live task a pause or remove stopped. URLSession reports that cancel after
+    /// `pause`/`cancel` return, possibly once a new task with the same id runs, so exactly one
+    /// `.cancelledRequest` per id is swallowed.
+    private var awaitingCancel = Set<String>()
     private var eventsTask: Task<Void, Never>?
 
     var statesPublisher: AnyPublisher<[String: BookDownloadState], Never> {
@@ -109,6 +115,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         onMain { [self] in
             guard var book = books[bookID], !book.isPaused else { return }
             let paused = book.active.sorted()
+            awaitingCancel.formUnion(paused.map { Self.taskID(bookID, $0) })
             book.isPaused = true
             book.queue = paused + book.queue
             book.active.removeAll()
@@ -150,6 +157,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
     func remove(bookID: String) {
         onMain { [self] in
             let book = books.removeValue(forKey: bookID)
+            awaitingCancel.formUnion(book?.active.map { Self.taskID(bookID, $0) } ?? [])
             try? FileManager.default.removeItem(at: root.appendingPathComponent(bookID, isDirectory: true))
             publish()
             let provider = provider
@@ -159,14 +167,16 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
                 ids.forEach(provider.cancel(id:))
                 return
             }
-            Task { @MainActor in
+            Task { @MainActor [self] in
                 // After any pause, so the cancel also deletes the resume data that pause saves.
                 await pending?.value
                 if let ids {
                     ids.forEach(provider.cancel(id:))
                 } else {
                     // A book the manager never saw may still have tasks from an earlier launch.
-                    await provider.runningIDs().filter { $0.hasPrefix("\(bookID)#") }.forEach(provider.cancel(id:))
+                    let running = await provider.runningIDs().filter { $0.hasPrefix("\(bookID)#") }
+                    self.awaitingCancel.formUnion(running)
+                    running.forEach(provider.cancel(id:))
                 }
             }
         }
@@ -174,16 +184,26 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
 
     func restore() {
         onMain { [self] in
-            let library = loadAll.execute().filter(\.isLibriVox)
+            // Known right away: a relaunched background session delivers the downloads that
+            // finished while the app was dead as soon as it exists, and those need their book.
+            var restored: [String] = []
+            for model in loadAll.execute() {
+                guard let id = model.librivoxID, books[id] == nil else { continue }
+                var book = makeBook(model, id: id)
+                book.isRestoring = true
+                books[id] = book
+                restored.append(id)
+            }
+            publish()
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let running = await provider.runningIDs()
-                for model in library {
-                    guard let id = model.librivoxID, books[id] == nil else { continue }
-                    var book = makeBook(model, id: id)
+                for id in restored {
+                    guard var book = books[id] else { continue }
                     let attached = book.queue.filter { running.contains(Self.taskID(id, $0)) }
                     book.active.formUnion(attached)
                     book.queue.removeAll(where: attached.contains)
+                    book.isRestoring = false
                     books[id] = book
                     pump(id)
                 }
@@ -230,15 +250,12 @@ private extension BookDownloadManager {
               book.chapters[index] != .downloaded else { return }
         let total = expected ?? book.model.chapters[index].expectedBytes
         book.chapters[index] = .downloading(fraction: total > 0 ? min(Double(received) / Double(total), 1) : 0)
-        // A live task the manager lost track of (e.g. a stale cancel event for its id): take it back.
-        if !book.isPaused, !book.active.contains(index) {
-            book.active.insert(index)
-            book.queue.removeAll { $0 == index }
-        }
         books[bookID] = book
     }
 
     func finish(id: String, location: URL) {
+        // It finished before the pause or remove could stop it, so no cancel will follow.
+        awaitingCancel.remove(id)
         guard case let (bookID, index)? = locate(id), var book = books[bookID],
               let destination = LibriVoxIdentity.localFileURL(
                   for: book.model.chapters[index], bookID: bookID, root: root
@@ -265,8 +282,10 @@ private extension BookDownloadManager {
     }
 
     func fail(id: String, error: NetworkError) {
+        // The end of a task a pause or remove stopped; a new task with the same id may already run.
+        guard awaitingCancel.remove(id) == nil else { return }
         guard case let (bookID, index)? = locate(id), var book = books[bookID], book.active.contains(index) else {
-            // Includes the cancel events of a pause: those chapters already left `active`.
+            // A chapter with no live task: nothing to update.
             return
         }
         guard error != .cancelledRequest else {
@@ -329,7 +348,7 @@ private extension BookDownloadManager {
 
     /// Starts queued chapters in order until the book has `maxConcurrentChapters` running.
     func pump(_ bookID: String) {
-        guard var book = books[bookID], !book.isPaused else { return }
+        guard var book = books[bookID], !book.isPaused, !book.isRestoring else { return }
         while book.active.count < Self.maxConcurrentChapters, !book.queue.isEmpty {
             let index = book.queue.removeFirst()
             guard book.chapters[index] != .downloaded else { continue }

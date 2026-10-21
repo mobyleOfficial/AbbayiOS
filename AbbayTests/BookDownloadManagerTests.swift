@@ -194,6 +194,24 @@ final class BookDownloadManagerTests: XCTestCase {
         XCTAssertEqual(latestStates["1"]?.isPaused, false)
     }
 
+    func test_resume_staleCancelOfPausedTask_doesNotUnseatResumedTask() async throws {
+        sut.enqueue(makeBook())
+        sut.pause(bookID: "1")
+        await waitUntil { self.provider.pauseCalls.count == 2 }
+        sut.resume(bookID: "1")
+        await waitUntil { self.provider.resumeCalls.count == 4 }
+
+        // URLSession reports the paused tasks' cancellation after `pause` returned.
+        provider.send(.failed(id: "1#0", error: .cancelledRequest))
+        provider.send(.failed(id: "1#1", error: .cancelledRequest))
+        provider.send(.finished(id: "1#1", location: try makeTempFile(Data([1]))))
+
+        await waitUntil { self.provider.startedIDs.contains("1#2") }
+        await drainEvents()
+        XCTAssertEqual(startedIDs(ofBook: "1"), ["1#0", "1#1", "1#2"])
+        XCTAssertEqual(provider.resumeCalls.filter { $0 == "1#0" }.count, 2)
+    }
+
     // MARK: - Remove
 
     func test_delete_cancelsTasksAndRemovesDirectory() throws {
@@ -235,6 +253,19 @@ final class BookDownloadManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: temp.path))
     }
 
+    func test_remove_thenEnqueue_staleCancelDoesNotUnseatNewTask() async throws {
+        sut.enqueue(makeBook())
+        sut.remove(bookID: "1")
+        sut.enqueue(makeBook())
+
+        provider.send(.failed(id: "1#0", error: .cancelledRequest))
+        provider.send(.finished(id: "1#1", location: try makeTempFile(Data([1]))))
+
+        await waitUntil { self.provider.startedIDs.contains("1#2") }
+        await drainEvents()
+        XCTAssertEqual(startedIDs(ofBook: "1"), ["1#0", "1#1", "1#0", "1#1", "1#2"])
+    }
+
     // MARK: - Restore
 
     func test_restore_doesNotDuplicateRunningTasks() async {
@@ -257,6 +288,27 @@ final class BookDownloadManagerTests: XCTestCase {
         await waitUntil { self.provider.startedIDs.contains("1#1") }
         XCTAssertEqual(provider.resumeCalls.first, "1#0")
         XCTAssertEqual(provider.startedIDs, ["1#1"])
+    }
+
+    func test_restore_finishedEventDeliveredAtRelaunch_keepsFileAndDoesNotRedownload() async throws {
+        let book = makeBook()
+        loadAll.stub = [book]
+        provider.holdsRunningIDs = true
+        let temp = try makeTempFile(Data([7]))
+
+        sut.restore()
+        // The background session hands over downloads that finished while the app was dead as
+        // soon as it is created, while `restore()` is still asking for the running tasks.
+        provider.send(.finished(id: "1#0", location: temp))
+
+        await waitUntil { self.latestStates["1"]?.chapters.first == .downloaded }
+        XCTAssertTrue(provider.startCalls.isEmpty, "Nothing starts before the running tasks are known")
+        provider.releaseRunningIDs()
+        await waitUntil { self.provider.startedIDs.contains("1#2") }
+        let local = try XCTUnwrap(LibriVoxIdentity.localFileURL(for: book.chapters[0], bookID: "1", root: root))
+        XCTAssertEqual(try Data(contentsOf: local), Data([7]))
+        XCTAssertEqual(provider.startedIDs, ["1#1", "1#2"])
+        XCTAssertFalse(provider.resumeCalls.contains("1#0"))
     }
 
     func test_restore_skipsPausedBooks() async throws {

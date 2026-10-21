@@ -27,6 +27,12 @@ final class MockDownloadProvider: DownloadProviderProtocol {
     var running: Set<String> = []
     /// Called after every recorded call, so tests can wait on calls the manager makes asynchronously.
     var onCall: (() -> Void)?
+    /// When true, `runningIDs()` doesn't return until `releaseRunningIDs()`.
+    var holdsRunningIDs = false
+    // `runningIDs()` is nonisolated async, so it runs off the main thread: guard the gate.
+    private let gateLock = NSLock()
+    private var isRunningIDsReleased = false
+    private var runningIDsWaiter: CheckedContinuation<Void, Never>?
 
     init() {
         (events, continuation) = AsyncStream.makeStream(of: DownloadEvent.self)
@@ -64,7 +70,25 @@ final class MockDownloadProvider: DownloadProviderProtocol {
     }
 
     func runningIDs() async -> Set<String> {
-        running
+        if holdsRunningIDs {
+            await withCheckedContinuation { continuation in
+                let isReleased = gateLock.withLock {
+                    if !isRunningIDsReleased { runningIDsWaiter = continuation }
+                    return isRunningIDsReleased
+                }
+                if isReleased { continuation.resume() }
+            }
+        }
+        return running
+    }
+
+    func releaseRunningIDs() {
+        let waiter = gateLock.withLock {
+            isRunningIDsReleased = true
+            defer { runningIDsWaiter = nil }
+            return runningIDsWaiter
+        }
+        waiter?.resume()
     }
 
     func handleBackgroundEvents(completion: @escaping () -> Void) {
