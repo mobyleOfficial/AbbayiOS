@@ -123,19 +123,28 @@ run_ui_tests: false
 test_device: iPhone 17 (26.4)
 ```
 
-**The test suites are a local gate, not a CI one.** `run_tests` and `run_ui_tests` are both
-`false` to conserve Actions minutes -- each macOS job takes about 11 minutes and GitHub bills
-macOS runners at 10x the Linux rate. SwiftLint stays on CI because it runs on ubuntu.
+**Which PRs run the suites on CI depends on the base branch.** The flags above enable the
+macOS jobs, but those jobs also require the PR's base branch to be `main`:
 
-Before merging anything, run:
+| PR base | CI runs |
+|---|---|
+| `develop` | SwiftLint only |
+| `main` | SwiftLint, unit suite, UI suite |
+
+Each macOS job takes about 11 minutes and GitHub bills macOS runners at 10x the Linux rate, so
+running them on every `develop` PR is not worth it. Release-bound PRs into `main` get the full
+set, because that is where a pipeline break is most expensive. Set either flag to `false` as a
+kill switch.
+
+Since `develop` PRs get no suite run, **the suites are a local gate for day-to-day work.** Before
+merging, run:
 
 ```bash
 bundle exec fastlane verify
 ```
 
-That runs SwiftLint `--strict`, the unit suite and the UI suite off a single build, and fails on
-the first problem. Both CI jobs are still defined in `validate-branch.yml`, so flipping either
-flag to `true` restores them without further changes.
+That runs SwiftLint `--strict`, the unit suite and the UI suite off a single build and fails on
+the first problem -- about six minutes total.
 
 Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main`
 (simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs

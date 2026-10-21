@@ -5,7 +5,8 @@ individual commit messages are discarded. -->
 
 ## Verification
 
-CI does not run the test suites (see `.actions.yml`) — they are a **local** gate. Run:
+CI runs the suites only for PRs into `main` (see `.actions.yml`). For a PR into `develop` they
+are a **local** gate. Either way, run:
 
 ```bash
 bundle exec fastlane verify

@@ -1,12 +1,17 @@
 run_swiftlint: true
-# The two macOS jobs are off to conserve Actions minutes: a full run is ~11 min each on
-# macos-26, and GitHub bills macOS runners at 10x the Linux rate. SwiftLint stays on because it
-# runs on ubuntu and costs almost nothing.
+# These two enable the macOS jobs, but the jobs ALSO require the PR's base branch to be `main`
+# (see validate-branch.yml). Together that means:
 #
-# The suites are therefore a LOCAL gate, not a CI one. Run `bundle exec fastlane verify` before
-# merging -- it runs lint, the unit suite and the UI suite off a single build. Flip either flag
-# back to `true` to restore the CI job; both jobs are still defined in validate-branch.yml.
-run_tests: false
-run_ui_tests: false
+#   PR into develop -> SwiftLint only. Cheap, and where nearly all traffic goes.
+#   PR into main    -> SwiftLint + unit suite + UI suite. Release-bound and rare, and the point
+#                      at which a pipeline break is most expensive.
+#
+# A full run is ~11 min per macOS job and GitHub bills macOS at 10x the Linux rate, hence not
+# running them on every develop PR. Set either flag to `false` as a kill switch.
+#
+# Because develop PRs get no suite run, the suites are a LOCAL gate for day-to-day work:
+# `bundle exec fastlane verify` runs lint plus both suites off a single build, in ~6 minutes.
+run_tests: true
+run_ui_tests: true
 # run `xcrun simctl list devices` to list devices
 test_device: iPhone 17 (26.4)

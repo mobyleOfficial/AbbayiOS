@@ -52,7 +52,8 @@ jobs:
   test:
     name: Run tests
     needs: load_settings
-    if: ${{ needs.load_settings.outputs.run_tests == 'true' }}
+    # Release-bound PRs only: see .actions.yml for the reasoning and the local alternative.
+    if: ${{ needs.load_settings.outputs.run_tests == 'true' && github.base_ref == 'main' }}
     permissions:
       checks: write
       contents: read
@@ -102,7 +103,7 @@ jobs:
   ui_test:
     name: Run UI tests
     needs: load_settings
-    if: ${{ needs.load_settings.outputs.run_ui_tests == 'true' }}
+    if: ${{ needs.load_settings.outputs.run_ui_tests == 'true' && github.base_ref == 'main' }}
     permissions:
       checks: write
       contents: read
