@@ -23,6 +23,8 @@ extension ChapterDataModel {
     @NSManaged var title: String?
     @NSManaged var startTime: Double
     @NSManaged var duration: Double
+    @NSManaged var remoteURL: URL?
+    @NSManaged var expectedBytes: Int64
     @NSManaged var audio: AudioDataModel?
 
 }

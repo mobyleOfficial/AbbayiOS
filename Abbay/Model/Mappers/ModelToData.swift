@@ -13,6 +13,8 @@ extension ChapterModel {
         model.setValue(title, forKey: #keyPath(ChapterDataModel.title))
         model.setValue(startTime, forKey: #keyPath(ChapterDataModel.startTime))
         model.setValue(duration, forKey: #keyPath(ChapterDataModel.duration))
+        model.setValue(remoteURL, forKey: #keyPath(ChapterDataModel.remoteURL))
+        model.setValue(expectedBytes, forKey: #keyPath(ChapterDataModel.expectedBytes))
         return model
     }
 }

@@ -17,6 +17,14 @@ struct AudioModel {
     var chapters = [ChapterModel]()
     var url: URL?
     var bookmarkData: Data?
+    var librivoxID: String?
+    var allowsCellularDownload = false
+    var isDownloadPaused = false
+    var totalBytes: Int64 = 0
+
+    var isLibriVox: Bool {
+        librivoxID != nil
+    }
 
     func currentChapter(for time: Double) -> Int {
         chapters.firstIndex { chapter in

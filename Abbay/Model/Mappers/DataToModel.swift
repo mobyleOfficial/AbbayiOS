@@ -17,6 +17,10 @@ extension AudioDataModel {
         model.currentTime = currentTime
         model.imageData = imageData
         model.bookmarkData = bookmarkData
+        model.librivoxID = librivoxID
+        model.allowsCellularDownload = allowsCellularDownload
+        model.isDownloadPaused = isDownloadPaused
+        model.totalBytes = totalBytes
         model.url = URL.resolveBookmark(from: bookmarkData) ?? url
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []
         return model
@@ -29,6 +33,8 @@ extension ChapterDataModel {
         model.title = title ?? String()
         model.startTime = startTime
         model.duration = duration
+        model.remoteURL = remoteURL
+        model.expectedBytes = expectedBytes
         return model
     }
 }

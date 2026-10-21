@@ -39,6 +39,10 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
         model.setValue(new.imageData, forKey: #keyPath(AudioDataModel.imageData))
         model.setValue(new.title, forKey: #keyPath(AudioDataModel.title))
         model.setValue(new.url, forKey: #keyPath(AudioDataModel.url))
+        model.setValue(new.librivoxID, forKey: #keyPath(AudioDataModel.librivoxID))
+        model.setValue(new.allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
+        model.setValue(new.isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
+        model.setValue(new.totalBytes, forKey: #keyPath(AudioDataModel.totalBytes))
 
         if let bookmarkData = new.bookmarkData ?? existing?.bookmarkData {
             model.setValue(bookmarkData, forKey: #keyPath(AudioDataModel.bookmarkData))
