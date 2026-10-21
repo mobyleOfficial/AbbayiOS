@@ -55,6 +55,7 @@ struct PlayerView: View {
                 alignment: .center
             )
             .font(.system(size: SpaceConstants.sx24.value))
+            .accessibilityIdentifier(AccessibilityID.Player.title)
         }
     }
 
@@ -65,20 +66,25 @@ struct PlayerView: View {
             IconButtonView(systemName: "gobackward.30") {
                 model.backward(withSeconds: 30)
             }
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back30))
             IconButtonView(systemName: "gobackward.15") {
                 model.backward(withSeconds: 15)
             }
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back15))
             PlayButtonView(isPlaying: $model.isPlaying) {
                 model.play()
             } onPause: {
                 model.pause()
             }
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
             IconButtonView(systemName: "goforward.15") {
                 model.forward(withSeconds: 15)
             }
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward15))
             IconButtonView(systemName: "goforward.30") {
                 model.forward(withSeconds: 30)
             }
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward30))
         }
         .frame(height: SpaceConstants.sx32.value)
         .foregroundColor(ColorConstants.white.value)
@@ -121,6 +127,7 @@ struct PlayerView: View {
                 Text(Localizable.chapterSelectionTitle.localized)
                     .foregroundColor(ColorConstants.white.value)
                     .font(.system(size: SpaceConstants.sx16.value))
+                    .accessibilityIdentifier(AccessibilityID.Player.chaptersTitle)
                 Spacer()
             }
             .padding(listSpacing)
@@ -135,6 +142,7 @@ struct PlayerView: View {
                     .listRowBackground(ColorConstants.clear.value)
                     .listRowInsets(.init(all: listSpacing))
                     .font(.system(size: SpaceConstants.sx16.value))
+                    .accessibilityIdentifier(AccessibilityID.Player.chapter(index))
                     .onTapGesture {
                         guard model.isPlaying else { return }
                         model.willSeek()

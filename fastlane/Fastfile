@@ -64,6 +64,36 @@ platform :ios do
     end
   end
 
+  desc "Runs the UI test suite
+
+Drives the real app in the simulator. Kept in its own lane and its own scheme because UI tests
+boot the app and are far slower than the unit suite -- `test_project` must stay quick.
+
+#### Optional parameters
+  * open: true - Open the test results after running tests"
+  lane :ui_test_project do |options|
+    generate_project(open: false)
+    message('Running UI tests')
+
+    actions_config = YAML.load_file('../.actions.yml')
+
+    begin
+      setup_ci if ENV['CI']
+      run_tests(
+        project: "#{project_name}.xcodeproj",
+        scheme: "#{project_name}UITests",
+        device: actions_config['test_device'].to_s,
+        derived_data_path: './build_data',
+        result_bundle_path: 'UITestResults.xcresult',
+        # UI tests drive a real simulator, so they are sensitive to host load in a way the unit
+        # suite is not. Retry rather than let a shared-runner hiccup block a merge.
+        number_of_retries: 2
+      )
+    ensure
+      sh 'open ../UITestResults.xcresult' if options[:open].nil? || options[:open]
+    end
+  end
+
   desc "Generate app (xcarchive)
 
 #### Optional parameters
@@ -98,7 +128,7 @@ platform :ios do
       sh "find . -maxdepth 3 -type d -name '*.xcworkspace' -exec rm -rf {} +"
       sh "find . -maxdepth 3 -type d -name 'DerivedData' -exec rm -rf {} +"
       sh 'rm -rf DerivedData build build_data'
-      sh 'rm -rf TestResults TestResults.xcresult'
+      sh 'rm -rf TestResults TestResults.xcresult UITestResults.xcresult'
     end
   end
 

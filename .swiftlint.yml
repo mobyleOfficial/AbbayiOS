@@ -2,6 +2,7 @@
 included:
   - Abbay
   - AbbayTests
+  - AbbayUITests
 
 # Paths to exclude during linting
 excluded:

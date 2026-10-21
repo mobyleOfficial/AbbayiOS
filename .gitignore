@@ -52,6 +52,7 @@ DerivedData/
 
 ### Tests ###
 TestResults*
+UITestResults*
 
 ### Build ###
 Build/
@@ -65,7 +66,8 @@ fastlane/screenshots
 fastlane/test_output
 
 ### Ruby ###
-Gemfile.lock
+# Gemfile.lock is committed on purpose: CI reads `BUNDLED WITH` from it to install a Bundler
+# that fastlane supports. Without it, a runner image with Bundler 4 fails `bundle install`.
 vendor/bundle
 
 ### Worktrees ###

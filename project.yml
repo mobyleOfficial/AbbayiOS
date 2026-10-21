@@ -143,6 +143,22 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
 
+  AbbayUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    dependencies:
+      - target: Abbay
+    sources:
+      - path: AbbayUITests
+      # Identifier constants are shared with the app. A UI test bundle runs out of process and
+      # cannot `import Abbay`, so the file is compiled into both targets rather than duplicated.
+      - path: Abbay/Core/AccessibilityID.swift
+      - path: Abbay/Core/LaunchArgument.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        TEST_TARGET_NAME: Abbay
+
 schemes:
   Abbay:
     build:
@@ -167,3 +183,14 @@ schemes:
         - variable: IMAGE_DIFF_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/FailureDiffs
           isEnabled: YES
+
+  # Separate scheme on purpose: UI tests boot the app in the simulator and are far slower than
+  # the unit suite, so `test_project` must not pull them in. Driven by `ui_test_project`.
+  AbbayUITests:
+    build:
+      targets:
+        Abbay: all
+        AbbayUITests: [test]
+    test:
+      targets:
+        - name: AbbayUITests

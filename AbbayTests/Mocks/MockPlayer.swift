@@ -40,7 +40,10 @@ final class MockPlayer: PlayerProtocol {
     func pause() { pauseCallCount += 1 }
     func forward(withSeconds seconds: Double) { forwardSeconds.append(seconds) }
     func backward(withSeconds seconds: Double) { backwardSeconds.append(seconds) }
-    func isPlaying(_ url: URL?) -> Bool { false }
+    /// Defaults to false, preserving the previous hard-coded behaviour.
+    var isPlayingResult = false
+
+    func isPlaying(_ url: URL?) -> Bool { isPlayingResult }
     func seek(_ seconds: Double) { seekSeconds.append(seconds) }
     func cleanup() { cleanupCallCount += 1 }
     func skipToNextChapter() { skipNextCallCount += 1 }
