@@ -14,4 +14,6 @@ enum LaunchArgument {
     static let seedLibrary = "-seedLibrary"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
+    /// Answer every LibriVox request with an empty result instead of using the network.
+    static let stubLibriVox = "-stubLibriVox"
 }

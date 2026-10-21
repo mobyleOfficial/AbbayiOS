@@ -1,6 +1,60 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "addMenu" : {
+      "comment" : "Toolbar plus menu label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar"
+          }
+        }
+      }
+    },
+    "browseFreeAudiobooks" : {
+      "comment" : "Empty library primary button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse free audiobooks"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explorar audiolivros gratuitos"
+          }
+        }
+      }
+    },
+    "browseLibriVox" : {
+      "comment" : "Plus menu item",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse LibriVox"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explorar o LibriVox"
+          }
+        }
+      }
+    },
     "chapterCount" : {
       "comment" : "Current chapter / Total chapters",
       "extractionState" : "manual",
@@ -9,24 +63,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%d/%d"
-          }
-        }
-      }
-    },
-    "delete" : {
-      "comment" : "Delete action label",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Excluir"
           }
         }
       }
@@ -49,6 +85,42 @@
         }
       }
     },
+    "delete" : {
+      "comment" : "Delete action label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir"
+          }
+        }
+      }
+    },
+    "downloadedTag" : {
+      "comment" : "Tag on LibriVox books in the library",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixado"
+          }
+        }
+      }
+    },
     "emptyLibraryTitle" : {
       "comment" : "Title for empty library body",
       "extractionState" : "manual",
@@ -67,6 +139,60 @@
         }
       }
     },
+    "importAFile" : {
+      "comment" : "Empty library secondary button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a file"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar um arquivo"
+          }
+        }
+      }
+    },
+    "importFile" : {
+      "comment" : "Plus menu item",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import file"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar arquivo"
+          }
+        }
+      }
+    },
+    "inYourLibrary" : {
+      "comment" : "Search section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In your library"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Na sua biblioteca"
+          }
+        }
+      }
+    },
     "libraryTitle" : {
       "comment" : "Library navigation title",
       "extractionState" : "manual",
@@ -81,6 +207,114 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Biblioteca"
+          }
+        }
+      }
+    },
+    "noResults" : {
+      "comment" : "Search with no matches",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum resultado"
+          }
+        }
+      }
+    },
+    "onLibriVox" : {
+      "comment" : "Search section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On LibriVox"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No LibriVox"
+          }
+        }
+      }
+    },
+    "popularOnLibriVox" : {
+      "comment" : "Browse section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Popular on LibriVox"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Populares no LibriVox"
+          }
+        }
+      }
+    },
+    "searchFailed" : {
+      "comment" : "Remote search failure message",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach LibriVox. Try again later."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível acessar o LibriVox. Tente novamente mais tarde."
+          }
+        }
+      }
+    },
+    "searchOffline" : {
+      "comment" : "Remote search offline message",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. LibriVox results need a connection."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você está offline. Os resultados do LibriVox precisam de conexão."
+          }
+        }
+      }
+    },
+    "searchPrompt" : {
+      "comment" : "Search field prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search your library and LibriVox"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar na biblioteca e no LibriVox"
           }
         }
       }
