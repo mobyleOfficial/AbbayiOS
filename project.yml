@@ -44,7 +44,13 @@ targets:
   Abbay:
     type: application
     platform: iOS
-    sources: [Abbay]
+    sources:
+      - path: Abbay
+        excludes: [Resources/AppIcon.icon]
+      # Icon Composer bundle: XcodeGen 2.32 doesn't know .icon, so add it as one file.
+      - path: Abbay/Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
     postBuildScripts:
       - script: chmod +x ./Scripts/lint-checker
         name: Lint permissions
