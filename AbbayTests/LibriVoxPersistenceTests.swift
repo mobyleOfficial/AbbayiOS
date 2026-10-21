@@ -36,18 +36,43 @@ final class LibriVoxPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.chapters.map(\.expectedBytes), [40_000_000, 45_000_000])
     }
 
-    func test_save_updatesPauseAndCellularFlagsOnExistingBook() throws {
+    func test_save_existingBook_leavesPauseAndCellularFlagsAlone() throws {
         var audio = makeBook()
         try SaveAudioUseCase().execute(audio)
 
+        // A stale copy, like the one `Player.saveTime()` holds, must not undo a pause or a choice.
         audio.allowsCellularDownload = false
         audio.isDownloadPaused = false
+        audio.currentTime = 30
         try SaveAudioUseCase().execute(audio)
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
 
-        XCTAssertFalse(loaded.allowsCellularDownload)
-        XCTAssertFalse(loaded.isDownloadPaused)
+        XCTAssertTrue(loaded.allowsCellularDownload)
+        XCTAssertTrue(loaded.isDownloadPaused)
+        XCTAssertEqual(loaded.currentTime, 30)
         XCTAssertEqual(loaded.chapters.count, 2)
+    }
+
+    func test_updateDownloadFlags_changesOnlyTheGivenFlags() throws {
+        try SaveAudioUseCase().execute(makeBook())
+
+        UpdateDownloadFlagsUseCase().execute(url: bookURL, isDownloadPaused: false, allowsCellularDownload: nil)
+        var loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+        XCTAssertFalse(loaded.isDownloadPaused)
+        XCTAssertTrue(loaded.allowsCellularDownload)
+
+        UpdateDownloadFlagsUseCase().execute(url: bookURL, isDownloadPaused: nil, allowsCellularDownload: false)
+        loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+        XCTAssertFalse(loaded.isDownloadPaused)
+        XCTAssertFalse(loaded.allowsCellularDownload)
+        XCTAssertEqual(loaded.title, "Test LibriVox")
+        XCTAssertEqual(loaded.chapters.count, 2)
+    }
+
+    func test_updateDownloadFlags_unknownBook_insertsNothing() {
+        UpdateDownloadFlagsUseCase().execute(url: bookURL, isDownloadPaused: true, allowsCellularDownload: true)
+
+        XCTAssertNil(LoadAudioUseCase().execute(url: bookURL))
     }
 
     func test_v1Store_opensWithCurrentModel_keepsBooks() throws {

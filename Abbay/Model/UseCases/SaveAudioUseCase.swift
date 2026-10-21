@@ -40,15 +40,17 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
         model.setValue(new.title, forKey: #keyPath(AudioDataModel.title))
         model.setValue(new.url, forKey: #keyPath(AudioDataModel.url))
         model.setValue(new.librivoxID, forKey: #keyPath(AudioDataModel.librivoxID))
-        model.setValue(new.allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
-        model.setValue(new.isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
         model.setValue(new.totalBytes, forKey: #keyPath(AudioDataModel.totalBytes))
 
         if let bookmarkData = new.bookmarkData ?? existing?.bookmarkData {
             model.setValue(bookmarkData, forKey: #keyPath(AudioDataModel.bookmarkData))
         }
 
+        // Download flags are written once, on insert. Afterwards only `UpdateDownloadFlagsUseCase`
+        // changes them, so saving a stale model (the player's cached copy) can't undo a pause.
         if existing == nil {
+            model.setValue(new.allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
+            model.setValue(new.isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
             for chapter in new.chapters {
                 model.addToChapters(chapter.dataModel)
             }
