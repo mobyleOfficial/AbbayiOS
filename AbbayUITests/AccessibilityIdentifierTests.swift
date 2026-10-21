@@ -136,6 +136,45 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Seeded Plain Book"].exists)
     }
 
+    /// Opens the stub client's only remote book. Its details are tiny, so Download never asks
+    /// about cellular, and the stub download manager never touches the network.
+    private func openStubLibriVoxBook() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        field.typeText("Stub")
+        assertResolves(AccessibilityID.Library.remoteRow(0))
+        element(AccessibilityID.Library.remoteRow(0)).tap()
+        assertResolves(AccessibilityID.Detail.download)
+    }
+
+    /// Regression: adding the book removed its search row, and the row-owned navigation link
+    /// popped the page before Play could appear.
+    func test_libriVoxDownload_keepsDetailPageOpenAndShowsPlay() {
+        openStubLibriVoxBook()
+
+        element(AccessibilityID.Detail.download).tap()
+
+        assertResolves(AccessibilityID.Detail.play)
+        XCTAssertTrue(element(AccessibilityID.Detail.view).exists)
+        XCTAssertFalse(element(AccessibilityID.Detail.download).exists)
+    }
+
+    func test_search_showsFloatingPlayerAfterPlayingFromDetail() {
+        openStubLibriVoxBook()
+        element(AccessibilityID.Detail.download).tap()
+        assertResolves(AccessibilityID.Detail.play)
+
+        element(AccessibilityID.Detail.play).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        assertResolves(AccessibilityID.Library.floatingPlayer)
+        // Still in search: the added book is now an "In your library" result.
+        XCTAssertTrue(element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(0))).exists)
+    }
+
     func test_search_withoutMatches_showsNoResultsState() {
         launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
         assertResolves(AccessibilityID.Library.list)

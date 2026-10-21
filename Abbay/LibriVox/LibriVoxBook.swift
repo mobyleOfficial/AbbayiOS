@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct LibriVoxBook: Equatable, Identifiable {
+struct LibriVoxBook: Hashable, Identifiable {
     let id: String
     let title: String
     let authors: String
@@ -18,7 +18,7 @@ struct LibriVoxBook: Equatable, Identifiable {
     let coverURL: URL
     let sections: [Section]
 
-    struct Section: Equatable {
+    struct Section: Hashable {
         let title: String
         let seconds: Double
         let listenURL: URL

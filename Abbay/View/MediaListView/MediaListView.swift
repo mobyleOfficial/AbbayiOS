@@ -19,12 +19,19 @@ struct MediaListView: View {
     private var isBrowsing = false
     @State
     private var downloadStates: [String: BookDownloadState] = [:]
+    /// The LibriVox book whose page is pushed. State, not a row-owned link: adding the book removes
+    /// its search row, which would otherwise pop the page.
+    @State
+    private var openedBook: LibriVoxBook?
 
     // MARK: - Body
     var body: some View {
-        NavigationView {
+        NavigationStack {
             contentView
                 .navigationTitle(Localizable.libraryTitle.localized)
+                .navigationDestination(item: $openedBook) { book in
+                    LibriVoxDetailView(book: book, onAdded: { model.addLibriVoxBook($0) })
+                }
                 .toolbar {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
                         addMenu
@@ -52,7 +59,6 @@ struct MediaListView: View {
                 .onReceive(model.$audioList) { search.update(library: $0) }
                 .onReceive(DependencyContainer.shared.downloads.statesPublisher) { downloadStates = $0 }
         }
-        .navigationViewStyle(.stack)
         .preferredColorScheme(.dark)
     }
 
@@ -114,15 +120,14 @@ struct MediaListView: View {
         isSearchPresented || isBrowsing || !search.query.isEmpty
     }
 
-    @ViewBuilder
     private var searchableContent: some View {
-        if isSearchActive {
-            searchResultsView
-        } else {
-            ZStack {
+        ZStack {
+            if isSearchActive {
+                searchResultsView
+            } else {
                 listView
-                playerView
             }
+            playerView
         }
     }
 
@@ -249,7 +254,9 @@ struct MediaListView: View {
             remoteMessage(Localizable.searchFailed.localized)
         case .loaded:
             ForEach(Array(search.remoteResults.enumerated()), id: \.element.id) { index, book in
-                NavigationLink(destination: LibriVoxDetailView(book: book, onAdded: { model.addLibriVoxBook($0) })) {
+                Button {
+                    openedBook = book
+                } label: {
                     RemoteBookRow(book: book)
                 }
                 .listRowBackground(ColorConstants.background.value)

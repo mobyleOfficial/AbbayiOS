@@ -45,10 +45,19 @@ final class DependencyContainer: DependencyContainerProtocol {
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
         // background session identifier may back only one session.
-        let downloads = BookDownloadManager.shared
+        let downloads = Self.makeDownloads()
         self.downloads = downloads
         self.player = Player(chapterPrioritizer: downloads)
         self.loadAudio = LoadAudioUseCase()
         self.loadAllAudios = LoadAllAudiosUseCase()
+    }
+
+    private static func makeDownloads() -> BookDownloadManagerProtocol {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(LaunchArgument.stubLibriVox) {
+            return UITestDownloadManager()
+        }
+        #endif
+        return BookDownloadManager.shared
     }
 }
