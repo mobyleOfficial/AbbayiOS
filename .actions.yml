@@ -1,6 +1,12 @@
 run_swiftlint: true
-run_tests: true
-# UI tests boot the app in the simulator, so they cost more wall-clock than the unit suite.
-run_ui_tests: true
+# The two macOS jobs are off to conserve Actions minutes: a full run is ~11 min each on
+# macos-26, and GitHub bills macOS runners at 10x the Linux rate. SwiftLint stays on because it
+# runs on ubuntu and costs almost nothing.
+#
+# The suites are therefore a LOCAL gate, not a CI one. Run `bundle exec fastlane verify` before
+# merging -- it runs lint, the unit suite and the UI suite off a single build. Flip either flag
+# back to `true` to restore the CI job; both jobs are still defined in validate-branch.yml.
+run_tests: false
+run_ui_tests: false
 # run `xcrun simctl list devices` to list devices
 test_device: iPhone 17 (26.4)

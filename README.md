@@ -119,12 +119,27 @@ We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.
 ```yaml
 run_swiftlint: true
 run_tests: false
-test_device: iPhone 17 (26.0)
+run_ui_tests: false
+test_device: iPhone 17 (26.4)
 ```
 
-`run_tests` is currently `false`. Run `bundle exec fastlane test_project` locally before submitting a PR.
+**The test suites are a local gate, not a CI one.** `run_tests` and `run_ui_tests` are both
+`false` to conserve Actions minutes -- each macOS job takes about 11 minutes and GitHub bills
+macOS runners at 10x the Linux rate. SwiftLint stays on CI because it runs on ubuntu.
 
-Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main` (simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs use Xcode `26.0.1`.
+Before merging anything, run:
+
+```bash
+bundle exec fastlane verify
+```
+
+That runs SwiftLint `--strict`, the unit suite and the UI suite off a single build, and fails on
+the first problem. Both CI jobs are still defined in `validate-branch.yml`, so flipping either
+flag to `true` restores them without further changes.
+
+Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main`
+(simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs
+run on `macos-26` with Xcode `26.4.1`.
 
 Actions used:
 * [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint) (`0.59.1`)

@@ -94,6 +94,42 @@ boot the app and are far slower than the unit suite -- `test_project` must stay 
     end
   end
 
+  desc "Full pre-merge verification: SwiftLint, unit tests, UI tests
+
+CI does not run the test suites (see .actions.yml), so this is the gate before merging. It
+generates the project once and reuses that build for both suites, rather than letting
+`test_project` and `ui_test_project` each clean and rebuild."
+  lane :verify do
+    Dir.chdir('..') do
+      message('SwiftLint (strict)')
+      sh 'bundle exec Scripts/swiftlint --strict --quiet'
+    end
+
+    generate_project(open: false)
+    device = YAML.load_file('../.actions.yml')['test_device'].to_s
+
+    message('Unit tests')
+    run_tests(
+      project: "#{project_name}.xcodeproj",
+      scheme: project_name.to_s,
+      device: device,
+      derived_data_path: './build_data',
+      result_bundle_path: 'TestResults.xcresult'
+    )
+
+    message('UI tests')
+    run_tests(
+      project: "#{project_name}.xcodeproj",
+      scheme: "#{project_name}UITests",
+      device: device,
+      derived_data_path: './build_data',
+      result_bundle_path: 'UITestResults.xcresult',
+      number_of_retries: 2
+    )
+
+    message('verify passed: lint, unit suite and UI suite are all green')
+  end
+
   desc "Generate app (xcarchive)
 
 #### Optional parameters
