@@ -32,18 +32,26 @@ final class MockPlayerObserver: PlayerObserverProtocol {
     private(set) var timeSubscriptions: [(CMTime) -> Void] = []
     private(set) var urlSubscriptions: [(AudioModel) -> Void] = []
     private(set) var cancelTimeCallCount = 0
+    private(set) var cancelUrlCallCount = 0
 
     func subscribeToTimePublisher(subscription: @escaping (CMTime) -> Void) {
         timeSubscriptions.append(subscription)
     }
 
     func subscribeToPlayUrlPublisher(subscription: @escaping (AudioModel) -> Void) {
+        // Mirrors PlayerObserver's guard, so the mock honours the same contract.
+        guard urlSubscriptions.isEmpty else { return }
         urlSubscriptions.append(subscription)
     }
 
     func cancelTimeSubscription() {
         cancelTimeCallCount += 1
         timeSubscriptions.removeAll()
+    }
+
+    func cancelUrlSubscription() {
+        cancelUrlCallCount += 1
+        urlSubscriptions.removeAll()
     }
 
     // MARK: - Test drivers

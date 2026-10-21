@@ -33,6 +33,19 @@ final class MockPlayer: PlayerProtocol {
         playUrlSubject.eraseToAnyPublisher()
     }
 
+    // MARK: - Test drivers
+    //
+    // The subjects are private, so this is the only way to exercise a real `PlayerObserver`
+    // sitting on top of a mock player.
+
+    func emitPlayUrl(_ model: AudioModel) {
+        playUrlSubject.send(model)
+    }
+
+    func emitTime(_ seconds: Double) {
+        currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600))
+    }
+
     func play(_ model: inout AudioModel) {
         playCalls.append(model)
         url = model.url

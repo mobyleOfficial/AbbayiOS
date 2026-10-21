@@ -38,6 +38,11 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private(set) var currentAudio: AudioModel?
     private(set) var currentPlayingItem: CPListItem?
 
+    /// Rows keyed by book URL, so the live-progress row can be re-resolved when playback moves
+    /// to a different book from outside CarPlay (#92).
+    private var listItemsByURL: [URL: CPListItem] = [:]
+    private(set) var currentPlayingURL: URL?
+
     // MARK: - CPTemplateApplicationSceneDelegate
 
     func templateApplicationScene(
@@ -67,10 +72,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         CPNowPlayingTemplate.shared.remove(self)
         playerObserver.cancelTimeSubscription()
+        playerObserver.cancelUrlSubscription()
         self.interfaceController = nil
         self.audioItems = []
         self.currentAudio = nil
         self.currentPlayingItem = nil
+        self.currentPlayingURL = nil
+        self.listItemsByURL = [:]
     }
 
     // MARK: - Observers
@@ -80,6 +88,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             guard let self else { return }
             // Order matters: both chapter-list entry points gate on `currentAudio`.
             self.currentAudio = audio
+            // Progress is computed from `currentAudio`, so the row it is written to has to move
+            // with it (#92).
+            self.trackRow(for: audio)
             // Playback can start from Siri, the phone UI or a remote command. Without this
             // CarPlay stays on the library list while audio plays, which is indistinguishable
             // from the trigger having failed.
@@ -97,6 +108,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     func buildLibraryTemplate() -> CPListTemplate {
         audioItems = loadAllAudiosUseCase.execute()
+        listItemsByURL = [:]
 
         let listItems = audioItems.map { audio in
             buildListItem(for: audio)
@@ -126,13 +138,20 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             item.playbackProgress = CGFloat(audio.currentTime / audio.duration)
         }
 
-        // Track the currently playing item for live progress updates
-        if audio.url == playerObserver.player.url {
-            currentPlayingItem = item
+        if let url = audio.url {
+            listItemsByURL[url] = item
+            // Seed the tracked row when this book is already loaded, so progress starts flowing
+            // without waiting for the next publish.
+            if url == playerObserver.player.url {
+                currentPlayingURL = url
+                currentPlayingItem = item
+            }
         }
 
-        item.handler = { [weak self] selectedItem, completion in
-            self?.currentPlayingItem = selectedItem as? CPListItem
+        item.handler = { [weak self] _, completion in
+            // Track before playing: replaying the already-loaded book does not publish a URL,
+            // so the subscription would not fire and the row would never be claimed.
+            self?.trackRow(for: audio)
             self?.handleAudioSelection(audio)
             completion()
         }
@@ -170,6 +189,25 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     // MARK: - Playback
+
+    /// Points the live-progress row at the book that is actually playing, and hands the row it
+    /// is leaving back its own stored position so it does not sit frozen mid-animation showing a
+    /// different book's progress.
+    func trackRow(for audio: AudioModel) {
+        let newURL = audio.url
+        if let previousURL = currentPlayingURL, previousURL != newURL {
+            restoreStoredProgress(forURL: previousURL)
+        }
+        currentPlayingURL = newURL
+        currentPlayingItem = newURL.flatMap { listItemsByURL[$0] }
+    }
+
+    private func restoreStoredProgress(forURL url: URL) {
+        guard let item = listItemsByURL[url],
+              let model = audioItems.first(where: { $0.url == url }),
+              model.duration > 0 else { return }
+        item.playbackProgress = CGFloat(model.currentTime / model.duration)
+    }
 
     func handleAudioSelection(_ audio: AudioModel) {
         // Fetch fresh model from CoreData to get the latest saved currentTime
