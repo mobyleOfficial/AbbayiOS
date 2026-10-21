@@ -73,3 +73,6 @@ vendor/bundle
 ### Worktrees ###
 .worktrees/
 .derived-data-log-*
+
+# Brainstorm mockups and agent scratch space
+.superpowers/
