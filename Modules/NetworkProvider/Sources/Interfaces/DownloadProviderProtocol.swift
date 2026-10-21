@@ -38,6 +38,7 @@ public protocol DownloadProviderProtocol: AnyObject {
 
     /// Stores the completion handler the system passes to
     /// `application(_:handleEventsForBackgroundURLSession:completionHandler:)`, and calls it on
-    /// the main queue once the session has delivered all its pending events.
+    /// the main queue once the session has delivered all its pending events, or right away when
+    /// the session already finished delivering them before this was called.
     func handleBackgroundEvents(completion: @escaping () -> Void)
 }

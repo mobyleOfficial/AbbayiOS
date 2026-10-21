@@ -23,6 +23,8 @@ public final class DownloadProvider: NSObject {
     private let lock = NSLock()
     /// Guarded by `lock`.
     private var backgroundCompletion: (() -> Void)?
+    /// Guarded by `lock`. Set when the session finished its events before a handler was stored.
+    private var didFinishBackgroundEvents = false
     /// The last progress event emitted per id, used for throttling. Only touched on `delegateQueue`.
     private var progress: [String: ProgressMark] = [:]
     /// Lazy only because the session needs `self` as its delegate. Forced at the end of `init`.
@@ -88,7 +90,18 @@ extension DownloadProvider: DownloadProviderProtocol {
     }
 
     public func handleBackgroundEvents(completion: @escaping () -> Void) {
-        lock.withLock { backgroundCompletion = completion }
+        let alreadyFinished = lock.withLock {
+            // The session can finish delivering events before the app delegate hands this over.
+            guard didFinishBackgroundEvents else {
+                backgroundCompletion = completion
+                return false
+            }
+            didFinishBackgroundEvents = false
+            return true
+        }
+        if alreadyFinished {
+            DispatchQueue.main.async(execute: completion)
+        }
     }
 }
 
@@ -148,6 +161,7 @@ extension DownloadProvider: URLSessionDownloadDelegate {
     public func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
         let completion = lock.withLock {
             defer { backgroundCompletion = nil }
+            didFinishBackgroundEvents = backgroundCompletion == nil
             return backgroundCompletion
         }
         guard let completion else { return }

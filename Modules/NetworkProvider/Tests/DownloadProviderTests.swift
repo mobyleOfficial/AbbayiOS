@@ -117,6 +117,30 @@ final class DownloadProviderTests: XCTestCase {
         }
     }
 
+    func test_handleBackgroundEvents_afterSessionFinishedEvents_callsCompletionOnMain() async {
+        let completed = expectation(description: "completion called")
+        // The system may deliver this before the app delegate hands over its handler.
+        sut.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+
+        sut.handleBackgroundEvents {
+            XCTAssertTrue(Thread.isMainThread)
+            completed.fulfill()
+        }
+
+        await fulfillment(of: [completed], timeout: 5)
+    }
+
+    func test_handleBackgroundEvents_beforeSessionFinishedEvents_callsCompletionOnce() async {
+        let completed = expectation(description: "completion called")
+        completed.assertForOverFulfill = true
+        sut.handleBackgroundEvents { completed.fulfill() }
+
+        sut.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+        sut.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession.shared)
+
+        await fulfillment(of: [completed], timeout: 5)
+    }
+
     func test_resume_withoutResumeData_throwsInvalidParams() {
         XCTAssertThrowsError(try sut.resume(id: "a", allowsCellularAccess: true)) { error in
             XCTAssertEqual(error as? NetworkError, .invalidParams)
