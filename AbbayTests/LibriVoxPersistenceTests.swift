@@ -75,6 +75,41 @@ final class LibriVoxPersistenceTests: XCTestCase {
         XCTAssertNil(LoadAudioUseCase().execute(url: bookURL))
     }
 
+    func test_savePlaybackPosition_updatesOnlyTheExistingBook() throws {
+        try SaveAudioUseCase().execute(makeBook())
+
+        SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 75, bookmarkData: Data([4, 2]))
+        let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+
+        XCTAssertEqual(loaded.currentTime, 75)
+        XCTAssertEqual(loaded.bookmarkData, Data([4, 2]))
+        XCTAssertEqual(loaded.title, "Test LibriVox")
+        XCTAssertTrue(loaded.isDownloadPaused)
+        XCTAssertEqual(loaded.chapters.count, 2)
+    }
+
+    func test_savePlaybackPosition_withoutBookmark_keepsTheSavedBookmark() throws {
+        var audio = makeBook()
+        audio.bookmarkData = Data([9])
+        try SaveAudioUseCase().execute(audio)
+
+        SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 12, bookmarkData: nil)
+        let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+
+        XCTAssertEqual(loaded.currentTime, 12)
+        XCTAssertEqual(loaded.bookmarkData, Data([9]))
+    }
+
+    func test_savePlaybackPosition_deletedBook_insertsNothing() throws {
+        let audio = makeBook()
+        try SaveAudioUseCase().execute(audio)
+        DeleteAudioUseCase(removeDownloads: { _ in }).execute(audio)
+
+        SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 30, bookmarkData: nil)
+
+        XCTAssertNil(LoadAudioUseCase().execute(url: bookURL))
+    }
+
     func test_v1Store_opensWithCurrentModel_keepsBooks() throws {
         let momd = try XCTUnwrap(
             Bundle(for: AudioDataModel.self).url(forResource: "AudioDataModel", withExtension: "momd")

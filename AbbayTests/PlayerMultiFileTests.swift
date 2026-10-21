@@ -23,7 +23,7 @@ final class PlayerMultiFileTests: XCTestCase {
     private var flagSuite: UserDefaults?
     private var flagSuiteName: String?
     private var root: URL?
-    private var saveUseCase: MockSaveAudioUseCase?
+    private var saveUseCase: MockSavePlaybackPositionUseCase?
     private var bookmarkProvider: MockBookmarkProvider?
     private var prioritizer: MockChapterPrioritizer?
 
@@ -38,7 +38,7 @@ final class PlayerMultiFileTests: XCTestCase {
 
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlayerMultiFileTests-\(UUID().uuidString)", isDirectory: true)
-        saveUseCase = MockSaveAudioUseCase()
+        saveUseCase = MockSavePlaybackPositionUseCase()
         bookmarkProvider = MockBookmarkProvider()
         prioritizer = MockChapterPrioritizer()
     }
@@ -57,9 +57,11 @@ final class PlayerMultiFileTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makePlayer() throws -> Player {
+    private func makePlayer(
+        savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol? = nil
+    ) throws -> Player {
         Player(
-            saveAudioUseCase: try XCTUnwrap(saveUseCase),
+            savePlaybackPositionUseCase: try savePlaybackPositionUseCase ?? XCTUnwrap(saveUseCase),
             intentDonor: MockIntentDonor(),
             librarySnapshotWriter: MockLibrarySnapshotWriter(),
             audioSessionActivator: MockAudioSessionActivator(),
@@ -143,9 +145,43 @@ final class PlayerMultiFileTests: XCTestCase {
         player.seek(150)
         player.pause()
 
-        let saved = try XCTUnwrap(saveUseCase.savedModels.last)
+        let saved = try XCTUnwrap(saveUseCase.calls.last)
+        XCTAssertEqual(saved.url, model.url)
+        XCTAssertNil(saved.bookmarkData)
         XCTAssertTrue((100..<200).contains(saved.currentTime), "saved \(saved.currentTime), expected book time")
         XCTAssertEqual(player.currentTime, 150, accuracy: 1)
+    }
+
+    func test_saveTime_afterTheBookWasDeleted_insertsNoRow() throws {
+        let model = libriVoxBook()
+        try SaveAudioUseCase().execute(model)
+        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
+        var loaded = model
+        player.play(&loaded)
+
+        // Deleted from the Library while the player still holds it.
+        DeleteAudioUseCase(removeDownloads: { _ in }).execute(model)
+        player.seek(150)
+        player.pause()
+
+        XCTAssertNil(LoadAudioUseCase().execute(url: model.url))
+    }
+
+    func test_saveTime_existingBook_updatesItsPosition() throws {
+        let model = libriVoxBook()
+        try SaveAudioUseCase().execute(model)
+        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
+        var loaded = model
+        player.play(&loaded)
+
+        player.seek(150)
+        player.pause()
+
+        let saved = try XCTUnwrap(LoadAudioUseCase().execute(url: model.url))
+        XCTAssertTrue((100..<200).contains(saved.currentTime), "saved \(saved.currentTime)")
+        XCTAssertEqual(saved.chapters.count, 3)
     }
 
     func test_play_libriVoxBook_doesNotCreateBookmark() throws {

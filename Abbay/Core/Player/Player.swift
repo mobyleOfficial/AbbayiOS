@@ -34,7 +34,8 @@ final class Player: PlayerProtocol {
     // (LibriVox) books hold the current chapter's file plus the next one for gapless playback.
     private let player = AVQueuePlayer()
     private var model: AudioModel?
-    private let saveAudioUseCase: SaveAudioUseCaseProtocol
+    /// Update-only: a book deleted while it's loaded here must not be re-inserted.
+    private let savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol
     private let intentDonor: IntentDonorProtocol
     private let librarySnapshotWriter: LibrarySnapshotWriterProtocol
     private let audioSessionActivator: AudioSessionActivatorProtocol
@@ -71,9 +72,7 @@ final class Player: PlayerProtocol {
 
     // MARK: - Init
     init(
-        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(
-            repository: LoadAudioRepository()
-        ),
+        savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol = SavePlaybackPositionUseCase(),
         intentDonor: IntentDonorProtocol = IntentDonor.shared,
         librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
         audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
@@ -81,7 +80,7 @@ final class Player: PlayerProtocol {
         chapterPrioritizer: ChapterPrioritizing = NoopChapterPrioritizer(),
         downloadsRoot: URL = LibriVoxIdentity.defaultRoot
     ) {
-        self.saveAudioUseCase = saveAudioUseCase
+        self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
         self.audioSessionActivator = audioSessionActivator
@@ -134,7 +133,7 @@ final class Player: PlayerProtocol {
            model.bookmarkData == nil,
            let bookmark = bookmarkProvider.createBookmarkData(for: url) {
             model.bookmarkData = bookmark
-            try? saveAudioUseCase.execute(model)
+            savePlaybackPositionUseCase.execute(url: url, currentTime: model.currentTime, bookmarkData: bookmark)
             librarySnapshotWriter.refresh()
         }
 
@@ -332,9 +331,8 @@ final class Player: PlayerProtocol {
 
     private func saveTime() {
         let currentTime = self.currentTime
-        if !currentTime.isNaN, var model = model {
-            model.currentTime = currentTime
-            try? saveAudioUseCase.execute(model)
+        if !currentTime.isNaN, let model = model {
+            savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
         }
     }
 

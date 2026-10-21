@@ -17,7 +17,7 @@ final class PlayerChapterNavigationTests: XCTestCase {
 
     private func makePlayer() -> Player {
         Player(
-            saveAudioUseCase: MockSaveAudioUseCase(),
+            savePlaybackPositionUseCase: MockSavePlaybackPositionUseCase(),
             intentDonor: MockIntentDonor(),
             librarySnapshotWriter: MockLibrarySnapshotWriter(),
             audioSessionActivator: MockAudioSessionActivator(),
