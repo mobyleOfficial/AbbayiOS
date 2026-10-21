@@ -91,7 +91,7 @@ targets:
         excludes:
           - "ReferenceImages/*"
           - "FailureDiffs/*"
-          - "Fixtures/*"
+          - "Fixtures/**"
       # Real audiobook fixture (public domain, see Fixtures/README.md). Declared as a
       # resource so it lands in the test bundle and tests can read it by name.
       - path: AbbayTests/Fixtures

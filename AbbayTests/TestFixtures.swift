@@ -28,5 +28,25 @@ enum TestFixtures {
     }
 }
 
+extension TestFixtures {
+    /// Bytes of `Fixtures/LibriVox/<name>.json`. XcodeGen flattens resource folders, so the file may sit
+    /// at the bundle root or in a `LibriVox` subdirectory.
+    static func librivoxData(
+        _ name: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> Data {
+        let bundle = Bundle(for: FixtureBundleAnchor.self)
+        let url = try XCTUnwrap(
+            bundle.url(forResource: name, withExtension: "json")
+                ?? bundle.url(forResource: name, withExtension: "json", subdirectory: "LibriVox"),
+            "Fixtures/LibriVox/\(name).json is missing from the test bundle.",
+            file: file,
+            line: line
+        )
+        return try Data(contentsOf: url)
+    }
+}
+
 /// `Bundle(for:)` needs a class in the test bundle; this is that class and nothing more.
 private final class FixtureBundleAnchor {}
