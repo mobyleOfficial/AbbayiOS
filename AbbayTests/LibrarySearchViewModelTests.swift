@@ -134,6 +134,20 @@ final class LibrarySearchViewModelTests: XCTestCase {
         XCTAssertEqual(client.popularCalls, 0)
     }
 
+    func test_clearingQuery_afterBrowsing_restoresPopular() async {
+        let sut = makeSUT()
+        client.popularResult = .success([book("7")])
+        client.searchResult = .success([book("9")])
+        await sut.loadPopular()
+        sut.query = "alice"
+        await waitUntil { sut.remoteResults.map(\.id) == ["9"] }
+
+        sut.query = ""
+
+        XCTAssertEqual(sut.remoteResults.map(\.id), ["7"])
+        XCTAssertEqual(sut.remoteStatus, .loaded)
+    }
+
     func test_updateLibrary_removesNewlyOwnedBookFromRemote() async {
         let sut = makeSUT()
         client.popularResult = .success([book("1"), book("2")])

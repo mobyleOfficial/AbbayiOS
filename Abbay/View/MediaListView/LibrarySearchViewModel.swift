@@ -32,6 +32,8 @@ final class LibrarySearchViewModel: ObservableObject {
     private let debounce: Duration
     private var library: [AudioModel] = []
     private var fetchedBooks: [LibriVoxBook] = []
+    /// Last popular list, restored when the query is cleared so "Popular" is never an empty header.
+    private var popularBooks: [LibriVoxBook]?
     private var searchTask: Task<Void, Never>?
     private var generation = 0
 
@@ -75,6 +77,7 @@ final class LibrarySearchViewModel: ObservableObject {
         do {
             let books = try await client.popular()
             guard current == generation else { return }
+            popularBooks = books
             setRemote(books, status: .loaded)
         } catch {
             guard current == generation else { return }
@@ -94,7 +97,11 @@ final class LibrarySearchViewModel: ObservableObject {
         applyLocalFilter()
         let text = trimmedQuery
         guard !text.isEmpty else {
-            setRemote([], status: .idle)
+            if let popularBooks {
+                setRemote(popularBooks, status: .loaded)
+            } else {
+                setRemote([], status: .idle)
+            }
             return
         }
         guard path.isOnline else {
