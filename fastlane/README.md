@@ -59,6 +59,18 @@ boot the app and are far slower than the unit suite -- `test_project` must stay 
 #### Optional parameters
   * open: true - Open the test results after running tests
 
+### ios verify
+
+```sh
+[bundle exec] fastlane ios verify
+```
+
+Full pre-merge verification: SwiftLint, unit tests, UI tests
+
+CI does not run the test suites (see .actions.yml), so this is the gate before merging. It
+generates the project once and reuses that build for both suites, rather than letting
+`test_project` and `ui_test_project` each clean and rebuild.
+
 ### ios generate_app
 
 ```sh

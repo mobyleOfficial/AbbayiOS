@@ -119,12 +119,36 @@ We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.
 ```yaml
 run_swiftlint: true
 run_tests: false
-test_device: iPhone 17 (26.0)
+run_ui_tests: false
+test_device: iPhone 17 (26.4)
 ```
 
-`run_tests` is currently `false`. Run `bundle exec fastlane test_project` locally before submitting a PR.
+**Which PRs run the suites on CI depends on the base branch.** The flags above enable the
+macOS jobs, but those jobs also require the PR's base branch to be `main`:
 
-Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main` (simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs use Xcode `26.0.1`.
+| PR base | CI runs |
+|---|---|
+| `develop` | SwiftLint only |
+| `main` | SwiftLint, unit suite, UI suite |
+
+Each macOS job takes about 11 minutes and GitHub bills macOS runners at 10x the Linux rate, so
+running them on every `develop` PR is not worth it. Release-bound PRs into `main` get the full
+set, because that is where a pipeline break is most expensive. Set either flag to `false` as a
+kill switch.
+
+Since `develop` PRs get no suite run, **the suites are a local gate for day-to-day work.** Before
+merging, run:
+
+```bash
+bundle exec fastlane verify
+```
+
+That runs SwiftLint `--strict`, the unit suite and the UI suite off a single build and fails on
+the first problem -- about six minutes total.
+
+Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main`
+(simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs
+run on `macos-26` with Xcode `26.4.1`.
 
 Actions used:
 * [Swiftlint](https://github.com/realm/SwiftLint/pkgs/container/swiftlint) (`0.59.1`)
