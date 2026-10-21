@@ -26,10 +26,11 @@ final class MediaViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentChapter, 1, "150s falls in the second chapter, index 1")
     }
 
-    /// The row's chapter counter jumps as soon as playback reports a time, because `init` is
-    /// 0-indexed and the time subscription adds one. Same book, same position, two answers --
-    /// which is why a three-chapter book reads "0/3" at rest.
-    func test_timeUpdate_shiftsTheChapterIndexByOne() {
+    /// Regression guard for #104. `init` and the time subscription used to disagree -- 0-based
+    /// in one, 1-based in the other -- so the row's counter jumped as soon as playback reported
+    /// a time, and a three-chapter book read "0/3" at rest. Both are 0-based now; the 1-based
+    /// display conversion lives in `ChapterCountView`.
+    func test_initAndTimeUpdateAgreeOnTheChapterIndex() {
         let model = ViewModelSupport.chaptered(currentTime: 150)
         let observer = ViewModelSupport.observer(loaded: model)
         let viewModel = MediaViewModel(model, playerObserver: observer)
@@ -38,8 +39,12 @@ final class MediaViewModelTests: XCTestCase {
         observer.emitPlayUrl(model)
         observer.emitTime(150)
 
-        XCTAssertEqual(atInit, 1)
-        XCTAssertEqual(viewModel.currentChapter, 2, "the time path is 1-indexed where init is 0-indexed")
+        XCTAssertEqual(atInit, 1, "150s falls in the second chapter, index 1")
+        XCTAssertEqual(
+            viewModel.currentChapter,
+            atInit,
+            "the same position must resolve to the same chapter before and after a time update"
+        )
     }
 
     func test_timeUpdate_tracksCurrentTimeAndPlayingState() {

@@ -6,9 +6,9 @@
 @testable import Abbay
 import XCTest
 
-/// `FloatingPlayerViewModel` backs the mini player and had no tests. It is a near-copy of
-/// `PlayerViewModel` that diverges in two ways, both pinned here so a future refactor has to
-/// decide deliberately rather than by accident.
+/// `FloatingPlayerViewModel` backs the mini player. It is a near-copy of `PlayerViewModel`;
+/// the chapter-indexing divergence between them was #104 and is now resolved, leaving one
+/// remaining difference pinned below.
 final class FloatingPlayerViewModelTests: XCTestCase {
     private struct Harness {
         let viewModel: FloatingPlayerViewModel
@@ -30,18 +30,17 @@ final class FloatingPlayerViewModelTests: XCTestCase {
         )
     }
 
-    /// Divergence 1: this view model is 1-indexed where `PlayerViewModel` is 0-indexed. Correct
-    /// for the "N/total" counter it renders, but the two must not be unified blindly -- the
-    /// player's chapter list compares against a 0-based index.
-    func test_init_reportsChapterOneIndexed() {
+    /// Now agrees with `PlayerViewModel` and `MediaViewModel`: every view model is 0-based, and
+    /// `ChapterCountView` adds one where a counter is displayed (#104).
+    func test_init_reportsChapterZeroIndexed() {
         let harness = makeHarness(currentTime: 250)
         let viewModel = harness.viewModel
 
-        XCTAssertEqual(viewModel.currentChapter, 3, "250s is index 2, displayed as chapter 3 of 3")
+        XCTAssertEqual(viewModel.currentChapter, 2, "250s falls in the third chapter, index 2")
     }
 
-    /// Divergence 2: it starts tracking unconditionally, where `PlayerViewModel` only tracks
-    /// when its own book is the loaded one.
+    /// The remaining divergence: it starts tracking unconditionally, where `PlayerViewModel`
+    /// only tracks when its own book is the loaded one.
     func test_init_tracksTimeEvenWhenADifferentBookIsLoaded() {
         let model = ViewModelSupport.chaptered()
         let player = MockPlayer()
