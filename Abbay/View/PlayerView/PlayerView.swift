@@ -119,54 +119,22 @@ struct PlayerView: View {
         }
     }
 
-    @ViewBuilder
     private var chaptersView: some View {
-        VStack {
-            let listSpacing = SpaceConstants.sx16.value
-            HStack {
-                Text(Localizable.chapterSelectionTitle.localized)
-                    .foregroundColor(ColorConstants.white.value)
-                    .font(.system(size: SpaceConstants.sx16.value))
-                    .accessibilityIdentifier(AccessibilityID.Player.chaptersTitle)
-                Spacer()
+        ChapterListView(
+            chapters: model.info.chapters.map(ChapterListView.Item.init),
+            currentIndex: model.currentChapter,
+            downloadState: model.downloadState,
+            isDimmed: !model.isPlaying,
+            layout: .list,
+            titleIdentifier: AccessibilityID.Player.chaptersTitle,
+            progressIdentifier: AccessibilityID.Player.downloadProgress,
+            rowIdentifier: AccessibilityID.Player.chapter,
+            onSelect: { index in
+                guard model.isPlaying, model.info.chapters.indices.contains(index) else { return }
+                model.willSeek()
+                model.seek(model.info.chapters[index].startTime)
             }
-            .padding(listSpacing)
-            .background(ColorConstants.background2.value)
-            if let state = model.downloadState {
-                ProgressView(value: state.fraction)
-                    .tint(ColorConstants.malachite.value)
-                    .scaleEffect(x: 1, y: 0.5)
-                    .frame(height: SpaceConstants.sx2.value)
-                    .accessibilityIdentifier(AccessibilityID.Player.downloadProgress)
-            }
-            List {
-                ForEach(Array(model.info.chapters.enumerated()), id: \.offset) { index, chapter in
-                    HStack {
-                        PlayerTitleView(
-                            isPlaying: .constant(model.currentChapter == index),
-                            text: chapter.title
-                        )
-                        if let state = model.downloadState, index < state.chapters.count {
-                            ChapterDownloadStatusView(state: state.chapters[index])
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .listRowBackground(ColorConstants.clear.value)
-                    .listRowInsets(.init(all: listSpacing))
-                    .font(.system(size: SpaceConstants.sx16.value))
-                    .accessibilityIdentifier(AccessibilityID.Player.chapter(index))
-                    .onTapGesture {
-                        guard model.isPlaying else { return }
-                        model.willSeek()
-                        model.seek(chapter.startTime)
-                    }
-                }
-            }
-            .listStyle(.plain)
-        }
-        .background(ColorConstants.background.value)
-        .cornerRadius(SpaceConstants.sx32.value)
-        .opacity(model.isPlaying ? 1.0 : 0.5)
+        )
     }
 }
 

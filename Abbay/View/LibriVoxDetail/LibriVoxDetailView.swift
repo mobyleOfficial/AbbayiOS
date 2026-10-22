@@ -86,7 +86,6 @@ struct LibriVoxDetailView: View {
                 header(book)
                 descriptionView(book)
                 actionButton
-                progressBar
                 chapterList(book)
                 Text(Localizable.librivoxCredit.localized)
                     .font(.caption)
@@ -179,42 +178,16 @@ struct LibriVoxDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private var progressBar: some View {
-        if let state = model.downloadState, !state.isComplete {
-            ProgressView(value: state.fraction)
-                .tint(ColorConstants.malachite.value)
-                .accessibilityIdentifier(AccessibilityID.Detail.progress)
-        }
-    }
-
+    /// The player sheet's chapter list, embedded in this page's scroll view. Rows are not tappable:
+    /// Play opens the player sheet, which is where chapters are chosen.
     private func chapterList(_ book: LibriVoxBook) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(book.sections.enumerated()), id: \.offset) { index, section in
-                HStack {
-                    Text("\(index + 1)")
-                        .foregroundColor(ColorConstants.lightSilver.value)
-                        .frame(width: SpaceConstants.sx32.value, alignment: .leading)
-                    Text(section.title)
-                        .lineLimit(1)
-                    Spacer()
-                    chapterStatus(index)
-                    Text(section.seconds.timestamp)
-                        .font(.caption)
-                        .foregroundColor(ColorConstants.lightSilver.value)
-                }
-                .padding(.vertical, SpaceConstants.sx8.value)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier(AccessibilityID.Detail.chapter(index))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func chapterStatus(_ index: Int) -> some View {
-        if let state = model.downloadState, index < state.chapters.count {
-            ChapterDownloadStatusView(state: state.chapters[index])
-        }
+        ChapterListView(
+            chapters: book.sections.map(ChapterListView.Item.init),
+            downloadState: model.downloadState,
+            layout: .stack,
+            progressIdentifier: AccessibilityID.Detail.progress,
+            rowIdentifier: AccessibilityID.Detail.chapter
+        )
     }
 }
 
