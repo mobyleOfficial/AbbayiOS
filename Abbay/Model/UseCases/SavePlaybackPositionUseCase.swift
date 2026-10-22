@@ -21,13 +21,15 @@ final class SavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol {
     }
 
     func execute(url: URL?, currentTime: Double, bookmarkData: Data?) {
-        guard let model = repository.execute(url: url) else { return }
+        LocalStorage.persistent.performAndWait { _ in
+            guard let model = repository.execute(url: url) else { return }
 
-        model.setValue(currentTime, forKey: #keyPath(AudioDataModel.currentTime))
-        if let bookmarkData {
-            model.setValue(bookmarkData, forKey: #keyPath(AudioDataModel.bookmarkData))
+            model.setValue(currentTime, forKey: #keyPath(AudioDataModel.currentTime))
+            if let bookmarkData {
+                model.setValue(bookmarkData, forKey: #keyPath(AudioDataModel.bookmarkData))
+            }
+
+            LocalStorage.persistent.saveContext()
         }
-
-        LocalStorage.persistent.saveContext()
     }
 }

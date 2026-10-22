@@ -21,15 +21,17 @@ final class UpdateDownloadFlagsUseCase: UpdateDownloadFlagsUseCaseProtocol {
     }
 
     func execute(url: URL?, isDownloadPaused: Bool?, allowsCellularDownload: Bool?) {
-        guard let model = repository.execute(url: url) else { return }
+        LocalStorage.persistent.performAndWait { _ in
+            guard let model = repository.execute(url: url) else { return }
 
-        if let isDownloadPaused {
-            model.setValue(isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
-        }
-        if let allowsCellularDownload {
-            model.setValue(allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
-        }
+            if let isDownloadPaused {
+                model.setValue(isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
+            }
+            if let allowsCellularDownload {
+                model.setValue(allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
+            }
 
-        LocalStorage.persistent.saveContext()
+            LocalStorage.persistent.saveContext()
+        }
     }
 }

@@ -5,6 +5,7 @@
 //  Created by Edson Yudi Toma on 30/11/24.
 //
 
+import CoreData
 import Foundation
 
 protocol SaveAudioUseCaseProtocol {
@@ -19,18 +20,22 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
     }
 
     func execute(_ audio: AudioModel) throws {
-        let existingAudio = repository.execute(url: audio.url)
+        LocalStorage.persistent.performAndWait { context in
+            let existingAudio = repository.execute(url: audio.url)
 
-        updateAudio(existingAudio, with: audio)
+            updateAudio(existingAudio, with: audio, in: context)
 
-        LocalStorage.persistent.saveContext()
+            LocalStorage.persistent.saveContext()
+        }
     }
 
+    /// Call on `context`'s queue.
     private func updateAudio(
         _ existing: AudioDataModel?,
-        with new: AudioModel
+        with new: AudioModel,
+        in context: NSManagedObjectContext
     ) {
-        let model = existing ?? AudioDataModel(context: LocalStorage.persistent.managedContext)
+        let model = existing ?? AudioDataModel(context: context)
 
         model.setValue(new.albumName, forKey: #keyPath(AudioDataModel.albumName))
         model.setValue(new.artist, forKey: #keyPath(AudioDataModel.artist))
@@ -52,7 +57,7 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
             model.setValue(new.allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
             model.setValue(new.isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
             for chapter in new.chapters {
-                model.addToChapters(chapter.dataModel)
+                model.addToChapters(chapter.dataModel(in: context))
             }
         }
     }

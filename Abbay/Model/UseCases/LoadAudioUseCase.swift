@@ -20,7 +20,8 @@ final class LoadAudioUseCase: LoadAudioUseCaseProtocol {
 
     func execute(url: URL?) -> AudioModel? {
         guard let url = url else { return nil }
-        let dataModel = repository.execute(url: url)
-        return dataModel?.model
+        return LocalStorage.persistent.performAndWait { _ in
+            repository.execute(url: url)?.model
+        }
     }
 }

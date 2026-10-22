@@ -8,6 +8,8 @@
 import CoreData
 import Foundation
 
+/// Returns managed objects of `LocalStorage.persistent`'s context: read them only inside its
+/// `performAndWait`.
 protocol LoadAllAudiosRepositoryProtocol {
     func execute() -> [AudioDataModel]?
 }
@@ -17,13 +19,13 @@ final class LoadAllAudiosRepository: LoadAllAudiosRepositoryProtocol {
         let request = AudioDataModel.fetchRequest()
         let sortByTitle = NSSortDescriptor(key: #keyPath(AudioDataModel.title), ascending: false)
         request.sortDescriptors = [sortByTitle]
-        do {
-            let context = LocalStorage.persistent.managedContext
-            let result = try context.fetch(request)
-            return result
-        } catch let error as NSError {
-            print("Fetch error: \(error) description: \(error.userInfo)")
+        return LocalStorage.persistent.performAndWait { context in
+            do {
+                return try context.fetch(request)
+            } catch let error as NSError {
+                print("Fetch error: \(error) description: \(error.userInfo)")
+            }
+            return [AudioDataModel]()
         }
-        return [AudioDataModel]()
     }
 }

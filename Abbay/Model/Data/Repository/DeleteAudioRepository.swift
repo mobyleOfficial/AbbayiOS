@@ -20,10 +20,11 @@ final class DeleteAudioRepository: DeleteAudioRepositoryProtocol {
     }
 
     func execute(url: URL?) {
-        guard let audioDataModel = loadAudioRepository.execute(url: url) else { return }
+        LocalStorage.persistent.performAndWait { context in
+            guard let audioDataModel = loadAudioRepository.execute(url: url) else { return }
 
-        let context = LocalStorage.persistent.managedContext
-        context.delete(audioDataModel)
-        LocalStorage.persistent.saveContext()
+            context.delete(audioDataModel)
+            LocalStorage.persistent.saveContext()
+        }
     }
 }
