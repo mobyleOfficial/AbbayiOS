@@ -203,6 +203,21 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         XCTAssertEqual(sut.downloadState, state)
     }
 
+    /// Like `PlayerViewModel`: once every chapter is downloaded there is no per-chapter status and
+    /// no progress bar, so the page and the player sheet show the same list.
+    func test_statesPublisher_completeDownload_clearsDownloadState() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+        let partial = BookDownloadState(chapters: [.downloaded, .waiting], expectedBytes: [1, 1], isPaused: false)
+        let complete = BookDownloadState(chapters: [.downloaded, .downloaded], expectedBytes: [1, 1], isPaused: false)
+        downloads.statesSubject.send(["42": partial])
+        await waitUntil { sut.downloadState != nil }
+
+        downloads.statesSubject.send(["42": complete])
+        await waitUntil { sut.downloadState == nil }
+
+        XCTAssertNil(sut.downloadState)
+    }
+
     func test_play_beforeDownloadFinishes_callsPlayer() async {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
         sut.downloadTapped()

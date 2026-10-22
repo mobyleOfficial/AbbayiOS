@@ -12,6 +12,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
     @Published private(set) var loadFailed = false
     /// Non-nil once Download was confirmed and the book was saved.
     @Published private(set) var addedBook: AudioModel?
+    /// Non-nil only while this book's download is incomplete, matching `PlayerViewModel`, so a
+    /// finished book shows no per-chapter status and no progress bar on either screen.
     @Published private(set) var downloadState: BookDownloadState?
     @Published var isShowingCellularAlert = false
     /// Drives the full player sheet, the same one a Library row opens.
@@ -47,7 +49,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] states in
                 guard let self else { return }
-                downloadState = states[self.book.id]
+                guard let state = states[self.book.id], !state.isComplete else {
+                    downloadState = nil
+                    return
+                }
+                downloadState = state
             }
             .store(in: &cancellables)
     }
