@@ -14,6 +14,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
     @Published private(set) var addedBook: AudioModel?
     @Published private(set) var downloadState: BookDownloadState?
     @Published var isShowingCellularAlert = false
+    /// Drives the full player sheet, the same one a Library row opens.
+    @Published var isShowingPlayer = false
 
     let book: LibriVoxBook
     private let client: LibriVoxClientProtocol
@@ -80,9 +82,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
         start(details, allowsCellular: shouldContinue)
     }
 
+    /// Starts the book and opens the player sheet, where pause, seek and chapters live.
     func play() {
         guard var model = addedBook else { return }
         DependencyContainer.shared.player.play(&model)
+        isShowingPlayer = true
     }
 
     private func start(_ details: LibriVoxBookDetails, allowsCellular: Bool) {

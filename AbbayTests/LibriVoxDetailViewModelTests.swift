@@ -212,4 +212,25 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertEqual(player.playCalls.map(\.librivoxID), ["42"])
     }
+
+    /// Play hands control to the same player sheet a Library row opens.
+    func test_play_requestsThePlayerSheet() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+        sut.downloadTapped()
+        await waitUntil { sut.addedBook != nil }
+        XCTAssertFalse(sut.isShowingPlayer)
+
+        sut.play()
+
+        XCTAssertTrue(sut.isShowingPlayer)
+    }
+
+    func test_play_beforeTheBookIsAdded_doesNotRequestThePlayerSheet() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+
+        sut.play()
+
+        XCTAssertFalse(sut.isShowingPlayer)
+        XCTAssertTrue(player.playCalls.isEmpty)
+    }
 }

@@ -39,6 +39,11 @@ struct LibriVoxDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier(AccessibilityID.Detail.view)
             .task { await model.load() }
+            .sheet(isPresented: $model.isShowingPlayer) {
+                if let addedBook = model.addedBook {
+                    PlayerView(addedBook)
+                }
+            }
             .alert(
                 Localizable.largeDownloadTitle.localized,
                 isPresented: $model.isShowingCellularAlert

@@ -136,6 +136,14 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Seeded Plain Book"].exists)
     }
 
+    /// Drags a sheet down by its grabber area. Swiping a content element doesn't work: the player's
+    /// scrolling title and chapter list take the gesture.
+    private func dismissSheet() {
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+        let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+        top.press(forDuration: 0.1, thenDragTo: bottom)
+    }
+
     /// Opens the stub client's only remote book. Its details are tiny, so Download never asks
     /// about cellular, and the stub download manager never touches the network.
     private func openStubLibriVoxBook() {
@@ -168,6 +176,14 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Detail.play)
 
         element(AccessibilityID.Detail.play).tap()
+        // Play opens the same full player sheet a Library row opens.
+        assertResolves(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
+        let playerTitle = element(AccessibilityID.Player.title)
+        assertResolves(AccessibilityID.Player.title)
+
+        dismissSheet()
+        XCTAssertTrue(playerTitle.waitForNonExistence(timeout: 15), "the player sheet did not dismiss")
+        assertResolves(AccessibilityID.Detail.play)
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         assertResolves(AccessibilityID.Library.floatingPlayer)
