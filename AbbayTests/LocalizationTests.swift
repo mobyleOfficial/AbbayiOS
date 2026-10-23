@@ -6,7 +6,7 @@
 @testable import Abbay
 import XCTest
 
-/// The `Localizable` layer had no tests. Six keys ship in two languages, and nothing checked
+/// The `Localizable` layer had no tests. Every key ships in two languages, and nothing checked
 /// that either language actually resolves or that the format strings take their arguments.
 final class LocalizationTests: XCTestCase {
     private let allKeys: [Localizable] = [
@@ -15,7 +15,34 @@ final class LocalizationTests: XCTestCase {
         .chapterSelectionTitle,
         .chapterCount,
         .timestamp,
-        .delete
+        .delete,
+        .addMenu,
+        .browseLibriVox,
+        .importFile,
+        .browseFreeAudiobooks,
+        .importAFile,
+        .searchPrompt,
+        .inYourLibrary,
+        .onLibriVox,
+        .popularOnLibriVox,
+        .searchOffline,
+        .searchFailed,
+        .noResults,
+        .downloadedTag,
+        .downloadPaused,
+        .downloadingProgress,
+        .download,
+        .play,
+        .chaptersCount,
+        .librivoxCredit,
+        .more,
+        .largeDownloadTitle,
+        .largeDownloadMessage,
+        .continueDownload,
+        .waitForWiFi,
+        .waiting,
+        .detailsFailed,
+        .retry
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -24,7 +51,34 @@ final class LocalizationTests: XCTestCase {
         .libraryTitle,
         .emptyLibraryTitle,
         .chapterSelectionTitle,
-        .delete
+        .delete,
+        .addMenu,
+        .browseLibriVox,
+        .importFile,
+        .browseFreeAudiobooks,
+        .importAFile,
+        .searchPrompt,
+        .inYourLibrary,
+        .onLibriVox,
+        .popularOnLibriVox,
+        .searchOffline,
+        .searchFailed,
+        .noResults,
+        .downloadedTag,
+        .downloadPaused,
+        .downloadingProgress,
+        .download,
+        .play,
+        .chaptersCount,
+        .librivoxCredit,
+        .more,
+        .largeDownloadTitle,
+        .largeDownloadMessage,
+        .continueDownload,
+        .waitForWiFi,
+        .waiting,
+        .detailsFailed,
+        .retry
     ]
 
     /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship

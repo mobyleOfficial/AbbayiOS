@@ -14,15 +14,16 @@ security-scoped bookmark that makes the file playable again after relaunch.
   `duration`). A file with no chapter metadata yields an empty array, which disables every
   chapter feature for that book.
 - **bookmark-creation:** `Player.play` lazily creates the security-scoped bookmark on first play,
-  not at import (`Player.swift:129-133`), writes it back through `SaveAudioUseCase`, and refreshes
-  the snapshot.
+  not at import (`Player.play`), writes it back through the update-only
+  `SavePlaybackPositionUseCase`, and refreshes the snapshot. LibriVox `librivox://` books are never
+  bookmarked: they are not files.
 - **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
 - **post-import publish:** writes `abbay.librarySnapshot.v1` and calls
   `AbbayAppShortcuts.updateAppShortcutParameters()` so Siri's entity suggestions pick the book up.
 
 ## How to get to it (user POV)
 
-Library → the `plus.rectangle.on.folder` toolbar button → the Files picker → choose one or more
+Library → the ＋ toolbar menu → *Import file* (or *Import a file* on the empty library) → the Files picker → choose one or more
 audio files → the picker dismisses and the rows appear.
 
 ## Driving it with abbay-ctl
@@ -33,7 +34,7 @@ $B launch --seed-library                     # planned: import the bundled Libri
 $B snapshot && $B appgroup get abbay.librarySnapshot.v1
 
 # The one deliberately brittle path, run on its own and never as a precondition:
-$B tap library.toolbar.import
+$B tap library.toolbar.add && $B tap library.menu.import   # or library.empty.import
 $B files pick <name>                         # planned: drives com.apple.DocumentsApp out-of-process
 ```
 

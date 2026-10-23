@@ -27,3 +27,17 @@ final class MockLoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
         return stub
     }
 }
+
+final class MockUpdateDownloadFlagsUseCase: UpdateDownloadFlagsUseCaseProtocol {
+    struct Call: Equatable {
+        let url: URL?
+        let isDownloadPaused: Bool?
+        let allowsCellularDownload: Bool?
+    }
+
+    private(set) var calls: [Call] = []
+
+    func execute(url: URL?, isDownloadPaused: Bool?, allowsCellularDownload: Bool?) {
+        calls.append(Call(url: url, isDownloadPaused: isDownloadPaused, allowsCellularDownload: allowsCellularDownload))
+    }
+}

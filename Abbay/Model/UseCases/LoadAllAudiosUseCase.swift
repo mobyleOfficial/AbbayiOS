@@ -15,7 +15,10 @@ final class LoadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol {
     }
 
     func execute() -> [AudioModel] {
-        let dataModel = repository.execute() ?? []
-        return dataModel.compactMap { $0.model }
+        // Mapping faults the chapters relationship, so it runs on the context's queue too.
+        LocalStorage.persistent.performAndWait { _ in
+            let dataModel = repository.execute() ?? []
+            return dataModel.compactMap { $0.model }
+        }
     }
 }

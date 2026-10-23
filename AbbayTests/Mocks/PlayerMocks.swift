@@ -53,3 +53,17 @@ final class MockSaveAudioUseCase: SaveAudioUseCaseProtocol {
 
     func execute(_ model: AudioModel) throws { savedModels.append(model) }
 }
+
+final class MockSavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol {
+    struct Call: Equatable {
+        let url: URL?
+        let currentTime: Double
+        let bookmarkData: Data?
+    }
+
+    var calls: [Call] = []
+
+    func execute(url: URL?, currentTime: Double, bookmarkData: Data?) {
+        calls.append(Call(url: url, currentTime: currentTime, bookmarkData: bookmarkData))
+    }
+}

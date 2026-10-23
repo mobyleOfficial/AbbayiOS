@@ -28,10 +28,25 @@ enum AccessibilityID {
     enum Library {
         static let list = "library.list"
         static let empty = "library.empty"
-        static let toolbarSearch = "library.toolbar.search"
-        static let toolbarImport = "library.toolbar.import"
+        static let toolbarAdd = "library.toolbar.add"
+        static let menuBrowse = "library.menu.browse"
+        static let menuImport = "library.menu.import"
+        static let emptyBrowse = "library.empty.browse"
+        static let emptyImport = "library.empty.import"
+        static let noResults = "library.search.noResults"
+        static let searchMessage = "library.search.message"
         static let toolbarSettings = "library.toolbar.settings"
         static let floatingPlayer = "library.floatingPlayer"
+
+        /// Namespace for one LibriVox search result, positional within the "On LibriVox" section.
+        static func remoteRow(_ index: Int) -> String {
+            "library.remote.\(index)"
+        }
+
+        /// Namespace for one local search match, positional within "In your library".
+        static func localRow(_ index: Int) -> String {
+            "library.search.local.\(index)"
+        }
 
         /// Namespace for one library row. Positional: read a snapshot, then address by index.
         static func row(_ index: Int) -> String {
@@ -39,9 +54,25 @@ enum AccessibilityID {
         }
     }
 
+    enum Detail {
+        static let view = "detail.view"
+        static let download = "detail.download"
+        static let play = "detail.play"
+        static let more = "detail.more"
+        static let retry = "detail.retry"
+        static let progress = "detail.progress"
+        static let cellularContinue = "detail.cellular.continue"
+        static let cellularWait = "detail.cellular.wait"
+
+        static func chapter(_ index: Int) -> String {
+            "detail.chapter.\(index)"
+        }
+    }
+
     enum Player {
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
+        static let downloadProgress = "player.download.progress"
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"
@@ -74,6 +105,10 @@ enum AccessibilityID {
 
         static func timestamp(_ namespace: String) -> String {
             "\(namespace).timestamp"
+        }
+
+        static func downloadRing(_ namespace: String) -> String {
+            "\(namespace).downloadRing"
         }
     }
 

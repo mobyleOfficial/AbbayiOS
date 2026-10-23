@@ -90,9 +90,118 @@ final class AccessibilityIdentifierTests: XCTestCase {
     func test_toolbarIdentifiersResolve() {
         launch([LaunchArgument.resetLibrary])
 
-        assertResolves(AccessibilityID.Library.toolbarSearch)
-        assertResolves(AccessibilityID.Library.toolbarImport)
+        assertResolves(AccessibilityID.Library.toolbarAdd)
         assertResolves(AccessibilityID.Library.toolbarSettings)
+    }
+
+    func test_addMenu_offersBrowseAndImport() {
+        launch([LaunchArgument.resetLibrary])
+        assertResolves(AccessibilityID.Library.toolbarAdd)
+
+        element(AccessibilityID.Library.toolbarAdd).tap()
+
+        assertResolves(AccessibilityID.Library.menuBrowse)
+        assertResolves(AccessibilityID.Library.menuImport)
+    }
+
+    func testEmptyLibrary_showsBothAddButtons() {
+        launch([LaunchArgument.resetLibrary])
+
+        assertResolves(AccessibilityID.Library.emptyBrowse)
+        assertResolves(AccessibilityID.Library.emptyImport)
+    }
+
+    func test_emptyLibrary_hasNoSearchField() {
+        launch([LaunchArgument.resetLibrary])
+        assertResolves(AccessibilityID.Library.empty)
+
+        XCTAssertFalse(app.searchFields.firstMatch.exists)
+    }
+
+    // MARK: - Search
+
+    func test_search_filtersLocalRows() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        field.typeText("Chaptered")
+
+        let title = element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(0)))
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertEqual(title.label, "Seeded Chaptered Book")
+        XCTAssertFalse(element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(1))).exists)
+        XCTAssertFalse(app.staticTexts["Seeded Plain Book"].exists)
+    }
+
+    /// Drags a sheet down by its grabber area. Swiping a content element doesn't work: the player's
+    /// scrolling title and chapter list take the gesture.
+    private func dismissSheet() {
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+        let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+        top.press(forDuration: 0.1, thenDragTo: bottom)
+    }
+
+    /// Opens the stub client's only remote book. Its details are tiny, so Download never asks
+    /// about cellular, and the stub download manager never touches the network.
+    private func openStubLibriVoxBook() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        field.typeText("Stub")
+        assertResolves(AccessibilityID.Library.remoteRow(0))
+        element(AccessibilityID.Library.remoteRow(0)).tap()
+        assertResolves(AccessibilityID.Detail.download)
+    }
+
+    /// Regression: adding the book removed its search row, and the row-owned navigation link
+    /// popped the page before Play could appear.
+    func test_libriVoxDownload_keepsDetailPageOpenAndShowsPlay() {
+        openStubLibriVoxBook()
+
+        element(AccessibilityID.Detail.download).tap()
+
+        assertResolves(AccessibilityID.Detail.play)
+        XCTAssertTrue(element(AccessibilityID.Detail.view).exists)
+        XCTAssertFalse(element(AccessibilityID.Detail.download).exists)
+    }
+
+    func test_search_showsFloatingPlayerAfterPlayingFromDetail() {
+        openStubLibriVoxBook()
+        element(AccessibilityID.Detail.download).tap()
+        assertResolves(AccessibilityID.Detail.play)
+
+        element(AccessibilityID.Detail.play).tap()
+        // Play opens the same full player sheet a Library row opens.
+        assertResolves(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
+        let playerTitle = element(AccessibilityID.Player.title)
+        assertResolves(AccessibilityID.Player.title)
+
+        dismissSheet()
+        XCTAssertTrue(playerTitle.waitForNonExistence(timeout: 15), "the player sheet did not dismiss")
+        assertResolves(AccessibilityID.Detail.play)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        assertResolves(AccessibilityID.Library.floatingPlayer)
+        // Still in search: the added book is now an "In your library" result.
+        XCTAssertTrue(element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(0))).exists)
+    }
+
+    func test_search_withoutMatches_showsNoResultsState() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        field.typeText("zzzzqqq")
+
+        assertResolves(AccessibilityID.Library.noResults)
+        XCTAssertFalse(element(AccessibilityID.Library.empty).exists)
     }
 
     func test_seededLibrary_listResolves() {

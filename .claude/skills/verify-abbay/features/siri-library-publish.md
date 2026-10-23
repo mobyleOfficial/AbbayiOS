@@ -6,7 +6,7 @@ user-facing, but every title-matching Siri phrase depends on it.
 ## Sub-features
 
 - **publish-on-launch:** `AppDelegate` calls `SiriLibraryPublisher.publish(audios:)` on **every**
-  launch (`AbbayApp.swift:51`). Apple requires at least one successful entity fetch before
+  launch (`didFinishLaunchingWithOptions`). Apple requires at least one successful entity fetch before
   entity-parameter phrases resolve at all, and the snapshot seeder only writes when the snapshot is
   missing, so launch cannot rely on the write path.
 - **publish-on-mutation:** `LibrarySnapshotWriter.write` calls the publisher at the end, guarded out
@@ -19,7 +19,8 @@ user-facing, but every title-matching Siri phrase depends on it.
 - **entity-queries:** `AudiobookEntityQuery` (40 suggestions) and `ChapterEntityQuery` (50) back the
   entity parameters. Both implement `EntityStringQuery` so Siri can match a spoken string.
   `ChapterEntity.currentBook()` resolves chapters against whatever is playing.
-- **shortcut-parameter refresh:** `AbbayAppShortcuts.updateAppShortcutParameters()` after import.
+- **shortcut-parameter refresh:** `AbbayAppShortcuts.updateAppShortcutParameters()` after import, and
+  after a LibriVox book is added (`MediaListViewModel.addLibriVoxBook`) or deleted.
 - **media-affinity:** `MediaUserContextDonor` and `IntentDonor.donatePlayMedia` donate interactions
   so the system learns to prefer Abbay for audiobook requests.
 
@@ -43,8 +44,13 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
 ## Gotchas
 
 - **Publishing on every launch is deliberate — do not "optimise" it away.** The comment at
-  `AbbayApp.swift:47-50` records why: without one successful entity fetch, entity phrases never
+  the comment in `didFinishLaunchingWithOptions` records why: without one successful entity fetch, entity phrases never
   resolve.
+- **LibriVox books publish as ordinary entries, by assumption.** `addLibriVoxBook` rewrites the
+  snapshot, so a downloaded book is in `abbay.librarySnapshot.v1` with its `librivox://book/<id>` as
+  `urlString` and a null bookmark (the URL fallback in `IntentRouter.resolveURL` then loads it).
+  The publishing, Spotlight and entity-query code is unchanged on this branch and no test builds a
+  snapshot from a LibriVox model; resolution of "Play <title> in Abbay" for such a book is unverified.
 - `bookmarkData` is written only when non-empty, and books are only bookmarked on first *play*. A
   freshly imported library publishes titles with null bookmarks, which still resolve via the URL
   fallback but are fragile if the file moves.

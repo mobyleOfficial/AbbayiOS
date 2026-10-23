@@ -17,6 +17,16 @@ struct AudioModel {
     var chapters = [ChapterModel]()
     var url: URL?
     var bookmarkData: Data?
+    /// The book's archive.org identifier (e.g. `alice_in_wonderland_librivox`), not a LibriVox
+    /// catalog ID: not every archive item has one. Named for the source; nil for imported files.
+    var librivoxID: String?
+    var allowsCellularDownload = false
+    var isDownloadPaused = false
+    var totalBytes: Int64 = 0
+
+    var isLibriVox: Bool {
+        librivoxID != nil
+    }
 
     func currentChapter(for time: Double) -> Int {
         chapters.firstIndex { chapter in

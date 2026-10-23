@@ -1,0 +1,4 @@
+# Vendored test code: force unwraps and IUOs are accepted in tests of this module.
+disabled_rules:
+  - force_unwrapping
+  - implicitly_unwrapped_optional

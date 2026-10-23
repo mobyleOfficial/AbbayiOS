@@ -1,0 +1,108 @@
+{
+ "books": [
+  {
+   "id": "106",
+   "description": "This anthology of poetry, published in 1904, contains such favorites as The Raven, My Shadow, and The Village Blacksmith, as well as many lovely poems that may be unfamiliar. Most of the poems in this collection are short enough for children to memorize.",
+   "url_iarchive": "https://www.archive.org/details/poems_every_child_should_know_librivox",
+   "sections": [
+    {
+     "id": "122331",
+     "section_number": "1",
+     "title": "Preface",
+     "listen_url": "https://www.archive.org/download/poems_every_child_should_know_librivox/poems_every_child_01_burt_64kb.mp3",
+     "language": "English",
+     "playtime": "308",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "19",
+       "display_name": "Kara Shallenberg (1969-2023)"
+      }
+     ]
+    },
+    {
+     "id": "122332",
+     "section_number": "2",
+     "title": "The Arrow and the Song; The Babie; Let Dogs Delight to Bark and Bite; Little Drops of Water; He Prayeth Best; Twinkle, Twinkle, Little Star; Spring's at the Morn; The Days of the Month",
+     "listen_url": "https://www.archive.org/download/poems_every_child_should_know_librivox/poems_every_child_02_burt_64kb.mp3",
+     "language": "English",
+     "playtime": "384",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "19",
+       "display_name": "Kara Shallenberg (1969-2023)"
+      }
+     ]
+    },
+    {
+     "id": "122333",
+     "section_number": "3",
+     "title": "True Royalty; Playing Robinson Crusoe; My Shadow; Little White Lily",
+     "listen_url": "https://www.archive.org/download/poems_every_child_should_know_librivox/poems_every_child_03_burt_64kb.mp3",
+     "language": "English",
+     "playtime": "320",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "19",
+       "display_name": "Kara Shallenberg (1969-2023)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "248",
+   "description": "LibriVox’s Short Poetry Collection 001: a collection of 29 public-domain poems.",
+   "url_iarchive": "https://www.archive.org/details/short_poetry_001_librivox",
+   "sections": [
+    {
+     "id": "124056",
+     "section_number": "1",
+     "title": "Abou Ben Adhem",
+     "listen_url": "https://www.archive.org/download/short_poetry_001_librivox/abou_hunt_py_64kb.mp3",
+     "language": "English",
+     "playtime": "108",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "167",
+       "display_name": "Peter Yearsley"
+      }
+     ]
+    },
+    {
+     "id": "124057",
+     "section_number": "2",
+     "title": "The Artilleryman",
+     "listen_url": "https://www.archive.org/download/short_poetry_001_librivox/artilleryman_whitman_64kb.mp3",
+     "language": "English",
+     "playtime": "209",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "365",
+       "display_name": "Jon Ingram"
+      }
+     ]
+    },
+    {
+     "id": "124058",
+     "section_number": "3",
+     "title": "As Kingfishers Catch Fire",
+     "listen_url": "https://www.archive.org/download/short_poetry_001_librivox/as_kingfishers_catch_fire_hopkins_dhf_64kb.mp3",
+     "language": "English",
+     "playtime": "100",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "445",
+       "display_name": "Dave Foss"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

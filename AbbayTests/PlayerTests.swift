@@ -36,7 +36,7 @@ final class PlayerTests: XCTestCase {
         bookmarkProvider = bookmarkMock
 
         player = Player(
-            saveAudioUseCase: MockSaveAudioUseCase(),
+            savePlaybackPositionUseCase: MockSavePlaybackPositionUseCase(),
             intentDonor: donorMock,
             librarySnapshotWriter: writerMock,
             audioSessionActivator: activator,

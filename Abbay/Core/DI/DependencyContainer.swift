@@ -9,6 +9,7 @@ protocol DependencyContainerProtocol {
     var player: PlayerProtocol { get }
     var loadAudio: LoadAudioUseCaseProtocol { get }
     var loadAllAudios: LoadAllAudiosUseCaseProtocol { get }
+    var downloads: BookDownloadManagerProtocol { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -39,10 +40,19 @@ final class DependencyContainer: DependencyContainerProtocol {
     let player: PlayerProtocol
     let loadAudio: LoadAudioUseCaseProtocol
     let loadAllAudios: LoadAllAudiosUseCaseProtocol
+    let downloads: BookDownloadManagerProtocol
 
     private init() {
-        self.player = Player()
+        // `shared`, not a new instance: `configure()` can run more than once per process, and a
+        // background session identifier may back only one session.
+        let downloads = Self.makeDownloads()
+        self.downloads = downloads
+        self.player = Player(chapterPrioritizer: downloads)
         self.loadAudio = LoadAudioUseCase()
         self.loadAllAudios = LoadAllAudiosUseCase()
+    }
+
+    private static func makeDownloads() -> BookDownloadManagerProtocol {
+        DebugOverrides.downloadManager() ?? BookDownloadManager.shared
     }
 }

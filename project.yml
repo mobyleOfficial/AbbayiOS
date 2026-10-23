@@ -72,11 +72,19 @@ targets:
         INFOPLIST_FILE: Abbay/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Abbay/Resources/Abbay.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
+      configs:
+        # UI-test stand-ins stay out of the shipped binary. XcodeGen's `excludes` can't vary by
+        # configuration, so this is the build setting instead. DebugOverrides.swift is not
+        # listed: it compiles in Release, where every override returns nil.
+        Release:
+          EXCLUDED_SOURCE_FILE_NAMES: "$(SRCROOT)/Abbay/DebugSupport/UITest*.swift"
     dependencies:
       - sdk: AVFoundation.framework
       - sdk: CarPlay.framework
       - sdk: Intents.framework
       - target: AbbayIntents
+        embed: true
+      - target: NetworkProvider
         embed: true
 
   AbbayTests:
@@ -89,7 +97,7 @@ targets:
         excludes:
           - "ReferenceImages/*"
           - "FailureDiffs/*"
-          - "Fixtures/*"
+          - "Fixtures/**"
       # Real audiobook fixture (public domain, see Fixtures/README.md). Declared as a
       # resource so it lands in the test bundle and tests can read it by name.
       - path: AbbayTests/Fixtures
@@ -156,6 +164,27 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
 
+  NetworkProvider:
+    type: framework
+    platform: iOS
+    sources:
+      - Modules/NetworkProvider/Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.NetworkProvider
+
+  NetworkProviderTests:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - target: NetworkProvider
+    sources:
+      - Modules/NetworkProvider/Tests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+
   AbbayUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -180,6 +209,7 @@ schemes:
         AbbayTests: [test]
         AbbayIntents: all
         AbbayIntentsTests: [test]
+        NetworkProviderTests: [test]
     test:
       gatherCoverageData: YES
       coverageTargets:
@@ -189,6 +219,9 @@ schemes:
           parallelizable: true
         - name: AbbayIntentsTests
           parallelizable: true
+        # URLProtocolMock keeps shared static state behind a semaphore, so no parallel runs.
+        - name: NetworkProviderTests
+          parallelizable: false
       environmentVariables:
         - variable: FB_REFERENCE_IMAGE_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/ReferenceImages

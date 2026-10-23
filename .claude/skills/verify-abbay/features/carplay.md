@@ -1,8 +1,8 @@
 # CarPlay
 
 `CarPlaySceneDelegate` — the library list, the now-playing template and the chapter list on a car
-head unit. The entitlement is approved and this surface **ships**, but it carries six open bugs and
-nothing automated reaches it.
+head unit. The entitlement is approved and this surface **ships**, but nothing automated reaches it and
+two of its original bugs (#90, #95) are still open.
 
 ## Sub-features
 
@@ -17,9 +17,10 @@ nothing automated reaches it.
 - **chapter-list:** reachable from the now-playing template's Up Next **or** album-artist button.
   Marks the current chapter with `speaker.wave.2.fill`, others with `book.pages`. Tapping seeks and
   pops back.
-- **live-progress:** the time subscription writes progress into `currentPlayingItem`.
-- **disconnect:** removes the now-playing observer, cancels the *time* subscription, and nils the
-  cached state.
+- **live-progress:** the time subscription writes progress into `currentPlayingItem`, the row for the
+  book now playing (re-resolved by URL when playback moves to another book).
+- **disconnect:** removes the now-playing observer, cancels the time **and** URL subscriptions, and
+  nils the cached state, including the row map.
 
 ## How to get to it (user POV)
 
@@ -45,26 +46,27 @@ standard advice for exactly this reason.
 
 ## Gotchas
 
-This surface has the highest known-defect density in the app. All six are filed:
+Status of the seven issues this map used to list as open (from `git log` on `CarPlaySceneDelegate`
+and `NowPlayingManager`; each fix is unit-tested, none was driven on a head unit):
 
 - **#90 — Siri intents do not work in CarPlay at all.** Observed in real usage, root cause not yet
-  identified. Start with `SiriDiagnostics` to establish whether intents fire.
-- **#91 — the now-playing template is never pushed for externally started playback.**
-  `handleAudioSelection` pushes it; the URL subscription only assigns `currentAudio`. Audio plays
-  while CarPlay sits on the library list, which is indistinguishable from "Siri did nothing" and is
-  probably a large part of #90.
-- **#92 — the progress bar tracks the wrong row.** Progress is computed from `currentAudio` but
-  written to `currentPlayingItem`, and those two are updated by different paths. Switch books from
-  the phone and the old row animates with the new book's position, at the wrong ratio.
-- **#93 — the Siri playback gate can report stale state.** Not CarPlay-specific, but it surfaces
-  here. See [now-playing](now-playing.md).
-- **#94 — the URL subscription is neither idempotent nor cancellable.** `setupObservers()` runs on
-  every `didConnect`; `subscribeToPlayUrlPublisher` has no guard and `didDisconnect` can only cancel
-  the time subscription.
-- **#95 — the list is built once at connect.** No refresh when the library changes, and no empty
-  state at all. A row for a deleted book taps through to a dead URL via the `?? audio` fallback.
-- **#96 — no injection seam, no tests.** Use cases are constructed directly instead of resolved from
-  `DependencyContainer`, so none of the above is unit-testable today.
+  identified, deferred and untracked. Start with `SiriDiagnostics` to establish whether intents fire.
+- **#91 — fixed in #99.** Externally started playback now pushes the now-playing template
+  (`showNowPlayingIfNeeded`, skipped when it is already in the stack).
+- **#92, #94 — fixed in #108.** Progress is tracked by playing URL (`trackRow`, `listItemsByURL`) and
+  `didDisconnect` cancels both the time and the URL subscriptions.
+- **#93 — fixed in #98.** See [now-playing](now-playing.md).
+- **#95 — still open.** The list is built once at connect (`buildLibraryTemplate`), with no refresh
+  when the library changes and no empty state. Relevant to LibriVox: a book downloaded from the phone
+  while CarPlay is connected does not appear until reconnect, and a deleted one still taps through to
+  a dead URL via the `?? audio` fallback.
+- **#96 — fixed in #107.** The delegate has an injection seam and tests.
+
+**LibriVox books in CarPlay are assumed, not verified.** The delegate is unchanged on this branch. A
+LibriVox book is an ordinary `AudioModel` (URL `librivox://book/<id>`, book-wide `duration`,
+`currentTime` and chapters), so it lists with its cover, shows progress from `currentTime / duration`,
+plays through `Player.play`, and its chapter list seeks by `startTime` in book time. No test builds
+the CarPlay templates from a LibriVox model.
 
 Other notes:
 

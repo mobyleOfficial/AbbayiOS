@@ -14,6 +14,33 @@ enum Localizable: String {
     case chapterCount
     case timestamp
     case delete
+    case addMenu
+    case browseLibriVox
+    case importFile
+    case browseFreeAudiobooks
+    case importAFile
+    case searchPrompt
+    case inYourLibrary
+    case onLibriVox
+    case popularOnLibriVox
+    case searchOffline
+    case searchFailed
+    case noResults
+    case downloadedTag
+    case downloadPaused
+    case downloadingProgress
+    case download
+    case play
+    case chaptersCount
+    case librivoxCredit
+    case more
+    case largeDownloadTitle
+    case largeDownloadMessage
+    case continueDownload
+    case waitForWiFi
+    case waiting
+    case detailsFailed
+    case retry
 }
 
 extension Localizable {

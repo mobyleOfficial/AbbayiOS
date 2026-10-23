@@ -30,13 +30,20 @@ protocol PlayerProtocol {
 
 final class Player: PlayerProtocol {
     // MARK: - Properties
-    private let player = AVPlayer()
+    // A queue player for every book: single-file books only ever hold one item, multi-file
+    // (LibriVox) books hold the current chapter's file plus the next one for gapless playback.
+    private let player = AVQueuePlayer()
     private var model: AudioModel?
-    private let saveAudioUseCase: SaveAudioUseCaseProtocol
+    /// Update-only: a book deleted while it's loaded here must not be re-inserted.
+    private let savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol
     private let intentDonor: IntentDonorProtocol
     private let librarySnapshotWriter: LibrarySnapshotWriterProtocol
     private let audioSessionActivator: AudioSessionActivatorProtocol
     private let bookmarkProvider: BookmarkProviderProtocol
+    private let chapterPrioritizer: ChapterPrioritizing
+    private let downloadsRoot: URL
+    /// Set while a multi-file book is loaded; `nil` for imported single-file books.
+    private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
@@ -55,25 +62,31 @@ final class Player: PlayerProtocol {
         playUrlSubject.eraseToAnyPublisher()
     }
 
+    /// Book time. For a single file that is the item's time; a multi-file book adds the current
+    /// chapter's start to the offset into its file.
     var currentTime: Double {
-        player.currentTime().seconds
+        multiFileQueue?.bookTime ?? player.currentTime().seconds
     }
+
+    internal var currentItemURL: URL? { (player.currentItem?.asset as? AVURLAsset)?.url }
 
     // MARK: - Init
     init(
-        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(
-            repository: LoadAudioRepository()
-        ),
+        savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol = SavePlaybackPositionUseCase(),
         intentDonor: IntentDonorProtocol = IntentDonor.shared,
         librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
         audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
-        bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider()
+        bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider(),
+        chapterPrioritizer: ChapterPrioritizing = NoopChapterPrioritizer(),
+        downloadsRoot: URL = LibriVoxIdentity.defaultRoot
     ) {
-        self.saveAudioUseCase = saveAudioUseCase
+        self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
         self.audioSessionActivator = audioSessionActivator
         self.bookmarkProvider = bookmarkProvider
+        self.chapterPrioritizer = chapterPrioritizer
+        self.downloadsRoot = downloadsRoot
         setupTimeObserver()
 
         // Initialize Now Playing and set player reference
@@ -115,9 +128,12 @@ final class Player: PlayerProtocol {
         // Step 2 — lazy bookmark population on the inout model.
         // MUST happen BEFORE updatePlayItem so the playItem observer + any future Player
         // observer of the model see the populated bookmark via the copy.
-        if model.bookmarkData == nil, let bookmark = bookmarkProvider.createBookmarkData(for: url) {
+        // `librivox://` identity URLs aren't files: there is nothing to bookmark.
+        if !Self.isLibriVoxURL(url),
+           model.bookmarkData == nil,
+           let bookmark = bookmarkProvider.createBookmarkData(for: url) {
             model.bookmarkData = bookmark
-            try? saveAudioUseCase.execute(model)
+            savePlaybackPositionUseCase.execute(url: url, currentTime: model.currentTime, bookmarkData: bookmark)
             librarySnapshotWriter.refresh()
         }
 
@@ -144,13 +160,13 @@ final class Player: PlayerProtocol {
     }
 
     func forward(withSeconds seconds: Double) {
-        let currentSeconds = player.currentTime().seconds
+        let currentSeconds = currentTime
         let newSeconds = currentSeconds.advanced(by: seconds)
         seek(newSeconds)
     }
 
     func backward(withSeconds seconds: Double) {
-        let currentSeconds = player.currentTime().seconds
+        let currentSeconds = currentTime
         let newSeconds = currentSeconds.advanced(by: -seconds)
         seek(newSeconds)
     }
@@ -162,6 +178,10 @@ final class Player: PlayerProtocol {
     }
 
     func seek(_ seconds: Double) {
+        if let multiFileQueue {
+            multiFileQueue.seek(toBookTime: seconds)
+            return
+        }
         let time = CMTime(seconds: seconds, preferredTimescale: 1)
         seek(time)
     }
@@ -226,6 +246,12 @@ final class Player: PlayerProtocol {
         cancellables.removeAll()
 
         stopAccessingCurrentURL()
+        multiFileQueue = nil
+
+        if item.isLibriVox {
+            loadMultiFileBook(item)
+            return
+        }
 
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
@@ -264,8 +290,34 @@ final class Player: PlayerProtocol {
             }
             .store(in: &cancellables)
 
+        // A queue player advances (dropping the item) at its end by default; a single file must
+        // stay put at the end the way the plain `AVPlayer` did, or the saved position resets.
+        player.actionAtItemEnd = .pause
+        player.removeAllItems()
         player.replaceCurrentItem(with: playerItem)
         playUrlSubject.send(item)
+    }
+
+    /// Hands the book to a `MultiFileQueue`. No item is loaded here: `play` follows with
+    /// `seek(model.currentTime)`, which loads the chapter that holds the saved position.
+    private func loadMultiFileBook(_ item: AudioModel) {
+        model = item
+        player.removeAllItems()
+        if let bookID = item.librivoxID {
+            multiFileQueue = MultiFileQueue(
+                player: player,
+                chapters: item.chapters,
+                bookID: bookID,
+                downloadsRoot: downloadsRoot,
+                prioritizer: chapterPrioritizer,
+                onBookEnd: { [weak self] in self?.pause() }
+            )
+        }
+        playUrlSubject.send(item)
+    }
+
+    private static func isLibriVoxURL(_ url: URL) -> Bool {
+        url.scheme == LibriVoxIdentity.scheme
     }
 
     private func stopAccessingCurrentURL() {
@@ -278,10 +330,9 @@ final class Player: PlayerProtocol {
     }
 
     private func saveTime() {
-        let currentTime = player.currentTime().seconds
-        if !currentTime.isNaN, var model = model {
-            model.currentTime = currentTime
-            try? saveAudioUseCase.execute(model)
+        let currentTime = self.currentTime
+        if !currentTime.isNaN, let model = model {
+            savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
         }
     }
 
@@ -291,7 +342,9 @@ final class Player: PlayerProtocol {
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval,
             queue: .main
-        ) { [weak self] time in
+        ) { [weak self] itemTime in
+            // The observer reports the item's time; for a multi-file book publish book time.
+            let time = self?.multiFileQueue.map { CMTime(seconds: $0.bookTime, preferredTimescale: 600) } ?? itemTime
             self?.currentTimeSubject.send(time)
 
             // Update Now Playing with current time
