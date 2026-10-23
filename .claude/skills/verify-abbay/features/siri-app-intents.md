@@ -21,7 +21,11 @@ half of Siri that Apple's `AppIntentsTesting` framework can validate.
   last-played book positioned at that chapter by setting `currentTime` before `play`.
 - **phrase-registration:** `AbbayAppShortcuts` registers all seven. Entity phrases lead with the app
   name on purpose — Siri completes a known media title from registered vocabulary and then ends the
-  utterance, so establishing the app first means a truncated tail costs nothing.
+  utterance, so establishing the app first means a truncated tail costs nothing. Every "in Abbay"
+  phrase also has an "on Abbay" twin (plus *"Play Abbay"* and *"Play \<title> using Abbay"*):
+  without them, *"Play \<title> on Abbay"* matched no Abbay phrase and Siri sent it to the default
+  music app. `AppShortcutPhraseTests` reads the shipped `Metadata.appintents` to pin the variants and
+  keeps the total under Apple's 1,000-phrase cap (entity phrases × 40 books / 50 chapters; 719 now).
 - **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()` and
   returns *"Audio temporarily unavailable. Try again in a moment."* on failure.
 - **diagnostics:** every intent calls `SiriDiagnostics.record("appintent <Name> fired")` first.
@@ -29,8 +33,9 @@ half of Siri that Apple's `AppIntentsTesting` framework can validate.
 ## How to get to it (user POV)
 
 Speak a phrase, or run the shortcut from the Shortcuts app / Spotlight. Phrases include *"Play in
-Abbay"*, *"Pause Abbay"*, *"Next chapter in Abbay"*, *"Abbay play \<title>"*, *"Play \<chapter> in
-Abbay"*.
+Abbay"* / *"Play on Abbay"*, *"Pause Abbay"*, *"Next chapter in/on Abbay"*, *"Abbay play \<title>"*,
+*"Play \<title> on Abbay"*, *"Play \<chapter> in/on Abbay"*. Speaking phrases needs a real device;
+the simulator can only run the shortcuts.
 
 ## Driving it with abbay-ctl
 
