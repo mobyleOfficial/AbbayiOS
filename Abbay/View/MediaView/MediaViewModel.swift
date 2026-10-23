@@ -42,6 +42,13 @@ final class MediaViewModel: ObservableObject {
         observeDownloads()
 
         defer {
+            // A row can be created after its book was already loaded: the library list is rebuilt
+            // when search closes, and playback can start from Siri, CarPlay or another screen. It
+            // never sees that play event, so pick up the current state here, as PlayerViewModel does.
+            if let url = info.url, playerObserver.player.url == url {
+                isPlaying = playerObserver.player.isPlaying(url)
+                setupObserver()
+            }
             self.playerObserver.subscribeToPlayUrlPublisher { [weak self, oldUrl = self.info.url] newInfo in
                 guard let self = self else { return }
                 if newInfo.url == oldUrl {

@@ -74,6 +74,41 @@ final class MediaViewModelTests: XCTestCase {
         XCTAssertEqual(observer.cancelTimeCallCount, 1, "its time subscription must be released")
     }
 
+    /// Regression: a row created while its book is already loaded (the library list is rebuilt
+    /// when search closes, or playback was started from Siri, CarPlay or another screen) never saw
+    /// the play event, so it showed the book as stopped and stopped tracking time.
+    func test_init_whenItsBookIsAlreadyPlaying_reportsPlayingWithoutAPlayEvent() {
+        let model = ViewModelSupport.chaptered()
+        let observer = ViewModelSupport.observer(loaded: model, isPlaying: true)
+
+        let viewModel = MediaViewModel(model, playerObserver: observer)
+
+        XCTAssertTrue(viewModel.isPlaying)
+    }
+
+    func test_init_whenItsBookIsAlreadyLoaded_tracksTimeWithoutAPlayEvent() {
+        let model = ViewModelSupport.chaptered()
+        let observer = ViewModelSupport.observer(loaded: model, isPlaying: true)
+        let viewModel = MediaViewModel(model, playerObserver: observer)
+
+        observer.emitTime(42)
+
+        XCTAssertEqual(viewModel.currentTime, 42, accuracy: 0.01)
+        XCTAssertTrue(viewModel.isPlaying)
+    }
+
+    func test_init_whenAnotherBookIsLoaded_neitherPlaysNorTracksTime() {
+        let model = ViewModelSupport.chaptered(currentTime: 10)
+        let other = AudioModel(title: "Other", url: URL(string: "file:///vm/other.m4b"))
+        let observer = ViewModelSupport.observer(loaded: other, isPlaying: true)
+        let viewModel = MediaViewModel(model, playerObserver: observer)
+
+        observer.emitTime(42)
+
+        XCTAssertFalse(viewModel.isPlaying)
+        XCTAssertEqual(viewModel.currentTime, 10, accuracy: 0.01)
+    }
+
     func test_play_delegatesToThePlayer() throws {
         let model = ViewModelSupport.chaptered()
         let observer = ViewModelSupport.observer(loaded: model)
