@@ -56,7 +56,13 @@ no UITests target today — and an iOS 27 simulator, while the app itself stays 
   so a reworded response fails a test. Fix state, not wording.
 - All seven dialogs are **hardcoded English**. `Localizable.xcstrings` has six keys total and none of
   them are Siri strings — that is issue #83. Do not list extra languages on the store page.
-- The Pause / Next / Previous gate inherits #93: it can report success with nothing playing.
+- The Pause / Next / Previous gate used to inherit #93 (success with nothing playing); #98 resets
+  the gate on cleanup — see [now-playing](now-playing.md).
+- **LibriVox books are treated as one book here by assumption.** The intents are unchanged on this
+  branch; next/previous/play-chapter go through `Player` and `AudioModel.chapters[].startTime`, which
+  for a LibriVox book are book-time and cumulative, so a chapter jump should load that chapter's file.
+  Siri cannot run in the Simulator and no unit test drives these intents with a multi-file model, so
+  this is expected behaviour, not verified behaviour.
 - `PlayBookByNameIntent`'s two-turn behaviour is a deliberate trade-off, not a bug. Do not "fix" it
   by swapping the parameter to an entity — that is what `PlayAudiobookIntent` already is.
 - `AudiobookEntityQuery` falls back to the App Group snapshot when `DependencyContainer.isConfigured`

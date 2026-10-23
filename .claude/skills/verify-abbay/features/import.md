@@ -14,8 +14,9 @@ security-scoped bookmark that makes the file playable again after relaunch.
   `duration`). A file with no chapter metadata yields an empty array, which disables every
   chapter feature for that book.
 - **bookmark-creation:** `Player.play` lazily creates the security-scoped bookmark on first play,
-  not at import (`Player.swift:129-133`), writes it back through `SaveAudioUseCase`, and refreshes
-  the snapshot.
+  not at import (`Player.play`), writes it back through the update-only
+  `SavePlaybackPositionUseCase`, and refreshes the snapshot. LibriVox `librivox://` books are never
+  bookmarked: they are not files.
 - **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
 - **post-import publish:** writes `abbay.librarySnapshot.v1` and calls
   `AbbayAppShortcuts.updateAppShortcutParameters()` so Siri's entity suggestions pick the book up.

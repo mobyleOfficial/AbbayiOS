@@ -53,10 +53,22 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-seedLibrary` — replaces the library with two deterministic books, one chaptered (three
     chapters) and one without chapters.
   - `-resetLibrary` — empties the library, for the empty state.
+  - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: empty Popular,
+    one book found by any query containing "stub") and swaps in a download manager that downloads
+    nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search debounce. Combine
+    it with the other two; without it search and downloads use the real network.
 
-  Both clear first, so repeated runs are deterministic rather than cumulative. The seeded models
-  carry **no playable audio**, so anything requiring playback to actually start — the floating
-  player, tapping a chapter — is still unreachable this way.
+  `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
+  cumulative. All three are DEBUG-only: the `UITest*` files are excluded from Release and
+  `DebugOverrides` returns `nil` there. The seeded models carry **no playable audio**, so anything
+  requiring playback to actually start — the floating player from a seeded book, tapping a chapter —
+  is still unreachable this way. The stub LibriVox book can be "played" only in the sense that the
+  player sheet and floating player appear; its chapter URL is `/dev/null`.
+
+  Not reachable by any launch configuration: real search results, real downloads and their
+  progress/ring/statuses (the stub manager's state stream is empty), the cellular alert (the stub
+  book is 1,000 bytes), and multi-file playback. Those are covered by unit tests only — see
+  [downloads](downloads.md).
 - A real chaptered audiobook fixture is committed at `AbbayTests/Fixtures/Christmastide.m4b`
   (public domain; see its README). It is a resource of the **unit** test bundle, so `FileLoader`
   and the bookmark layer are tested against a real asset. It is not in the app bundle, which is
@@ -91,9 +103,14 @@ substitute: it records every intent firing across processes and survives app dea
 ### Shell and library
 
 - [app-shell](app-shell.md): launch ordering, audio-session activation, scene routing, Siri authorisation.
-- [library](library.md): the audiobook list, empty state, delete, toolbar.
+- [library](library.md): the audiobook list, empty state, delete, toolbar, combined library/LibriVox search.
 - [import](import.md): the document picker, metadata and chapter extraction, security-scoped bookmarks.
-- [media-row](media-row.md): the per-book row component.
+- [media-row](media-row.md): the per-book row component, including the download ring.
+
+### LibriVox
+
+- [librivox-details](librivox-details.md): the details page — Download, cellular warning, Play, chapter list.
+- [downloads](downloads.md): background chapter-by-chapter downloads, streaming, pause/resume, restore, delete.
 
 ### Playback
 
@@ -109,4 +126,4 @@ substitute: it records every intent firing across processes and survives app dea
 
 ### CarPlay
 
-- [carplay](carplay.md): library list, now-playing template, chapter list — **ships with six open bugs** (#90-#96).
+- [carplay](carplay.md): library list, now-playing template, chapter list — #90 and #95 still open; the other five fixed (#98-#108).

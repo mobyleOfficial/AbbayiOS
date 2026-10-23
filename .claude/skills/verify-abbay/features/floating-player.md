@@ -12,6 +12,9 @@ loaded. Same controls as the full player, smaller.
 - **scrubbing:** its own `PlayerProgressView` over the same bindings.
 - **chapter-count:** `ChapterCountView` to the right of the transport row.
 - **tap-through:** tapping the body sets `tappedAudio` and opens the full player sheet.
+- **over-search:** it is part of `searchableContent`, so it stays docked over search results too, not only
+  over the plain list. After Play on a details page, backing out to search still shows it
+  (`test_search_showsFloatingPlayerAfterPlayingFromDetail`).
 
 ## How to get to it (user POV)
 
@@ -21,7 +24,7 @@ within the library and survives the full player being dismissed.
 ## Driving it with abbay-ctl
 
 ```bash
-$B tap library.row.0.play
+$B tap library.row.0.play                     # real audio only; a seeded book cannot play
 $B wait library.floatingPlayer
 $B tap library.floatingPlayer.transport.forward30
 $B snapshot | jq '.elements[] | select(.id|startswith("library.floatingPlayer"))'
@@ -30,9 +33,14 @@ $B tap library.floatingPlayer                 # → full player sheet
 $B appgroup get abbay.lastPlayedAudioURL
 ```
 
-Identifiers to add: `library.floatingPlayer` (container),
-`library.floatingPlayer.{title,progress,chapterCount}`,
-`library.floatingPlayer.transport.{back30,back15,play,forward15,forward30}`.
+**Verified** (`AccessibilityIdentifierTests`): `library.floatingPlayer`, resolved in search after
+Play on the stub LibriVox book. It is applied to the whole floating player, so it is a **container**
+id that overwrites anything inside it.
+
+Identifiers to add: `library.floatingPlayer.{title,progress,chapterCount}`,
+`library.floatingPlayer.transport.{back30,back15,play,forward15,forward30}` — which cannot coexist
+with the container id above; move `library.floatingPlayer` off the container first, or the new leaves
+will all read as `library.floatingPlayer`.
 
 ## Gotchas
 
@@ -40,6 +48,8 @@ Identifiers to add: `library.floatingPlayer` (container),
   (`FloatingPlayerView.swift:19`). That discards and rebuilds the view model — and its player
   subscriptions — whenever the parent re-renders. Treat any state read from this view as freshly
   initialised, and do not rely on it accumulating.
+- A LibriVox book's floating player shows book-wide time and chapter count like any other book; the
+  stub book's `/dev/null` chapter means presence is provable, playback is not.
 - It is the only user-visible confirmation that a Siri- or CarPlay-initiated playback actually
   started, which makes it the cheapest in-app assertion for those unreachable surfaces.
 - It overlays the bottom of the list with `maxHeight: .infinity, alignment: .bottom`, so it can

@@ -14,7 +14,8 @@ own UI.
 - **remote-commands:** `setupRemoteCommandCenter()` runs once from `init`, wiring the system's
   play/pause/skip controls back into the player.
 - **current-audio:** `currentAudio` is the read-only view of the loaded model. Written only by
-  `Player.updatePlayItem` (`Player.swift:222`). Consumed by `PauseAbbayIntent`, `NextChapterIntent`,
+  `Player.play` on every play (`NowPlayingManager.setPlayer(_, currentAudio:)`) and dropped by
+  `clearNowPlaying()`. Consumed by `PauseAbbayIntent`, `NextChapterIntent`,
   `PreviousChapterIntent`, `PlayChapterIntent` and `ChapterEntity.currentBook()`.
 - **clearing:** `clearNowPlaying()` nils the system dictionary. Called from `Player.cleanup()`.
 
@@ -40,17 +41,22 @@ that a handler ran.
 
 ## Gotchas
 
-- **`clearNowPlaying()` does not reset `currentAudio` (#93).** It clears the system dictionary and
-  leaves `model` set. After `Player.cleanup()` — which runs from `deinit` and
-  `applicationWillTerminate` — the system believes nothing is playing while the intent gate still
-  reports a loaded book. "Pause Abbay" then answers *"Paused."* with nothing playing.
-- **`play()` only refreshes `currentAudio` when the URL changes.** `updatePlayItem` is inside
-  `if url != self.url` (`Player.swift:125-127`), so replaying the already-loaded book never updates
-  the gate. Combined with the above, staleness survives a cleanup/replay cycle.
+- **The playback gate is refreshed on every `play()` and dropped by `clearNowPlaying()`** (fixed for
+  #93 in #98): after `Player.cleanup()` the intents see no loaded book, and replaying the
+  already-loaded book re-syncs `currentAudio`. Earlier versions of this map described both as bugs;
+  they are covered by unit tests, not by driving the app.
+- **Multi-file (LibriVox) books are published as one book, by assumption.** `NowPlayingManager` is
+  unchanged on this branch; it reads `duration`, the elapsed `currentTime` the player passes and
+  `AudioModel.currentChapter(for:)`, and a LibriVox book keeps those in book time (cumulative chapter
+  `startTime`s; the periodic observer publishes `MultiFileQueue.bookTime`). So the lock screen should
+  show total duration, book-wide elapsed time and "Chapter N of M". **Nothing verifies this on a
+  lock screen or in a test of `NowPlayingManager` with a LibriVox model**; treat it as expected, not
+  proven. The same holds for remote skip commands, which seek in book time through
+  `Player.forward/backward`.
 - `playbackState` must be set explicitly; the system does not reliably infer it from the audio
   session, and several reported Control Center "stuck on pause" bugs trace to exactly that. Abbay
-  does set it (`NowPlayingManager.swift:61`) — keep it that way.
-- Three `print` statements with emoji ship in Release here (`:63`, `:68`, `:78`). Same in
+  does set it (`updateNowPlaying`) — keep it that way.
+- `print` statements with emoji ship in Release here (`updateNowPlaying`, `clearNowPlaying`, remote-command setup). Same in
   `Player`, `URL+SecurityScoped` and `DataStack` — roughly 30 in total across the app.
 - Simulator and device diverge on remote-command behaviour. Treat simulator results as indicative
   only.
