@@ -21,14 +21,13 @@ enum ArchiveSearchQuery {
     private static let specialCharacters = Set(#"-&|!(){}[]^"~*?:\/"#)
 
     /// Every term must match, each in the title or the creator, so "alice carroll" finds Alice
-    /// (archive.org's default is OR, which turns "the time machine" into half the catalog). The
-    /// last term also matches as a prefix, so results keep up while the user is still typing a
-    /// word. Nil when there's nothing to search.
+    /// (archive.org's default is OR, which turns "the time machine" into half the catalog). Every
+    /// term is a prefix: results keep up while a word is still being typed, and "alice" matches
+    /// archive.org's single token "alice's". Nil when there's nothing to search.
     static func search(_ text: String) -> String? {
-        var terms = terms(in: text)
-        guard let last = terms.popLast() else { return nil }
-        terms.append(last + "*")
-        let clauses = terms.map { "(title:\($0) OR creator:\($0))" }
+        let terms = terms(in: text)
+        guard !terms.isEmpty else { return nil }
+        let clauses = terms.map { "(title:\($0)* OR creator:\($0)*)" }
         return "\(catalog) AND " + clauses.joined(separator: " AND ")
     }
 

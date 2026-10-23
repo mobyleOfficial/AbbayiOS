@@ -9,19 +9,28 @@ import XCTest
 final class ArchiveSearchQueryTests: XCTestCase {
     private let catalog = "collection:librivoxaudio AND mediatype:audio"
 
-    func test_search_eachTermInTitleOrCreator_joinedWithAND_lastTermAsPrefix() {
+    func test_search_eachTermInTitleOrCreator_joinedWithAND_everyTermAsPrefix() {
         XCTAssertEqual(
             ArchiveSearchQuery.search("The Time Machine"),
-            "\(catalog) AND (title:the OR creator:the) AND (title:time OR creator:time)"
+            "\(catalog) AND (title:the* OR creator:the*) AND (title:time* OR creator:time*)"
                 + " AND (title:machine* OR creator:machine*)"
         )
+    }
+
+    func test_search_everyTermGetsAWildcard() throws {
+        let query = try XCTUnwrap(ArchiveSearchQuery.search("one two three four"))
+
+        for term in ["one", "two", "three", "four"] {
+            XCTAssertTrue(query.contains("(title:\(term)* OR creator:\(term)*)"), term)
+        }
+        XCTAssertFalse(query.contains("title:one "))
     }
 
     /// A title word and an author word together: neither field holds both.
     func test_search_mixesTitleAndCreatorTerms() {
         XCTAssertEqual(
             ArchiveSearchQuery.search("Alice Carroll"),
-            "\(catalog) AND (title:alice OR creator:alice) AND (title:carroll* OR creator:carroll*)"
+            "\(catalog) AND (title:alice* OR creator:alice*) AND (title:carroll* OR creator:carroll*)"
         )
     }
 
@@ -71,7 +80,7 @@ final class ArchiveSearchQueryTests: XCTestCase {
         XCTAssertEqual(ArchiveSearchQuery.terms(in: "Война и мир"), ["война", "и", "мир"])
         XCTAssertEqual(
             ArchiveSearchQuery.search("Dom Casmurro"),
-            "\(catalog) AND (title:dom OR creator:dom) AND (title:casmurro* OR creator:casmurro*)"
+            "\(catalog) AND (title:dom* OR creator:dom*) AND (title:casmurro* OR creator:casmurro*)"
         )
     }
 
