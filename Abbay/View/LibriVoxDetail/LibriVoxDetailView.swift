@@ -23,12 +23,7 @@ struct LibriVoxDetailView: View {
     }
 
     private static func makeClient() -> LibriVoxClientProtocol {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(LaunchArgument.stubLibriVox) {
-            return UITestLibriVoxClient()
-        }
-        #endif
-        return LibriVoxClient()
+        DebugOverrides.libriVoxClient() ?? LibriVoxClient()
     }
 
     var body: some View {

@@ -53,11 +53,6 @@ final class DependencyContainer: DependencyContainerProtocol {
     }
 
     private static func makeDownloads() -> BookDownloadManagerProtocol {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(LaunchArgument.stubLibriVox) {
-            return UITestDownloadManager()
-        }
-        #endif
-        return BookDownloadManager.shared
+        DebugOverrides.downloadManager() ?? BookDownloadManager.shared
     }
 }

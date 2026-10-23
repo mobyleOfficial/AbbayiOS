@@ -49,12 +49,10 @@ final class LibrarySearchViewModel: ObservableObject {
 
     /// The app's instance. UI tests launched with the stub argument never reach the network.
     static func makeDefault() -> LibrarySearchViewModel {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(LaunchArgument.stubLibriVox) {
-            return LibrarySearchViewModel(client: UITestLibriVoxClient(), debounce: .milliseconds(50))
-        }
-        #endif
-        return LibrarySearchViewModel()
+        LibrarySearchViewModel(
+            client: DebugOverrides.libriVoxClient() ?? LibriVoxClient(),
+            debounce: DebugOverrides.searchDebounce() ?? .milliseconds(400)
+        )
     }
 
     func update(library: [AudioModel]) {

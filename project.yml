@@ -72,6 +72,12 @@ targets:
         INFOPLIST_FILE: Abbay/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Abbay/Resources/Abbay.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
+      configs:
+        # UI-test stand-ins stay out of the shipped binary. XcodeGen's `excludes` can't vary by
+        # configuration, so this is the build setting instead. DebugOverrides.swift is not
+        # listed: it compiles in Release, where every override returns nil.
+        Release:
+          EXCLUDED_SOURCE_FILE_NAMES: "$(SRCROOT)/Abbay/DebugSupport/UITest*.swift"
     dependencies:
       - sdk: AVFoundation.framework
       - sdk: CarPlay.framework

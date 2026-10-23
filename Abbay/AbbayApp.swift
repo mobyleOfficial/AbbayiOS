@@ -27,12 +27,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Pinned order: DI configure → audio session → flag clear + eager seeds (on success)
         DependencyContainer.configure()
 
-        #if DEBUG
         // Launch-argument library seeding for UI tests. Must run before anything reads the
-        // library (the snapshot publish below, and MediaListViewModel's init). Compiled out of
-        // Release entirely.
-        UITestSeeder.run()
-        #endif
+        // library (the snapshot publish below, and MediaListViewModel's init). A no-op in Release.
+        DebugOverrides.runLaunchSeeding()
 
         // Re-attach to the download tasks the system kept running, and restart the missing
         // chapters. After seeding, so it sees the library the rest of the launch sees.

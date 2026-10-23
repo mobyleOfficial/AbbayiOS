@@ -48,7 +48,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
 - Portrait iPhone only (`TARGET_DEVICE_FAMILY: 1`), forced dark mode
   (`MediaListView` sets `.preferredColorScheme(.dark)`), deployment target iOS 17.0.
 - The library is seeded through launch arguments, handled by `UITestSeeder` in DEBUG builds and
-  named in `Abbay/Core/LaunchArgument.swift`:
+  named in `Abbay/Core/LaunchArgument.swift`. The seeder and the other UI-test stand-ins live in
+  `Abbay/DebugSupport/`, which `DebugOverrides` reads and Release builds leave out:
   - `-seedLibrary` — replaces the library with two deterministic books, one chaptered (three
     chapters) and one without chapters.
   - `-resetLibrary` — empties the library, for the empty state.
