@@ -8,7 +8,7 @@ import CoreData
 import XCTest
 
 final class LibriVoxPersistenceTests: XCTestCase {
-    private let bookURL = URL(string: "librivox://book/200")
+    private let bookURL = URL(string: "librivox://book/alice_in_wonderland_librivox")
     private var tempDirectory: URL?
 
     override func tearDown() {
@@ -26,7 +26,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
         try SaveAudioUseCase().execute(audio)
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
 
-        XCTAssertEqual(loaded.librivoxID, "200")
+        XCTAssertEqual(loaded.librivoxID, "alice_in_wonderland_librivox")
         XCTAssertTrue(loaded.isLibriVox)
         XCTAssertTrue(loaded.allowsCellularDownload)
         XCTAssertTrue(loaded.isDownloadPaused)
@@ -156,7 +156,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
         var audio = AudioModel()
         audio.title = "Test LibriVox"
         audio.url = bookURL
-        audio.librivoxID = "200"
+        audio.librivoxID = "alice_in_wonderland_librivox"
         audio.allowsCellularDownload = true
         audio.isDownloadPaused = true
         audio.totalBytes = 85_000_000

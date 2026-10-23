@@ -1,0 +1,75 @@
+{
+ "responseHeader": {
+  "status": 0,
+  "QTime": 32,
+  "params": {
+   "query": "collection:librivoxaudio",
+   "qin": "collection:librivoxaudio",
+   "fields": "identifier,title,creator,language,mediatype",
+   "wt": "json",
+   "sort": "downloads desc",
+   "rows": 8,
+   "start": 0
+  }
+ },
+ "response": {
+  "numFound": 21902,
+  "start": 0,
+  "docs": [
+   {
+    "creator": "Sun Tzu",
+    "identifier": "art_of_war_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "The Art of War"
+   },
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "alice_in_wonderland_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland, by Lewis Carroll"
+   },
+   {
+    "creator": "Mark Twain",
+    "identifier": "tom_sawyer_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "The Adventures of Tom Sawyer"
+   },
+   {
+    "creator": "Sir Arthur Conan Doyle",
+    "identifier": "adventures_holmes",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "The Adventures of Sherlock Holmes"
+   },
+   {
+    "creator": "LibriVox Volunteers",
+    "identifier": "LibrivoxM4bCollectionAudiobooksMain",
+    "mediatype": "image",
+    "title": "Librivox M4b Collection Audiobooks Main"
+   },
+   {
+    "creator": "Herman Melville",
+    "identifier": "moby_dick_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Moby Dick, or the Whale"
+   },
+   {
+    "creator": "Mark Twain",
+    "identifier": "huck_finn_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Adventures of Huckleberry Finn"
+   },
+   {
+    "creator": "Librivox covermakers",
+    "identifier": "thumbs12",
+    "mediatype": "image",
+    "title": "Thumbs 12"
+   }
+  ]
+ }
+}

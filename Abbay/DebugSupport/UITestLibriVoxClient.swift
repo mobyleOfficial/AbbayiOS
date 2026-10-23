@@ -15,9 +15,8 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
         title: "Stub LibriVox Book",
         authors: "Stub Author",
         descriptionText: "A book that only exists in UI tests.",
-        language: "English",
+        language: "eng",
         totalSeconds: 60,
-        archiveIdentifier: "ui-test-stub",
         coverURL: URL(fileURLWithPath: "/dev/null/cover.jpg"),
         // A file URL that doesn't exist: playing it must not reach the network.
         sections: [

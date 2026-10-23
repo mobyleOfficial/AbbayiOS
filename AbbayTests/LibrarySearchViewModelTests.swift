@@ -29,7 +29,6 @@ final class LibrarySearchViewModelTests: XCTestCase {
             descriptionText: "",
             language: "English",
             totalSeconds: 60,
-            archiveIdentifier: "ia\(id)",
             coverURL: URL(fileURLWithPath: "/cover"),
             sections: []
         )

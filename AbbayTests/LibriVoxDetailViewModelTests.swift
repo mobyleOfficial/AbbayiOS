@@ -33,13 +33,12 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
     private var book: LibriVoxBook {
         LibriVoxBook(
-            id: "42",
+            id: "moby_dick_librivox",
             title: "Moby Dick",
             authors: "Herman Melville",
             descriptionText: "A whale.",
             language: "English",
             totalSeconds: 120,
-            archiveIdentifier: "moby",
             coverURL: URL(fileURLWithPath: "/cover"),
             sections: [
                 .init(title: "One", seconds: 60, listenURL: URL(fileURLWithPath: "/1.mp3")),
@@ -147,17 +146,17 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         sut.downloadTapped()
         await waitUntil { !added.isEmpty }
 
-        XCTAssertEqual(save.savedModels.map(\.url), [URL(string: "librivox://book/42")])
+        XCTAssertEqual(save.savedModels.map(\.url), [URL(string: "librivox://book/moby_dick_librivox")])
         XCTAssertEqual(save.savedModels.first?.imageData, Data([1, 2, 3]))
-        XCTAssertEqual(added.map(\.librivoxID), ["42"])
-        XCTAssertEqual(sut.addedBook?.librivoxID, "42")
+        XCTAssertEqual(added.map(\.librivoxID), ["moby_dick_librivox"])
+        XCTAssertEqual(sut.addedBook?.librivoxID, "moby_dick_librivox")
     }
 
     func test_existingBook_startsAddedAndDownloadDoesNothing() async {
-        var existing = AudioModel(url: LibriVoxIdentity.bookURL(id: "42"))
-        existing.librivoxID = "42"
+        var existing = AudioModel(url: LibriVoxIdentity.bookURL(id: "moby_dick_librivox"))
+        existing.librivoxID = "moby_dick_librivox"
         let loadAudio = MockLoadAudioUseCase()
-        loadAudio.stubs["librivox://book/42"] = existing
+        loadAudio.stubs["librivox://book/moby_dick_librivox"] = existing
         client.detailsResult = .success(LibriVoxBookDetails(book: book, sectionBytes: [1000, 0]))
         let sut = LibriVoxDetailViewModel(
             book: book,
@@ -170,7 +169,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         )
         await sut.load()
 
-        XCTAssertEqual(sut.addedBook?.librivoxID, "42")
+        XCTAssertEqual(sut.addedBook?.librivoxID, "moby_dick_librivox")
         sut.downloadTapped()
         try? await Task.sleep(for: .milliseconds(50))
 
@@ -197,7 +196,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
         let state = BookDownloadState(chapters: [.downloaded, .waiting], expectedBytes: [1, 1], isPaused: false)
 
-        downloads.statesSubject.send(["other": state, "42": state])
+        downloads.statesSubject.send(["other": state, "moby_dick_librivox": state])
         await waitUntil { sut.downloadState != nil }
 
         XCTAssertEqual(sut.downloadState, state)
@@ -209,10 +208,10 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
         let partial = BookDownloadState(chapters: [.downloaded, .waiting], expectedBytes: [1, 1], isPaused: false)
         let complete = BookDownloadState(chapters: [.downloaded, .downloaded], expectedBytes: [1, 1], isPaused: false)
-        downloads.statesSubject.send(["42": partial])
+        downloads.statesSubject.send(["moby_dick_librivox": partial])
         await waitUntil { sut.downloadState != nil }
 
-        downloads.statesSubject.send(["42": complete])
+        downloads.statesSubject.send(["moby_dick_librivox": complete])
         await waitUntil { sut.downloadState == nil }
 
         XCTAssertNil(sut.downloadState)
@@ -225,7 +224,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         sut.play()
 
-        XCTAssertEqual(player.playCalls.map(\.librivoxID), ["42"])
+        XCTAssertEqual(player.playCalls.map(\.librivoxID), ["moby_dick_librivox"])
     }
 
     /// Play hands control to the same player sheet a Library row opens.

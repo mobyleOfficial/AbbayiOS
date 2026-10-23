@@ -123,7 +123,7 @@ struct LibriVoxDetailView: View {
         [
             Self.durationText(book.totalSeconds),
             Localizable.chaptersCount.localized(with: book.sections.count),
-            book.language
+            book.languageName
         ]
         .filter { !$0.isEmpty }
         .joined(separator: " · ")

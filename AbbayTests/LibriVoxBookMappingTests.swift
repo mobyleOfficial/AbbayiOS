@@ -8,15 +8,29 @@ import NetworkProvider
 import XCTest
 
 final class LibriVoxBookMappingTests: XCTestCase {
+    private var directory = FileManager.default.temporaryDirectory
+
+    override func setUp() {
+        super.setUp()
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: directory)
+        super.tearDown()
+    }
+
+    /// Alice through the matched path: archive.org metadata plus Carroll's LibriVox books.
     private func aliceDetails() async throws -> LibriVoxBookDetails {
-        let search = MockNetworkProvider.Reply(data: try TestFixtures.librivoxData("search_alice"))
         let metadata = MockNetworkProvider.Reply(data: try TestFixtures.librivoxData("archive_alice_metadata"))
-        let client = LibriVoxClient(network: MockNetworkProvider { request in
-            request.endpoint.contains("archive.org/metadata") ? metadata : search
-        })
-        let results = try await client.search("alice")
-        let alice = try XCTUnwrap(results.first)
-        return try await client.details(for: alice)
+        let carroll = MockNetworkProvider.Reply(data: try TestFixtures.librivoxData("librivox_author_carroll"))
+        let client = LibriVoxClient(
+            network: MockNetworkProvider { request in
+                request.endpoint.contains("archive.org/metadata") ? metadata : carroll
+            },
+            cache: CatalogCache(directory: directory)
+        )
+        return try await client.details(for: .light(id: "alice_in_wonderland_librivox"))
     }
 
     func test_audioModel_chaptersAreCumulative() async throws {
@@ -36,8 +50,9 @@ final class LibriVoxBookMappingTests: XCTestCase {
 
         let model = details.audioModel(imageData: cover)
 
-        XCTAssertEqual(model.url, URL(string: "librivox://book/200"))
-        XCTAssertEqual(model.librivoxID, "200")
+        XCTAssertEqual(model.url, URL(string: "librivox://book/alice_in_wonderland_librivox"))
+        XCTAssertEqual(model.librivoxID, "alice_in_wonderland_librivox")
+        XCTAssertEqual(LibriVoxIdentity.bookID(from: model.url), details.book.id)
         XCTAssertEqual(model.title, "Alice's Adventures in Wonderland")
         XCTAssertEqual(model.albumName, "Alice's Adventures in Wonderland")
         XCTAssertEqual(model.artist, "Lewis Carroll")
@@ -66,7 +81,7 @@ final class LibriVoxBookMappingTests: XCTestCase {
         let details = try await aliceDetails()
 
         XCTAssertFalse(details.book.descriptionText.contains("<"))
-        XCTAssertTrue(details.book.descriptionText.contains("(Summary written by Gesine)\n\n"))
+        XCTAssertTrue(details.book.descriptionText.contains("(Summary written by Gesine)"))
     }
 
     func test_strippingHTML_handlesTagsAndEntities() {

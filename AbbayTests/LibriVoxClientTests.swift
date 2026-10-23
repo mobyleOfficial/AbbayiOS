@@ -7,91 +7,83 @@
 import NetworkProvider
 import XCTest
 
-final class LibriVoxClientTests: XCTestCase {
-    private let notFound = MockNetworkProvider.Reply(
-        statusCode: 404,
-        data: Data(#"{"error":"Audiobooks could not be found"}"#.utf8)
-    )
+/// Search, popular and cover. Details are in `LibriVoxClientDetailsTests`.
+final class LibriVoxClientTests: LibriVoxClientTestCase {
+    private let oldPopular = Reply(data: Data(#"{"response":{"docs":[{"identifier":"old","title":"Old"}]}}"#.utf8))
 
-    private func makeSUT(
-        _ handler: @escaping (NetworkRequestProtocol) throws -> MockNetworkProvider.Reply
-    ) -> (LibriVoxClient, MockNetworkProvider) {
-        let network = MockNetworkProvider(handler: handler)
-        return (LibriVoxClient(network: network), network)
-    }
+    // MARK: - Search
 
-    private func searchReply() throws -> MockNetworkProvider.Reply {
-        .init(data: try TestFixtures.librivoxData("search_alice"))
-    }
-
-    private func authorReply() -> MockNetworkProvider.Reply {
-        let json = """
-        {"books":[
-        {"id":"900","title":"Author Hit Duplicate","url_iarchive":"https://archive.org/details/dup","language":"English",
-         "totaltimesecs":60,"authors":[],"sections":[{"title":"One","listen_url":"https://archive.org/download/dup/a.mp3","playtime":"60"}]},
-        {"id":"5000","title":"Only By Author","url_iarchive":"https://archive.org/details/only","language":"English",
-         "totaltimesecs":60,"authors":[{"first_name":"Lewis","last_name":"Carroll"}],
-         "sections":[{"title":"One","listen_url":"https://archive.org/download/only/a.mp3","playtime":"60"}]}]}
-        """
-        return .init(data: Data(json.utf8))
-    }
-
-    func test_search_sendsTitlePrefixAndAuthorRequests_withExtended() async throws {
-        let reply = try searchReply()
+    func test_search_requestsArchiveSearch_mostDownloadedFirst() async throws {
+        let reply = try fixture("archive_search_wonderland")
         let (sut, network) = makeSUT { _ in reply }
 
-        _ = try await sut.search("alice")
+        _ = try await sut.search("Wonderland")
 
-        let queries = network.requests.compactMap(\.queryParams)
-        XCTAssertEqual(queries.count, 2)
-        XCTAssertTrue(queries.contains { $0["title"] == "^alice" })
-        XCTAssertTrue(queries.contains { $0["author"] == "alice" })
-        XCTAssertTrue(queries.allSatisfy { $0["format"] == "json" && $0["extended"] == "1" })
-        XCTAssertTrue(network.requests.allSatisfy { $0.endpoint == "https://librivox.org/api/feed/audiobooks/" })
+        let request = try XCTUnwrap(network.requests.first)
+        XCTAssertEqual(network.requests.count, 1)
+        XCTAssertEqual(request.endpoint, "https://archive.org/advancedsearch.php")
+        XCTAssertEqual(request.queryParams?["q"], ArchiveSearchQuery.search("Wonderland"))
+        XCTAssertEqual(request.queryParams?["fl[]"], "identifier,title,creator,language,mediatype")
+        XCTAssertEqual(request.queryParams?["sort[]"], "downloads desc")
+        XCTAssertEqual(request.queryParams?["rows"], "50")
+        XCTAssertEqual(request.queryParams?["output"], "json")
     }
 
-    func test_search_stripsLeadingArticle() async throws {
-        let (sut, network) = makeSUT { _ in self.notFound }
+    func test_search_mapsLightResults() async throws {
+        let reply = try fixture("archive_search_wonderland")
+        let (sut, _) = makeSUT { _ in reply }
 
-        _ = try await sut.search("The Time Machine")
+        let books = try await sut.search("wonderland")
 
-        let titles = network.requests.compactMap { $0.queryParams?["title"] }
-        XCTAssertEqual(titles, ["^Time Machine"])
+        XCTAssertEqual(books.count, 5)
+        let alice = try XCTUnwrap(books.first)
+        XCTAssertEqual(alice.id, "alice_in_wonderland_librivox")
+        XCTAssertEqual(alice.title, "Alice's Adventures in Wonderland")
+        XCTAssertEqual(alice.authors, "Lewis Carroll")
+        XCTAssertEqual(alice.language, "eng")
+        XCTAssertEqual(alice.coverURL.absoluteString, "https://archive.org/services/img/alice_in_wonderland_librivox")
+        XCTAssertTrue(alice.sections.isEmpty)
+        XCTAssertEqual(alice.totalSeconds, 0)
     }
 
-    func test_search_mergesTitleAndAuthorResults() async throws {
-        let title = try searchReply()
-        let author = authorReply()
-        let (sut, _) = makeSUT { request in
-            request.queryParams?["title"] != nil ? title : author
+    func test_search_isCachedForTheSession_byNormalizedQuery() async throws {
+        let reply = try fixture("archive_search_wonderland")
+        let (sut, network) = makeSUT { _ in reply }
+
+        let first = try await sut.search("Wonderland")
+        let second = try await sut.search("  wonderland ")
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(network.requests.count, 1)
+    }
+
+    func test_search_failureIsNotCached() async throws {
+        let reply = try fixture("archive_search_wonderland")
+        var fail = true
+        let (sut, network) = makeSUT { _ in
+            if fail { throw URLError(.notConnectedToInternet) }
+            return reply
         }
 
-        let books = try await sut.search("alice")
+        _ = try? await sut.search("wonderland")
+        fail = false
+        let books = try await sut.search("wonderland")
 
-        XCTAssertEqual(books.map(\.id), ["200", "900", "1122", "5000"])
-        XCTAssertEqual(books.filter { $0.id == "900" }.count, 1)
-        XCTAssertEqual(books.first { $0.id == "900" }?.title, "Alice's Adventures in Wonderland (version 3)")
+        XCTAssertEqual(books.count, 5)
+        XCTAssertEqual(network.requests.count, 2)
     }
 
-    func test_search_notFound404_returnsEmpty() async throws {
-        let (sut, _) = makeSUT { _ in self.notFound }
+    func test_search_blankQuery_returnsEmptyWithoutRequest() async throws {
+        let (sut, network) = makeSUT { _ in Reply(data: Data()) }
 
-        let books = try await sut.search("zzzqq")
-
-        XCTAssertEqual(books, [])
-    }
-
-    func test_search_notFoundFixture_returnsEmpty() async throws {
-        let body = try TestFixtures.librivoxData("not_found")
-        let (sut, _) = makeSUT { _ in .init(statusCode: 404, data: body) }
-
-        let books = try await sut.search("zzzqq")
+        let books = try await sut.search("   ")
 
         XCTAssertEqual(books, [])
+        XCTAssertTrue(network.requests.isEmpty)
     }
 
     func test_search_serverError_throws() async {
-        let (sut, _) = makeSUT { _ in .init(statusCode: 500, data: Data("oops".utf8)) }
+        let (sut, _) = makeSUT { _ in Reply(statusCode: 500, data: Data("{}".utf8)) }
 
         do {
             _ = try await sut.search("alice")
@@ -101,124 +93,127 @@ final class LibriVoxClientTests: XCTestCase {
         }
     }
 
-    func test_search_dropsBooksWithoutArchiveOrListenURLs() async throws {
-        let reply = try searchReply()
-        let (sut, _) = makeSUT { _ in reply }
+    func test_search_dropsDocsWithoutIdentifierOrTitle_andNonAudio_andDuplicates() async throws {
+        let json = """
+        {"response":{"docs":[
+        {"identifier":"ok","title":"Ok","creator":["A","B"],"language":["por"],"mediatype":"audio"},
+        {"title":"No identifier","mediatype":"audio"},
+        {"identifier":"no_title","mediatype":"audio"},
+        {"identifier":"cover_art","title":"Thumbs","mediatype":"image"},
+        {"identifier":"ok","title":"Ok again","mediatype":"audio"}]}}
+        """
+        let (sut, _) = makeSUT { _ in Reply(data: Data(json.utf8)) }
 
-        let books = try await sut.search("alice")
+        let books = try await sut.search("x")
 
-        XCTAssertFalse(books.contains { $0.id == "9001" })
-        XCTAssertFalse(books.contains { $0.id == "9002" })
-        XCTAssertEqual(books.map(\.id), ["200", "900", "1122"])
+        XCTAssertEqual(books.map(\.id), ["ok"])
+        XCTAssertEqual(books.first?.authors, "A, B")
+        XCTAssertEqual(books.first?.language, "por")
     }
 
-    func test_search_blankQuery_returnsEmptyWithoutRequest() async throws {
-        let (sut, network) = makeSUT { _ in self.notFound }
+    // MARK: - Popular
 
-        let books = try await sut.search("   ")
+    func test_popular_requestsAudioCatalog_byDownloads() async throws {
+        let reply = try fixture("archive_popular")
+        let (sut, network) = makeSUT { _ in reply }
 
-        XCTAssertEqual(books, [])
+        _ = try await sut.popular()
+
+        let request = try XCTUnwrap(network.requests.first)
+        XCTAssertEqual(request.queryParams?["q"], "collection:librivoxaudio AND mediatype:audio")
+        XCTAssertEqual(request.queryParams?["sort[]"], "downloads desc")
+        XCTAssertEqual(request.queryParams?["rows"], "30")
+    }
+
+    /// The fixture comes from the collection without the `mediatype:audio` clause, so it holds the
+    /// non-book items the clause keeps out; the client drops them too.
+    func test_popular_dropsNonBookItems_keepsOrder() async throws {
+        let reply = try fixture("archive_popular")
+        let (sut, _) = makeSUT { _ in reply }
+
+        let books = try await sut.popular()
+
+        XCTAssertEqual(books.map(\.id), [
+            "art_of_war_librivox", "alice_in_wonderland_librivox", "tom_sawyer_librivox",
+            "adventures_holmes", "moby_dick_librivox", "huck_finn_librivox"
+        ])
+    }
+
+    func test_popular_freshCache_noRequest() async throws {
+        let reply = try fixture("archive_popular")
+        let (first, _) = makeSUT { _ in reply }
+        let stored = try await first.popular()
+        now += day - 1
+        let (sut, network) = makeSUT { _ in throw URLError(.notConnectedToInternet) }
+
+        let books = try await sut.popular()
+
+        XCTAssertEqual(books, stored)
         XCTAssertTrue(network.requests.isEmpty)
+        XCTAssertNil(sut.pendingPopularRefresh)
     }
 
-    func test_search_mapsBookFields() async throws {
-        let reply = try searchReply()
-        let (sut, _) = makeSUT { _ in reply }
-
-        let results = try await sut.search("alice")
-        let alice = try XCTUnwrap(results.first)
-
-        XCTAssertEqual(alice.id, "200")
-        XCTAssertEqual(alice.authors, "Lewis Carroll")
-        XCTAssertEqual(alice.archiveIdentifier, "alice_in_wonderland_librivox")
-        XCTAssertEqual(alice.coverURL.absoluteString, "https://archive.org/services/img/alice_in_wonderland_librivox")
-        XCTAssertEqual(alice.totalSeconds, 10_731)
-        XCTAssertEqual(alice.sections.count, 12)
-        XCTAssertEqual(alice.sections[0].seconds, 640)
-    }
-
-    func test_popular_requestsEachIDInOrder_andKeepsOrder() async throws {
-        let reply = try searchReply()
-        let (sut, network) = makeSUT { request in
-            // Every id answers with the Alice fixture; the id only matters for the recorded request.
-            _ = request
-            return reply
-        }
+    func test_popular_staleCache_returnedAtOnce_thenRefreshedInBackground() async throws {
+        let (first, _) = makeSUT { _ in self.oldPopular }
+        _ = try await first.popular()
+        now += day + 1
+        let fresh = try fixture("archive_popular")
+        let (sut, network) = makeSUT { _ in fresh }
 
         let books = try await sut.popular()
+        await sut.pendingPopularRefresh?.value
 
-        let ids = network.requests.compactMap { $0.queryParams?["id"] }
-        XCTAssertEqual(Set(ids), ["200", "119", "253", "314", "448", "753", "271", "816", "56", "1557", "59"])
-        XCTAssertEqual(ids.count, 11)
-        XCTAssertTrue(network.requests.allSatisfy { $0.queryParams?["extended"] == "1" })
-        XCTAssertFalse(books.isEmpty)
+        XCTAssertEqual(books.map(\.id), ["old"])
+        XCTAssertEqual(network.requests.count, 1)
+        let refreshed = cache.read([LibriVoxBook].self, key: LibriVoxClient.popularKey, maxAge: day)
+        XCTAssertEqual(refreshed?.isFresh, true)
+        XCTAssertEqual(refreshed?.value.first?.id, "art_of_war_librivox")
     }
 
-    func test_popular_skipsNotFoundIDs() async throws {
-        let reply = try searchReply()
-        let (sut, _) = makeSUT { request in
-            request.queryParams?["id"] == "200" ? reply : self.notFound
-        }
+    func test_popular_staleCache_networkFails_keepsStaleList() async throws {
+        let (first, _) = makeSUT { _ in self.oldPopular }
+        _ = try await first.popular()
+        now += 3 * day
+        let (sut, _) = makeSUT { _ in throw URLError(.notConnectedToInternet) }
 
         let books = try await sut.popular()
+        await sut.pendingPopularRefresh?.value
+        let again = try await sut.popular()
 
-        XCTAssertEqual(books.map(\.id), ["200", "900", "1122"])
+        XCTAssertEqual(books.map(\.id), ["old"])
+        XCTAssertEqual(again.map(\.id), ["old"])
     }
 
-    func test_details_sumsSectionSizesFromArchiveMetadata() async throws {
-        let search = try searchReply()
-        let metadata = MockNetworkProvider.Reply(data: try TestFixtures.librivoxData("archive_alice_metadata"))
-        let (sut, network) = makeSUT { request in
-            request.endpoint.contains("archive.org/metadata") ? metadata : search
+    func test_popular_noCache_networkFails_throws() async {
+        let (sut, _) = makeSUT { _ in throw URLError(.notConnectedToInternet) }
+
+        do {
+            _ = try await sut.popular()
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
         }
-        let results = try await sut.search("alice")
-        let alice = try XCTUnwrap(results.first)
-
-        let details = try await sut.details(for: alice)
-
-        XCTAssertEqual(details.totalBytes, 85_862_932)
-        XCTAssertEqual(details.sectionBytes.count, 12)
-        XCTAssertEqual(
-            network.requests.last?.endpoint,
-            "https://archive.org/metadata/alice_in_wonderland_librivox"
-        )
     }
 
-    func test_details_missingSizeCountsAsZero() async throws {
-        let search = try searchReply()
-        let json = #"{"files":[{"name":"wonderland_ch_01_64kb.mp3","size":"10"}]}"#
-        let metadata = MockNetworkProvider.Reply(data: Data(json.utf8))
-        let (sut, _) = makeSUT { request in
-            request.endpoint.contains("archive.org/metadata") ? metadata : search
-        }
-        let results = try await sut.search("alice")
-        let alice = try XCTUnwrap(results.first)
-
-        let details = try await sut.details(for: alice)
-
-        XCTAssertEqual(details.sectionBytes.first, 10)
-        XCTAssertEqual(details.sectionBytes.dropFirst().reduce(0, +), 0)
-        XCTAssertEqual(details.sectionBytes.count, 12)
-    }
+    // MARK: - Cover
 
     func test_coverData_returnsBytesOnSuccess_andNilOnFailure() async throws {
-        let search = try searchReply()
         let cover = Data([1, 2, 3])
         var succeed = true
-        let (sut, _) = makeSUT { request in
-            if request.endpoint.contains("services/img") {
-                return succeed ? .init(data: cover) : .init(statusCode: 404, data: Data())
-            }
-            return search
+        let (sut, network) = makeSUT { _ in
+            succeed ? Reply(data: cover) : Reply(statusCode: 404, data: Data())
         }
-        let results = try await sut.search("alice")
-        let alice = try XCTUnwrap(results.first)
+        let book = LibriVoxBook.light(
+            id: "alice_in_wonderland_librivox",
+            coverURL: try XCTUnwrap(LibriVoxBook.coverURL(for: "alice_in_wonderland_librivox"))
+        )
 
-        let ok = await sut.coverData(for: alice)
+        let ok = await sut.coverData(for: book)
         succeed = false
-        let failed = await sut.coverData(for: alice)
+        let failed = await sut.coverData(for: book)
 
         XCTAssertEqual(ok, cover)
         XCTAssertNil(failed)
+        XCTAssertEqual(network.requests.first?.endpoint, "https://archive.org/services/img/alice_in_wonderland_librivox")
     }
 }

@@ -28,6 +28,7 @@ extension AudioDataModel {
     @NSManaged var title: String?
     @NSManaged var url: URL?
     @NSManaged var bookmarkData: Data?
+    /// The archive.org identifier of a LibriVox book; see `AudioModel.librivoxID`.
     @NSManaged var librivoxID: String?
     @NSManaged var allowsCellularDownload: Bool
     @NSManaged var isDownloadPaused: Bool

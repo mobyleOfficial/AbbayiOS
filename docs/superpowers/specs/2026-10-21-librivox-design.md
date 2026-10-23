@@ -148,6 +148,14 @@ Opened from a LibriVox search result. It shows:
 
 ## LibriVox data notes
 
+> **Amended 2026-10-23 (PR #116 review).** Search and popular moved to archive.org's advanced
+> search (`collection:librivoxaudio AND mediatype:audio`, terms ANDed over title and creator, most
+> downloaded first), because the LibriVox API has no fuzzy or substring search. Details come from
+> archive.org item metadata, with chapter titles from the LibriVox API when the item is matched by
+> creator's last name and `url_iarchive`, and from the item's 64 kb MP3 files otherwise. The
+> book's identity is now the archive.org identifier. Catalog responses are cached in Caches. The
+> notes below describe the original LibriVox-only approach.
+
 - Search: `GET https://librivox.org/api/feed/audiobooks/?format=json&extended=1&title=^<query>`
   (also supports `author=`, `limit`, `offset`). It returns `id`, `title`, `description` (HTML),
   `authors[]`, `language`, `totaltimesecs`, `num_sections`, `url_iarchive`, and `sections[]`

@@ -5,27 +5,41 @@
 
 import Foundation
 
-struct LibriVoxBook: Hashable, Identifiable {
+/// A book in the LibriVox catalog, as listed on archive.org.
+///
+/// Search and popular results are light: they carry only what archive.org's search returns, so
+/// `descriptionText` is empty, `sections` is empty and `totalSeconds` is 0. `LibriVoxBookDetails.book`
+/// is the full version.
+struct LibriVoxBook: Hashable, Identifiable, Codable {
+    /// The archive.org identifier (e.g. `alice_in_wonderland_librivox`). It always exists, while a
+    /// LibriVox catalog ID may not, so it is the book's identity everywhere: `librivox://book/<id>`,
+    /// the download folder and `AudioModel.librivoxID`.
     let id: String
     let title: String
     let authors: String
     /// HTML stripped.
     let descriptionText: String
+    /// As archive.org sends it: usually an ISO 639-2 code such as `eng` or `por`.
     let language: String
     let totalSeconds: Double
-    let archiveIdentifier: String
-    /// `https://archive.org/services/img/<archiveIdentifier>`
+    /// `https://archive.org/services/img/<id>`
     let coverURL: URL
     let sections: [Section]
 
-    struct Section: Hashable {
+    struct Section: Hashable, Codable {
         let title: String
         let seconds: Double
         let listenURL: URL
     }
+
+    /// `language` in the app's language ("English", "inglês"), or as sent when it isn't a code.
+    var languageName: String {
+        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return locale.localizedString(forLanguageCode: language) ?? language
+    }
 }
 
-struct LibriVoxBookDetails: Equatable {
+struct LibriVoxBookDetails: Equatable, Codable {
     let book: LibriVoxBook
     let sectionBytes: [Int64]
 
@@ -35,35 +49,27 @@ struct LibriVoxBookDetails: Equatable {
 }
 
 extension LibriVoxBook {
-    /// Nil when the entry cannot be played: no archive.org item, or a section without a usable URL.
-    init?(dto: LibriVoxBookDTO) {
-        guard let id = dto.id, !id.isEmpty,
-              let archiveURL = dto.urlIArchive.flatMap(URL.init(string:)),
-              case let identifier = archiveURL.lastPathComponent,
-              !identifier.isEmpty, identifier != "/",
-              let coverURL = URL(string: LibriVoxRequests.coverEndpoint + identifier),
-              let rawSections = dto.sections, !rawSections.isEmpty
+    static func coverURL(for identifier: String) -> URL? {
+        URL(string: LibriVoxRequests.coverEndpoint + identifier)
+    }
+
+    /// A light search result. Nil for anything that isn't an audio item with an identifier and a title.
+    init?(searchDoc doc: ArchiveSearchDocDTO) {
+        guard let identifier = doc.identifier, !identifier.isEmpty,
+              let title = doc.title, !title.isEmpty,
+              doc.mediatype == nil || doc.mediatype == "audio",
+              let coverURL = Self.coverURL(for: identifier)
         else { return nil }
-
-        var sections = [Section]()
-        for (index, raw) in rawSections.enumerated() {
-            guard let listen = raw.listenURL, !listen.isEmpty, let url = URL(string: listen) else { return nil }
-            let title = raw.title.flatMap { $0.isEmpty ? nil : $0 } ?? "\(index + 1)"
-            sections.append(Section(title: title, seconds: raw.playtime.flatMap(Double.init) ?? 0, listenURL: url))
-        }
-
-        self.id = id
-        self.title = dto.title ?? ""
-        self.authors = (dto.authors ?? [])
-            .map { [$0.firstName, $0.lastName].compactMap { $0 }.joined(separator: " ") }
-            .filter { !$0.isEmpty }
-            .joined(separator: ", ")
-        self.descriptionText = (dto.description ?? "").strippingHTML
-        self.language = dto.language ?? ""
-        self.totalSeconds = dto.totaltimesecs ?? sections.reduce(0) { $0 + $1.seconds }
-        self.archiveIdentifier = identifier
-        self.coverURL = coverURL
-        self.sections = sections
+        self.init(
+            id: identifier,
+            title: ArchiveCatalog.cleanTitle(title, creator: doc.creators.first),
+            authors: doc.creators.joined(separator: ", "),
+            descriptionText: "",
+            language: doc.languages.first ?? "",
+            totalSeconds: 0,
+            coverURL: coverURL,
+            sections: []
+        )
     }
 }
 
