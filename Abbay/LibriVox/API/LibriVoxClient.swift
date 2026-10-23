@@ -238,7 +238,9 @@ private extension LibriVoxClient {
         for (index, section) in raw.enumerated() {
             guard let listen = section.listenURL, !listen.isEmpty, let url = URL(string: listen) else { return nil }
             let title = section.title.flatMap { $0.isEmpty ? nil : $0 } ?? "\(index + 1)"
-            let seconds = section.playtime.flatMap(Double.init) ?? lengths[url.lastPathComponent] ?? 0
+            // "0" and "" mean LibriVox doesn't know; the archive file's own length does.
+            let playtime = section.playtime.flatMap(Double.init).flatMap { $0 > 0 ? $0 : nil }
+            let seconds = playtime ?? lengths[url.lastPathComponent] ?? 0
             sections.append(LibriVoxBook.Section(title: title, seconds: seconds, listenURL: url))
         }
         return sections
@@ -249,36 +251,70 @@ private extension LibriVoxClient {
     /// The LibriVox entry for this archive item.
     ///
     /// A known LibriVox ID is fetched directly. If that ID no longer exists, the mapping is
-    /// forgotten and looked up again. A recent miss skips the lookup. A network failure records
-    /// no miss, so a flaky connection doesn't hide a real match for a week.
+    /// forgotten and looked up again. A recent miss skips the lookup, and so does a creator the
+    /// last-name rule can't use (missing, or "Various"). The first author page is read alone,
+    /// since most authors fit in it; the rest of the capped pages are read together. A network
+    /// failure or timeout records no miss, so a flaky connection doesn't hide a real match for a week.
     func libriVoxEntry(identifier: String, creator: String?) async -> MappingLookup {
         let key = Self.mappingKey(identifier)
         if let known = cache.read(Mapping.self, key: key, maxAge: Policy.missedMappingMaxAge) {
             if let id = known.value.librivoxID {
                 guard let books = try? await feedBooks(LibriVoxRequests.book(id: id)) else { return .unavailable }
-                if let match = books.first(where: { $0.archiveIdentifier == identifier }) { return .matched(match) }
+                if let match = Self.match(in: books, identifier: identifier) { return .matched(match) }
                 cache.remove(key: key)
             } else if known.isFresh {
                 return .noMatch
             }
         }
 
-        guard let lastName = ArchiveCatalog.lastName(of: creator) else { return .noMatch }
-        for page in 0..<Policy.authorPageCap {
-            let request = LibriVoxRequests.author(
-                lastName: lastName,
-                limit: Policy.authorPageSize,
-                offset: page * Policy.authorPageSize
-            )
-            guard let books = try? await feedBooks(request) else { return .unavailable }
-            if let match = books.first(where: { $0.archiveIdentifier == identifier }), let id = match.id {
-                cache.write(Mapping(librivoxID: id), key: key)
-                return .matched(match)
-            }
-            if books.count < Policy.authorPageSize { break }
+        let isVarious = creator?.trimmingCharacters(in: .whitespaces).lowercased() == "various"
+        let lookup: MappingLookup
+        if !isVarious, let lastName = ArchiveCatalog.lastName(of: creator) {
+            lookup = await lookUp(identifier, byAuthor: lastName)
+        } else {
+            lookup = .noMatch
         }
-        cache.write(Mapping(librivoxID: nil), key: key)
-        return .noMatch
+        switch lookup {
+        case let .matched(match):
+            cache.write(Mapping(librivoxID: match.id), key: key)
+        case .noMatch:
+            cache.write(Mapping(librivoxID: nil), key: key)
+        case .unavailable:
+            break
+        }
+        return lookup
+    }
+
+    /// The first page alone, since most authors fit in it; then the rest of the capped pages together.
+    func lookUp(_ identifier: String, byAuthor lastName: String) async -> MappingLookup {
+        guard let first = try? await authorPage(lastName, page: 0) else { return .unavailable }
+        if let match = Self.match(in: first, identifier: identifier) { return .matched(match) }
+        guard first.count >= Policy.authorPageSize, Policy.authorPageCap > 1 else { return .noMatch }
+
+        let rest = await withTaskGroup(of: [LibriVoxBookDTO]?.self) { group in
+            for page in 1..<Policy.authorPageCap {
+                group.addTask { try? await self.authorPage(lastName, page: page) }
+            }
+            var collected = [[LibriVoxBookDTO]?]()
+            for await result in group { collected.append(result) }
+            return collected
+        }
+        if let match = Self.match(in: rest.compactMap { $0 }.flatMap { $0 }, identifier: identifier) {
+            return .matched(match)
+        }
+        return rest.contains { $0 == nil } ? .unavailable : .noMatch
+    }
+
+    func authorPage(_ lastName: String, page: Int) async throws -> [LibriVoxBookDTO] {
+        try await feedBooks(LibriVoxRequests.author(
+            lastName: lastName,
+            limit: Policy.authorPageSize,
+            offset: page * Policy.authorPageSize
+        ))
+    }
+
+    static func match(in books: [LibriVoxBookDTO], identifier: String) -> LibriVoxBookDTO? {
+        books.first { $0.archiveIdentifier == identifier && $0.id != nil }
     }
 
     /// A 404 means "no match" and arrives either as a decoding error carrying 404 or as a 404 response.

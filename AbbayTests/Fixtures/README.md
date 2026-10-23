@@ -55,8 +55,8 @@ network access happens in tests.
 | `archive_popular.json` | `https://archive.org/advancedsearch.php?q=collection:librivoxaudio&fl[]=identifier,title,creator,language,mediatype&sort[]=downloads desc&rows=8&page=1&output=json` | popular filter |
 | `archive_alice_metadata.json` | `https://archive.org/metadata/alice_in_wonderland_librivox` | matched path (with the Carroll feed), fallback ordering when LibriVox has no match |
 | `librivox_author_carroll.json` | `https://librivox.org/api/feed/audiobooks/?format=json&extended=1&author=Carroll&limit=100&offset=0&fields={id,url_iarchive,sections,description}` | matched path: LibriVox id 200 lists `alice_in_wonderland_librivox` |
-| `archive_1891_metadata.json` | `https://archive.org/metadata/1891_collection_bt_librivox` | fallback path (creator "Various") |
-| `librivox_author_various.json` | `https://librivox.org/api/feed/audiobooks/?format=json&extended=1&author=Various&limit=100&offset=0&fields={id,url_iarchive,sections,description}` | fallback path: no entry for `1891_collection_bt_librivox` |
+| `archive_1891_metadata.json` | `https://archive.org/metadata/1891_collection_bt_librivox` | fallback path: creator "Various" skips the LibriVox lookup |
+| `librivox_author_various.json` | `https://librivox.org/api/feed/audiobooks/?format=json&extended=1&author=Various&limit=100&offset=0&fields={id,url_iarchive,sections,description}` | a real short page that doesn't list Alice: no-match path and the 7-day negative mapping |
 | `not_found.json` | `https://librivox.org/api/feed/audiobooks/?format=json&extended=1&title=^zzzqq` (HTTP 404, recorded 2026-10-21) | a LibriVox ID that no longer exists |
 
 ### Hand edits

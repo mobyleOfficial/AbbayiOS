@@ -9,17 +9,26 @@ import XCTest
 final class ArchiveSearchQueryTests: XCTestCase {
     private let catalog = "collection:librivoxaudio AND mediatype:audio"
 
-    func test_search_joinsTermsWithAND_overTitleAndCreator_lastTermAsPrefix() {
+    func test_search_eachTermInTitleOrCreator_joinedWithAND_lastTermAsPrefix() {
         XCTAssertEqual(
             ArchiveSearchQuery.search("The Time Machine"),
-            "\(catalog) AND (title:(the AND time AND machine*) OR creator:(the AND time AND machine*))"
+            "\(catalog) AND (title:the OR creator:the) AND (title:time OR creator:time)"
+                + " AND (title:machine* OR creator:machine*)"
+        )
+    }
+
+    /// A title word and an author word together: neither field holds both.
+    func test_search_mixesTitleAndCreatorTerms() {
+        XCTAssertEqual(
+            ArchiveSearchQuery.search("Alice Carroll"),
+            "\(catalog) AND (title:alice OR creator:alice) AND (title:carroll* OR creator:carroll*)"
         )
     }
 
     func test_search_singleTerm() {
         XCTAssertEqual(
             ArchiveSearchQuery.search("wonderland"),
-            "\(catalog) AND (title:(wonderland*) OR creator:(wonderland*))"
+            "\(catalog) AND (title:wonderland* OR creator:wonderland*)"
         )
     }
 
@@ -45,7 +54,7 @@ final class ArchiveSearchQueryTests: XCTestCase {
     func test_search_userWildcardIsEscaped_onlyOurPrefixWildcardIsLive() {
         XCTAssertEqual(
             ArchiveSearchQuery.search("al*"),
-            #"\#(catalog) AND (title:(al\**) OR creator:(al\**))"#
+            #"\#(catalog) AND (title:al\** OR creator:al\**)"#
         )
     }
 
@@ -62,7 +71,7 @@ final class ArchiveSearchQueryTests: XCTestCase {
         XCTAssertEqual(ArchiveSearchQuery.terms(in: "Война и мир"), ["война", "и", "мир"])
         XCTAssertEqual(
             ArchiveSearchQuery.search("Dom Casmurro"),
-            "\(catalog) AND (title:(dom AND casmurro*) OR creator:(dom AND casmurro*))"
+            "\(catalog) AND (title:dom OR creator:dom) AND (title:casmurro* OR creator:casmurro*)"
         )
     }
 

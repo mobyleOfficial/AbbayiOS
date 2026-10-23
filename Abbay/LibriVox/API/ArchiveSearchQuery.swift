@@ -20,15 +20,16 @@ enum ArchiveSearchQuery {
     /// Lucene's special characters. `+` is not here: it can't be sent escaped (see `terms(in:)`).
     private static let specialCharacters = Set(#"-&|!(){}[]^"~*?:\/"#)
 
-    /// Every term must match the title or the creator (archive.org's default is OR, which turns
-    /// "the time machine" into half the catalog). The last term also matches as a prefix, so
-    /// results keep up while the user is still typing a word. Nil when there's nothing to search.
+    /// Every term must match, each in the title or the creator, so "alice carroll" finds Alice
+    /// (archive.org's default is OR, which turns "the time machine" into half the catalog). The
+    /// last term also matches as a prefix, so results keep up while the user is still typing a
+    /// word. Nil when there's nothing to search.
     static func search(_ text: String) -> String? {
         var terms = terms(in: text)
         guard let last = terms.popLast() else { return nil }
         terms.append(last + "*")
-        let clause = terms.joined(separator: " AND ")
-        return "\(catalog) AND (title:(\(clause)) OR creator:(\(clause)))"
+        let clauses = terms.map { "(title:\($0) OR creator:\($0))" }
+        return "\(catalog) AND " + clauses.joined(separator: " AND ")
     }
 
     /// The session-cache key: two queries that build the same search share it.

@@ -23,6 +23,8 @@ public protocol NetworkRequestProtocol {
     var headers: [String: String]? { get }
     /// Cache policy of the URL request.
     var cachePolicy: URLRequest.CachePolicy { get }
+    /// Seconds without data before the request fails with a timeout; nil keeps the session's default.
+    var timeoutInterval: TimeInterval? { get }
     /// Decoder used for typed responses.
     var decoder: JSONDecoder { get }
 }
@@ -32,4 +34,6 @@ public extension NetworkRequestProtocol {
     var cachePolicy: URLRequest.CachePolicy { .useProtocolCachePolicy }
     /// Defaults to no path parameters.
     var pathParams: [String: String]? { nil }
+    /// Defaults to the session's timeout.
+    var timeoutInterval: TimeInterval? { nil }
 }

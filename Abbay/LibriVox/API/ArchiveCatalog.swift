@@ -35,14 +35,25 @@ enum ArchiveCatalog {
     }
 
     /// The name LibriVox's `author=` filter matches: "Lewis Carroll" and "Carroll, Lewis" are both
-    /// "Carroll". Nil for a missing or blank creator.
+    /// "Carroll"; generational suffixes are skipped, so "Martin Luther King, Jr." is "King". Nil for
+    /// a missing or blank creator.
     static func lastName(of creator: String?) -> String? {
-        guard let creator = creator?.trimmingCharacters(in: .whitespaces), !creator.isEmpty else { return nil }
-        if let comma = creator.firstIndex(of: ",") {
-            let surname = creator[..<comma].trimmingCharacters(in: .whitespaces)
-            return surname.isEmpty ? nil : surname
+        let parts = (creator ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !isNameSuffix($0) }
+        guard let first = parts.first else { return nil }
+        var words = first.split(whereSeparator: \.isWhitespace).map(String.init)
+        // "Carroll, Lewis": the part before the comma is the surname.
+        if parts.count > 1 { return words.joined(separator: " ") }
+        while words.count > 1, let last = words.last, isNameSuffix(last) {
+            words.removeLast()
         }
-        return creator.split(separator: " ").last.map(String.init)
+        return words.last
+    }
+
+    private static func isNameSuffix(_ word: String) -> Bool {
+        ["jr", "jr.", "sr", "sr.", "ii", "iii", "iv"].contains(word.lowercased())
     }
 
     /// `"3/12"` and `"3"` are both 3.

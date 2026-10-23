@@ -226,6 +226,22 @@ final class NetworkProviderTests: XCTestCase {
 
         XCTAssertEqual(URLProtocolMock.request?.cachePolicy, .reloadIgnoringLocalCacheData)
     }
+
+    func testTimeoutIntervalIsForwarded_andDefaultsToURLRequestDefault() async throws {
+        URLProtocolMock.data = Data()
+        URLProtocolMock.response = HTTPURLResponse(
+            url: URL(string: #file)!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+
+        _ = try await sut.makeRequest(NetworkRequest(endpoint: #file, timeoutInterval: 5))
+        XCTAssertEqual(URLProtocolMock.request?.timeoutInterval, 5)
+
+        _ = try await sut.makeRequest(NetworkRequest(endpoint: #file))
+        XCTAssertEqual(URLProtocolMock.request?.timeoutInterval, URLRequest(url: URL(string: #file)!).timeoutInterval)
+    }
 }
 
 private struct DecodableTest: Decodable {

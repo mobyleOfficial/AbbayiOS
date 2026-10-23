@@ -23,6 +23,9 @@ enum URLRequestBuilder {
         }
 
         var urlRequest = URLRequest(url: url, cachePolicy: request.cachePolicy)
+        if let timeout = request.timeoutInterval {
+            urlRequest.timeoutInterval = timeout
+        }
         urlRequest.httpMethod = request.httpMethod.rawValue
         urlRequest.httpBody = request.body
         request.headers?.forEach { key, value in

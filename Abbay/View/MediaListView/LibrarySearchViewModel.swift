@@ -61,25 +61,27 @@ final class LibrarySearchViewModel: ObservableObject {
         publishRemote()
     }
 
-    /// The empty-query "Browse" state.
+    /// The empty-query "Browse" state. The client is asked even offline, because it serves its
+    /// cached list without the network; "offline" shows only when there is nothing to show.
     func loadPopular() async {
         guard trimmedQuery.isEmpty else { return }
         searchTask?.cancel()
         generation += 1
         let current = generation
-        guard path.isOnline else {
-            setRemote([], status: .offline)
-            return
-        }
+        let isOnline = path.isOnline
         setRemote([], status: .loading)
         do {
             let books = try await client.popular()
             guard current == generation else { return }
+            guard isOnline || !books.isEmpty else {
+                setRemote([], status: .offline)
+                return
+            }
             popularBooks = books
             setRemote(books, status: .loaded)
         } catch {
             guard current == generation else { return }
-            setRemote([], status: .failed)
+            setRemote([], status: isOnline ? .failed : .offline)
         }
     }
 

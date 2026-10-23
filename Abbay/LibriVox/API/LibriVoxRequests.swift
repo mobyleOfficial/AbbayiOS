@@ -19,6 +19,8 @@ enum LibriVoxRequests {
     /// Everything the mapping needs, and nothing else: `extended=1` without `fields` is slow.
     /// `description` is LibriVox's summary, which reads better than archive.org's boilerplate.
     static let feedFields = "{id,url_iarchive,sections,description}"
+    /// The feed only improves chapter titles, so the details page never waits long for it.
+    static let feedTimeout: TimeInterval = 5
 
     /// Most-downloaded first, for both search and popular.
     static func archiveSearch(query: String, rows: Int) -> NetworkRequest {
@@ -40,7 +42,7 @@ enum LibriVoxRequests {
     private static func feed(_ extra: [String: String]) -> NetworkRequest {
         var query = ["format": "json", "extended": "1", "fields": feedFields]
         query.merge(extra) { _, new in new }
-        return NetworkRequest(endpoint: feedEndpoint, queryParams: query)
+        return NetworkRequest(endpoint: feedEndpoint, queryParams: query, timeoutInterval: feedTimeout)
     }
 
     /// `author=` matches a last name.

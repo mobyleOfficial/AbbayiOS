@@ -123,14 +123,38 @@ final class LibrarySearchViewModelTests: XCTestCase {
         XCTAssertEqual(sut.remoteStatus, .loaded)
     }
 
-    func test_loadPopular_offline_setsOfflineWithoutRequest() async {
+    func test_loadPopular_offline_noCache_setsOffline() async {
         path.isOnline = false
         let sut = makeSUT()
+        client.popularResult = .failure(URLError(.notConnectedToInternet))
 
         await sut.loadPopular()
 
         XCTAssertEqual(sut.remoteStatus, .offline)
-        XCTAssertEqual(client.popularCalls, 0)
+        XCTAssertEqual(client.popularCalls, 1)
+        XCTAssertTrue(sut.remoteResults.isEmpty)
+    }
+
+    func test_loadPopular_offline_emptyList_setsOffline() async {
+        path.isOnline = false
+        let sut = makeSUT()
+        client.popularResult = .success([])
+
+        await sut.loadPopular()
+
+        XCTAssertEqual(sut.remoteStatus, .offline)
+    }
+
+    /// The client answers from its cache without the network.
+    func test_loadPopular_offline_withCachedPopular_showsIt() async {
+        path.isOnline = false
+        let sut = makeSUT()
+        client.popularResult = .success([book("7")])
+
+        await sut.loadPopular()
+
+        XCTAssertEqual(sut.remoteStatus, .loaded)
+        XCTAssertEqual(sut.remoteResults.map(\.id), ["7"])
     }
 
     func test_clearingQuery_afterBrowsing_restoresPopular() async {

@@ -69,6 +69,12 @@ final class ArchiveCatalogTests: XCTestCase {
         XCTAssertEqual(ArchiveCatalog.lastName(of: "Sir Arthur Conan Doyle"), "Doyle")
         XCTAssertEqual(ArchiveCatalog.lastName(of: "Homer"), "Homer")
         XCTAssertEqual(ArchiveCatalog.lastName(of: "Joaquim Maria Machado de Assis"), "Assis")
+        XCTAssertEqual(ArchiveCatalog.lastName(of: "Sammy Davis Jr."), "Davis")
+        XCTAssertEqual(ArchiveCatalog.lastName(of: "Martin Luther King, Jr."), "King")
+        XCTAssertEqual(ArchiveCatalog.lastName(of: "Henry Ford II"), "Ford")
+        XCTAssertEqual(ArchiveCatalog.lastName(of: "Oliver Wendell Holmes, Sr."), "Holmes")
+        XCTAssertEqual(ArchiveCatalog.lastName(of: "Lewis Carroll,"), "Carroll")
+        XCTAssertNil(ArchiveCatalog.lastName(of: ","))
         XCTAssertNil(ArchiveCatalog.lastName(of: nil))
         XCTAssertNil(ArchiveCatalog.lastName(of: "  "))
     }
