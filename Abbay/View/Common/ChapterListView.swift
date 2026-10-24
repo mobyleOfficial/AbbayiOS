@@ -35,6 +35,8 @@ struct ChapterListView: View {
     let rowIdentifier: (Int) -> String
     /// Rows are tappable only when set.
     var onSelect: ((Int) -> Void)?
+    /// The details screen's collapse from the list's top (iOS 18+, `.list` layout only).
+    var listCollapse: ExpansionListCollapse?
 
     private var spacing: CGFloat { SpaceConstants.sx16.value }
 
@@ -94,6 +96,7 @@ struct ChapterListView: View {
                 }
             }
             .listStyle(.plain)
+            .modifier(ListCollapseModifier(handler: listCollapse))
         case .stack:
             LazyVStack(spacing: 0) {
                 ForEach(items, id: \.offset) { index, chapter in

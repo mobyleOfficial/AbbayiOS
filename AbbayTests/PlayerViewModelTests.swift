@@ -115,6 +115,27 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(player.forwardSeconds, [15])
     }
 
+    /// Ruling 14: the overlay draws the growing cover and the tint from the same model the details
+    /// content uses, one per presented book, so after a switch to B they show B's art, not A's.
+    func test_detailsModels_oneModelPerBook_followingTheLoadedBook() {
+        let book = ViewModelSupport.chaptered()
+        let state = loadedState(book)
+        let models = PlayerDetailsModels()
+
+        let model = models.model(for: book, state: state, player: nil, downloads: nil)
+        XCTAssertEqual(model.book.url, book.url)
+        var switched = otherBook()
+        switched.imageData = Data([1, 2, 3])
+        state.setLoadedBook(switched)
+
+        let again = models.model(for: book, state: state, player: nil, downloads: nil)
+        XCTAssertTrue(again === model, "the same model for the same presented book")
+        XCTAssertEqual(ExpansionArt.book(for: again).url, otherURL)
+        XCTAssertEqual(ExpansionArt.book(for: again).imageData, Data([1, 2, 3]))
+        let next = models.model(for: otherBook(), state: state, player: nil, downloads: nil)
+        XCTAssertFalse(next === model, "another presented book gets its own model")
+    }
+
     // MARK: - The hard rule
 
     func test_playerViewModel_makesNoPlayerSubscriptions() {

@@ -164,8 +164,49 @@ final class MiniPlayerUITests: XCTestCase {
 
         start.press(forDuration: 0.1, thenDragTo: end)
 
-        XCTAssertTrue(element(AccessibilityID.MiniPlayer.bar).waitForExistence(timeout: 10), "the bar did not come back")
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
         XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+    }
+
+    /// iOS 18+: with the chapter list resting at its top, dragging it down collapses the screen.
+    func test_draggingChapterListDown_atItsTop_collapses() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        element(AccessibilityID.MiniPlayer.bar).tap()
+        waitForPlayerToArrive()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5), "not settled open")
+        let row = element(AccessibilityID.Player.chapter(0))
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
+
+        // The list's top row sits low on the screen, so the finger can't travel 30% from there:
+        // a downward flick faster than 800 pt/s collapses it, as the thresholds say. (The default
+        // drag eases out to ~0 pt/s, which settles back open.)
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: 3000, thenHoldForDuration: 0)
+
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
+        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the list drag did not collapse the screen")
+    }
+
+    /// iOS 18+: a short, slow drag down the chapter list at its top moves the screen under the
+    /// finger and, released short of 30%, settles back open. Also the recorded list scenario.
+    func test_shortSlowListDrag_settlesBackOpen() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        element(AccessibilityID.MiniPlayer.bar).tap()
+        waitForPlayerToArrive()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5), "not settled open")
+        let row = element(AccessibilityID.Player.chapter(0))
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: 150))
+
+        start.press(forDuration: 0.2, thenDragTo: end, withVelocity: 120, thenHoldForDuration: 1)
+
+        sleep(1)
+        XCTAssertTrue(transportPlay.exists, "a 150 pt drag must not collapse the screen")
+        XCTAssertFalse(bar.exists, "settled open again: the bar stays hidden")
     }
 
     /// A short, slow drag stays under 30% of the travel: released, it settles back into the bar.

@@ -110,19 +110,18 @@ struct MiniPlayerView: View {
     private var barGesture: some Gesture {
         DragGesture(minimumDistance: SpaceConstants.sx12.value, coordinateSpace: .global)
             .onChanged { [drag, presentation, playback] value in
-                if drag.axis == nil {
-                    drag.axis = ExpansionMath.isVerticalDrag(value.translation) ? .vertical : .horizontal
-                }
-                guard drag.axis == .vertical else { return }
+                guard drag.axis(for: value.translation, startLocation: value.startLocation) == .vertical else { return }
                 drag.expansion.changed(
                     translationY: value.translation.height,
+                    startLocation: value.startLocation,
                     presentation: presentation,
-                    book: playback.loadedBook
+                    book: playback.loadedBook,
+                    time: value.time.timeIntervalSinceReferenceDate
                 )
             }
             .onEnded { [drag, presentation] value in
-                let axis = drag.axis
-                drag.axis = nil
+                let axis = drag.axis(for: value.translation, startLocation: value.startLocation)
+                drag.reset()
                 if axis == .vertical {
                     drag.expansion.ended(velocityY: value.velocity.height, presentation: presentation)
                 } else if let swipe = MiniPlayerActions.swipe(for: value.translation) {
@@ -166,7 +165,10 @@ struct MiniPlayerView: View {
 // MARK: - Drag bookkeeping
 
 /// Which way the bar's current drag goes, and its expansion state. Not observed: the gesture
-/// writes it on every event, and nothing renders from it.
+/// writes it on every event, and nothing renders from it. The axis is decided on a gesture's
+/// first event and kept for that gesture only: `DragGesture` calls no `onEnded` when the system
+/// cancels it, so a new start location means a new gesture. A cancelled expansion is settled by
+/// the overlay when the scene goes inactive (`PlayerPresentation.cancelInteractive`).
 @MainActor
 final class BarDrag {
     enum Axis {
@@ -174,8 +176,22 @@ final class BarDrag {
         case horizontal
     }
 
-    var axis: Axis?
     let expansion = ExpansionDrag()
+    private var axis: Axis?
+    private var startLocation: CGPoint?
+
+    func axis(for translation: CGSize, startLocation: CGPoint) -> Axis {
+        if let axis, self.startLocation == startLocation { return axis }
+        let decided: Axis = ExpansionMath.isVerticalDrag(translation) ? .vertical : .horizontal
+        axis = decided
+        self.startLocation = startLocation
+        return decided
+    }
+
+    func reset() {
+        axis = nil
+        startLocation = nil
+    }
 }
 
 // MARK: - Swipe feedback

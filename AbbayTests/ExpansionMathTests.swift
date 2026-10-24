@@ -64,6 +64,34 @@ final class ExpansionMathTests: XCTestCase {
         XCTAssertFalse(ExpansionMath.isVerticalDrag(CGSize(width: 12, height: 12)))
     }
 
+    // MARK: - Release velocity
+
+    /// A synthesized (or hesitant) last sample can make the reported velocity near 0 on a flick:
+    /// the release uses the faster of it and the last 60 ms of samples (seen on iOS 18.5).
+    func test_releaseVelocity_recoversAFlickWithAStationaryLastSample() {
+        let samples: [(time: TimeInterval, translationY: CGFloat)] = [
+            (0.000, 47), (0.023, 103.3), (0.032, 158.7), (0.049, 201.3), (0.066, 202.7)
+        ]
+
+        let velocity = ExpansionMath.releaseVelocity(reported: 59, samples: samples)
+
+        XCTAssertGreaterThan(velocity, ExpansionMath.flickVelocity)
+    }
+
+    /// A finger that stopped before lifting is a slow release, whatever came before.
+    func test_releaseVelocity_keepsASlowStop() {
+        let samples: [(time: TimeInterval, translationY: CGFloat)] = [
+            (0.0, 0), (0.1, 150), (0.5, 151), (0.6, 151)
+        ]
+
+        XCTAssertEqual(ExpansionMath.releaseVelocity(reported: 5, samples: samples), 5)
+    }
+
+    func test_releaseVelocity_keepsTheReportedOneWhenFaster() {
+        XCTAssertEqual(ExpansionMath.releaseVelocity(reported: -2000, samples: [(0, 0), (0.05, -20)]), -2000)
+        XCTAssertEqual(ExpansionMath.releaseVelocity(reported: 300, samples: []), 300)
+    }
+
     // MARK: - Interpolation
 
     func test_interpolate_midpoint() {

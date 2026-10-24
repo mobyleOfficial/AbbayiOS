@@ -262,6 +262,23 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(sut.expansionStart, barFrame)
     }
 
+    /// Ruling 14: opened with no bar (the bottom strip), then Play loads the book while it's open.
+    /// The collapse lands on the real bar, re-snapshotted when it starts.
+    func test_collapse_afterOpeningWithoutABar_landsOnTheBar() throws {
+        let state = PlaybackState()
+        let sut = PlayerPresentation(playback: state)
+        sut.reportScreenSize(screen)
+        sut.open(other, animated: false)
+        XCTAssertNil(sut.expansionStart)
+        state.setLoadedBook(other)
+        sut.reportBarFrame(barFrame, screenHeight: screen.height)
+
+        let start = try XCTUnwrap(sut.beginInteractive())
+
+        XCTAssertEqual(sut.expansionStart, barFrame)
+        XCTAssertEqual(start.travel, barFrame.minY)
+    }
+
     /// Interruptible: grabbing mid-spring continues from what is on screen, not from the target,
     /// and the interrupted settle no longer completes.
     func test_grabMidSpring_continuesFromTheRenderedProgress() async throws {

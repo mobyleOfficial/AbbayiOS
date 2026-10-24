@@ -30,8 +30,12 @@ struct PlayerExpansionOverlay: View {
     private var center
     @Environment(\.downloadStateStore)
     private var downloads
+    @Environment(\.scenePhase)
+    private var scenePhase
     @State
     private var geometry = ExpansionGeometry()
+    @State
+    private var models = PlayerDetailsModels()
 
     var body: some View {
         GeometryReader { outer in
@@ -44,6 +48,11 @@ struct PlayerExpansionOverlay: View {
         }
         .ignoresSafeArea(.keyboard)
         .allowsHitTesting(presentation.presentedBook != nil)
+        .onChange(of: scenePhase) { _, phase in
+            // An incoming call cancels the gesture with no `onEnded`: settle any drag in flight,
+            // including one that started on the bar (which can't watch its own gesture's reset).
+            if phase != .active { presentation.cancelInteractive() }
+        }
     }
 
     private func stage(screen: CGSize, insets: EdgeInsets) -> some View {
@@ -53,12 +62,19 @@ struct PlayerExpansionOverlay: View {
                     presentation.reportScreenSize(screen)
                 }
             if let book = presentation.presentedBook {
+                let model = models.model(
+                    for: book,
+                    state: playback,
+                    player: center?.player,
+                    downloads: downloads
+                )
                 ExpansionStage(
                     book: book,
+                    model: model,
                     screen: screen,
                     insets: insets,
                     geometry: geometry,
-                    details: details(book, screen: screen, insets: insets)
+                    details: details(book, model: model, screen: screen, insets: insets)
                 )
             }
         }
@@ -67,18 +83,17 @@ struct PlayerExpansionOverlay: View {
 
     /// The details screen at full-screen size, always: the panel clips it rather than resizing it,
     /// so a drag moves it without laying it out again.
-    private func details(_ book: AudioModel, screen: CGSize, insets: EdgeInsets) -> some View {
+    private func details(
+        _ book: AudioModel,
+        model: PlayerViewModel,
+        screen: CGSize,
+        insets: EdgeInsets
+    ) -> some View {
         VStack(spacing: 0) {
             // The status bar, then the grabber header (drawn above, in `ExpansionLayout`).
             Color.clear
                 .frame(height: insets.top + ExpansionMetrics.headerHeight)
-            PlayerView(
-                book,
-                state: playback,
-                player: center?.player,
-                downloads: downloads,
-                onCoverFrame: { [geometry] in geometry.setCoverFrame($0) }
-            )
+            PlayerView(model: model, onCoverFrame: { [geometry] in geometry.setCoverFrame($0) })
             .id(book.url)
         }
         .padding(.bottom, insets.bottom)
@@ -114,30 +129,85 @@ final class ExpansionGeometry {
     }
 }
 
+// MARK: - Models
+
+/// One `PlayerViewModel` per presented book, shared by the details screen and the expansion's
+/// cover and tint, so all of them follow the loaded book after a switch (Siri, CarPlay). Built in
+/// the overlay's body; the view model reads no state in `init`, so that body doesn't start
+/// depending on `loadedBook`.
+@MainActor
+final class PlayerDetailsModels {
+    private var current: PlayerViewModel?
+    private var currentURL: URL?
+
+    func model(
+        for book: AudioModel,
+        state: PlaybackState,
+        player: PlayerProtocol?,
+        downloads: DownloadStateStore?
+    ) -> PlayerViewModel {
+        if let current, currentURL == book.url { return current }
+        let model = PlayerViewModel(book, state: state, player: player, downloads: downloads)
+        current = model
+        currentURL = book.url
+        return model
+    }
+}
+
+/// Which book the expansion's growing cover and tint show: the one the details screen shows.
+enum ExpansionArt {
+    @MainActor
+    static func book(for model: PlayerViewModel) -> AudioModel {
+        model.book
+    }
+}
+
 // MARK: - Drag
 
-/// One drag of the expansion, from the bar or from the panel: maps the vertical translation to
-/// progress from where the screen was when the finger landed, and settles on release. A plain
-/// class held in `@State`: writing it never re-renders the view carrying the gesture.
+/// One drag of the expansion, from the bar, the panel or the chapter list: maps the vertical
+/// translation to progress from where the screen was when the finger landed, and settles on
+/// release. A plain class held in `@State`: writing it never re-renders the view carrying the
+/// gesture.
+///
+/// `DragGesture` calls no `onEnded` when the system cancels a gesture, so a drag never trusts
+/// its leftovers: an event with another start location is a new gesture, and an interaction the
+/// presentation ended elsewhere is over. Either way the next event begins a new interaction.
 @MainActor
 final class ExpansionDrag {
     private var start: PlayerPresentation.InteractiveStart?
+    private var startLocation: CGPoint?
     /// The translation at the first event. The gesture reports only after its minimum distance;
     /// measuring from there keeps the screen from jumping by that distance when it starts.
     private var origin: CGFloat = 0
     private var latest: CGFloat = 0
+    /// Recent (time, translation) samples, for `ExpansionMath.releaseVelocity`.
+    private var samples: [(time: TimeInterval, translationY: CGFloat)] = []
 
     var isActive: Bool { start != nil }
 
     /// `book` is the loaded book for a drag from the bar, nil for a drag on the open screen.
-    func changed(translationY: CGFloat, presentation: PlayerPresentation, book: AudioModel?) {
+    func changed(
+        translationY: CGFloat,
+        startLocation: CGPoint,
+        presentation: PlayerPresentation,
+        book: AudioModel?,
+        time: TimeInterval = Date.timeIntervalSinceReferenceDate
+    ) {
+        if let current = start,
+           self.startLocation != startLocation || !presentation.isInteracting(current.id) {
+            start = nil
+        }
         if start == nil {
             guard let begun = presentation.beginInteractive(book) else { return }
             start = begun
+            self.startLocation = startLocation
             origin = translationY
             latest = begun.progress
+            samples.removeAll(keepingCapacity: true)
         }
         guard let start else { return }
+        samples.append((time, translationY))
+        if samples.count > 12 { samples.removeFirst(samples.count - 12) }
         latest = ExpansionMath.progress(
             start: start.progress,
             translationY: translationY - origin,
@@ -149,14 +219,154 @@ final class ExpansionDrag {
     /// Settles by the spec thresholds, read in the direction the finger moved: up from where it
     /// landed is opening, down is closing.
     func ended(velocityY: CGFloat, presentation: PlayerPresentation) {
-        guard let start else { return }
-        self.start = nil
+        let velocity = ExpansionMath.releaseVelocity(reported: velocityY, samples: samples)
+        guard let start = finish(presentation) else { return }
         let open = ExpansionMath.shouldOpen(
             progress: latest,
-            velocityY: velocityY,
+            velocityY: velocity,
             wasOpening: latest > start.progress
         )
         presentation.endInteractive(open: open)
+    }
+
+    /// The gesture reset without ending (the system cancelled it): settle as a release with no
+    /// speed.
+    func cancel(presentation: PlayerPresentation) {
+        guard let start = finish(presentation) else { return }
+        let open = ExpansionMath.shouldOpen(progress: latest, velocityY: 0, wasOpening: latest > start.progress)
+        presentation.endInteractive(open: open)
+    }
+
+    /// Clears this drag; returns its start if its interaction is still the one in flight.
+    private func finish(_ presentation: PlayerPresentation) -> PlayerPresentation.InteractiveStart? {
+        defer {
+            start = nil
+            startLocation = nil
+            samples.removeAll(keepingCapacity: true)
+        }
+        guard let start, presentation.isInteracting(start.id) else { return nil }
+        return start
+    }
+}
+
+// MARK: - Collapse from the chapter list
+
+/// The chapter list's collapse (iOS 18+, where `onScrollGeometryChange` tells where the list
+/// is): a downward drag that starts while the list rests at its top collapses the screen, and the
+/// list stops scrolling for that gesture. Any other drag scrolls the list. Decided once per
+/// gesture, on its first event. On iOS 17 the list carries none of this: the header and the cover
+/// are the only collapse handles there.
+@MainActor
+@Observable
+final class ExpansionListCollapse {
+    /// True while a gesture collapses the screen; the list disables its scrolling meanwhile.
+    private(set) var isEngaged = false
+    /// The list's offset from its top resting position, reported by the list. Not observed.
+    @ObservationIgnored var listOffset: CGFloat = 0
+    @ObservationIgnored private let presentation: PlayerPresentation
+    @ObservationIgnored private let drag = ExpansionDrag()
+    @ObservationIgnored private var decidedFor: CGPoint?
+
+    init(presentation: PlayerPresentation) {
+        self.presentation = presentation
+    }
+
+    func changed(
+        translation: CGSize,
+        startLocation: CGPoint,
+        time: TimeInterval = Date.timeIntervalSinceReferenceDate
+    ) {
+        if decidedFor != startLocation {
+            decidedFor = startLocation
+            let engage = presentation.isFullyOpen
+                && translation.height > 0
+                && ExpansionMath.isVerticalDrag(translation)
+                && ExpansionMath.canStartCollapse(listOffset: listOffset, fromHeader: false)
+            setEngaged(engage)
+        }
+        guard isEngaged else { return }
+        drag.changed(
+            translationY: translation.height,
+            startLocation: startLocation,
+            presentation: presentation,
+            book: nil,
+            time: time
+        )
+    }
+
+    func ended(velocityY: CGFloat) {
+        if isEngaged { drag.ended(velocityY: velocityY, presentation: presentation) }
+        reset()
+    }
+
+    /// The gesture reset without ending.
+    func cancel() {
+        if isEngaged { drag.cancel(presentation: presentation) }
+        reset()
+    }
+
+    private func reset() {
+        decidedFor = nil
+        setEngaged(false)
+    }
+
+    private func setEngaged(_ value: Bool) {
+        if isEngaged != value { isEngaged = value }
+    }
+}
+
+/// Attaches the list collapse to the details screen's chapter `List` on iOS 18+; nothing on
+/// iOS 17 or without a handler (the LibriVox page's list).
+struct ListCollapseModifier: ViewModifier {
+    let handler: ExpansionListCollapse?
+
+    @GestureState
+    private var isDragging = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *), let handler {
+            content
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.contentOffset.y + geometry.contentInsets.top
+                } action: { _, offset in
+                    handler.listOffset = offset
+                }
+                .scrollDisabled(handler.isEngaged)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: SpaceConstants.sx8.value, coordinateSpace: .global)
+                        .updating($isDragging) { _, state, _ in state = true }
+                        .onChanged { value in
+                            handler.changed(
+                                translation: value.translation,
+                                startLocation: value.startLocation,
+                                time: value.time.timeIntervalSinceReferenceDate
+                            )
+                        }
+                        .onEnded { value in
+                            handler.ended(velocityY: value.velocity.height)
+                        }
+                )
+                .onChange(of: isDragging) { _, dragging in
+                    guard !dragging else { return }
+                    // After a normal end `onEnded` has run (or runs next): only a reset with no
+                    // end finds the gesture still engaged.
+                    DispatchQueue.main.async { handler.cancel() }
+                }
+        } else {
+            content
+        }
+    }
+}
+
+private struct ExpansionListCollapseKey: EnvironmentKey {
+    static let defaultValue: ExpansionListCollapse? = nil
+}
+
+extension EnvironmentValues {
+    /// Set on the details screen by the expansion; read by its chapter list.
+    var expansionListCollapse: ExpansionListCollapse? {
+        get { self[ExpansionListCollapseKey.self] }
+        set { self[ExpansionListCollapseKey.self] = newValue }
     }
 }
 
@@ -166,6 +376,7 @@ final class ExpansionDrag {
 /// SwiftUI interpolates frame by frame while the settle animates. Owns the panel's drag.
 private struct ExpansionStage<Details: View>: View {
     let book: AudioModel
+    let model: PlayerViewModel
     let screen: CGSize
     let insets: EdgeInsets
     let geometry: ExpansionGeometry
@@ -175,11 +386,15 @@ private struct ExpansionStage<Details: View>: View {
     private var presentation
     @State
     private var drag = ExpansionDrag()
+    /// Built once per stage (the presentation is the app's one instance).
+    @State
+    private var listCollapse: ExpansionListCollapse?
 
     var body: some View {
         ExpansionLayout(
             progress: presentation.progress,
             book: book,
+            model: model,
             screen: screen,
             insets: insets,
             start: presentation.expansionStart,
@@ -187,8 +402,12 @@ private struct ExpansionStage<Details: View>: View {
             geometry: geometry,
             presentation: presentation,
             drag: drag,
+            listCollapse: listCollapse,
             details: details
         )
+        .onAppear {
+            if listCollapse == nil { listCollapse = ExpansionListCollapse(presentation: presentation) }
+        }
     }
 }
 
@@ -199,6 +418,7 @@ private struct ExpansionStage<Details: View>: View {
 private struct ExpansionLayout<Details: View>: View, Animatable {
     var progress: CGFloat
     let book: AudioModel
+    let model: PlayerViewModel
     let screen: CGSize
     let insets: EdgeInsets
     let start: CGRect?
@@ -206,10 +426,14 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     let geometry: ExpansionGeometry
     let presentation: PlayerPresentation
     let drag: ExpansionDrag
+    let listCollapse: ExpansionListCollapse?
     let details: Details
 
     @Environment(\.accessibilityReduceMotion)
     private var reduceMotion
+    /// Resets when the panel's drag ends or is cancelled; a reset with no `onEnded` settles.
+    @GestureState
+    private var isPanelDragging = false
 
     var animatableData: CGFloat {
         get { progress }
@@ -244,6 +468,14 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { presentation.close(animated: true) }
+        .onChange(of: isPanelDragging) { _, dragging in
+            guard !dragging else { return }
+            // After a normal end `onEnded` has run (or runs next) and cleared the drag; only a
+            // gesture the system cancelled leaves it active.
+            DispatchQueue.main.async { [drag, presentation] in
+                if drag.isActive { drag.cancel(presentation: presentation) }
+            }
+        }
     }
 
     /// Tells the presentation what is on screen, for a grab mid-spring; returns it clamped.
@@ -257,21 +489,26 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     private func panel(frame: CGRect, startFrame: CGRect, corner: CGFloat, fraction: CGFloat) -> some View {
         let barOpacity = reduceMotion ? 0 : ExpansionMath.barContentOpacity(fraction)
         let detailsOpacity = reduceMotion ? 1 : ExpansionMath.detailsOpacity(fraction)
+        // The book the details screen shows: after a switch while open, the loaded one.
+        let art = ExpansionArt.book(for: model)
+        let isCollapsingFromList = listCollapse?.isEngaged ?? false
         return ZStack(alignment: .topLeading) {
             ColorConstants.onyx.value
-            Color(uiColor: CoverTint.cached(for: book))
+            Color(uiColor: CoverTint.cached(for: art))
                 .opacity(barOpacity)
             // The panel's left edge moves; the details screen stays where it will land.
             details
                 .environment(\.expansionDrawsPlayerCover, !isFullyOpen)
+                .environment(\.expansionListCollapse, listCollapse)
                 .offset(x: -frame.minX)
                 .opacity(detailsOpacity)
                 // Only once settled: while moving, its off-panel parts must not take touches.
-                .allowsHitTesting(isFullyOpen)
+                // A collapse dragged from the chapter list keeps it, so that gesture survives.
+                .allowsHitTesting(isFullyOpen || isCollapsingFromList)
             // Only while visible: its subtitle and progress line read the clock, which must not
             // tick under the open details screen.
             if barOpacity > 0 {
-                MiniPlayerFace(book: book, isAccessory: startsInAccessory)
+                MiniPlayerFace(book: art, isAccessory: startsInAccessory)
                     .frame(width: startFrame.width, height: startFrame.height)
                     .offset(x: startFrame.minX - frame.minX)
                     .opacity(barOpacity)
@@ -307,6 +544,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     /// a transparent handle over it.
     private func cover(frame: CGRect, startFrame: CGRect, fraction: CGFloat) -> some View {
         let target = geometry.coverFrame ?? defaultCoverFrame
+        let art = ExpansionArt.book(for: model)
         let side = ExpansionMetrics.barCoverSide
         let leading = startsInAccessory ? SpaceConstants.sx12.value : SpaceConstants.sx8.value
         // Interpolated in the panel's own coordinates, so the cover rides with the panel's top edge
@@ -321,7 +559,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             : ExpansionMath.lerp(ExpansionMetrics.barCoverRadius, PlayerView.coverRadius, fraction)
         return ZStack {
             if !isFullyOpen {
-                DataImageView(data: book.imageData)
+                DataImageView(data: art.imageData)
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: radius))
             }
@@ -351,10 +589,17 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     /// moves. Global coordinates, because the panel moves under the finger.
     private var panelDrag: some Gesture {
         DragGesture(minimumDistance: SpaceConstants.sx8.value, coordinateSpace: .global)
+            .updating($isPanelDragging) { _, state, _ in state = true }
             .onChanged { [drag, presentation] value in
-                // Only the header, the cover and the moving panel carry this drag. The chapter list
-                // doesn't, so it scrolls and a collapse never starts inside it.
-                drag.changed(translationY: value.translation.height, presentation: presentation, book: nil)
+                // The header, the cover and the moving panel carry this drag; the chapter list has
+                // its own (`ExpansionListCollapse`, iOS 18+).
+                drag.changed(
+                    translationY: value.translation.height,
+                    startLocation: value.startLocation,
+                    presentation: presentation,
+                    book: nil,
+                    time: value.time.timeIntervalSinceReferenceDate
+                )
             }
             .onEnded { [drag, presentation] value in
                 drag.ended(velocityY: value.velocity.height, presentation: presentation)

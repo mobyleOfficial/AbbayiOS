@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import Foundation
 
 /// The pure half of the mini player's expansion into the details screen: how a vertical drag maps
 /// to a 0…1 progress, whether a release settles open, when a collapse may start, and how the frame,
@@ -42,6 +43,24 @@ enum ExpansionMath {
     /// chapter swipe otherwise.
     static func isVerticalDrag(_ translation: CGSize) -> Bool {
         abs(translation.height) > abs(translation.width)
+    }
+
+    /// How far back `releaseVelocity` looks.
+    static let releaseWindow: TimeInterval = 0.06
+
+    /// The release speed: the gesture's reported velocity, or the speed over the last 60 ms of
+    /// samples when that is faster. A stationary sample right before the lift (a synthesized drag,
+    /// or a finger that hesitates for one frame) can drop the reported velocity of a flick to near
+    /// 0; a finger that really stopped has slow samples too, so it stays slow.
+    static func releaseVelocity(
+        reported: CGFloat,
+        samples: [(time: TimeInterval, translationY: CGFloat)]
+    ) -> CGFloat {
+        guard let last = samples.last,
+              let first = samples.first(where: { last.time - $0.time <= releaseWindow }),
+              last.time > first.time else { return reported }
+        let windowed = (last.translationY - first.translationY) / CGFloat(last.time - first.time)
+        return abs(windowed) > abs(reported) ? windowed : reported
     }
 
     /// Linear interpolation between two rects; `fraction` 0 gives `from`, 1 gives `to`.

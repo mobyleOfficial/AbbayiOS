@@ -16,8 +16,8 @@ import SwiftUI
 /// - `PlayerChapters` reads `PlaybackClock.currentChapter`, so it re-renders per chapter.
 struct PlayerView: View {
     // MARK: - Properties
-    @State
-    private var model: PlayerViewModel
+    /// Shared with the expansion, which draws the growing cover and tint from the same book.
+    private let model: PlayerViewModel
     /// The expansion draws the cover itself while it grows from the bar, landing exactly where
     /// this view lays it out; meanwhile the space stays and only the image is hidden.
     @Environment(\.expansionDrawsPlayerCover)
@@ -31,14 +31,8 @@ struct PlayerView: View {
     static let coverRadius: CGFloat = SpaceConstants.sx32.value
 
     // MARK: - Inits
-    init(
-        _ book: AudioModel,
-        state: PlaybackState,
-        player: PlayerProtocol?,
-        downloads: DownloadStateStore?,
-        onCoverFrame: ((CGRect) -> Void)? = nil
-    ) {
-        _model = State(initialValue: PlayerViewModel(book, state: state, player: player, downloads: downloads))
+    init(model: PlayerViewModel, onCoverFrame: ((CGRect) -> Void)? = nil) {
+        self.model = model
         self.onCoverFrame = onCoverFrame
     }
 
@@ -195,6 +189,8 @@ private struct PlayerChapters: View {
 
     @Environment(PlaybackClock.self)
     private var clock
+    @Environment(\.expansionListCollapse)
+    private var listCollapse
 
     var body: some View {
         ChapterListView(
@@ -206,7 +202,8 @@ private struct PlayerChapters: View {
             titleIdentifier: AccessibilityID.Player.chaptersTitle,
             progressIdentifier: AccessibilityID.Player.downloadProgress,
             rowIdentifier: AccessibilityID.Player.chapter,
-            onSelect: { model.selectChapter($0) }
+            onSelect: { model.selectChapter($0) },
+            listCollapse: listCollapse
         )
     }
 }
@@ -214,7 +211,7 @@ private struct PlayerChapters: View {
 // MARK: - Preview
 struct PlayerView_Previews: PreviewProvider {
     static var previews: some View {
-        PlayerView(
+        PlayerView(model: PlayerViewModel(
             AudioModel(
                 title: "title",
                 albumName: "album name",
@@ -228,7 +225,7 @@ struct PlayerView_Previews: PreviewProvider {
             state: PlaybackState(),
             player: nil,
             downloads: nil
-        )
+        ))
         .environment(PlaybackClock())
     }
 }

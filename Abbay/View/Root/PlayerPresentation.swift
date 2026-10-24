@@ -54,11 +54,15 @@ final class PlayerPresentation {
         let progress: CGFloat
         /// The distance that covers 0…1: from the start frame's top to the screen's top.
         let travel: CGFloat
+        /// Identifies this interaction: it ends with any `open`, `close`, settle or newer drag.
+        let id: Int
     }
 
     /// Bumped by every `open`, `close` and drag, so a settle that finishes after a newer one
     /// leaves it alone.
     @ObservationIgnored private var generation = 0
+    /// The drag in flight, if any, and the progress it started from (for `cancelInteractive`).
+    @ObservationIgnored private var interaction: (id: Int, startProgress: CGFloat)?
     /// Tells whether the bar is visible (a book is loaded) when an open starts. Optional so
     /// tests and previews can omit it: then there is never a bar to grow from.
     @ObservationIgnored private let playback: PlaybackState?
@@ -72,6 +76,7 @@ final class PlayerPresentation {
 
     func open(_ book: AudioModel, animated: Bool) {
         generation += 1
+        interaction = nil
         if presentedBook == nil { snapshotExpansionStart() }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
         if presentedBook == nil || presentedBook?.url != book.url { presentedBook = book }
@@ -80,6 +85,7 @@ final class PlayerPresentation {
 
     func close(animated: Bool) {
         generation += 1
+        interaction = nil
         let current = generation
         setFullyOpen(false)
         guard animated else {
@@ -105,12 +111,36 @@ final class PlayerPresentation {
             snapshotExpansionStart()
             presentedBook = book
             renderedProgress = 0
+        } else if expansionStart == nil {
+            // Opened with no bar (the bottom strip); if a book was loaded meanwhile (Play pressed
+            // while open), the collapse lands on the real bar. A snapshot that exists is kept.
+            snapshotExpansionStart()
         }
         setFullyOpen(false)
         let current = ExpansionMath.clamp(renderedProgress)
         stop(at: current)
         let start = ExpansionMath.startFrame(bar: expansionStart, screen: screenSize)
-        return InteractiveStart(progress: current, travel: start.minY)
+        interaction = (generation, current)
+        return InteractiveStart(progress: current, travel: start.minY, id: generation)
+    }
+
+    /// Whether the interaction `id` is still the one in flight. A drag whose interaction ended
+    /// elsewhere (a tap, a close, the scene going inactive) starts a new one on its next event.
+    func isInteracting(_ id: Int) -> Bool {
+        interaction?.id == id
+    }
+
+    /// Settles the drag in flight, if any, as if the finger lifted without speed: `DragGesture`
+    /// calls no `onEnded` when the system cancels it (an incoming call). Called when the scene
+    /// leaves `.active` and when a panel gesture resets without ending.
+    func cancelInteractive() {
+        guard let interaction else { return }
+        let open = ExpansionMath.shouldOpen(
+            progress: progress,
+            velocityY: 0,
+            wasOpening: progress > interaction.startProgress
+        )
+        endInteractive(open: open)
     }
 
     /// The finger moved: no animation, assigned only on change.
@@ -124,6 +154,7 @@ final class PlayerPresentation {
     /// The finger lifted: settle open or closed with the spring. Closing is `close`, so the
     /// book is released once it lands.
     func endInteractive(open: Bool) {
+        interaction = nil
         guard presentedBook != nil else { return }
         if open {
             generation += 1
