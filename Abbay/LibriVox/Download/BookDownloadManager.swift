@@ -6,6 +6,7 @@
 import Combine
 import Foundation
 import NetworkProvider
+import os
 
 protocol BookDownloadManagerProtocol: ChapterPrioritizing {
     /// Every known LibriVox book's download state, keyed by librivoxID. Emits on the main thread.
@@ -297,6 +298,13 @@ private extension BookDownloadManager {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: location, to: destination)
         } catch {
+            let error = error as NSError
+            Log.downloads.error(
+                """
+                chapter \(index, privacy: .public): moving the file failed: \
+                \(error.domain, privacy: .public) \(error.code, privacy: .public)
+                """
+            )
             try? FileManager.default.removeItem(at: location)
             markFailed(index, bookID: bookID)
             pump(bookID)
@@ -342,6 +350,8 @@ private extension BookDownloadManager {
         book.active.remove(index)
         let failures = book.failures[index, default: 0] + 1
         book.failures[index] = failures
+        // Once the retries are used up the chapter's row shows "Failed · Retry": no notice.
+        Log.downloads.error("chapter \(index, privacy: .public) failed, attempt \(failures, privacy: .public)")
         guard failures <= Self.retryDelays.count else {
             book.pendingRetries[index] = nil
             book.chapters[index] = .failed

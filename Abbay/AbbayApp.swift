@@ -8,6 +8,7 @@
 import AVFoundation
 import CarPlay
 import Intents
+import os
 import SwiftUI
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -41,6 +42,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             launchState.clear()
             seeder.seedIfNeeded()
         } catch {
+            // No notice at launch: Play reports `audioUnavailable`, and Settings shows the status.
+            let error = error as NSError
+            Log.player.error(
+                "launch: audio session activation failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
+            )
             launchState.markUnavailable()
         }
 

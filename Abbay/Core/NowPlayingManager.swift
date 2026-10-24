@@ -6,6 +6,7 @@
 //
 
 import MediaPlayer
+import os
 import UIKit
 
 final class NowPlayingManager {
@@ -66,7 +67,9 @@ final class NowPlayingManager {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
         MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
 
-        print("📻 NowPlaying: Updated - \(audio.title) at \(currentTime)s, playing: \(isPlaying)")
+        Log.nowPlaying.debug(
+            "updated: \(audio.title, privacy: .private) at \(currentTime, privacy: .public)s, playing=\(isPlaying, privacy: .public)"
+        )
     }
 
     func clearNowPlaying() {
@@ -82,7 +85,7 @@ final class NowPlayingManager {
         // Leaving it is also more correct: a dying player must not unregister its successor.
         // The remote play/toggle handlers guard on `model`, so they fail correctly anyway.
         model = nil
-        print("📻 NowPlaying: Cleared")
+        Log.nowPlaying.debug("cleared")
     }
 
     // MARK: - Remote Command Center
@@ -93,7 +96,7 @@ final class NowPlayingManager {
         setupTrackCommands(commandCenter)
         setupSeekCommand(commandCenter)
         setupPlaybackRateCommand(commandCenter)
-        print("📻 NowPlaying: Remote Command Center configured")
+        Log.nowPlaying.debug("remote command center configured")
     }
 
     private func setupPlaybackCommands(_ commandCenter: MPRemoteCommandCenter) {

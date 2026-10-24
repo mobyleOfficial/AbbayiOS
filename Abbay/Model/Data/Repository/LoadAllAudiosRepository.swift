@@ -7,6 +7,7 @@
 
 import CoreData
 import Foundation
+import os
 
 /// Returns managed objects of `LocalStorage.persistent`'s context: read them only inside its
 /// `performAndWait`.
@@ -23,7 +24,7 @@ final class LoadAllAudiosRepository: LoadAllAudiosRepositoryProtocol {
             do {
                 return try context.fetch(request)
             } catch let error as NSError {
-                print("Fetch error: \(error) description: \(error.userInfo)")
+                Log.data.error("fetch all failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)")
             }
             return [AudioDataModel]()
         }

@@ -47,7 +47,7 @@ final class FileLoader: FileLoaderProtocol {
                 result.failed.append(url)
             }
         }
-        try? saveAudioUseCase.execute(newFiles)
+        save(newFiles)
         return result
     }
 
@@ -79,6 +79,22 @@ final class FileLoader: FileLoaderProtocol {
 
 // MARK: - Helpers
 extension FileLoader {
+    /// Logged only: a failed Core Data save already reports its own notice (`DataStack`), and the
+    /// book still shows in the library for this session.
+    private func save(_ files: [AudioModel]) {
+        do {
+            try saveAudioUseCase.execute(files)
+        } catch {
+            let error = error as NSError
+            Log.importing.error(
+                """
+                import: saving \(files.count, privacy: .public) file(s) failed: \
+                \(error.domain, privacy: .public) \(error.code, privacy: .public)
+                """
+            )
+        }
+    }
+
     private func loadDuration(file: inout AudioModel, asset: AVAsset) async {
         guard let duration = try? await asset.load(.duration).seconds else { return }
         file.duration = duration
