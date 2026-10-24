@@ -3,7 +3,8 @@
 `PlayerView` is the full-screen details screen: cover art, transport controls, scrubbing and the
 chapter list. It is **no longer a sheet**. It is drawn inside `PlayerExpansionOverlay`, one panel
 above the tabs that grows out of the [mini player](mini-player.md) and collapses back into it. The
-panel adds a header on top with a grabber (`player.grabber`) and a close chevron (`player.close`).
+panel adds a header on top with a grabber (`player.grabber`, hidden from accessibility) and a close
+chevron (`player.close`).
 There is one presentation for the whole app (`PlayerPresentation`). Library rows, the bar and a
 LibriVox page's Play all open it.
 
@@ -68,13 +69,13 @@ top down into the bar.
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library
+$B launch -seedLibrary
 $B tap library.row.0.title && $B wait player.close       # grows up from the bottom (nothing loaded)
 $B tap player.transport.play                              # a seeded book loads; no audio plays
 $B tap player.transport.forward15 && $B snapshot
 $B tap player.chapter.2                                   # needs real playback: gated on isPlaying
 $B tap player.close && $B wait library.list
-$B drag player.grabber down                               # planned: collapse under the finger
+$B drag player.close down                                 # planned: collapse under the finger (the grabber is not addressable)
 ```
 
 **Verified** (`AccessibilityIdentifierTests`, `MiniPlayerUITests`):

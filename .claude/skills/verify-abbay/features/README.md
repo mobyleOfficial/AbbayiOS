@@ -9,6 +9,12 @@ There is no `abbay-ctl` and no `SKILL.md` in this directory yet, so each file's 
 abbay-ctl* section is still a **specification** — the commands we want, not commands that exist.
 Treat a command there as a requirement.
 
+Every id in those commands is an `AccessibilityID` constant, and every single-dash argument to
+`$B launch` (`-seedLibrary`, `-stubLibriVox`, ...) is a `LaunchArgument` name passed through to the
+app verbatim, so the spec has no second set of names to drift. Double-dash options (`--reset`,
+`--clear`) belong to `abbay-ctl` itself. Elements without an id are addressed by what XCUITest
+uses instead (`placeholder:"…"` for a search field).
+
 Accessibility identifiers, however, are now implemented and **proven by
 `AbbayUITests/AccessibilityIdentifierTests`**. Each feature file marks its identifiers as
 `verified` or `not implemented` so a driver author knows what is actually addressable.

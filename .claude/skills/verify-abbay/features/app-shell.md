@@ -61,10 +61,10 @@ caused by the audio-session flag sticking.
 ```bash
 $B doctor                                  # required: Xcode, simulator, build freshness, port ownership
 $B launch                                  # terminate + reinstall + relaunch, returns a sessionId
-$B launch --seed-library                   # -seedLibrary: two synthetic books, no playable audio
-$B launch --reset-library                  # -resetLibrary: empty library (Core Data only; the App Group is untouched)
-$B launch --stub-librivox                  # -stubLibriVox: in-memory catalog, no downloads, DEBUG builds only
-$B launch --reset                          # planned: clear App Group + Core Data before launch
+$B launch -seedLibrary                     # two synthetic books, no playable audio
+$B launch -resetLibrary                    # empty library (Core Data only; the App Group is untouched)
+$B launch -stubLibriVox                    # in-memory catalog, no downloads, DEBUG builds only
+$B launch --reset                          # planned abbay-ctl option: clear App Group + Core Data before launch
 $B appgroup get abbay.audioSessionUnavailable
 $B diagnostics                             # dump abbay.diagnostics.v1 (last 25 events)
 $B diagnostics --clear
@@ -73,6 +73,8 @@ $B diagnostics --clear
 - `doctor` must report `STALE` when the app binary is older than any file under `Abbay/` — a proof
   against a stale build is not evidence.
 - `doctor` must also refuse to drive while an `xcodebuild test` run holds the simulator.
+- `launch` passes single-dash arguments to the app verbatim (`Abbay/Core/LaunchArgument.swift`);
+  double-dash options (`--reset`, `--clear`) belong to `abbay-ctl` itself (see the README).
 - `--reset` has to clear state *before* the first scene connects, because `DataStack`'s container is
   `lazy` and `AppGroup.defaults` is a `static let` — both latch on first touch.
 

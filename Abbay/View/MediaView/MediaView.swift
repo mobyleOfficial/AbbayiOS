@@ -117,7 +117,8 @@ extension MediaView {
     static func detailLine(book: AudioModel, chapterIndex: Int, bookTime: Double) -> String {
         let progress: String
         if book.chapters.isEmpty {
-            progress = Localizable.rowTimeLeft.localized(with: timeLeft(max(book.duration - bookTime, 0)))
+            let left = timeLeft(max(book.duration - bookTime, 0))
+            progress = Localizable.rowTimeLeft.localized(with: left.text, left.count)
         } else {
             let total = book.chapters.count
             progress = Localizable.rowChapter.localized(
@@ -136,8 +137,8 @@ extension MediaView {
         return formatter
     }()
 
-    private static func timeLeft(_ seconds: Double) -> String {
-        timeLeftFormatter.string(from: seconds.rounded(.down)) ?? ""
+    private static func timeLeft(_ seconds: Double) -> TimeLeftText {
+        TimeLeftText(seconds: seconds.rounded(.down), formatter: timeLeftFormatter)
     }
 }
 

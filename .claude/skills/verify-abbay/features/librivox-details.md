@@ -61,9 +61,10 @@ too, showing **Play**. The Library tab's own search is local only and never lead
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library --stub-librivox      # -stubLibriVox: in-memory catalog, nothing downloads
+$B launch -seedLibrary -stubLibriVox          # in-memory catalog, nothing downloads
 $B tap root.tab.search
-$B tap searchfield && $B type "Stub"          # the only query the stub answers (any query containing "stub")
+$B tap placeholder:"Search LibriVox"         # the field has no id: found by placeholder (see tabs.md)
+$B type "Stub"                                # the only query the stub answers (any query containing "stub")
 $B tap search.result.0 && $B wait detail.download
 $B tap detail.download && $B wait detail.play # page stays open; Download is gone
 $B tap detail.play && $B wait player.transport.play

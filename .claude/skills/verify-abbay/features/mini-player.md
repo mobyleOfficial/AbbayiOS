@@ -49,8 +49,8 @@
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
   - Opened with nothing visible to grow from (a row tap with nothing loaded), it grows from a
     56 pt strip along the bottom edge.
-- **collapse:** a drag down from the details screen's grabber header (`player.grabber`), its close
-  chevron or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
+- **collapse:** a drag down from the details screen's grabber header, its close chevron
+  (`player.close`) or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
   `player.close` (the chevron) collapses it animated. While the panel is moving, a drag anywhere
   on it continues the motion.
   - **iOS 18+:** a downward drag that starts while the chapter list rests at its top also
@@ -87,12 +87,12 @@ Press play on any library row, or Play on a LibriVox details page, then look abo
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library
+$B launch -seedLibrary
 $B tap library.row.0.play && $B wait miniPlayer.bar     # a seeded book loads (no audio), the bar shows
 $B tap miniPlayer.bar && $B wait player.close            # details screen, grown from the bar
 $B tap player.close && $B wait miniPlayer.bar
 $B drag miniPlayer.bar up                                # planned: finger-tracked expansion
-$B drag player.grabber down                              # planned: collapse into the bar
+$B drag player.close down                                # planned: collapse into the bar (the grabber has no a11y element)
 $B a11y-action miniPlayer.bar "Next chapter"             # planned: VoiceOver custom action
 ```
 
@@ -101,7 +101,8 @@ $B a11y-action miniPlayer.bar "Next chapter"             # planned: VoiceOver cu
   (`test_miniPlayer_identifiersResolve`; the bar's label carries the title and *Chapter 1*)
 - tap to open and hidden-while-open (`test_tappingMiniPlayer_opensDetails`)
 - drag up, short drags settling back, slow drags both ways
-- grabber collapse (`player.grabber`) and list-at-top collapse (iOS 18+)
+- grabber collapse (dragged from the grabber's position, found from `player.close`: the grabber
+  is hidden from accessibility, see [player](player.md)) and list-at-top collapse (iOS 18+)
 - the last row clearing the bar (`-seedFillerBooks`)
 - the bar on both tabs after Play on the stub LibriVox book
   (`test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer`)

@@ -100,6 +100,7 @@ enum AccessibilityID {
         /// Closes the details screen (the chevron in its header; the header also drags down).
         static let close = "player.close"
         /// The grabber at the top of the details screen: drag it down to collapse into the bar.
+        /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
         static let grabber = "player.grabber"
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"

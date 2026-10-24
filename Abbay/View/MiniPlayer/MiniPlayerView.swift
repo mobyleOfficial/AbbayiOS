@@ -378,11 +378,12 @@ enum MiniPlayerActions {
     /// "Chapter N · X min left" within the chapter; "X min left" in the book without chapters.
     static func subtitle(book: AudioModel, chapter: Int, bookTime: Double) -> String {
         guard book.chapters.indices.contains(chapter) else {
-            return Localizable.rowTimeLeft.localized(with: timeLeft(book.duration - bookTime))
+            let left = timeLeft(book.duration - bookTime)
+            return Localizable.rowTimeLeft.localized(with: left.text, left.count)
         }
         let number = ChapterCountView.displayNumber(forIndex: chapter, total: book.chapters.count)
         let left = timeLeft(book.chapters[chapter].endTime - bookTime)
-        return Localizable.miniPlayerSubtitle.localized(with: number, left)
+        return Localizable.miniPlayerSubtitle.localized(with: number, left.text, left.count)
     }
 
     /// 0…1 within the current chapter, or within the book without chapters.
@@ -410,8 +411,8 @@ enum MiniPlayerActions {
     }()
 
     /// Whole minutes, rounded up, so the last seconds read "1 min", never "0 min" too early.
-    private static func timeLeft(_ seconds: Double) -> String {
+    private static func timeLeft(_ seconds: Double) -> TimeLeftText {
         let minutes = (max(seconds, 0) / 60).rounded(.up)
-        return timeLeftFormatter.string(from: minutes * 60) ?? ""
+        return TimeLeftText(seconds: minutes * 60, formatter: timeLeftFormatter)
     }
 }
