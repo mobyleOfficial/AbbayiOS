@@ -32,6 +32,8 @@ struct ChapterListView: View {
     var layout: Layout = .list
     var titleIdentifier: String?
     var progressIdentifier: String?
+    /// The "No chapters" message shown instead of rows when there are none.
+    var emptyIdentifier: String?
     let rowIdentifier: (Int) -> String
     /// Rows are tappable only when set.
     var onSelect: ((Int) -> Void)?
@@ -43,6 +45,16 @@ struct ChapterListView: View {
     private var spacing: CGFloat { SpaceConstants.sx16.value }
 
     // MARK: - Decisions
+    /// A book with no chapter markers (a plain MP3) says so, rather than showing an empty card.
+    static func showsEmptyState(_ chapters: [Item]) -> Bool {
+        chapters.isEmpty
+    }
+
+    /// Only rows are dimmed (the player, while paused): the message that there are none isn't.
+    static func dims(_ chapters: [Item], isDimmed: Bool) -> Bool {
+        isDimmed && !showsEmptyState(chapters)
+    }
+
     static func showsProgress(_ state: BookDownloadState?) -> Bool {
         guard let state else { return false }
         return !state.isComplete
@@ -69,11 +81,39 @@ struct ChapterListView: View {
                     .frame(height: SpaceConstants.sx2.value)
                     .accessibilityIdentifier(ifPresent: progressIdentifier)
             }
-            rows
+            if Self.showsEmptyState(chapters) {
+                emptyState
+            } else {
+                rows
+            }
         }
         .background(ColorConstants.background.value)
         .cornerRadius(SpaceConstants.sx32.value)
-        .opacity(isDimmed ? 0.5 : 1.0)
+        .opacity(Self.dims(chapters, isDimmed: isDimmed) ? 0.5 : 1.0)
+    }
+
+    /// Styled like the library's empty state: a glyph over the text. In the player sheet it fills
+    /// the space the list would have.
+    private var emptyState: some View {
+        VStack(spacing: SpaceConstants.sx8.value) {
+            Image(systemName: "list.bullet")
+                .resizable()
+                .scaledToFit()
+                .frame(width: SpaceConstants.sx24.value)
+                .foregroundColor(ColorConstants.spanishGray.value)
+                .accessibilityHidden(true)
+            Text(Localizable.noChaptersTitle.localized)
+                .foregroundColor(ColorConstants.white.value)
+                .font(.system(size: SpaceConstants.sx16.value))
+            Text(Localizable.noChaptersMessage.localized)
+                .foregroundColor(ColorConstants.lightSilver.value)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+        }
+        .padding(SpaceConstants.sx24.value)
+        .frame(maxWidth: .infinity, maxHeight: layout == .list ? .infinity : nil)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(ifPresent: emptyIdentifier)
     }
 
     private var header: some View {

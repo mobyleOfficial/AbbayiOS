@@ -179,6 +179,7 @@ struct LibriVoxDetailView: View {
             downloadState: model.downloadState,
             layout: .stack,
             progressIdentifier: AccessibilityID.Detail.progress,
+            emptyIdentifier: AccessibilityID.Detail.chaptersEmpty,
             rowIdentifier: AccessibilityID.Detail.chapter,
             retry: (AccessibilityID.Detail.chapterRetry, { model.retryChapter($0) })
         )

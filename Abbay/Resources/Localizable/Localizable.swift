@@ -62,6 +62,8 @@ enum Localizable: String {
     case noticeChapterFailed
     case noticeSaveFailed
     case noticeDismiss
+    case noChaptersTitle
+    case noChaptersMessage
     // Settings
     case settingsTitle
     case done

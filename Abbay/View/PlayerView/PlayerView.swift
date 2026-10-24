@@ -233,6 +233,7 @@ private struct PlayerChapters: View {
             layout: .list,
             titleIdentifier: AccessibilityID.Player.chaptersTitle,
             progressIdentifier: AccessibilityID.Player.downloadProgress,
+            emptyIdentifier: AccessibilityID.Player.chaptersEmpty,
             rowIdentifier: AccessibilityID.Player.chapter,
             onSelect: { model.selectChapter($0) },
             retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) }),

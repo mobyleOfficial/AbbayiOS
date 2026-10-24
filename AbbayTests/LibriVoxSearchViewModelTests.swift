@@ -232,6 +232,18 @@ final class LibriVoxSearchViewModelTests: XCTestCase {
         XCTAssertEqual(sut.status, .offline)
     }
 
+    /// Online but nothing came back: say LibriVox couldn't be reached, rather than showing the
+    /// "Popular" heading over a blank grid (#115).
+    func test_loadPopular_online_emptyList_setsFailed() async {
+        let sut = makeSUT()
+        client.popularResult = .success([])
+
+        await sut.loadPopular()
+
+        XCTAssertEqual(sut.status, .failed)
+        XCTAssertTrue(sut.popular.isEmpty)
+    }
+
     /// The client answers from its cache without the network.
     func test_loadPopular_offline_withCachedPopular_showsIt() async {
         path.isOnline = false
