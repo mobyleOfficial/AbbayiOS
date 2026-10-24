@@ -148,7 +148,7 @@ final class FileLoaderTests: XCTestCase {
         let saveAudio = MockSaveAudioUseCase()
 
         let files = await makeLoader(loadAudio: loadAudio, saveAudio: saveAudio)
-            .load(urls: [try fixtureURL()])
+            .load(urls: [try fixtureURL()]).loaded
 
         XCTAssertEqual(files.count, 1)
         XCTAssertEqual(files.first?.title, "Cached", "a stored model must win over re-parsing")
@@ -160,11 +160,40 @@ final class FileLoaderTests: XCTestCase {
         let saveAudio = MockSaveAudioUseCase()
 
         let files = await makeLoader(loadAudio: loadAudio, saveAudio: saveAudio)
-            .load(urls: [try fixtureURL()])
+            .load(urls: [try fixtureURL()]).loaded
 
         XCTAssertEqual(files.count, 1)
         XCTAssertEqual(files.first?.chapters.count, 4)
         XCTAssertEqual(saveAudio.savedModels.count, 1, "a freshly parsed file is persisted")
+    }
+
+    /// #115: a file that won't load is reported back, so the library can say which one it was.
+    func test_loadUrls_reportsTheFilesThatFailedAlongsideTheLoadedOnes() async throws {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("missing-\(UUID().uuidString).mp3")
+        let saveAudio = MockSaveAudioUseCase()
+
+        let result = await makeLoader(saveAudio: saveAudio).load(urls: [missing, try fixtureURL()])
+
+        XCTAssertEqual(result.loaded.count, 1)
+        XCTAssertEqual(result.failed, [missing])
+        XCTAssertEqual(saveAudio.savedModels.count, 1, "nothing is saved for the failed file")
+    }
+
+    /// A file that is there but isn't audio (a text file named .mp3) fails too, instead of
+    /// becoming an empty, unplayable row.
+    func test_loadUrls_aFileThatIsNotAudio_fails() async throws {
+        let notAudio = FileManager.default.temporaryDirectory
+            .appendingPathComponent("not-audio-\(UUID().uuidString).mp3")
+        try Data("not audio".utf8).write(to: notAudio)
+        defer { try? FileManager.default.removeItem(at: notAudio) }
+        let saveAudio = MockSaveAudioUseCase()
+
+        let result = await makeLoader(saveAudio: saveAudio).load(urls: [notAudio])
+
+        XCTAssertEqual(result.loaded.count, 0)
+        XCTAssertEqual(result.failed, [notAudio])
+        XCTAssertEqual(saveAudio.savedModels.count, 0)
     }
 }
 

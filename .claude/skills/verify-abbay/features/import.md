@@ -18,6 +18,10 @@ security-scoped bookmark that makes the file playable again after relaunch.
   `SavePlaybackPositionUseCase`, and refreshes the snapshot. LibriVox `librivox://` books are never
   bookmarked: they are not files.
 - **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
+- **failures:** `load(urls:)` returns a `FileImportResult` (`loaded`, `failed`). A file fails when it
+  can't be opened or isn't playable audio (`AVURLAsset.isPlayable`), so a renamed text file is no
+  longer an empty row. `importAudio` adds what loaded and reports the rest as one
+  `importFailed(fileNames:)` notice (see [notices](notices.md)); UI-tested with `-stubFailingImport`.
 - **post-import publish:** writes `abbay.librarySnapshot.v1`; the write publishes to Siri
   (`SiriLibraryPublisher`), which refreshes the App Shortcut parameters once so Siri's entity
   suggestions pick the book up. The view model makes no direct refresh call of its own (#84).
@@ -55,7 +59,9 @@ picker's own contents are system-owned and carry no identifiers of ours).
 - **`asCopy: false` is the whole risk surface.** The file stays where the user put it, so playback
   depends entirely on the security-scoped bookmark resolving later. `URL+SecurityScoped.swift`
   handles the stale case by recreating the bookmark, but all five branches there are `print`-only
-  (12 `// TODO: Add logging` markers) — a failure is silent.
+  (5 `// TODO: Add logging` markers). A bookmark that no longer resolves now surfaces at Play: the
+  item fails and the user sees *"Title" was moved or renamed. Import it again…* (see
+  [notices](notices.md)).
 - The bookmark is created on first **play**, not on import. A book imported and never played has
   `bookmarkData == nil` in the snapshot, which is why `IntentRouter.resolveURL` falls back to the
   raw identifier string.

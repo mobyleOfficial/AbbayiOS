@@ -46,6 +46,11 @@ enum AccessibilityID {
         }
     }
 
+    /// The app-wide error banner (`NoticeBannerView`), above every screen.
+    enum Notice {
+        static let banner = "notice.banner"
+    }
+
     /// The one-row mini player, docked above the tabs.
     enum MiniPlayer {
         /// The title and subtitle: one element that taps open the details screen and carries the

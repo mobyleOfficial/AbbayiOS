@@ -52,7 +52,7 @@ struct MediaListView: View {
     var addMenu: some View {
         Menu {
             Button {
-                model.isShowingFilePicker = true
+                model.startImport()
             } label: {
                 Label(Localizable.importFile.localized, systemImage: "folder.badge.plus")
             }
@@ -97,7 +97,7 @@ struct MediaListView: View {
             .buttonStyle(LibraryActionButtonStyle(isPrimary: true))
             .accessibilityIdentifier(AccessibilityID.Library.emptyBrowse)
             Button {
-                model.isShowingFilePicker = true
+                model.startImport()
             } label: {
                 Text(Localizable.importAFile.localized)
             }

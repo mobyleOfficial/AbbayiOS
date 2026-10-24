@@ -52,6 +52,16 @@ enum Localizable: String {
     case restartChapterAction
     case carPlayEmptyLibraryTitle
     case carPlayEmptyLibrarySubtitle
+    case noticeImportFailedOne
+    case noticeImportFailedMany
+    case noticeImportFailedMore
+    case noticeFileMissing
+    case noticePlaybackFailed
+    case noticeAudioUnavailable
+    case noticeStreamingOffline
+    case noticeChapterFailed
+    case noticeSaveFailed
+    case noticeDismiss
 }
 
 extension Localizable {

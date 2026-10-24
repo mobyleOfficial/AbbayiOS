@@ -1478,6 +1478,186 @@
           }
         }
       }
+    },
+    "noticeImportFailedOne" : {
+      "comment" : "Banner: one picked file couldn't be imported. %@ is the file name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't import “%@”."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível importar “%@”."
+          }
+        }
+      }
+    },
+    "noticeImportFailedMany" : {
+      "comment" : "Banner: several picked files couldn't be imported. %d is how many, %@ the list of file names",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't import %d files: %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível importar %d arquivos: %@."
+          }
+        }
+      }
+    },
+    "noticeImportFailedMore" : {
+      "comment" : "Last item of the failed-import file list when it is cut short, e.g. \"2 more\"",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d more"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mais %d"
+          }
+        }
+      }
+    },
+    "noticeFileMissing" : {
+      "comment" : "Banner: an imported book's file was moved, renamed or deleted. %@ is the book title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” was moved or renamed. Import it again to keep listening."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” foi movido ou renomeado. Importe o arquivo de novo para continuar ouvindo."
+          }
+        }
+      }
+    },
+    "noticePlaybackFailed" : {
+      "comment" : "Banner: a book could not be played",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't play this book."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível reproduzir este livro."
+          }
+        }
+      }
+    },
+    "noticeAudioUnavailable" : {
+      "comment" : "Banner: the audio session could not be activated; it usually clears by itself",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio isn't available right now. Try again in a moment."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O áudio não está disponível agora. Tente de novo daqui a pouco."
+          }
+        }
+      }
+    },
+    "noticeStreamingOffline" : {
+      "comment" : "Banner: a LibriVox chapter that isn't downloaded was played without a connection",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're offline and this chapter isn't downloaded. Download the book to listen without a connection."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você está offline e este capítulo não foi baixado. Baixe o livro para ouvir sem conexão."
+          }
+        }
+      }
+    },
+    "noticeChapterFailed" : {
+      "comment" : "Banner: a LibriVox chapter could not be played",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't play this chapter. Try again in a moment."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível reproduzir este capítulo. Tente de novo daqui a pouco."
+          }
+        }
+      }
+    },
+    "noticeSaveFailed" : {
+      "comment" : "Banner: saving to the library failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save your changes. Your latest progress may be lost."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível salvar suas alterações. Seu progresso mais recente pode ter se perdido."
+          }
+        }
+      }
+    },
+    "noticeDismiss" : {
+      "comment" : "VoiceOver action that hides the error banner",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
