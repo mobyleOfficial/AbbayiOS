@@ -220,7 +220,7 @@ final class ExpansionDrag {
     }
 
     /// Settles by the spec thresholds, read in the direction the finger moved: up from where it
-    /// landed is opening, down is closing. `time` is the lift (`DragGesture.Value.time`), so a
+    /// landed is opening, down is closing; a flick decides by its own direction. `time` is the lift (`DragGesture.Value.time`), so a
     /// finger held still before lifting reads as slow.
     func ended(
         velocityY: CGFloat,
@@ -510,7 +510,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         let isCollapsingFromList = listCollapse?.isEngaged ?? false
         return ZStack(alignment: .topLeading) {
             ColorConstants.onyx.value
-            Color(uiColor: CoverTint.cached(for: art))
+            CoverTintBackground(book: art)
                 .opacity(barOpacity)
             // The panel's left edge moves; the details screen stays where it will land.
             details

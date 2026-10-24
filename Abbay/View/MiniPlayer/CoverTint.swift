@@ -4,6 +4,7 @@
 //
 
 import ImageIO
+import SwiftUI
 import UIKit
 
 /// The mini player's background, derived from the book's cover: the average colour of a tiny
@@ -16,15 +17,34 @@ enum CoverTint {
     /// Each darkening step multiplies the HSB brightness by this.
     private static let darkeningStep: CGFloat = 0.9
 
-    private static let cache = NSCache<NSURL, UIColor>()
+    /// Keyed by the book's URL, or by its artwork for a book without one. `NSCache` is thread-safe.
+    private static let cache = NSCache<NSObject, UIColor>()
 
-    /// Computed once per book, keyed by its URL. Books without a URL aren't cached.
-    static func cached(for book: AudioModel) -> UIColor {
-        guard let url = book.url as NSURL? else { return color(for: book.imageData) }
-        if let color = cache.object(forKey: url) { return color }
-        let color = color(for: book.imageData)
-        cache.setObject(color, forKey: url)
-        return color
+    /// What identifies a book's tint: its URL, else its artwork; nil when it has neither.
+    private static func key(for book: AudioModel) -> NSObject? {
+        if let url = book.url { return url as NSURL }
+        return book.imageData.map { $0 as NSData }
+    }
+
+    /// The tint already computed for `book`, without computing anything: safe in a body. A book
+    /// with neither a URL nor artwork is `onyx` at once. Nil until `tint(for:)` has run.
+    static func cachedTint(for book: AudioModel) -> UIColor? {
+        guard let key = key(for: book) else { return ColorConstants.onyx.uiColor }
+        return cache.object(forKey: key)
+    }
+
+    /// Computed once per book, off the main thread (#130), and cached for `cachedTint(for:)`.
+    static func tint(for book: AudioModel) async -> UIColor {
+        if let cached = cachedTint(for: book) { return cached }
+        let imageData = book.imageData
+        let computed = await Task.detached(priority: .userInitiated) {
+            Self.color(for: imageData)
+        }.value
+        guard let key = key(for: book) else { return computed }
+        // Two callers can race (the bar and the expanding panel): the first tint stored wins.
+        if let stored = cache.object(forKey: key) { return stored }
+        cache.setObject(computed, forKey: key)
+        return computed
     }
 
     static func color(for imageData: Data?) -> UIColor {
@@ -108,5 +128,40 @@ enum CoverTint {
         }
         let luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
         return 1.05 / (luminance + 0.05)
+    }
+}
+
+// MARK: - Background
+
+/// A background in the book's cover tint: the bar's, and the expanding panel's while it still
+/// looks like the bar. The body only looks the tint up; the first time for a book it is computed
+/// off the main thread, and until then (a frame or two) the background is `onyx`, the no-artwork
+/// tint. A book seen before gets its tint on the first frame.
+struct CoverTintBackground: View {
+    let book: AudioModel
+
+    @State
+    private var resolved: (identity: Identity, color: UIColor)?
+
+    /// Which tint the book has: its URL's, else its artwork's (as `CoverTint` keys its cache).
+    private enum Identity: Equatable {
+        case url(URL)
+        case artwork(Data?)
+
+        init(_ book: AudioModel) {
+            self = book.url.map(Identity.url) ?? .artwork(book.imageData)
+        }
+    }
+
+    var body: some View {
+        let identity = Identity(book)
+        let color = resolved.flatMap { $0.identity == identity ? $0.color : nil }
+            ?? CoverTint.cachedTint(for: book)
+            ?? ColorConstants.onyx.uiColor
+        Color(uiColor: color)
+            .task(id: identity) {
+                let tint = await CoverTint.tint(for: book)
+                resolved = (identity, tint)
+            }
     }
 }
