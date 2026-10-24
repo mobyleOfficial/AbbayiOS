@@ -367,14 +367,13 @@ final class AccessibilityIdentifierTests: XCTestCase {
         _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
 
         for control in [
-            AccessibilityID.Transport.back30,
-            AccessibilityID.Transport.back15,
+            AccessibilityID.Transport.back,
             AccessibilityID.Transport.play,
-            AccessibilityID.Transport.forward15,
-            AccessibilityID.Transport.forward30
+            AccessibilityID.Transport.forward
         ] {
             assertResolves(AccessibilityID.Player.transport(control))
         }
+        assertResolves(AccessibilityID.Player.speed)
     }
 
     func test_player_closeButton_dismisses() throws {

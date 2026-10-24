@@ -63,7 +63,53 @@ final class LocalizationTests: XCTestCase {
         .noticeStreamingOffline,
         .noticeChapterFailed,
         .noticeSaveFailed,
-        .noticeDismiss
+        .noticeDismiss,
+        .settingsTitle,
+        .done,
+        .settingsPlayback,
+        .defaultSpeed,
+        .defaultSpeedFooter,
+        .skipBack,
+        .skipForward,
+        .skipSeconds,
+        .skipFooter,
+        .settingsDownloads,
+        .cellularDownloads,
+        .cellularAsk,
+        .cellularAlways,
+        .cellularWifiOnly,
+        .cellularFooter,
+        .spaceUsed,
+        .calculating,
+        .deleteFinished,
+        .deleteFinishedFooter,
+        .deleteFinishedNone,
+        .deleteFinishedTitle,
+        .deleteFinishedMessage,
+        .cancel,
+        .settingsLanguage,
+        .languageSystem,
+        .languageFooter,
+        .settingsAbout,
+        .privacyPolicy,
+        .version,
+        .librivoxAbout,
+        .openSourceLicenses,
+        .licensesBody,
+        .licensesContent,
+        .siriAudioStatus,
+        .audioStatusOK,
+        .audioStatusUnavailable,
+        .audioStatusOKDetail,
+        .audioStatusUnavailableDetail,
+        .playbackSpeed,
+        .speedDecrease,
+        .speedIncrease,
+        .speedPresets,
+        .speedSetDefault,
+        .speedIsDefault,
+        .skipBackAction,
+        .skipForwardAction
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -121,16 +167,97 @@ final class LocalizationTests: XCTestCase {
         .noticeStreamingOffline,
         .noticeChapterFailed,
         .noticeSaveFailed,
-        .noticeDismiss
+        .noticeDismiss,
+        .settingsTitle,
+        .done,
+        .settingsPlayback,
+        .defaultSpeed,
+        .defaultSpeedFooter,
+        .skipBack,
+        .skipForward,
+        .skipSeconds,
+        .skipFooter,
+        .cellularDownloads,
+        .cellularAsk,
+        .cellularAlways,
+        .cellularWifiOnly,
+        .cellularFooter,
+        .spaceUsed,
+        .calculating,
+        .deleteFinished,
+        .deleteFinishedFooter,
+        .deleteFinishedNone,
+        .deleteFinishedTitle,
+        .deleteFinishedMessage,
+        .cancel,
+        .settingsLanguage,
+        .languageSystem,
+        .languageFooter,
+        .settingsAbout,
+        .privacyPolicy,
+        .version,
+        .librivoxAbout,
+        .openSourceLicenses,
+        .licensesBody,
+        .licensesContent,
+        .siriAudioStatus,
+        .audioStatusOK,
+        .audioStatusUnavailable,
+        .audioStatusOKDetail,
+        .audioStatusUnavailableDetail,
+        .playbackSpeed,
+        .speedDecrease,
+        .speedIncrease,
+        .speedPresets,
+        .speedSetDefault,
+        .speedIsDefault,
+        .skipBackAction,
+        .skipForwardAction
     ]
 
     /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
     /// entry and fall back to the base language rather than being duplicated per locale.
     private let formatOnlyKeys: [Localizable] = [.chapterCount]
 
+    /// The test host is the real app, which applies the stored in-app language at launch. Every
+    /// assertion here is about the bundle's own languages, so start from no override.
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        AbbayBundle.languageCode = nil
+    }
+
     override func tearDownWithError() throws {
         AbbayBundle.value.unsetLocalizedLanguage()
+        AbbayBundle.languageCode = nil
         try super.tearDownWithError()
+    }
+
+    // MARK: - In-app language (Settings)
+
+    func test_inAppLanguageOverride_readsThatLanguage_andNilFollowsTheDevice() {
+        let deviceValue = Localizable.settingsTitle.localized
+
+        AbbayBundle.languageCode = "pt-BR"
+        XCTAssertEqual(Localizable.settingsTitle.localized, "Ajustes")
+        XCTAssertEqual(Localizable.skipSeconds.localized(with: 30), "30 segundos")
+        XCTAssertEqual(AbbayBundle.locale.identifier, "pt-BR")
+
+        AbbayBundle.languageCode = "en"
+        XCTAssertEqual(Localizable.settingsTitle.localized, "Settings")
+
+        AbbayBundle.languageCode = nil
+        XCTAssertEqual(Localizable.settingsTitle.localized, deviceValue)
+    }
+
+    /// Choosing a language in Settings applies it to the bundle at once, with no relaunch.
+    func test_choosingALanguage_inSettings_switchesTheStrings() {
+        let settings = AppSettings(store: InMemoryKeyValueStore(), effects: LiveSettingsEffects())
+
+        settings.language = .portuguese
+        XCTAssertEqual(Localizable.playbackSpeed.localized, "Velocidade de reprodução")
+
+        settings.language = .english
+        XCTAssertEqual(Localizable.playbackSpeed.localized, "Playback speed")
     }
 
     // MARK: - Resolution

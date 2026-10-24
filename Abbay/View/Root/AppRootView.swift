@@ -23,6 +23,8 @@ struct AppRootView: View {
     private var models: RootModels
     @State
     private var selectedTab: RootTab = .library
+    @State
+    private var isShowingSettings = false
 
     private var model: MediaListViewModel { models.library }
     private var presentation: PlayerPresentation { models.presentation }
@@ -40,17 +42,35 @@ struct AppRootView: View {
             tabs
             PlayerExpansionOverlay()
         }
+        // Strings are read when a body runs, so a language switch rebuilds the tabs and the player
+        // (their models live above, in `models`, and survive). The Settings sheet is presented
+        // outside this subtree, so it stays open and redraws itself.
+        .id(container.settings.language)
         // Above the details screen too, and at the top, clear of the mini player and the tab bar.
         .overlay(alignment: .top) {
             NoticeBannerView()
         }
         .environment(notices)
+        .environment(\.locale, AbbayBundle.locale)
         .background {
             LoadedBookObserver(model: model)
         }
+        .sheet(isPresented: $isShowingSettings) {
+            SettingsView(model: SettingsViewModel(settings: container.settings, library: settingsLibrary))
+        }
         .environment(presentation)
+        .environment(container.settings)
         .playbackEnvironment(container)
         .preferredColorScheme(.dark)
+    }
+
+    /// Settings deletes finished books through the library model, the same path as a swipe.
+    private var settingsLibrary: SettingsLibrary {
+        SettingsLibrary(
+            books: container.loadAllAudios.execute,
+            downloadState: { [downloads = container.downloadStates] in downloads.entry(for: $0).state },
+            delete: { [model] books in books.forEach(model.deleteAudio) }
+        )
     }
 
     // MARK: - Tabs
@@ -74,7 +94,7 @@ struct AppRootView: View {
 
     private var libraryTab: some View {
         NavigationStack {
-            MediaListView(model: model, onBrowse: { selectedTab = .search })
+            MediaListView(model: model, onBrowse: { selectedTab = .search }, onSettings: { isShowingSettings = true })
                 .modifier(TabBarHiddenWhilePlayerIsOpen())
         }
     }
