@@ -252,9 +252,21 @@ final class MiniPlayerUITests: XCTestCase {
         )
     }
 
-    /// The first chapter row that can take a tap, from `range`.
-    private func firstHittableChapter(in range: Range<Int>) -> Int? {
-        range.first { element(AccessibilityID.Player.chapter($0)).isHittable }
+    /// The chapter row at the top of the list's visible area (its top edge at `listTop`): the
+    /// loaded rows only, in one query. Asking each of 60 rows `isHittable` takes about a second
+    /// per row on iOS 17.
+    private func topVisibleChapter(listTop: CGFloat) -> Int? {
+        let prefix = AccessibilityID.Player.chapter(0).dropLast()
+        let rows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", String(prefix)))
+            .allElementsBoundByIndex
+        let visible = rows.compactMap { row -> (index: Int, minY: CGFloat)? in
+            let frame = row.frame
+            guard frame.midY >= listTop, frame.maxY <= app.frame.height,
+                  let index = Int(row.identifier.dropFirst(prefix.count)) else { return nil }
+            return (index, frame.minY)
+        }
+        return visible.min { $0.minY < $1.minY }?.index
     }
 
     /// The final review's long-list check (60 chapters): the list scrolls down and back up (its
@@ -285,21 +297,20 @@ final class MiniPlayerUITests: XCTestCase {
         }
         sleep(2)
         XCTAssertTrue(transportPlay.exists, "scrolling the list collapsed the screen")
-        let middle = try XCTUnwrap(firstHittableChapter(in: 1..<60), "no chapter row on screen")
-        XCTAssertGreaterThanOrEqual(middle, 8, "the list did not scroll down (first visible row \(middle))")
-        XCTAssertFalse(first.isHittable, "the first chapter is still on screen")
+        let middle = try XCTUnwrap(topVisibleChapter(listTop: listTop), "no chapter row on screen")
+        XCTAssertGreaterThanOrEqual(middle, 8, "the list did not scroll down (top visible row \(middle))")
 
         // A fast drag down mid-list: the list scrolls back up, the screen stays open.
         dragList(from: upper, by: span * 0.6, velocity: 2500)
         sleep(2)
         XCTAssertTrue(transportPlay.exists, "a drag down mid-list collapsed the screen")
         XCTAssertTrue(transportPlay.isHittable, "the screen moved: a drag down mid-list must scroll the list")
-        let afterDown = try XCTUnwrap(firstHittableChapter(in: 0..<60))
+        let afterDown = try XCTUnwrap(topVisibleChapter(listTop: listTop), "no chapter row on screen")
         XCTAssertLessThan(afterDown, middle, "the drag down mid-list did not scroll the list")
 
         // Back to the top, never starting a drag there: each one starts mid-list.
         for _ in 0..<8 {
-            if first.isHittable, first.frame.minY >= listTop - 1 { break }
+            if topVisibleChapter(listTop: listTop) == 0, first.frame.minY >= listTop - 1 { break }
             dragList(from: upper, by: span * 0.6, velocity: 1500)
             sleep(1)
         }
