@@ -57,8 +57,11 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
 - `bookmarkData` is written only when non-empty, and books are only bookmarked on first *play*. A
   freshly imported library publishes titles with null bookmarks, which still resolve via the URL
   fallback but are fragile if the file moves.
-- `LibrarySnapshotWriter` logs through `os_log` with `%{public}` counts and a `LibrarySnapshot`
-  category — useful, and notably the one place in the app that uses real logging rather than `print`.
+- `LibrarySnapshotWriter` logs through `Log.librarySnapshot` (category `LibrarySnapshot`) with
+  `.public` counts. The subsystem is the running bundle's, so a write from the extension (none today)
+  would log under `com.edyuto.Abbay.AbbayIntents`, not the app's.
+  `$B launch -seedLibrary` logs `snapshot WRITTEN: 2 entries (0 with bookmark),
+  suite=group.com.edyuto.abbay` under `[com.edyuto.Abbay:LibrarySnapshot]`.
 - The Spotlight indexer returns early when *every* item is filtered out, so an all-untitled library
   silently indexes nothing.
 - `SiriLibraryPublisher` is `static var shared` so tests can rebind it; the same is true of

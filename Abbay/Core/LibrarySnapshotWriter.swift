@@ -4,9 +4,7 @@
 //
 
 import Foundation
-import os.log
-
-private let snapshotLog = OSLog(subsystem: "com.edyuto.Abbay", category: "LibrarySnapshot")
+import os
 
 struct LibrarySnapshotEntry: Codable, Equatable {
     let title: String
@@ -71,16 +69,14 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         if let data = try? JSONEncoder().encode(snapshot) {
             store.set(data, forKey: Self.key)
             let bookmarkCount = entries.filter { $0.bookmarkData != nil }.count
-            os_log(
-                "snapshot WRITTEN: %{public}d entries (%{public}d with bookmark), suite=%{public}@",
-                log: snapshotLog,
-                type: .info,
-                entries.count,
-                bookmarkCount,
-                AppGroup.suiteName
+            Log.librarySnapshot.info(
+                """
+                snapshot WRITTEN: \(entries.count, privacy: .public) entries \
+                (\(bookmarkCount, privacy: .public) with bookmark), suite=\(AppGroup.suiteName, privacy: .public)
+                """
             )
         } else {
-            os_log("snapshot WRITE FAILED: JSON encode error", log: snapshotLog, type: .error)
+            Log.librarySnapshot.error("snapshot WRITE FAILED: JSON encode error")
         }
 
         #if !ABBAY_INTENTS_EXTENSION

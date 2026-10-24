@@ -43,8 +43,13 @@ $B appgroup get abbay.audioSessionUnavailable
 ```
 
 `SiriDiagnostics` is the single most useful tool here: the extension records `ext …` and the in-app
-handler records `app …`, so one log read establishes which of the two paths iOS chose. Note that
-`AppIntentsTesting` does **not** cover this — it is App Intents only. This path stays unit-tested
+handler records `app …`, so one log read establishes which of the two paths iOS chose. The
+unified log adds per-step detail: the extension logs each `decide` step through
+`Log.playMediaIntent` (subsystem `com.edyuto.Abbay.AbbayIntents`, category `PlayMediaIntent`), with
+the spoken name and last-played URL `.private` and counts and the flag `.public`. These are
+`.info` entries, so read them with `--info`, e.g.
+`xcrun simctl spawn booted log show --last 5m --info --predicate 'subsystem BEGINSWITH "com.edyuto.Abbay"'`.
+Note that `AppIntentsTesting` does **not** cover this — it is App Intents only. This path stays unit-tested
 (`InAppPlayMediaHandlerTests`, `IntentRouterTests`, `SiriEntityTests`).
 
 ## Gotchas

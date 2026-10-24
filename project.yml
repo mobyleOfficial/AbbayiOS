@@ -120,6 +120,7 @@ targets:
       - path: Abbay/Core/LastPlayedStore.swift
       - path: Abbay/Core/LibrarySnapshotWriter.swift
       - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/Log.swift
       - path: Abbay/Core/SiriDiagnostics.swift
       - path: Abbay/Intents/FuzzyMatch.swift
       - path: Abbay/Intents/MediaSearchResolver.swift
@@ -155,6 +156,7 @@ targets:
       - path: Abbay/Core/LastPlayedStore.swift
       - path: Abbay/Core/LibrarySnapshotWriter.swift
       - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/Log.swift
       - path: Abbay/Core/SiriDiagnostics.swift
       - path: Abbay/Intents/FuzzyMatch.swift
       - path: Abbay/Intents/MediaSearchResolver.swift

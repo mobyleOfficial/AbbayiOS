@@ -26,8 +26,6 @@ struct IconButtonView: View {
 
 struct IconButton_Previews: PreviewProvider {
     static var previews: some View {
-        IconButtonView(systemName: "play.fill") {
-            print("tap play")
-        }
+        IconButtonView(systemName: "play.fill") {}
     }
 }
