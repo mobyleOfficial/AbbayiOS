@@ -21,6 +21,7 @@ final class AppDelegateSiriFreshnessTests: XCTestCase {
     private func makeDelegate() -> AppDelegate {
         DependencyContainer.reset()
         let delegate = AppDelegate()
+        delegate.diagnostics = SiriDiagnostics(store: InMemoryKeyValueStore())
         delegate.audioSessionActivator = OrderRecorderActivator {}
         delegate.seeder = OrderRecorderSeeder {}
         delegate.launchState = .inMemory()

@@ -28,16 +28,15 @@ final class AudioSessionActivator: AudioSessionActivatorProtocol {
     /// branch (e.g. cold-background-launch contention) even after the audio
     /// session has since become available.
     ///
-    /// `makeActivator` is the injection seam: tests rebind it to a stub that
-    /// throws so the "audio unavailable" branch stays reachable (the real
-    /// `AVAudioSession` succeeds unconditionally in the simulator).
-    static var makeActivator: () -> AudioSessionActivatorProtocol = { AudioSessionActivator() }
-
-    /// `flag` defaults to the container's, so App Intents (which the system builds) use the
-    /// store tests inject there.
-    static func attemptActivation(flag: LaunchStateFlag = DependencyContainer.launchState) -> Bool {
+    /// `flag` and `activator` default to the container's, so App Intents (which the system builds)
+    /// use what tests inject there: a throwing activator keeps the "audio unavailable" branch
+    /// reachable (the real `AVAudioSession` succeeds unconditionally in the simulator).
+    static func attemptActivation(
+        flag: LaunchStateFlag = DependencyContainer.launchState,
+        activator: AudioSessionActivatorProtocol = DependencyContainer.audioSessionActivator
+    ) -> Bool {
         do {
-            try makeActivator().activate()
+            try activator.activate()
             flag.clear()
             return true
         } catch {

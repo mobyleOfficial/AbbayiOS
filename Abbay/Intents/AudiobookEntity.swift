@@ -77,7 +77,7 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
         let found = AudiobookLibrary.all()
             .compactMap(AudiobookEntity.init(model:))
             .filter { wanted.contains($0.id) }
-        SiriDiagnostics.record("query book byId asked=\(identifiers.count) found=\(found.count)")
+        DependencyContainer.diagnostics.record("query book byId asked=\(identifiers.count) found=\(found.count)")
         return found
     }
 
@@ -90,7 +90,7 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
             ordered.insert(recent, at: 0)
         }
         let suggestions = Array(ordered.prefix(Self.suggestionLimit))
-        SiriDiagnostics.record("query book suggested count=\(suggestions.count)")
+        DependencyContainer.diagnostics.record("query book suggested count=\(suggestions.count)")
         return suggestions
     }
 
@@ -105,7 +105,7 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
             lastPlayedURL: DependencyContainer.lastPlayed.lastPlayedURL()
         )
         let entities = matches.compactMap(AudiobookEntity.init(model:))
-        SiriDiagnostics.record("query book matching found=\(entities.count) library=\(library.count)")
+        DependencyContainer.diagnostics.record("query book matching found=\(entities.count) library=\(library.count)")
         return entities
     }
 }

@@ -10,8 +10,10 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct DocumentPickerView: UIViewControllerRepresentable {
+    // MARK: - Properties
     var onImport: ([URL]) async -> Void
 
+    // MARK: - UIViewControllerRepresentable
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let types = [UTType.audio]
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: false)
@@ -27,14 +29,18 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Coordinator
 extension DocumentPickerView {
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        // MARK: - Properties
         private let onImport: ([URL]) async -> Void
 
+        // MARK: Init
         init(onImport: @escaping ([URL]) async -> Void) {
             self.onImport = onImport
         }
 
+        // MARK: - UIDocumentPickerDelegate
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             Task { @MainActor in
                 await onImport(urls)
@@ -43,6 +49,7 @@ extension DocumentPickerView {
     }
 }
 
+// MARK: - Preview
 struct DocumentPickerView_Previews: PreviewProvider {
     static var previews: some View {
         DocumentPickerView(onImport: { _ in })

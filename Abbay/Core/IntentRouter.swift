@@ -16,6 +16,7 @@ final class IntentRouter: IntentRouterProtocol {
     private let player: () -> PlayerProtocol
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
+    private let diagnostics: SiriDiagnostics
 
     init(
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
@@ -23,7 +24,8 @@ final class IntentRouter: IntentRouterProtocol {
         snapshotReader: @escaping () -> [LibrarySnapshotEntry] = { LibrarySnapshotReader.shared.read() },
         player: @escaping () -> PlayerProtocol = { DependencyContainer.shared.player },
         lastPlayed: LastPlayedStore = .shared,
-        launchState: LaunchStateFlag = .shared
+        launchState: LaunchStateFlag = .shared,
+        diagnostics: SiriDiagnostics = .shared
     ) {
         self.loadAudio = loadAudio
         self.snapshotWriter = snapshotWriter
@@ -31,15 +33,16 @@ final class IntentRouter: IntentRouterProtocol {
         self.player = player
         self.lastPlayed = lastPlayed
         self.launchState = launchState
+        self.diagnostics = diagnostics
     }
 
     func handle(_ intent: INPlayMediaIntent) -> INPlayMediaIntentResponse {
-        SiriDiagnostics.record("app handleInApp received")
+        diagnostics.record("app handleInApp received")
         if launchState.isUnavailable() {
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
         }
         guard let identifier = identifier(for: intent) else {
-            SiriDiagnostics.record("app handleInApp unresolved")
+            diagnostics.record("app handleInApp unresolved")
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
         }
 
@@ -50,7 +53,7 @@ final class IntentRouter: IntentRouterProtocol {
         let fallbackURL = URL(string: identifier)
         guard var model = loadAudio.execute(url: resolvedURL)
                 ?? loadAudio.execute(url: fallbackURL) else {
-            SiriDiagnostics.record("app handleInApp load failed")
+            diagnostics.record("app handleInApp load failed")
             if let saved = lastPlayed.lastPlayedURL(), saved.absoluteString == identifier {
                 lastPlayed.save(url: nil)
             }
@@ -80,7 +83,7 @@ final class IntentRouter: IntentRouterProtocol {
             audios: audios,
             lastPlayedURL: lastPlayed.lastPlayedURL()
         ).first
-        SiriDiagnostics.record(
+        diagnostics.record(
             "app resolved in-app library=\(audios.count) matched=\(picked != nil)"
         )
         return picked?.url?.absoluteString

@@ -51,9 +51,16 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         self.loadAllAudios = loadAllAudios
     }
     #else
-    init(store: KeyValueStoring = AppGroup.store, loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+    private let publisher: SiriLibraryPublisherProtocol
+
+    init(
+        store: KeyValueStoring = AppGroup.store,
+        loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
+        publisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared
+    ) {
         self.store = store
         self.loadAllAudios = loadAllAudios
+        self.publisher = publisher
     }
     #endif
 
@@ -84,7 +91,7 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         // keeps Siri's vocabulary, entity phrases and media-affinity signal in step
         // with the real library. None of those APIs exist in an app extension,
         // hence the guard.
-        SiriLibraryPublisher.shared.publish(audios: audios)
+        publisher.publish(audios: audios)
         NotificationCenter.default.post(name: .libraryDidChange, object: nil)
         #endif
     }

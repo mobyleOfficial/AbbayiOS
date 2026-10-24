@@ -7,56 +7,36 @@
 import XCTest
 
 final class AppDelegateSeederTests: XCTestCase {
-    private func makeSuites() throws -> (InMemoryKeyValueStore, InMemoryKeyValueStore) {
+    private func makeSuites() -> (InMemoryKeyValueStore, InMemoryKeyValueStore) {
         (InMemoryKeyValueStore(), InMemoryKeyValueStore())
     }
 
-    func test_seed_lastPlayedInStandardOnly_copiesToAppGroup() throws {
-        let (appGroup, standard) = try makeSuites()
+    func test_seed_lastPlayedInStandardOnly_copiesToAppGroup() {
+        let (appGroup, standard) = makeSuites()
         standard.set("file:///old", forKey: LastPlayedStore.key)
-        appGroup.set(Data(), forKey: LibrarySnapshotWriter.key)  // snapshot present → skip refresh
-        let mockWriter = MockLibrarySnapshotWriter()
 
-        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
-            .seedIfNeeded()
+        AppDelegateSeeder(appGroup: appGroup, standard: standard).seedIfNeeded()
 
         XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///old")
-        XCTAssertEqual(mockWriter.refreshCallCount, 0)
     }
 
-    func test_seed_emptySnapshot_callsRefresh() throws {
-        let (appGroup, standard) = try makeSuites()
-        let mockWriter = MockLibrarySnapshotWriter()
-
-        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
-            .seedIfNeeded()
-
-        XCTAssertEqual(mockWriter.refreshCallCount, 1)
-    }
-
-    func test_seed_populatedSnapshot_skipsRefresh() throws {
-        let (appGroup, standard) = try makeSuites()
-        appGroup.set(Data([1, 2]), forKey: LibrarySnapshotWriter.key)
-        let mockWriter = MockLibrarySnapshotWriter()
-
-        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
-            .seedIfNeeded()
-
-        XCTAssertEqual(mockWriter.refreshCallCount, 0)
-    }
-
-    func test_seed_lastPlayedInAppGroupAlready_doesNotOverwrite() throws {
-        let (appGroup, standard) = try makeSuites()
+    func test_seed_lastPlayedInAppGroupAlready_doesNotOverwrite() {
+        let (appGroup, standard) = makeSuites()
         appGroup.set("file:///existing", forKey: LastPlayedStore.key)
         standard.set("file:///stale", forKey: LastPlayedStore.key)
-        appGroup.set(Data(), forKey: LibrarySnapshotWriter.key)
 
-        AppDelegateSeeder(
-            appGroup: appGroup,
-            standard: standard,
-            snapshotWriter: MockLibrarySnapshotWriter()
-        ).seedIfNeeded()
+        AppDelegateSeeder(appGroup: appGroup, standard: standard).seedIfNeeded()
 
         XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///existing")
+    }
+
+    /// #153: the launch writes the library snapshot itself (`AppDelegateOrderingTests`), so the
+    /// seeder leaves it alone, even when there is none yet.
+    func test_seed_noSnapshot_leavesTheSnapshotToTheLaunchWrite() {
+        let (appGroup, standard) = makeSuites()
+
+        AppDelegateSeeder(appGroup: appGroup, standard: standard).seedIfNeeded()
+
+        XCTAssertNil(appGroup.object(forKey: LibrarySnapshotWriter.key))
     }
 }

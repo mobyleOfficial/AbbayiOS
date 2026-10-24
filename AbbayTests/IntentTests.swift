@@ -14,13 +14,21 @@ final class IntentTests: XCTestCase {
     /// The container's in-memory App Group stores: what the intents read and write.
     private var lastPlayed = LastPlayedStore(store: InMemoryKeyValueStore(), legacyStore: InMemoryKeyValueStore())
     private var launchState = LaunchStateFlag(store: InMemoryKeyValueStore())
+    /// The container's audio session activator: what the intents activate before they play.
+    private var activator = MockAudioSessionActivator()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         player = MockPlayer()
         loader = MockLoadAudioUseCase()
         lister = MockLoadAllAudiosUseCase()
-        let container = MockDependencyContainer(player: player, loadAudio: loader, loadAllAudios: lister)
+        activator = MockAudioSessionActivator()
+        let container = MockDependencyContainer(
+            player: player,
+            loadAudio: loader,
+            loadAllAudios: lister,
+            audioSessionActivator: activator
+        )
         lastPlayed = container.lastPlayed
         launchState = container.launchState
         DependencyContainer.configure(with: container)
@@ -320,13 +328,7 @@ final class IntentTests: XCTestCase {
         // The intents now RETRY activation instead of trusting a stale flag, so the
         // unavailable branch is only reachable when activation itself fails. Stub the
         // activator to throw — the real AVAudioSession always succeeds in the simulator.
-        let originalActivator = AudioSessionActivator.makeActivator
-        let failing = MockAudioSessionActivator()
-        failing.shouldThrow = true
-        AudioSessionActivator.makeActivator = { failing }
-        defer {
-            AudioSessionActivator.makeActivator = originalActivator
-        }
+        activator.shouldThrow = true
         try await body()
     }
 

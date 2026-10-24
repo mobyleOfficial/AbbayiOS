@@ -31,6 +31,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         DependencyContainer.reset()
 
         let delegate = AppDelegate()
+        delegate.diagnostics = SiriDiagnostics(store: InMemoryKeyValueStore())
         delegate.audioSessionActivator = OrderRecorderActivator { sequence.append("session") }
         delegate.seeder = OrderRecorderSeeder { sequence.append("seed") }
         delegate.launchState = .inMemory()
@@ -48,6 +49,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         let writer = MockLibrarySnapshotWriter()
 
         let delegate = AppDelegate()
+        delegate.diagnostics = SiriDiagnostics(store: InMemoryKeyValueStore())
         delegate.audioSessionActivator = OrderRecorderActivator {}
         delegate.seeder = OrderRecorderSeeder {}
         delegate.launchState = .inMemory()
@@ -70,6 +72,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         }
 
         let delegate = AppDelegate()
+        delegate.diagnostics = SiriDiagnostics(store: InMemoryKeyValueStore())
         delegate.audioSessionActivator = ThrowingActivator()
         delegate.seeder = OrderRecorderSeeder { seedCalled = true }
         delegate.launchState = flag

@@ -77,7 +77,8 @@ final class IntentRouterTests: XCTestCase {
             snapshotReader: { snapshotEntries },
             player: { mock },
             lastPlayed: .inMemory(appGroup),
-            launchState: .inMemory(appGroup)
+            launchState: .inMemory(appGroup),
+            diagnostics: SiriDiagnostics(store: appGroup)
         )
     }
 

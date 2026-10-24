@@ -50,7 +50,12 @@ final class LibrarySnapshotReaderTests: XCTestCase {
         modelB.title = "Chamber of Secrets"
 
         let mock = try XCTUnwrap(mockLoadAllAudios)
-        LibrarySnapshotWriter(store: try XCTUnwrap(testSuite), loadAllAudios: mock).write(audios: [modelA, modelB])
+        let writer = LibrarySnapshotWriter(
+            store: try XCTUnwrap(testSuite),
+            loadAllAudios: mock,
+            publisher: NoopSiriLibraryPublisher()
+        )
+        writer.write(audios: [modelA, modelB])
         let entries = try makeReader().read()
 
         XCTAssertEqual(entries.count, 2)

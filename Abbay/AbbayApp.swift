@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
     lazy var playMediaHandler = InAppPlayMediaHandler()
     lazy var launchState: LaunchStateFlag = .shared
+    lazy var diagnostics: SiriDiagnostics = .shared
     lazy var siriContext: SiriContextRefreshing = DependencyContainer.shared.siriContext
     lazy var backgroundRefresh = SiriBackgroundRefresh(refresher: siriContext)
 
@@ -57,8 +58,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Siri responds "Abbay hasn't added support for that with Siri".
         // First call surfaces the system permission prompt; subsequent calls are
         // no-ops if status is already determined.
+        let diagnostics = diagnostics
         INPreferences.requestSiriAuthorization { status in
-            SiriDiagnostics.record("app launch siriAuth=\(status.rawValue)")
+            diagnostics.record("app launch siriAuth=\(status.rawValue)")
         }
 
         // Rewrite the snapshot, which publishes the library to Siri, on every launch.
