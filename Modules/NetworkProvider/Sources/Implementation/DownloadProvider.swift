@@ -77,6 +77,12 @@ extension DownloadProvider: DownloadProviderProtocol {
             throw NetworkError.invalidParams
         }
         removeResumeData(for: id)
+        // Resume data carries the request it was started with, flags included, and can't be given
+        // another one: a request allowed onto metered networks (e.g. started before #134) is
+        // dropped so the caller starts afresh. Unreadable resume data is trusted rather than lost.
+        if !allowsCellularAccess, ResumeDataInspector.allowsMeteredNetworks(resumeData) == true {
+            throw NetworkError.invalidParams
+        }
         run(session.downloadTask(withResumeData: resumeData), id: id)
     }
 
@@ -90,6 +96,20 @@ extension DownloadProvider: DownloadProviderProtocol {
     public func runningIDs() async -> Set<String> {
         let tasks = await session.allTasks
         return Set(tasks.filter { $0.state == .running }.compactMap(\.taskDescription))
+    }
+
+    public func runningIDsAllowingMeteredNetworks() async -> Set<String> {
+        let tasks = await session.allTasks.filter { task in
+            guard task.state == .running, let request = task.originalRequest else { return false }
+            return ResumeDataInspector.allowsMeteredNetworks(request)
+        }
+        return Set(tasks.compactMap(\.taskDescription))
+    }
+
+    public func cancel(ids: Set<String>) async {
+        ids.forEach(removeResumeData(for:))
+        let tasks = await session.allTasks
+        tasks.filter { $0.taskDescription.map(ids.contains) == true }.forEach { $0.cancel() }
     }
 
     public func handleBackgroundEvents(completion: @escaping () -> Void) {

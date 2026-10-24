@@ -5,7 +5,7 @@
 //  Created on 21/10/26.
 //
 
-import NetworkProvider
+@testable import NetworkProvider
 import XCTest
 
 final class DownloadProviderTests: XCTestCase {
@@ -157,6 +157,49 @@ final class DownloadProviderTests: XCTestCase {
         await fulfillment(of: [completed], timeout: 5)
     }
 
+    func test_runningIDsAllowingMeteredNetworks_reportsOnlyTasksThatMayUseThem() async throws {
+        URLProtocolMock.delay = 1
+        let request = NetworkRequest(endpoint: "https://example.com/a.mp3")
+
+        try sut.start(request, id: "metered", allowsCellularAccess: true)
+        try sut.start(request, id: "wifi", allowsCellularAccess: false)
+
+        let metered = await sut.runningIDsAllowingMeteredNetworks()
+        XCTAssertEqual(metered, ["metered"])
+    }
+
+    func test_cancelIDs_stopsThoseTasksBeforeReturning_andRemovesTheirResumeData() async throws {
+        URLProtocolMock.delay = 1
+        let request = NetworkRequest(endpoint: "https://example.com/a.mp3")
+        try sut.start(request, id: "a", allowsCellularAccess: true)
+        try sut.start(request, id: "b", allowsCellularAccess: true)
+        try FileManager.default.createDirectory(at: resumeDataDirectory, withIntermediateDirectories: true)
+        try Data([9]).write(to: resumeDataDirectory.appendingPathComponent("a.resume"))
+
+        await sut.cancel(ids: ["a"])
+
+        let running = await sut.runningIDs()
+        XCTAssertEqual(running, ["b"], "A task started with the same id from here on is not cancelled too")
+        let resumeFile = resumeDataDirectory.appendingPathComponent("a.resume")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: resumeFile.path))
+        await awaitEvent(.failed(id: "a", error: .cancelledRequest))
+    }
+
+    /// A Wi-Fi-only download paused before #134 kept hotspot and Low Data Mode access in its resume
+    /// data. Resuming it would keep them, so its resume data is dropped and the caller starts afresh.
+    func test_resume_withoutCellular_refusesResumeDataThatAllowsMeteredNetworks() throws {
+        try writeResumeData(
+            ResumeDataFixture.make(allowsCellular: false, allowsExpensive: true, allowsConstrained: true),
+            for: "a"
+        )
+
+        XCTAssertThrowsError(try sut.resume(id: "a", allowsCellularAccess: false)) { error in
+            XCTAssertEqual(error as? NetworkError, .invalidParams)
+        }
+        let resumeFile = resumeDataDirectory.appendingPathComponent("a.resume")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: resumeFile.path))
+    }
+
     func test_resume_withoutResumeData_throwsInvalidParams() {
         XCTAssertThrowsError(try sut.resume(id: "a", allowsCellularAccess: true)) { error in
             XCTAssertEqual(error as? NetworkError, .invalidParams)
@@ -168,6 +211,11 @@ final class DownloadProviderTests: XCTestCase {
 private extension DownloadProviderTests {
     func response(statusCode: Int) -> HTTPURLResponse {
         HTTPURLResponse(url: URL(string: "https://example.com")!, statusCode: statusCode, httpVersion: nil, headerFields: nil)!
+    }
+
+    func writeResumeData(_ data: Data, for id: String) throws {
+        try FileManager.default.createDirectory(at: resumeDataDirectory, withIntermediateDirectories: true)
+        try data.write(to: resumeDataDirectory.appendingPathComponent("\(id).resume"))
     }
 
     func awaitEvent(_ event: DownloadEvent) async {

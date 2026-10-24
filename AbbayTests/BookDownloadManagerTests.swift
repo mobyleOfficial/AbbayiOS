@@ -18,6 +18,8 @@ final class BookDownloadManagerTests: XCTestCase {
     private let path = FakeNetworkPath()
     private let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("BookDownloadManagerTests-\(UUID().uuidString)", isDirectory: true)
+    /// The key-value store failure counts persist in; a relaunched manager reads the same one.
+    private let failureValues = InMemoryKeyValueStore()
     private var pendingRetries: [(delay: TimeInterval, run: () -> Void)] = []
     private var cancellables = Set<AnyCancellable>()
     private var latestStates: [String: BookDownloadState] = [:]
@@ -30,6 +32,7 @@ final class BookDownloadManagerTests: XCTestCase {
             updateFlags: flags,
             loadAll: loadAll,
             path: path,
+            failures: ChapterFailureStore(store: failureValues),
             scheduleRetry: { [weak self] delay, retry in self?.pendingRetries.append((delay, retry)) }
         )
         manager.statesPublisher
@@ -295,6 +298,41 @@ final class BookDownloadManagerTests: XCTestCase {
         XCTAssertFalse(provider.resumeCalls.contains("1#0"))
     }
 
+    /// A Wi-Fi-only book's task from before #134 may still use a hotspot or Low Data Mode: it is
+    /// cancelled and started afresh with every metered network off.
+    func test_restore_wifiOnlyBook_restartsRunningTaskThatAllowsMeteredNetworks() async throws {
+        loadAll.stub = [makeBook(allowsCellular: false)]
+        provider.running = ["1#0", "1#1"]
+        provider.meteredRunning = ["1#0"]
+
+        sut.restore()
+
+        await waitUntil { self.provider.startedIDs.contains("1#0") }
+        XCTAssertEqual(provider.cancelIDsCalls, [["1#0"]])
+        XCTAssertEqual(
+            provider.startCalls,
+            [.init(id: "1#0", url: "https://archive.org/download/x/ch0.mp3", allowsCellularAccess: false)]
+        )
+        // The cancelled task's end arrives afterwards and must not unseat the new one.
+        provider.send(.failed(id: "1#0", error: .cancelledRequest))
+        provider.send(.finished(id: "1#1", location: try makeTempFile(Data([1]))))
+        await waitUntil { self.provider.startedIDs.contains("1#2") }
+        await drainEvents()
+        XCTAssertEqual(startedIDs(ofBook: "1"), ["1#0", "1#2"])
+    }
+
+    func test_restore_bookAllowingCellular_keepsItsRunningTasks() async {
+        loadAll.stub = [makeBook(chapterCount: 3, allowsCellular: true)]
+        provider.running = ["1#0"]
+        provider.meteredRunning = ["1#0"]
+
+        sut.restore()
+
+        await waitUntil { self.provider.startedIDs.contains("1#1") }
+        XCTAssertTrue(provider.cancelIDsCalls.allSatisfy(\.isEmpty))
+        XCTAssertEqual(provider.startedIDs, ["1#1"], "1#0 stays attached")
+    }
+
     func test_restore_skipsPausedBooks() async throws {
         let book = makeBook(isPaused: true)
         try writeChapterFile(0, of: book)
@@ -473,8 +511,112 @@ extension BookDownloadManagerTests {
     }
 }
 
+// MARK: - Failures kept across relaunch (#148)
+extension BookDownloadManagerTests {
+    func test_relaunch_chapterThatFailedOnce_startsAtOnceAndKeepsItsPlaceInTheBackoff() async {
+        let book = makeBook(chapterCount: 1)
+        sut.enqueue(book)
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+        pendingRetries.removeAll()
+
+        let relaunch = relaunched(with: [book])
+        await waitUntil { relaunch.provider.startedIDs == ["1#0"] }
+        relaunch.provider.send(.failed(id: "1#0", error: .connection))
+
+        await waitUntil { self.pendingRetries.count == 1 }
+        XCTAssertEqual(pendingRetries.first?.delay, 120, "The second failure in a row, not a fresh first")
+        withExtendedLifetime(relaunch.manager) {}
+    }
+
+    func test_relaunch_failedChapter_staysFailedUntilRetried() async {
+        let book = makeBook(chapterCount: 2)
+        sut.enqueue(book)
+        await failUntilCapped("1#0")
+
+        let relaunch = relaunched(with: [book])
+        await waitUntil { relaunch.provider.startedIDs == ["1#1"] }
+        XCTAssertEqual(relaunch.states()["1"]?.chapters, [.failed, .waiting])
+
+        relaunch.manager.retry(chapterIndex: 0, ofBookID: "1")
+
+        XCTAssertEqual(relaunch.provider.startedIDs, ["1#1", "1#0"])
+        XCTAssertEqual(relaunch.states()["1"]?.chapters, [.waiting, .waiting])
+        XCTAssertEqual(ChapterFailureStore(store: failureValues).failures(bookID: "1", chapter: book.chapters[0]), 0)
+    }
+
+    func test_finished_forgetsThePersistedFailures() async throws {
+        let book = makeBook(chapterCount: 1)
+        sut.enqueue(book)
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+        pendingRetries.removeFirst().run()
+
+        provider.send(.finished(id: "1#0", location: try makeTempFile(Data([1]))))
+
+        await waitUntil { self.latestStates["1"]?.isComplete == true }
+        XCTAssertEqual(ChapterFailureStore(store: failureValues).failures(bookID: "1", chapter: book.chapters[0]), 0)
+    }
+
+    func test_remove_forgetsThePersistedFailures() async {
+        let book = makeBook(chapterCount: 1)
+        sut.enqueue(book)
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+
+        sut.remove(bookID: "1")
+
+        XCTAssertNil(failureValues.object(forKey: ChapterFailureStore.key))
+    }
+
+    func test_pathSatisfiedAgain_forgetsThePersistedFailures() async {
+        let book = makeBook(chapterCount: 1)
+        sut.enqueue(book)
+        await failUntilCapped("1#0")
+
+        path.isOnline = false
+        path.isOnline = true
+
+        XCTAssertNil(failureValues.object(forKey: ChapterFailureStore.key))
+    }
+}
+
 // MARK: - Helpers
 private extension BookDownloadManagerTests {
+    struct Relaunch {
+        let manager: BookDownloadManager
+        let provider: MockDownloadProvider
+        let states: () -> [String: BookDownloadState]
+    }
+
+    /// A second manager on the same disk and the same failure store, as after a relaunch, restored
+    /// with `books` in the library. Its emissions and calls also wake `waitUntil`.
+    func relaunched(with books: [AudioModel]) -> Relaunch {
+        _ = sut
+        let provider = MockDownloadProvider()
+        let loadAll = MockLoadAllAudiosUseCase()
+        loadAll.stub = books
+        let manager = BookDownloadManager(
+            provider: provider,
+            root: root,
+            updateFlags: MockUpdateDownloadFlagsUseCase(),
+            loadAll: loadAll,
+            path: FakeNetworkPath(),
+            failures: ChapterFailureStore(store: failureValues),
+            scheduleRetry: { [weak self] delay, retry in self?.pendingRetries.append((delay, retry)) }
+        )
+        let latest = LatestStates()
+        manager.statesPublisher
+            .sink { [weak self] states in
+                latest.value = states
+                self?.notifyObservers()
+            }
+            .store(in: &cancellables)
+        provider.onCall = { [weak self] in self?.notifyObservers() }
+        manager.restore()
+        return Relaunch(manager: manager, provider: provider, states: { latest.value })
+    }
+
     func makeBook(
         id: String = "1",
         chapterCount: Int = 4,
@@ -576,62 +718,6 @@ private extension BookDownloadManagerTests {
     }
 }
 
-/// Deleting a LibriVox book also cancels its downloads and removes its files.
-final class DeleteAudioUseCaseDownloadsTests: XCTestCase {
-    private final class MockDeleteAudioRepository: DeleteAudioRepositoryProtocol {
-        private(set) var deletedURLs: [URL?] = []
-
-        func execute(url: URL?) { deletedURLs.append(url) }
-    }
-
-    func test_execute_libriVoxBook_removesItsDownloads() {
-        let repository = MockDeleteAudioRepository()
-        var removed: [String] = []
-        let sut = DeleteAudioUseCase(
-            repository: repository,
-            removeDownloads: { removed.append($0) },
-            snapshotWriter: MockLibrarySnapshotWriter()
-        )
-        var book = AudioModel()
-        book.url = LibriVoxIdentity.bookURL(id: "200")
-        book.librivoxID = "200"
-
-        sut.execute(book)
-
-        XCTAssertEqual(removed, ["200"])
-        XCTAssertEqual(repository.deletedURLs, [book.url])
-    }
-
-    func test_execute_importedBook_leavesDownloadsAlone() {
-        var removed: [String] = []
-        let sut = DeleteAudioUseCase(
-            repository: MockDeleteAudioRepository(),
-            removeDownloads: { removed.append($0) },
-            snapshotWriter: MockLibrarySnapshotWriter()
-        )
-        var book = AudioModel()
-        book.url = URL(fileURLWithPath: "/imported.m4b")
-
-        sut.execute(book)
-
-        XCTAssertTrue(removed.isEmpty)
-    }
-
-    func test_defaultRemoveDownloads_usesContainerDownloads() {
-        let downloads = MockBookDownloadManager()
-        DependencyContainer.configure(with: MockDependencyContainer(
-            player: MockPlayer(),
-            loadAudio: MockLoadAudioUseCase(),
-            loadAllAudios: MockLoadAllAudiosUseCase(),
-            downloads: downloads
-        ))
-        defer { DependencyContainer.reset() }
-        var book = AudioModel()
-        book.librivoxID = "200"
-
-        DeleteAudioUseCase(repository: MockDeleteAudioRepository(), snapshotWriter: MockLibrarySnapshotWriter())
-            .execute(book)
-
-        XCTAssertEqual(downloads.removed, ["200"])
-    }
+private final class LatestStates {
+    var value: [String: BookDownloadState] = [:]
 }

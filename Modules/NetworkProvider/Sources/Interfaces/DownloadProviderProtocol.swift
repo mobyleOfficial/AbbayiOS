@@ -28,10 +28,13 @@ public protocol DownloadProviderProtocol: AnyObject {
 
     /// Continues a paused or interrupted download from its saved resume data.
     ///
-    /// `allowsCellularAccess` has no effect yet: a resumed download keeps the cellular setting of
-    /// the request it was started with, because resume data carries that request and URLSession
-    /// offers no public way to change it.
-    /// - Throws: `NetworkError.invalidParams` when there is no resume data for `id`.
+    /// A resumed download keeps the network settings of the request it was started with: resume
+    /// data carries that request and URLSession offers no public way to change it. So with
+    /// `allowsCellularAccess: false`, resume data whose request may use a metered network
+    /// (cellular, Personal Hotspot or Low Data Mode) is deleted instead and this throws, for the
+    /// caller to `start` the download afresh.
+    /// - Throws: `NetworkError.invalidParams` when there is no resume data for `id`, or it was
+    ///   refused as above.
     func resume(id: String, allowsCellularAccess: Bool) throws
 
     /// Stops the download and deletes its resume data. Emits `.failed(id, .cancelledRequest)`.
@@ -39,6 +42,15 @@ public protocol DownloadProviderProtocol: AnyObject {
 
     /// The ids of downloads currently running, including ones re-attached after a relaunch.
     func runningIDs() async -> Set<String>
+
+    /// The running downloads whose request may use a metered network: cellular, Personal Hotspot
+    /// or Low Data Mode. A download started with `allowsCellularAccess: false` is never among them.
+    func runningIDsAllowingMeteredNetworks() async -> Set<String>
+
+    /// Stops these downloads and deletes their resume data, like `cancel(id:)`, but returns only
+    /// once each running task has been cancelled, so a download started afterwards with the same
+    /// id is not cancelled too. Each still emits `.failed(id, .cancelledRequest)`.
+    func cancel(ids: Set<String>) async
 
     /// Stores the completion handler the system passes to
     /// `application(_:handleEventsForBackgroundURLSession:completionHandler:)`, and calls it on

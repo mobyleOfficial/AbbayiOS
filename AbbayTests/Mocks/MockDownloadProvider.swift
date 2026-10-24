@@ -25,6 +25,9 @@ final class MockDownloadProvider: DownloadProviderProtocol {
     /// Ids that have resume data; `resume` throws `.invalidParams` for any other id.
     var resumableIDs: Set<String> = []
     var running: Set<String> = []
+    /// The running ids `runningIDsAllowingMeteredNetworks()` reports.
+    var meteredRunning: Set<String> = []
+    private(set) var cancelIDsCalls: [Set<String>] = []
     /// When set, `start` records the call and then throws it.
     var startError: NetworkError?
     /// Called after every recorded call, so tests can wait on calls the manager makes asynchronously.
@@ -83,6 +86,17 @@ final class MockDownloadProvider: DownloadProviderProtocol {
             }
         }
         return running
+    }
+
+    func runningIDsAllowingMeteredNetworks() async -> Set<String> {
+        meteredRunning.intersection(running)
+    }
+
+    func cancel(ids: Set<String>) async {
+        cancelIDsCalls.append(ids)
+        resumableIDs.subtract(ids)
+        running.subtract(ids)
+        onCall?()
     }
 
     func releaseRunningIDs() {
