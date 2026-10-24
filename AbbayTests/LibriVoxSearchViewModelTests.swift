@@ -155,27 +155,21 @@ final class LibriVoxSearchViewModelTests: XCTestCase {
     }
 
     func test_reloadingPopular_whenAlreadyLoaded_neverShowsLoading() async {
-        let sut = makeSUT()
-        client.popularResult = .success([book("7")])
-        await sut.loadPopular()
-        var sawLoading = false
-        func track() {
-            withObservationTracking {
-                if sut.status == .loading { sawLoading = true }
-            } onChange: {
-                Task { @MainActor in
-                    if sut.status == .loading { sawLoading = true }
-                    track()
-                }
-            }
-        }
-        track()
-        client.popularResult = .success([book("7"), book("8")])
+        let gated = GatedLibriVoxClient()
+        let sut = LibriVoxSearchViewModel(client: gated, path: path, debounce: .milliseconds(1))
+        let first = Task { await sut.loadPopular() }
+        await waitUntil { gated.popularPending }
+        gated.releasePopular(with: [book("7")])
+        await first.value
 
-        await sut.loadPopular()
-        await Task.yield()
+        let reload = Task { await sut.loadPopular() }
+        await waitUntil { gated.popularPending }
 
-        XCTAssertFalse(sawLoading)
+        // The reload is suspended: the list must still be on screen, not a spinner.
+        XCTAssertEqual(sut.status, .loaded)
+        XCTAssertEqual(sut.popular.map(\.id), ["7"])
+        gated.releasePopular(with: [book("7"), book("8")])
+        await reload.value
         XCTAssertEqual(sut.status, .loaded)
         XCTAssertEqual(sut.popular.map(\.id), ["7", "8"])
     }
