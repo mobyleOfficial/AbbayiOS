@@ -88,7 +88,8 @@ final class AccessibilityIdentifierTests: XCTestCase {
         while close.frame.minY > app.frame.height / 4, Date() < deadline {
             usleep(100_000)
         }
-        XCTAssertLessThanOrEqual(close.frame.minY, app.frame.height / 4, "the player never arrived", file: file, line: line)
+        let arrived = close.frame.minY <= app.frame.height / 4
+        XCTAssertTrue(arrived, "the player never arrived (close at \(close.frame.minY))", file: file, line: line)
     }
 
     // MARK: - Library
