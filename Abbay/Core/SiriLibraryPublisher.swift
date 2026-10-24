@@ -64,6 +64,8 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         spotlightIndexer.index(audios: audios)
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
         SiriDiagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
+        // The unified-log twin of the diagnostics line (#157). The count only, never titles.
+        Log.siri.info("publish: \(audios.count, privacy: .public) books")
         refreshShortcutParameters()
     }
 

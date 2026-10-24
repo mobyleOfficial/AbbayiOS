@@ -71,6 +71,27 @@ final class SiriLibraryPublisherTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
+    /// #157: a publish reaches the unified log with its book count, not just `SiriDiagnostics`.
+    func test_publish_logsTheBookCount_withoutTitles() throws {
+        let since = Date()
+        let publisher = SiriLibraryPublisher(
+            mediaUserContextDonor: SpyMediaUserContextDonor(),
+            spotlightIndexer: SpySpotlightIndexer(),
+            vocabulary: { _ in },
+            refreshShortcutParameters: {}
+        )
+
+        publisher.publish(audios: [
+            audio(title: "HiddenOne157", url: "file:///first"),
+            audio(title: "HiddenTwo157", url: "file:///second"),
+            audio(title: "HiddenThree157", url: "file:///third")
+        ])
+
+        let messages = try LoggedMessages.messages(category: "Siri", since: since)
+        XCTAssertTrue(messages.contains { $0.contains("publish: 3 books") }, "\(messages)")
+        XCTAssertFalse(messages.contains { $0.contains("Hidden") }, "\(messages)")
+    }
+
     func test_spotlightItem_carriesTitleAndStableIdentifier() throws {
         let item = try XCTUnwrap(
             LibrarySpotlightIndexer.searchableItem(for: audio(title: "Dune", url: "file:///dune"))
