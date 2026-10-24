@@ -28,6 +28,7 @@ enum Localizable: String {
     case downloadingProgress
     case download
     case play
+    case pause
     case chaptersCount
     case librivoxCredit
     case more

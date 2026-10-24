@@ -1659,6 +1659,24 @@
         }
       }
     },
+    "pause" : {
+      "comment" : "Accessibility label of the play/pause button while playing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar"
+          }
+        }
+      }
+    },
     "noChaptersTitle" : {
       "comment" : "Chapter list empty state title, for a book with no chapter markers",
       "extractionState" : "manual",
