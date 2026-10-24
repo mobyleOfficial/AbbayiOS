@@ -70,6 +70,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
     one stub book, which any query containing "stub" also finds) and swaps in a download manager
     that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
     debounce. Combine it with the others; without it search and downloads use the real network.
+  - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
+    exist, so the failed-import banner shows (see [notices](notices.md)).
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
   cumulative. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
@@ -77,7 +79,10 @@ added. Resolve a row by matching its title label rather than assuming an index.
   seeded row's play button loads the book (the mini player and the row's loaded state appear), but
   nothing plays and the clock doesn't move, so anything needing real playback — time advancing,
   tapping a chapter — is unreachable this way. The stub LibriVox book is the same: Play opens the
-  details screen and the mini player appears; its chapter URL is `/dev/null`.
+  details screen and the mini player appears; its chapter URL is `/dev/null`. Because nothing is
+  there to play, both now also show the error banner (`notice.banner`) for about 5 s: the
+  moved-file notice for a seeded book, *Couldn't play this chapter* for the stub book. It doesn't
+  take touches.
 
   Not reachable by any launch configuration: real search results, real downloads and their
   progress/ring/statuses (the stub manager's state stream is empty), the cellular alert (the stub
@@ -125,6 +130,7 @@ substitute: it records every intent firing across processes and survives app dea
 - [library](library.md): the audiobook list, empty state, delete, toolbar, local-only search.
 - [import](import.md): the document picker, metadata and chapter extraction, security-scoped bookmarks.
 - [media-row](media-row.md): the per-book row component, including the download ring.
+- [notices](notices.md): the app-wide error banner, and every failure that reports to it.
 
 ### LibriVox
 

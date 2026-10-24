@@ -52,6 +52,9 @@ LibriVox page's Play all open it.
   `MultiFileQueue` maps book time to a chapter file and an offset. It keeps the next file queued for
   gapless playback, prefers the downloaded file over streaming, and pauses at the end of the last
   chapter. Seeking into a different chapter loads that file and prioritizes its download.
+- **failures:** Play with no URL, an audio session that won't activate, a moved or unreadable file,
+  or a LibriVox chapter that fails (offline and not downloaded, or otherwise) each report a notice
+  (see [notices](notices.md)). Play again on a failed item retries with a fresh one.
 - **what ticks:** the screen's body reads only the slow state. `PlayerTimeline` reads
   `PlaybackClock.bookTime`, so it re-renders once per tick. `PlayerChapters` reads `currentChapter`,
   so it re-renders once per chapter. The screen is built once per book and handed down unchanged,
