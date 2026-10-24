@@ -1,0 +1,171 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{background:#0e0e11;color:#eee;font-family:-apple-system,system-ui;padding:24px}</style><script>function toggleSelect(){}</script></head><body>
+<style>
+  .row-of-phones{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;margin:12px 0 36px}
+  .pick{display:flex;flex-direction:column;gap:10px;cursor:pointer;border-radius:22px;padding:10px;border:2px solid transparent}
+  .pick.selected{border-color:#0BDA51}
+  .pick h3{margin:0;font-size:15px}
+  .pick p{margin:0;font-size:12.5px;opacity:.75;max-width:300px;line-height:1.4}
+  .phone{width:300px;height:640px;border-radius:44px;background:#16161a;position:relative;overflow:hidden;
+    box-shadow:0 0 0 9px #0b0b0d,0 20px 50px rgba(0,0,0,.5);font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;color:#fff;flex-shrink:0}
+  .status{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:13px;font-weight:600;position:relative;z-index:5}
+  .glass{background:rgba(255,255,255,.10);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+    border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 6px 18px rgba(0,0,0,.25)}
+  .gbtn{border-radius:999px;display:flex;align-items:center;justify-content:center}
+  .tabbar{position:absolute;left:16px;right:16px;bottom:18px;height:54px;border-radius:30px;display:flex;align-items:center;padding:4px;gap:4px;z-index:6}
+  .tab{flex:1;height:100%;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;gap:2px}
+  .tab.on{background:rgba(255,255,255,.12);color:#0BDA51}
+  .acc{position:absolute;left:16px;right:16px;bottom:80px;height:50px;border-radius:26px;display:flex;align-items:center;gap:10px;padding:0 8px;z-index:6}
+  .cov{border-radius:8px;flex-shrink:0;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+  .cov::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.15)}
+  .c1{background:linear-gradient(135deg,#7a3b2e,#d08b4f)} .c2{background:linear-gradient(135deg,#1e3a5f,#4f86c6)}
+  .c3{background:linear-gradient(135deg,#2f4f3a,#7fb08a)} .c4{background:linear-gradient(135deg,#4b2c5e,#b07cc6)}
+  .c5{background:linear-gradient(135deg,#5e4b2c,#c6b07c)} .c6{background:linear-gradient(135deg,#2c5e5a,#7cc6bf)}
+  .covtxt{position:absolute;left:6px;bottom:5px;right:6px;font-size:8px;font-weight:700;line-height:1.1;font-family:Georgia,serif}
+  .sub{color:rgba(255,255,255,.55)} .acc-g{color:#0BDA51}
+  .lt{font-size:30px;font-weight:800;padding:4px 18px 6px;letter-spacing:-.5px}
+  .search{margin:0 16px 8px;height:36px;border-radius:12px;background:rgba(255,255,255,.08);display:flex;align-items:center;padding:0 10px;font-size:14px;color:rgba(255,255,255,.45);gap:6px}
+  .prog{height:3px;border-radius:2px;background:rgba(255,255,255,.15);overflow:hidden}
+  .prog i{display:block;height:100%;background:#0BDA51;border-radius:2px}
+  .sec{font-size:19px;font-weight:700;padding:10px 18px 8px;display:flex;justify-content:space-between;align-items:baseline}
+  .sec small{font-size:13px;font-weight:500;color:#0BDA51}
+  .note{font-size:12px;opacity:.7;margin:-24px 0 30px;max-width:900px}
+</style><style>
+  .arrow{align-self:center;font-size:13px;opacity:.7;text-align:center;width:110px}
+  .arrow b{display:block;font-size:30px;color:#0BDA51}
+  .gcard{margin:12px 14px 0;border-radius:22px;padding:2px 0}
+  .ch{display:flex;gap:10px;align-items:flex-start;padding:9px 16px;font-size:13.5px;border-top:.5px solid rgba(255,255,255,.08)}
+  .ch:first-of-type{border-top:none}
+  .ch .n{width:16px;color:rgba(255,255,255,.45);font-variant-numeric:tabular-nums}
+  .ch .t{flex:1;line-height:1.3}
+  .ch .d{color:rgba(255,255,255,.5);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ch.done .t{color:rgba(255,255,255,.5)}
+  .ch.now{background:rgba(11,218,81,.12)} .ch.now .t,.ch.now .n,.ch.now .d{color:#0BDA51;font-weight:600}
+  .bar{height:3px;border-radius:2px;background:rgba(255,255,255,.15);margin-top:6px}.bar i{display:block;height:100%;width:38%;background:#0BDA51;border-radius:2px}
+</style>
+<h2>Round 2: player chapters and the LibriVox chapter list</h2>
+<p class="subtitle">Locked in: Player A, Library B, Search shelves. Below are your two changes. Reply in the terminal.</p>
+
+<h3>1 · Player A, tapping ☰ Chapters</h3>
+<div class="row-of-phones">
+<div class="pick" data-choice="player-now" onclick="toggleSelect(this)"><div class="phone" style="background:linear-gradient(180deg,#6b3426 0%,#3a1d17 45%,#1a1214 100%)">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px">
+        <div class="glass gbtn" style="width:36px;height:36px;font-size:14px">⌄</div>
+        <div style="width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.35)"></div>
+        <div class="glass gbtn" style="width:36px;height:36px;font-size:16px">⋯</div>
+      </div>
+      <div class="cov c1" style="width:236px;height:236px;margin:18px auto 0;border-radius:14px;box-shadow:0 22px 50px rgba(0,0,0,.55)">
+        <div class="covtxt" style="font-size:20px;left:16px;bottom:16px">The Adventures of Sherlock Holmes</div></div>
+      <div style="padding:22px 26px 0">
+        <div style="font-size:19px;font-weight:700">The Adventures of Sherlock Holmes</div>
+        <div class="sub" style="font-size:15px;margin-top:2px">Arthur Conan Doyle · Ch 3 of 12</div>
+      </div>
+      <div style="padding:16px 26px 0">
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.2)"><div style="width:38%;height:100%;border-radius:3px;background:#fff"></div></div>
+        <div class="sub" style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px;font-variant-numeric:tabular-nums"><span>17:12</span><span>A Case of Identity</span><span>−28:07</span></div>
+      </div>
+      <div style="display:flex;justify-content:center;align-items:center;gap:38px;padding-top:14px;font-size:30px">
+        <span>↺<sub style="font-size:10px">15</sub></span><span style="font-size:46px">❚❚</span><span>↻<sub style="font-size:10px">15</sub></span></div>
+      <div style="display:flex;justify-content:space-between;padding:14px 26px 0">
+        <div class="glass gbtn" style="height:34px;padding:0 14px;font-size:13px;font-weight:600">1.25×</div>
+        <div class="glass gbtn" style="height:34px;padding:0 14px;font-size:13px;font-weight:600">☰ Chapters</div>
+      </div>
+    </div><h3>Now playing (A, unchanged)</h3><p>Tap ☰ Chapters…</p></div>
+<div class="arrow"><b>→</b>the cover shrinks into the header and the chapter card slides up. Tap ☰ again or swipe down on the card to go back.</div>
+<div class="pick" data-choice="player-chapters" onclick="toggleSelect(this)"><div class="phone" style="background:linear-gradient(180deg,#6b3426 0%,#3a1d17 35%,#1a1214 75%)">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px">
+    <div class="glass gbtn" style="width:36px;height:36px;font-size:14px">⌄</div>
+    <div style="width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.35)"></div>
+    <div class="glass gbtn" style="width:36px;height:36px;font-size:16px">⋯</div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;padding:10px 18px 0">
+    <div class="cov c1" style="width:64px;height:64px;border-radius:10px"><div class="covtxt" style="font-size:7px">Sherlock Holmes</div></div>
+    <div style="flex:1"><div style="font-size:15px;font-weight:700;line-height:1.2">The Adventures of Sherlock Holmes</div>
+      <div class="sub" style="font-size:12.5px;margin-top:3px">Arthur Conan Doyle · Ch 3 of 12</div></div>
+  </div>
+  <div class="glass gcard" style="background:rgba(255,255,255,.07);height:322px;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 16px 6px"><span style="font-size:15px;font-weight:700">Chapters</span><span class="sub" style="font-size:12px">7h 26m left in book</span></div>
+    <div class="ch done"><span class="n">1</span><span class="t">A Scandal in Bohemia</span><span class="d">✓</span></div>
+    <div class="ch done"><span class="n">2</span><span class="t">The Red-Headed League</span><span class="d">✓</span></div>
+    <div class="ch now"><span class="n">▶︎</span><span class="t">A Case of Identity<div class="bar"><i></i></div></span><span class="d">28m left</span></div>
+    <div class="ch"><span class="n">4</span><span class="t">The Boscombe Valley Mystery</span><span class="d">53m</span></div>
+    <div class="ch"><span class="n">5</span><span class="t">The Five Orange Pips</span><span class="d">41m</span></div>
+    <div class="ch"><span class="n">6</span><span class="t">The Man with the Twisted Lip</span><span class="d">51m</span></div>
+    <div class="ch"><span class="n">7</span><span class="t">The Adventure of the Blue Carbuncle</span><span class="d">41m</span></div>
+  </div>
+  <div style="padding:12px 22px 0">
+    <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.2)"><div style="width:38%;height:100%;border-radius:3px;background:#fff"></div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 22px 0">
+    <div class="glass gbtn" style="height:32px;padding:0 12px;font-size:12px;font-weight:600">1.25×</div>
+    <div style="display:flex;gap:26px;font-size:22px;align-items:center"><span>↺</span><span style="font-size:30px">❚❚</span><span>↻</span></div>
+    <div class="glass gbtn" style="height:32px;padding:0 12px;font-size:12px;font-weight:600;background:rgba(255,255,255,.28)">☰</div>
+  </div>
+</div><h3>Chapters open, in the same screen</h3><p>The B-style glass card, but it takes the place of the big cover instead of opening a separate sheet, the way Apple Music shows its queue. Finished chapters are dimmed with a ✓. The current chapter is highlighted green with a small progress bar and time left. Controls compact into one row at the bottom so you can still pause or skip, and the list opens scrolled to the current chapter.</p></div>
+</div>
+
+<h3>2 · LibriVox book page, chapters in the same glass card</h3>
+<div class="row-of-phones">
+<div class="pick" data-choice="detail-top" onclick="toggleSelect(this)"><div class="phone" style="background:linear-gradient(180deg,#6b3426 0%,#2e1915 38%,#16161a 60%)">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div style="display:flex;justify-content:space-between;padding:0 14px"><div class="glass gbtn" style="width:36px;height:36px">‹</div><div class="glass gbtn" style="width:36px;height:36px">⤴︎</div></div>
+      <div class="cov c1" style="width:150px;height:150px;margin:6px auto 0;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.5)"><div class="covtxt" style="font-size:13px">The Adventures of Sherlock Holmes</div></div>
+      <div style="text-align:center;padding:14px 20px 0"><div style="font-size:18px;font-weight:700">The Adventures of Sherlock Holmes</div><div class="sub" style="font-size:13px;margin-top:2px">Arthur Conan Doyle</div></div>
+      <div style="display:flex;justify-content:center;gap:16px;padding:10px 0 0;font-size:11px" class="sub"><span>⏱ 10h 37m</span><span>☰ 12 chapters</span><span>↓ 296.7 MB</span></div>
+      <div style="padding:14px 20px 0"><div class="gbtn" style="height:44px;background:#0BDA51;color:#000;font-weight:700;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 20px rgba(11,218,81,.25)">↓ Download</div></div>
+      <div style="padding:12px 20px 0;font-size:12.5px;line-height:1.45" class="sub">Twelve tales of Sherlock Holmes and Dr. Watson, first published in The Strand… <span class="acc-g">more</span></div>
+      <div style="margin:12px 14px 0;border-radius:18px;background:rgba(255,255,255,.06)">
+        <div class="sub" style="font-size:12px;font-weight:600;padding:9px 14px 4px">CHAPTERS</div>
+        <div style="display:flex;gap:10px;padding:8px 14px;font-size:13px;border-top:.5px solid rgba(255,255,255,.08)"><span class="sub" style="width:14px">1</span><span style="flex:1">A Scandal in Bohemia</span><span class="sub">1h 05m</span></div>
+        <div style="display:flex;gap:10px;padding:8px 14px;font-size:13px;border-top:.5px solid rgba(255,255,255,.08)"><span class="sub" style="width:14px">9</span><span style="flex:1;line-height:1.25">The Adventure of the Engineer's Thumb</span><span class="sub">42m</span></div>
+      </div>
+    </div><h3>Top of the page</h3><p>Same as round 1.</p></div>
+<div class="arrow"><b>↓</b>scrolled</div>
+<div class="pick" data-choice="detail-scrolled" onclick="toggleSelect(this)"><div class="phone" style="background:linear-gradient(180deg,#6b3426 0%,#2e1915 30%,#16161a 52%)">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+  <div style="display:flex;justify-content:space-between;padding:0 14px;position:relative;z-index:4"><div class="glass gbtn" style="width:36px;height:36px">‹</div>
+    <div class="glass gbtn" style="height:36px;padding:0 14px;font-size:13px;font-weight:700;color:#0BDA51">↓ Download</div></div>
+  <div style="display:flex;gap:12px;align-items:center;padding:12px 18px 0">
+    <div class="cov c1" style="width:64px;height:64px;border-radius:10px"></div>
+    <div><div style="font-size:15px;font-weight:700;line-height:1.2">The Adventures of Sherlock Holmes</div><div class="sub" style="font-size:12px;margin-top:3px">10h 37m · 12 chapters · 296.7 MB</div></div>
+  </div>
+  <div class="glass gcard" style="background:rgba(255,255,255,.07)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 16px 6px"><span style="font-size:15px;font-weight:700">Chapters</span><span class="sub" style="font-size:12px">12</span></div>
+    <div class="ch"><span class="n">1</span><span class="t">A Scandal in Bohemia</span><span class="d">1h 05m</span></div>
+    <div class="ch"><span class="n">2</span><span class="t">The Red-Headed League</span><span class="d">59m</span></div>
+    <div class="ch"><span class="n">3</span><span class="t">A Case of Identity</span><span class="d">45m</span></div>
+    <div class="ch"><span class="n">4</span><span class="t">The Boscombe Valley Mystery</span><span class="d">53m</span></div>
+    <div class="ch"><span class="n">8</span><span class="t">The Adventure of the Speckled Band</span><span class="d">54m</span></div>
+    <div class="ch"><span class="n">9</span><span class="t">The Adventure of the Engineer's Thumb</span><span class="d">42m</span></div>
+    <div class="ch"><span class="n">10</span><span class="t">The Adventure of the Noble Bachelor</span><span class="d">44m</span></div>
+  </div>
+  <div class="sub" style="text-align:center;font-size:11px;padding:12px">Public domain recording by LibriVox volunteers</div>
+  <div class="tabbar glass" style="left:60px;right:60px"><div class="tab"><span style="font-size:17px">▥</span>Library</div><div class="tab on"><span style="font-size:17px">⌕</span>Search</div></div>
+</div><h3>Scrolled to the chapters</h3><p>The chapter list uses the same glass card as the player: numbered, wrapping titles, durations as 1h 05m. Once the big Download button scrolls away, a compact glass Download button stays pinned in the toolbar, so it never slides under the status bar and nothing covers the header.</p></div>
+</div>
+
+<h3>3 · Your Audiobooks (B, locked)</h3>
+<div class="row-of-phones"><div class="pick" data-choice="library-b" onclick="toggleSelect(this)"><div class="phone">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div style="display:flex;justify-content:flex-end;padding:0 14px"><div class="glass gbtn" style="height:36px;padding:0 6px;gap:14px;font-size:16px"><span style="padding:0 8px">＋</span><span style="padding:0 8px">⚙︎</span></div></div>
+      <div class="lt">Your Audiobooks</div>
+      <div class="search">⌕ Search your library</div>
+      <div class="sec" style="padding-top:2px">Continue</div>
+      <div style="margin:0 16px;border-radius:20px;overflow:hidden;position:relative;height:118px;background:linear-gradient(120deg,#6b3426,#2a1714)">
+        <div style="display:flex;gap:12px;padding:12px">
+          <div class="cov c1" style="width:94px;height:94px;border-radius:10px"><div class="covtxt" style="font-size:10px">Sherlock Holmes</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">
+            <div><div style="font-size:14px;font-weight:700;line-height:1.2">The Adventures of Sherlock Holmes</div><div style="font-size:12px;opacity:.7;margin-top:3px">Ch 3 · 28 min left</div></div>
+            <div style="display:flex;align-items:center;gap:8px"><div class="glass gbtn" style="height:30px;padding:0 14px;font-size:12px;font-weight:600;background:#0BDA51;color:#000;border:none">▶︎ Resume</div><div class="prog" style="flex:1"><i style="width:38%;background:#fff"></i></div></div>
+          </div></div></div>
+      <div class="sec">All books <small>Recent ⌄</small></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px">
+        <div><div class="cov c2" style="width:100%;aspect-ratio:1"><div class="covtxt">Moby Dick</div></div><div style="font-size:11px;font-weight:600;margin-top:5px">Moby Dick</div><div class="prog" style="margin-top:4px"><i style="width:9%"></i></div></div>
+        <div><div class="cov c3" style="width:100%;aspect-ratio:1"><div class="covtxt">Dom Casmurro</div></div><div style="font-size:11px;font-weight:600;margin-top:5px">Dom Casmurro</div><div class="sub" style="font-size:10px">New</div></div>
+        <div><div class="cov c4" style="width:100%;aspect-ratio:1"><div class="covtxt">Pride & Prejudice</div></div><div style="font-size:11px;font-weight:600;margin-top:5px">Pride and Prejudice</div><div class="sub" style="font-size:10px">Finished ✓</div></div>
+      </div>
+      <div class="acc glass" style="background:rgba(107,52,38,.65)"><div class="cov c1" style="width:34px;height:34px;border-radius:8px"></div>
+        <div style="flex:1;font-size:12px"><b>The Adventures of Sherlock…</b><div style="opacity:.75">Ch 3 · 28 min left</div></div><span style="font-size:15px;padding-right:8px">❚❚</span></div>
+      <div class="tabbar glass"><div class="tab on"><span style="font-size:17px">▥</span>Library</div><div class="tab"><span style="font-size:17px">⌕</span>Search</div></div>
+    </div><h3>Continue + cover grid</h3><p>Delete moves to long-press (context menu) on a cover. The 24 library UI tests get rewritten against the grid.</p></div></div></body></html>
