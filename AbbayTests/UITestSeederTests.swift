@@ -74,6 +74,26 @@ final class UITestSeederTests: XCTestCase {
         XCTAssertEqual(Set(save.savedModels.compactMap(\.url)).count, save.savedModels.count)
     }
 
+    /// #152's edge cases: nothing left in a book, and exactly one hour left in a chapter.
+    func test_timeLeftEdgesArgument_addsAFinishedBookAndAnHourChapter() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedTimeLeftEdges])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 2)
+        let finished = try XCTUnwrap(save.savedModels.first { $0.title == UITestSeeder.finishedBookTitle })
+        XCTAssertTrue(finished.chapters.isEmpty)
+        XCTAssertEqual(finished.currentTime, finished.duration)
+        let hour = try XCTUnwrap(save.savedModels.first { $0.title == UITestSeeder.hourBookTitle })
+        XCTAssertEqual(hour.chapters.first?.duration, 3600)
+        XCTAssertEqual(hour.currentTime, 0)
+        XCTAssertEqual(Set(save.savedModels.compactMap(\.url)).count, save.savedModels.count)
+    }
+
+    func test_timeLeftEdgesArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedTimeLeftEdges])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+    }
+
     func test_longBookArgument_withoutSeed_seedsNothing() {
         run([LaunchArgument.seedLongBook])
 

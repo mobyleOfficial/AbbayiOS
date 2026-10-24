@@ -36,9 +36,12 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
 
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails {
         guard book.id == Self.book.id else { throw URLError(.unsupportedURL) }
-        // Small, so Download never asks about cellular.
-        return LibriVoxBookDetails(book: Self.book, sectionBytes: [1000])
+        return LibriVoxBookDetails(book: Self.book, sectionBytes: [Self.sectionBytes])
     }
+
+    /// Under the 99 MB cellular threshold, so Download never asks about cellular, and with a
+    /// decimal ("29.7 MB", "29,7 MB"), so the size shows which locale formatted it (#166).
+    static let sectionBytes: Int64 = 29_670_000
 
     func coverData(for book: LibriVoxBook) async -> Data? { nil }
 }

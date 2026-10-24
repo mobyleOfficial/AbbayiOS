@@ -21,6 +21,10 @@ enum LaunchArgument {
     /// With `seedLibrary`: also add *Seeded Playable Book*, the real four-chapter LibriVox m4b the
     /// unit tests use, 56 s into its second chapter, so chapter actions have something to move.
     static let seedPlayableBook = "-seedPlayableBook"
+    /// With `seedLibrary`: also add *Seeded Finished Book* (no chapters, listened to the end, so its
+    /// row reads "0s left") and *Seeded Hour Book* (a first chapter exactly one hour long, so the
+    /// mini player reads "1 hr left" once it is loaded): the time-left edge cases of #152.
+    static let seedTimeLeftEdges = "-seedTimeLeftEdges"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
