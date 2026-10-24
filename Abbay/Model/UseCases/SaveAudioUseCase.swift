@@ -37,7 +37,9 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
         guard !audios.isEmpty else { return }
         LocalStorage.persistent.performAndWait { context in
             for audio in audios {
-                let existingAudio = repository.execute(url: audio.url)
+                // By the row's key, so a loaded book whose file moved updates its own row instead
+                // of inserting a second one under the resolved URL (#176).
+                let existingAudio = repository.execute(url: audio.rowURL)
 
                 updateAudio(existingAudio, with: audio, in: context)
             }
@@ -61,7 +63,9 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
         model.setValue(new.duration, forKey: #keyPath(AudioDataModel.duration))
         model.setValue(new.imageData, forKey: #keyPath(AudioDataModel.imageData))
         model.setValue(new.title, forKey: #keyPath(AudioDataModel.title))
-        model.setValue(new.url, forKey: #keyPath(AudioDataModel.url))
+        // The key stays the stored URL: `LastPlayedStore`, the Siri snapshot and per-book speeds
+        // are keyed by it too.
+        model.setValue(new.rowURL, forKey: #keyPath(AudioDataModel.url))
         model.setValue(new.librivoxID, forKey: #keyPath(AudioDataModel.librivoxID))
         model.setValue(new.totalBytes, forKey: #keyPath(AudioDataModel.totalBytes))
 

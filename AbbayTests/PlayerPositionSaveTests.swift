@@ -133,6 +133,21 @@ final class PlayerPositionSaveTests: XCTestCase {
         XCTAssertEqual(save.calls.count, afterPause, "the pause just saved")
     }
 
+    /// #176: a book whose file moved plays from the resolved URL, but its position goes to the row
+    /// it was stored under, or it is never saved.
+    func test_movedBook_savesUnderItsRowURL_notTheURLItPlaysFrom() throws {
+        let player = makePlayer()
+        let stored = URL(fileURLWithPath: "/position-save/book.m4b")
+        let moved = URL(fileURLWithPath: "/position-save/moved/book.m4b")
+        var model = AudioModel(title: "Book", duration: 400, url: moved, bookmarkData: Data([1]))
+        model.storedURL = stored
+        player.play(&model)
+
+        player.pause()
+
+        XCTAssertEqual(try XCTUnwrap(save.calls.last).url, stored)
+    }
+
     func test_noBookLoaded_ticksSaveNothing() {
         let player = makePlayer()
 

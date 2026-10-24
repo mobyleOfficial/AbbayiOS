@@ -52,7 +52,8 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
                 removeDownloads(id)
             }
             forgetSettings(audio.url)
-            repository.execute(url: audio.url)
+            // By the row's key: a moved book's `url` matches no row, so it would never go (#176).
+            repository.execute(url: audio.rowURL)
         }
         snapshotWriter.refresh()
     }

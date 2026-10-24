@@ -23,6 +23,16 @@ struct AudioModel {
     var allowsCellularDownload = false
     var isDownloadPaused = false
     var totalBytes: Int64 = 0
+    /// The URL the book's Core Data row is saved under, when the model was loaded from the store.
+    /// It differs from `url` once the file has moved: `url` is where the bookmark resolves now
+    /// (what plays), this is the row's key. Nil for a book not loaded from the store (#176).
+    var storedURL: URL?
+
+    /// The key of the book's row: what every row operation (save, delete, position write) must
+    /// look the book up by. A moved book's `url` matches no row.
+    var rowURL: URL? {
+        storedURL ?? url
+    }
 
     var isLibriVox: Bool {
         librivoxID != nil
