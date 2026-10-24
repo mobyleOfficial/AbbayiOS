@@ -90,7 +90,9 @@ private struct SystemTabs<Library: View, Search: View>: View {
             } label: {
                 Label(Localizable.libraryTab.localized, systemImage: "books.vertical")
             }
-            Tab(value: RootTab.search, role: .search) {
+            // A regular tab, not `role: .search`: that role moves the tab's search field into the
+            // bottom tab bar, and the owner wants it at the top, like the Library's.
+            Tab(value: RootTab.search) {
                 search
             } label: {
                 Label(Localizable.searchTab.localized, systemImage: "magnifyingglass")
@@ -108,8 +110,8 @@ private struct SystemTabs<Library: View, Search: View>: View {
 
 /// SwiftUI can't put an accessibility identifier on a system tab bar item: neither an identifier
 /// on the tab's label nor `customizationID` reaches the bar's button. This finds the window's
-/// `UITabBar` and sets them on its items, in tab order, and on the collapsed Library button the
-/// bar shows while the Search tab is open (a separate view, found by the item's title). Only
+/// `UITabBar` and sets them on its items, in tab order, and on any other view in the bar labelled
+/// with an item's title (the bar can show a tab as a separate, collapsed button). Only
 /// identifiers; nothing else is touched. Re-applied on each tab switch, once the bar has animated.
 @available(iOS 26.1, *)
 private struct TabBarIdentifiers: UIViewRepresentable {

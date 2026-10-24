@@ -162,6 +162,47 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertTrue(searchField(prompt: libraryPrompt).waitForExistence(timeout: 15))
     }
 
+    /// The LibriVox field sits at the top, like the Library's, on every iOS version.
+    func test_searchTab_fieldIsAtTheTop() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        openSearchTab()
+        let field = searchField(prompt: libriVoxPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        XCTAssertLessThan(field.frame.midY, app.frame.height / 2, "search field at \(field.frame)")
+    }
+
+    /// Typing doesn't lift the tab bar above the keyboard: like a system tab bar, it stays
+    /// underneath (or is hidden), so the keyboard sits directly under the content.
+    func test_typing_doesNotLiftTheTabBarAboveTheKeyboard() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let tab = element(AccessibilityID.Root.tabLibrary)
+        XCTAssertTrue(tab.waitForExistence(timeout: 15))
+        let field = searchField(prompt: libraryPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.waitForExistence(timeout: 5) else {
+            throw XCTSkip("no software keyboard (hardware keyboard connected)")
+        }
+        // Let it finish sliding up.
+        let deadline = Date().addingTimeInterval(5)
+        while keyboard.frame.minY > app.frame.height * 0.75, Date() < deadline {
+            usleep(100_000)
+        }
+
+        if tab.exists {
+            // Not exact positions: the system bar on iOS 26 shrinks under the keyboard.
+            XCTAssertGreaterThan(
+                tab.frame.maxY,
+                keyboard.frame.minY,
+                "the tab bar rides above the keyboard: tab \(tab.frame), keyboard \(keyboard.frame)"
+            )
+        }
+    }
+
     func test_emptyLibrary_browseButton_opensSearchTab() {
         launch([LaunchArgument.resetLibrary, LaunchArgument.stubLibriVox])
         assertResolves(AccessibilityID.Library.emptyBrowse)

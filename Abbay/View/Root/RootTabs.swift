@@ -41,6 +41,9 @@ struct RootTabs<Library: View, Search: View>: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bar
         }
+        // Like a system tab bar, stay put under the keyboard instead of riding above it. Each tab's
+        // `NavigationStack` hosts its pages in their own controllers, which still avoid the keyboard.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .onChange(of: selection, initial: true) { _, tab in
             if tab == .search, !hasVisitedSearch { hasVisitedSearch = true }
         }

@@ -25,8 +25,9 @@ ordering breaks, and most of it is invisible in the UI.
   injects `PlaybackState`, `PlaybackClock`, `PlaybackCenter`, `DownloadStateStore` and
   `PlayerPresentation` into the environment. Two tabs, Library and Search, each with its own
   `NavigationStack` (`root.tab.library`, `root.tab.search`). iOS 26.1+: the system `TabView` with
-  `Tab(role: .search)` (the Search tab's field sits in the tab bar there; identifiers are set on the
-  `UITabBar` items by a small UIKit probe, since SwiftUI can't). iOS 17.0–26.0: the hand-built
+  two regular `Tab`s (no `role: .search`, which would move the Search field into the bottom tab bar;
+  both search fields stay at the top). Identifiers are set on the `UITabBar` items by a small UIKit
+  probe, since SwiftUI can't. iOS 17.0–26.0: the hand-built
   `RootTabs` bar. Above the tabs, `PlayerOverlay` presents `PlayerView` for
   `presentation.presentedBook` (interim: slides up; `player.close` or a drag down on its header
   closes it). Nothing presents the player as a sheet.
