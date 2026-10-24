@@ -111,13 +111,15 @@ final class StaleBookmarkTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// Only this test's bookmark is stubbed: the store is shared, and other tests (or the app
+    /// host's seed) may leave rows of their own, which resolve for real.
     private func stale(_ data: Data?) -> ResolvedBookmark? {
-        guard data != nil else { return nil }
+        guard data == storedBookmark else { return URL.resolveBookmarkRefreshing(from: data) }
         return ResolvedBookmark(url: movedURL, refreshedData: freshBookmark)
     }
 
     private func fresh(_ data: Data?) -> ResolvedBookmark? {
-        guard data != nil else { return nil }
+        guard data == storedBookmark else { return URL.resolveBookmarkRefreshing(from: data) }
         return ResolvedBookmark(url: movedURL, refreshedData: nil)
     }
 
