@@ -60,6 +60,8 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
 - `LibrarySnapshotWriter` logs through `Log.librarySnapshot` (category `LibrarySnapshot`) with
   `.public` counts. The subsystem is the running bundle's, so a write from the extension (none today)
   would log under `com.edyuto.Abbay.AbbayIntents`, not the app's.
+  `$B launch -seedLibrary` logs `snapshot WRITTEN: 2 entries (0 with bookmark),
+  suite=group.com.edyuto.abbay` under `[com.edyuto.Abbay:LibrarySnapshot]`.
 - The Spotlight indexer returns early when *every* item is filtered out, so an all-untitled library
   silently indexes nothing.
 - `SiriLibraryPublisher` is `static var shared` so tests can rebind it; the same is true of
