@@ -5,12 +5,14 @@
 
 import Foundation
 
-/// What the UI shows for one chapter: ✓, a percentage, or "waiting".
+/// What the UI shows for one chapter: ✓, a percentage, "waiting", or "failed, retry".
 enum ChapterDownloadState: Equatable {
     case downloaded
     case downloading(fraction: Double)
     /// Not started yet, paused, held by the system (e.g. waiting for Wi-Fi), or waiting to retry.
     case waiting
+    /// Failed every automatic retry. Restarts when the user retries it or the network comes back.
+    case failed
 }
 
 /// Download progress of one LibriVox book.
@@ -40,7 +42,7 @@ extension BookDownloadState {
             switch state {
             case .downloaded: return 1
             case let .downloading(fraction): return fraction
-            case .waiting: return 0
+            case .waiting, .failed: return 0
             }
         }
         let sizes = chapters.indices.map { Double(expectedBytes.indices.contains($0) ? max(expectedBytes[$0], 0) : 0) }

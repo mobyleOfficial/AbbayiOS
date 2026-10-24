@@ -50,6 +50,7 @@ final class DownloadStateStore {
 
     func pause(bookID: String) { downloads.pause(bookID: bookID) }
     func resume(bookID: String) { downloads.resume(bookID: bookID) }
+    func retry(chapterIndex: Int, bookID: String) { downloads.retry(chapterIndex: chapterIndex, ofBookID: bookID) }
 
     private func receive(_ states: [String: BookDownloadState]) {
         latest = states

@@ -175,14 +175,15 @@ struct LibriVoxDetailView: View {
     }
 
     /// The player's chapter list, embedded in this page's scroll view. Rows are not tappable:
-    /// Play opens the player, which is where chapters are chosen.
+    /// Play opens the player, which is where chapters are chosen. A failed chapter's status retries it.
     private func chapterList(_ book: LibriVoxBook) -> some View {
         ChapterListView(
             chapters: book.sections.map(ChapterListView.Item.init),
             downloadState: model.downloadState,
             layout: .stack,
             progressIdentifier: AccessibilityID.Detail.progress,
-            rowIdentifier: AccessibilityID.Detail.chapter
+            rowIdentifier: AccessibilityID.Detail.chapter,
+            retry: (AccessibilityID.Detail.chapterRetry, { model.retryChapter($0) })
         )
     }
 }

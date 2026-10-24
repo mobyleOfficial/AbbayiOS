@@ -44,6 +44,22 @@ final class ChapterListViewTests: XCTestCase {
         XCTAssertEqual(ChapterListView.status(at: 1, in: partial), .downloading(fraction: 0.4))
     }
 
+    func test_canRetry_onlyForAFailedChapterWithARetryAction() {
+        let failed = BookDownloadState(chapters: [.failed, .waiting], expectedBytes: [1, 1], isPaused: false)
+
+        XCTAssertTrue(ChapterListView.canRetry(at: 0, in: failed, hasRetryAction: true))
+        XCTAssertFalse(ChapterListView.canRetry(at: 0, in: failed, hasRetryAction: false))
+        XCTAssertFalse(ChapterListView.canRetry(at: 1, in: failed, hasRetryAction: true))
+        XCTAssertFalse(ChapterListView.canRetry(at: 0, in: nil, hasRetryAction: true))
+    }
+
+    func test_fraction_countsAFailedChapterAsNotDownloaded() {
+        let state = BookDownloadState(chapters: [.downloaded, .failed], expectedBytes: [1, 1], isPaused: false)
+
+        XCTAssertEqual(state.fraction, 0.5)
+        XCTAssertFalse(state.isComplete)
+    }
+
     func test_status_isNilWithoutDownloadStateOrPastItsChapters() {
         XCTAssertNil(ChapterListView.status(at: 0, in: nil))
         XCTAssertNil(ChapterListView.status(at: 2, in: partial))

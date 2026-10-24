@@ -81,6 +81,11 @@ enum AccessibilityID {
         static func chapter(_ index: Int) -> String {
             "detail.chapter.\(index)"
         }
+
+        /// A failed chapter's "Failed · Retry" status button.
+        static func chapterRetry(_ index: Int) -> String {
+            "detail.chapter.\(index).retry"
+        }
     }
 
     enum Player {
@@ -94,6 +99,11 @@ enum AccessibilityID {
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"
+        }
+
+        /// A failed chapter's "Failed · Retry" status button.
+        static func chapterRetry(_ index: Int) -> String {
+            "player.chapter.\(index).retry"
         }
 
         /// `control` is one of the `Transport` constants.

@@ -18,11 +18,12 @@ once the book is in the library. The only way to add a LibriVox book.
 - **download:** primary **Download** button (`detail.download`). It saves the book (cover fetched
   first), hands it to the download manager, adds it to the Library and **stays on the page**; the
   button becomes **Play**. Tapping it twice while saving is ignored.
-- **cellular-warning:** if the book is over 99,000,000 bytes *and* the phone is on cellular, an alert
+- **cellular-warning:** if the book is over 99,000,000 bytes *and* the phone is on a metered network
+  (cellular, Personal Hotspot or Low Data Mode, `NetworkPathMonitor.isMetered`), an alert
   *"Large download"* offers **Continue** (`detail.cellular.continue`, cellular allowed for this book)
-  and **Wait for Wi-Fi** (`detail.cellular.wait`, Wi-Fi only; the book still starts and shows
-  Waiting). Over the threshold on Wi-Fi it starts without asking, with cellular *not* allowed, so a
-  later move to cellular pauses it. At or under the threshold it never asks and allows cellular.
+  and **Wait for Wi-Fi** (`detail.cellular.wait`, unmetered Wi-Fi only; the book still starts and
+  shows Waiting). Over the threshold on unmetered Wi-Fi it starts without asking, with cellular *not*
+  allowed, so a later move to cellular, a hotspot or Low Data Mode holds it. At or under the threshold it never asks and allows cellular.
   The choice is stored per book (`allowsCellularDownload`). Streaming is unaffected.
 - **play:** **Play** (`detail.play`) starts playback and opens the details screen
   ([player](player.md)) through the injected `openPlayer`, i.e. `presentation.open`, the same
@@ -36,9 +37,10 @@ once the book is in the library. The only way to add a LibriVox book.
   (`SubscriptionBudgetTests`).
 - **chapters:** the shared `ChapterListView` in its stack layout: *Chapters* header, one row per
   chapter with scrolling title and duration. While the download is **incomplete** each row also
-  shows ✓ / `N%` / *Waiting* and a thin overall progress bar (`detail.progress`) sits under the
-  header; once complete both disappear. Rows are not tappable here — Play opens the player, which is
-  where chapters are chosen.
+  shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
+  sits under the header; once complete both disappear. Rows are not tappable here — Play opens the
+  player, which is where chapters are chosen — but a failed chapter's status is a button
+  (`detail.chapter.<n>.retry`) that restarts its download.
 - **credit:** footer *"Public domain recording by LibriVox volunteers"*.
 
 ## How to get to it (user POV)
@@ -69,10 +71,11 @@ longer presents its own player sheet.
 
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
 UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`,
-`detail.cellular.wait`, `detail.progress`, `detail.chapter.<n>`. The stub book is 1,000 bytes, so the
-cellular alert is unreachable by UI; the stub client never fails `details`, so Retry is too; and the
-stub download manager reports no state, so `detail.progress` never appears (see [downloads](downloads.md)).
-The decisions behind them are unit-tested: `CellularDownloadPolicyTests`,
+`detail.cellular.wait`, `detail.progress`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`. The stub
+book is 1,000 bytes, so the cellular alert is unreachable by UI; the stub client never fails
+`details`, so Retry is too; and the stub download manager reports no state, so `detail.progress` and
+the chapter retry never appear (see [downloads](downloads.md)).
+The decisions behind them are unit-tested: `CellularDownloadPolicyTests`, `NetworkPathSnapshotTests`,
 `LibriVoxDetailViewModelTests`, `ChapterListViewTests`.
 
 **Not addressable:** there is no identifier on the cover, title, author, size or credit text.

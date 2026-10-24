@@ -57,6 +57,9 @@ extension DownloadProvider: DownloadProviderProtocol {
     public func start(_ request: NetworkRequestProtocol, id: String, allowsCellularAccess: Bool) throws {
         var urlRequest = try URLRequestBuilder.build(from: request)
         urlRequest.allowsCellularAccess = allowsCellularAccess
+        // Personal Hotspot is Wi-Fi to this device, so only these also hold it there and in Low Data Mode.
+        urlRequest.allowsExpensiveNetworkAccess = allowsCellularAccess
+        urlRequest.allowsConstrainedNetworkAccess = allowsCellularAccess
         removeResumeData(for: id)
         run(session.downloadTask(with: urlRequest), id: id)
     }

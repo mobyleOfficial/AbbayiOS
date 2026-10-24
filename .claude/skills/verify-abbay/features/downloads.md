@@ -19,8 +19,19 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
 - **pause-resume:** the progress ring on a Library row (`DownloadRingView`) pauses a running book and
   resumes a paused one; a paused ring shows a play glyph. Pausing stops the running tasks keeping
   resume data, and resuming continues from it. The paused flag is persisted per book.
-- **failure:** a chapter that fails goes back to *Waiting* and is retried once, after 30 s. A task the
-  system cancels (for example a force quit) is requeued rather than counted as a failure.
+- **failure:** a chapter that fails goes back to *Waiting* and is retried with a capped backoff: after
+  30 s, then 2 min, then 10 min. A fourth failure in a row marks it *Failed · Retry*; tapping that
+  status restarts it with a fresh backoff. A chapter that can't even start (`start`/`resume` throws)
+  counts as a failure too. When the network path becomes satisfied again, every chapter waiting out a
+  backoff or failed restarts at once. Jumping to a chapter in the player (prioritize) also resets its
+  backoff. A task the system cancels (for example a force quit) is requeued rather than counted as a
+  failure. Failure counts are in memory only: a relaunch starts every chapter fresh.
+- **metered networks:** the >99 MB warning shows on any metered path: cellular, Personal Hotspot
+  (`NWPath.isExpensive`) and Low Data Mode (`isConstrained`). A book without cellular (*Wait for
+  Wi-Fi*, or a large book started on unmetered Wi-Fi) starts its tasks with `allowsCellularAccess`,
+  `allowsExpensiveNetworkAccess` and `allowsConstrainedNetworkAccess` all off, so the system holds them
+  on a hotspot or in Low Data Mode as well as on cellular. A resumed task keeps the settings of the
+  request it was first started with.
 - **restore:** on every launch (after any `-seedLibrary`/`-resetLibrary` seeding) `restore()`
   re-attaches to tasks the system kept running and restarts the missing chapters of every
   LibriVox book in the Library. The system can also relaunch the app in the background to deliver
@@ -30,7 +41,9 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   player is not re-inserted.
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
   the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
-  ✓ / `N%` / *Waiting* through the shared `ChapterListView`. Imported books never show any of it.
+  ✓ / `N%` / *Waiting* / *Failed · Retry* through the shared `ChapterListView`. The failed status is
+  a button (`player.chapter.<n>.retry`, `detail.chapter.<n>.retry`); a row showing it is an
+  accessibility container rather than one combined element, so the button stays reachable. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.
   Every view reads the state through `DownloadStateStore`, the manager's one `statesPublisher`
   subscriber, which fans it out into one observable entry per book, so one book's progress only
@@ -45,7 +58,7 @@ look at the chapter list; background the app or lock the phone and come back.
 
 Real downloads are **not drivable in the UI-test configuration**: `-stubLibriVox` swaps in
 `UITestDownloadManager`, whose `statesPublisher` is permanently empty and whose `enqueue`, `pause`,
-`resume`, `remove`, `restore` and `prioritize` do nothing. The ring, progress bar and statuses
+`resume`, `remove`, `restore`, `prioritize` and `retry` do nothing. The ring, progress bar and statuses
 therefore never render under the stub. A real run needs the network, no `-stubLibriVox`, and a
 LibriVox book chosen deliberately small:
 
@@ -63,16 +76,23 @@ $B terminate && $B launch                     # restore: ring and statuses come 
 
 **Implemented but unverified** (attached in the views, never resolved by a UI test):
 `library.row.<n>.downloadRing`,
-`detail.progress`, `detail.chapter.<n>`, `player.download.progress`.
+`detail.progress`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`, `player.download.progress`,
+`player.chapter.<n>.retry`. A failed chapter can't be produced under `-stubLibriVox` at all.
 
-**Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, retry, restore,
-stale cancels, remove), `CellularDownloadPolicyTests`, `MediaViewModelTests` (ring state, pause
-toggle), `ChapterListViewTests` (when statuses and progress show), `PlayerMultiFileTests`
-(prefers local file, prioritizes the chapter), `LibriVoxPersistenceTests`.
+**Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, backoff and
+cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove),
+`CellularDownloadPolicyTests` and `NetworkPathSnapshotTests` (hotspot and Low Data Mode are metered),
+`DownloadProviderTests` (no cellular also means no expensive or constrained network),
+`MediaViewModelTests` (ring state, pause toggle), `ChapterListViewTests` (when statuses, progress and
+the retry button show), `LibriVoxDetailViewModelTests` / `PlayerViewModelTests` (retry forwards to the
+manager), `PlayerMultiFileTests` (prefers local file, prioritizes the chapter),
+`LibriVoxPersistenceTests`.
 
 **Not verified at all in this repo:** background transfer while the app is suspended or the phone is
-locked, relaunch-by-the-system delivery, resume across a force quit, and cellular behaviour on a real
-network. These need a device; only the manager's logic against a mock provider is covered.
+locked, relaunch-by-the-system delivery, resume across a force quit, and cellular, Personal Hotspot
+and Low Data Mode behaviour on a real network (including whether a background session honours the
+request's expensive/constrained flags). These need a device (#128); only the manager's logic against
+a mock provider is covered.
 
 ## Gotchas
 
@@ -81,8 +101,9 @@ network. These need a device; only the manager's logic against a mock provider i
 - **The ring appears only while incomplete.** A fully downloaded book, or one the manager has not been
   asked about, shows no ring. `MediaViewModel`, `PlayerViewModel` and the details page all filter on
   `!isComplete`.
-- **Wait for Wi-Fi still enqueues.** The book is added and its chapters show *Waiting*; cellular is
-  simply not allowed for its tasks.
+- **Wait for Wi-Fi still enqueues.** The book is added and its chapters show *Waiting*; cellular,
+  hotspots and Low Data Mode are simply not allowed for its tasks. With Low Data Mode on for the
+  home Wi-Fi, such a book waits until it is turned off.
 - **Pause is a toggle on a tiny target.** The ring is 22 pt; its accessibility label is
   *"Downloading, N%"* or *"Paused"*, which is the evidence for its state when no state id exists.
 - A restored book is held in a restoring state until the manager knows which tasks are still running,
