@@ -25,8 +25,9 @@ final class ChapterCountViewTests: XCTestCase {
         XCTAssertEqual(display(0, of: 0), 0, "a book with no chapter metadata reads 0/0, not 1/0")
     }
 
-    /// `AudioModel.currentChapter(for:)` falls back to index 0 and can report an index past the
-    /// end (#101), so the conversion clamps rather than rendering something impossible.
+    /// `AudioModel.currentChapter(for:)` clamps to the last chapter now (#101), but an index can
+    /// still come from elsewhere, so the conversion clamps too rather than rendering something
+    /// impossible.
     func test_indexPastTheEndIsClampedToTotal() {
         XCTAssertEqual(display(7, of: 3), 3, "must not render 8/3")
     }

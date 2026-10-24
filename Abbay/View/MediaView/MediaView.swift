@@ -105,7 +105,7 @@ extension MediaView {
             isPlaying = isLoaded && state.isPlaying
             detailLine = MediaView.detailLine(
                 book: book,
-                chapterIndex: book.currentChapter(for: book.currentTime),
+                chapterIndex: book.currentChapter(for: book.currentTime) ?? 0,
                 bookTime: book.currentTime
             )
             downloadState = entry?.state

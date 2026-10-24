@@ -49,8 +49,7 @@ final class NowPlayingManager {
         }
 
         // Chapter info
-        let currentChapter = audio.currentChapter(for: currentTime)
-        if !audio.chapters.isEmpty {
+        if let currentChapter = audio.currentChapter(for: currentTime) {
             nowPlayingInfo[MPMediaItemPropertyAlbumArtist] = "Chapter \(currentChapter + 1) of \(audio.chapters.count)"
             nowPlayingInfo[MPNowPlayingInfoPropertyChapterNumber] = currentChapter
             nowPlayingInfo[MPNowPlayingInfoPropertyChapterCount] = audio.chapters.count

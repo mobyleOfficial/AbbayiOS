@@ -236,13 +236,16 @@ final class Player: PlayerProtocol {
             multiFileQueue.seek(toBookTime: seconds)
             return
         }
-        let time = CMTime(seconds: seconds, preferredTimescale: 1)
-        seek(time)
+        guard seconds.isFinite else { return }
+        // Exact and rounded up, never before the target: chapter lookup has no lead-in (#101), so
+        // landing even a millisecond before a chapter's start would read as the previous chapter,
+        // and the next skip would aim at the same chapter again.
+        let time = CMTime(value: CMTimeValue((seconds * 600).rounded(.up)), timescale: 600)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
     func skipToNextChapter() {
-        guard let model = model else { return }
-        let currentChapterIndex = model.currentChapter(for: currentTime)
+        guard let model, let currentChapterIndex = model.currentChapter(for: currentTime) else { return }
         let nextChapterIndex = currentChapterIndex + 1
         guard nextChapterIndex < model.chapters.count else { return }
         seek(model.chapters[nextChapterIndex].startTime)
@@ -250,12 +253,11 @@ final class Player: PlayerProtocol {
 
     func skipToPreviousChapter() {
         guard let model = model else { return }
-        let currentChapterIndex = model.currentChapter(for: currentTime)
-        // `currentChapter(for:)` falls back to index 0 even when `chapters` is empty (#101),
-        // so this subscript traps on a book with no chapter metadata -- a plain MP3, which is
-        // the common case rather than an edge case (#102). Reachable from PreviousChapterIntent
-        // and from the lock-screen / CarPlay previous-track handler.
-        guard model.chapters.indices.contains(currentChapterIndex) else {
+        // A book with no chapter metadata -- a plain MP3, the common case rather than an edge
+        // case (#102) -- has no current chapter: go to the start. Reachable from
+        // PreviousChapterIntent and from the lock-screen / CarPlay previous-track handler.
+        guard let currentChapterIndex = model.currentChapter(for: currentTime),
+              model.chapters.indices.contains(currentChapterIndex) else {
             seek(0)
             return
         }
@@ -286,10 +288,6 @@ final class Player: PlayerProtocol {
     }
 
     // MARK: - Helpers
-    private func seek(_ time: CMTime) {
-        player.seek(to: time)
-    }
-
     private func updatePlayItem(_ item: AudioModel) {
         // TODO: Add logging for player item updates using logging library
         guard let url = item.url else {
