@@ -50,3 +50,5 @@ These apply to every change, whoever makes it: a person, an agent, or a subagent
   `~/Library/Developer/XCTestDevices` that fill the disk.
 - Check a device build before handing it out: `otool -L` on every binary in the `.app` must show
   only `@rpath` and system paths. Simulator builds hide a bad install name (#142).
+  `Scripts/check-app-binary <.app|.xcarchive|.ipa>` does this plus the entitlement and
+  Debug-resource checks (`--allow-debug-resources` for Debug builds).

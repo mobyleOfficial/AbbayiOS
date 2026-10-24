@@ -195,6 +195,7 @@ generates the project once and reuses that build for both suites, rather than le
 Env: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID, and
 APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path)."
   lane :release do
+    key = app_store_connect_key_env # before the build, so a missing secret fails fast
     generate_project(open: false)
     setup_ci if ENV['CI']
 
@@ -204,7 +205,6 @@ APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (
     ipa_name = "#{project_name}.ipa"
     check_script = "#{project_dir}/Scripts/check-app-binary"
 
-    key = app_store_connect_key_env
     key_file = nil
     signing_args = ''
     if key
