@@ -4,6 +4,8 @@
 //
 
 @testable import Abbay
+import AVFoundation
+import Combine
 import Foundation
 
 final class MockAudioSessionActivator: AudioSessionActivatorProtocol {
@@ -66,4 +68,55 @@ final class MockSavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol
     func execute(url: URL?, currentTime: Double, bookmarkData: Data?) {
         calls.append(Call(url: url, currentTime: currentTime, bookmarkData: bookmarkData))
     }
+}
+
+/// A player whose publishers count their subscribers, for the "one source subscribes once" proof.
+/// The counts go up in `handleEvents(receiveSubscription:)`, so they measure subscriptions made,
+/// not values delivered.
+final class CountingMockPlayer: PlayerProtocol {
+    private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
+    private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
+    private let isPlayingSubject = PassthroughSubject<Bool, Never>()
+
+    private(set) var timeSubscriptionCount = 0
+    private(set) var urlSubscriptionCount = 0
+    private(set) var playingSubscriptionCount = 0
+
+    // Stubs
+    var url: URL?
+    var currentTime: Double = 0
+    var isPlayingResult = false
+
+    var currentTimePublisher: AnyPublisher<CMTime, Never> {
+        currentTimeSubject
+            .handleEvents(receiveSubscription: { [weak self] _ in self?.timeSubscriptionCount += 1 })
+            .eraseToAnyPublisher()
+    }
+    var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
+        playUrlSubject
+            .handleEvents(receiveSubscription: { [weak self] _ in self?.urlSubscriptionCount += 1 })
+            .eraseToAnyPublisher()
+    }
+    var isPlayingPublisher: AnyPublisher<Bool, Never> {
+        isPlayingSubject
+            .handleEvents(receiveSubscription: { [weak self] _ in self?.playingSubscriptionCount += 1 })
+            .eraseToAnyPublisher()
+    }
+
+    // MARK: - Test drivers
+    func emitPlayUrl(_ model: AudioModel) { playUrlSubject.send(model) }
+    func emitTime(_ seconds: Double) { currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600)) }
+    func emitPlaying(_ isPlaying: Bool) { isPlayingSubject.send(isPlaying) }
+
+    // MARK: - PlayerProtocol
+    func play(_ model: inout AudioModel) { url = model.url }
+    func pause() {}
+    func forward(withSeconds seconds: Double) {}
+    func backward(withSeconds seconds: Double) {}
+    func isPlaying(_ url: URL?) -> Bool { isPlayingResult }
+    func seek(_ seconds: Double) {}
+    func cleanup() {}
+    func skipToNextChapter() {}
+    func skipToPreviousChapter() {}
+    func playChapter(at index: Int) -> Bool { false }
 }

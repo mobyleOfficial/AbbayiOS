@@ -14,6 +14,9 @@ protocol PlayerProtocol {
     var currentTime: Double { get }
     var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
+    /// Whether the player is playing (or waiting to), on the main queue, without duplicates.
+    /// Unlike the time publisher it also fires on a pause, which stops the ticks.
+    var isPlayingPublisher: AnyPublisher<Bool, Never> { get }
 
     func play(_ model: inout AudioModel)
     func pause()
@@ -60,6 +63,16 @@ final class Player: PlayerProtocol {
 
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
+    }
+
+    /// KVO on `timeControlStatus`, so a pause from anywhere (lock screen, CarPlay, an
+    /// interruption) shows at once. Waiting to play counts as playing: it's the user's intent.
+    var isPlayingPublisher: AnyPublisher<Bool, Never> {
+        player.publisher(for: \.timeControlStatus)
+            .map { $0 == .playing || $0 == .waitingToPlayAtSpecifiedRate }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
     }
 
     /// Book time. For a single file that is the item's time; a multi-file book adds the current

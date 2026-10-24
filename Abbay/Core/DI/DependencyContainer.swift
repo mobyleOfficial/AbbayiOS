@@ -10,6 +10,8 @@ protocol DependencyContainerProtocol {
     var loadAudio: LoadAudioUseCaseProtocol { get }
     var loadAllAudios: LoadAllAudiosUseCaseProtocol { get }
     var downloads: BookDownloadManagerProtocol { get }
+    /// The one app-wide playback source; views read its state and clock instead of the player.
+    var playback: PlaybackCenter { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -41,14 +43,19 @@ final class DependencyContainer: DependencyContainerProtocol {
     let loadAudio: LoadAudioUseCaseProtocol
     let loadAllAudios: LoadAllAudiosUseCaseProtocol
     let downloads: BookDownloadManagerProtocol
+    let playback: PlaybackCenter
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
         // background session identifier may back only one session.
         let downloads = Self.makeDownloads()
         self.downloads = downloads
-        self.player = Player(chapterPrioritizer: downloads)
-        self.loadAudio = LoadAudioUseCase()
+        let player = Player(chapterPrioritizer: downloads)
+        let loadAudio = LoadAudioUseCase()
+        self.player = player
+        self.loadAudio = loadAudio
+        // Built here, on main: `configure()` runs from the AppDelegate's launch.
+        self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.loadAllAudios = LoadAllAudiosUseCase()
     }
 

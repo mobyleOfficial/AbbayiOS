@@ -11,6 +11,7 @@ import Foundation
 final class MockPlayer: PlayerProtocol {
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
+    private let isPlayingSubject = PassthroughSubject<Bool, Never>()
 
     // Recordings
     var playCalls: [AudioModel] = []
@@ -32,6 +33,9 @@ final class MockPlayer: PlayerProtocol {
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
     }
+    var isPlayingPublisher: AnyPublisher<Bool, Never> {
+        isPlayingSubject.eraseToAnyPublisher()
+    }
 
     // MARK: - Test drivers
     //
@@ -44,6 +48,10 @@ final class MockPlayer: PlayerProtocol {
 
     func emitTime(_ seconds: Double) {
         currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600))
+    }
+
+    func emitPlaying(_ isPlaying: Bool) {
+        isPlayingSubject.send(isPlaying)
     }
 
     func play(_ model: inout AudioModel) {
