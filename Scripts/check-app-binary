@@ -2,7 +2,8 @@
 #
 # Checks a built Abbay app before it is handed out or uploaded.
 #
-#   Scripts/check-app-binary [--allow-debug-resources] <Abbay.app | Abbay.xcarchive | Abbay.ipa>
+#   Scripts/check-app-binary [--allow-debug-resources] [--require-distribution]
+#                            <Abbay.app | Abbay.xcarchive | Abbay.ipa>
 #
 # Fails (exit 1) on any of:
 #
@@ -18,6 +19,10 @@
 #   3. Debug-only resources. UI-test fixtures (`Christmastide.m4b`, #168) must not ship in Release.
 #      Pass `--allow-debug-resources` for Debug builds such as the OTA test builds, which carry
 #      the fixture on purpose.
+#   4. With `--require-distribution` (the release lane passes it for the exported .ipa): the app
+#      and every extension must be distribution-signed -- `get-task-allow` not true and no
+#      device list in the embedded profile. A development-signed archive is a normal input
+#      otherwise.
 #
 # Exit codes: 0 all checks passed, 1 a check failed, 2 usage error.
 
@@ -30,16 +35,18 @@ ALLOWED_PREFIXES=("@rpath/" "@executable_path/" "@loader_path/" "/usr/lib/" "/Sy
 DEBUG_ONLY_RESOURCES=("Christmastide.m4b" "*.m4b")
 
 allow_debug_resources=0
+require_distribution=0
 input=""
 
 usage() {
-    sed -n '3,5p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,6p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --allow-debug-resources) allow_debug_resources=1 ;;
+        --require-distribution) require_distribution=1 ;;
         -h|--help) usage ;;
         -*) echo "Unknown option: $1" >&2; usage ;;
         *) [ -z "$input" ] || usage; input="$1" ;;
@@ -158,6 +165,23 @@ check_bundle() {
             pass "$label $source: App Group $APP_GROUP"
         else
             fail "$label $source: missing App Group $APP_GROUP"
+        fi
+        if [ "$source" = signature ]; then
+            if has_true "$plist" get-task-allow; then
+                if [ $require_distribution -eq 1 ]; then
+                    fail "$label is development-signed (get-task-allow), not distribution"
+                else
+                    echo "  note: $label is development-signed (get-task-allow)"
+                fi
+            elif [ $require_distribution -eq 1 ]; then
+                pass "$label signature: distribution (no get-task-allow)"
+            fi
+        elif [ $require_distribution -eq 1 ]; then
+            if /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" "$plist.profile" >/dev/null 2>&1; then
+                fail "$label profile lists devices: a development or ad hoc profile, not App Store"
+            else
+                pass "$label profile: no device list"
+            fi
         fi
     done
 }

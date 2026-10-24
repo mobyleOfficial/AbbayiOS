@@ -256,7 +256,7 @@ APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (
       UI.user_error!("Export finished but #{ipa_path} is missing") unless File.exist?(ipa_path)
 
       message('Checking the exported .ipa (distribution-signed)')
-      sh "#{check_script.shellescape} #{ipa_path.shellescape}"
+      sh "#{check_script.shellescape} --require-distribution #{ipa_path.shellescape}"
 
       if key.nil?
         UI.important('Skipping TestFlight upload: no App Store Connect API key in the environment. ' \
