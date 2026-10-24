@@ -24,13 +24,13 @@ enum ExpansionMath {
         return clamp(start - translationY / travel)
     }
 
-    /// Opening: past 30%, or an upward flick. Closing is the mirror: it stays open only while above
-    /// 70% and not flicked down.
+    /// A flick of at least 800 pt/s settles in its own direction, even against the drag's (#130):
+    /// up opens, down closes. Slower, the distance decides: opening past 30%; closing is the
+    /// mirror, it stays open only while above 70%.
     static func shouldOpen(progress: CGFloat, velocityY: CGFloat, wasOpening: Bool) -> Bool {
-        if wasOpening {
-            return progress >= openThreshold || velocityY <= -flickVelocity
-        }
-        return progress > 1 - openThreshold && velocityY < flickVelocity
+        if velocityY <= -flickVelocity { return true }
+        if velocityY >= flickVelocity { return false }
+        return wasOpening ? progress >= openThreshold : progress > 1 - openThreshold
     }
 
     /// A collapse starts from the header or grabber anywhere, and from the chapter list only when

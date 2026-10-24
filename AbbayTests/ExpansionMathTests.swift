@@ -43,6 +43,21 @@ final class ExpansionMathTests: XCTestCase {
         XCTAssertTrue(ExpansionMath.shouldOpen(progress: 0.71, velocityY: 100, wasOpening: false))
     }
 
+    /// A flick of at least 800 pt/s decides by its own direction, even against the drag's (#130):
+    /// pulled up past 30% then flicked down closes, pulled down past 30% then flicked up reopens.
+    func test_shouldOpen_flickAgainstTheDrag_followsTheFlick() {
+        XCTAssertFalse(ExpansionMath.shouldOpen(progress: 0.60, velocityY: 900, wasOpening: true))
+        XCTAssertTrue(ExpansionMath.shouldOpen(progress: 0.40, velocityY: -900, wasOpening: false))
+    }
+
+    /// 800 pt/s itself is a flick; just under it the distance decides.
+    func test_shouldOpen_flickBoundary_isInclusive() {
+        XCTAssertFalse(ExpansionMath.shouldOpen(progress: 0.60, velocityY: 800, wasOpening: true))
+        XCTAssertTrue(ExpansionMath.shouldOpen(progress: 0.60, velocityY: 799, wasOpening: true))
+        XCTAssertTrue(ExpansionMath.shouldOpen(progress: 0.40, velocityY: -800, wasOpening: false))
+        XCTAssertFalse(ExpansionMath.shouldOpen(progress: 0.40, velocityY: -799, wasOpening: false))
+    }
+
     func test_thresholds_matchTheSpec() {
         XCTAssertEqual(ExpansionMath.openThreshold, 0.30)
         XCTAssertEqual(ExpansionMath.flickVelocity, 800)
