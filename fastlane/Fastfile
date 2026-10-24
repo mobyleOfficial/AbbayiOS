@@ -244,10 +244,14 @@ APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (
       message('Exporting the App Store .ipa')
       export_dir = "#{build_dir}/export"
       export_options = "#{project_dir}/fastlane/ExportOptions-AppStore.plist"
+      # The export may always create the distribution certificate and App Store profiles: with
+      # the API key when there is one, otherwise with the account signed in to Xcode. Without a
+      # key the archive does not ask for updates; it signs with the local development profiles.
+      export_args = signing_args.empty? ? '-allowProvisioningUpdates' : signing_args
       sh 'xcodebuild -exportArchive ' \
          "-archivePath #{archive_path.shellescape} " \
          "-exportPath #{export_dir.shellescape} " \
-         "-exportOptionsPlist #{export_options.shellescape} #{signing_args}"
+         "-exportOptionsPlist #{export_options.shellescape} #{export_args}"
       ipa_path = "#{export_dir}/#{ipa_name}"
       UI.user_error!("Export finished but #{ipa_path} is missing") unless File.exist?(ipa_path)
 
