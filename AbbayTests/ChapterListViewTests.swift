@@ -37,6 +37,15 @@ final class ChapterListViewTests: XCTestCase {
         XCTAssertFalse(ChapterListView.showsProgress(complete))
     }
 
+    // MARK: - Low Data Mode hint (#148)
+
+    func test_showsLowDataModeHint_onlyWhenHeldAndStillDownloading() {
+        XCTAssertTrue(ChapterListView.showsLowDataModeHint(partial, isHeldByLowDataMode: true))
+        XCTAssertFalse(ChapterListView.showsLowDataModeHint(partial, isHeldByLowDataMode: false))
+        XCTAssertFalse(ChapterListView.showsLowDataModeHint(complete, isHeldByLowDataMode: true))
+        XCTAssertFalse(ChapterListView.showsLowDataModeHint(nil, isHeldByLowDataMode: true))
+    }
+
     // MARK: - No chapters (#115)
 
     /// A book with no chapter markers (a plain MP3) says so instead of showing an empty list.

@@ -12,6 +12,14 @@ struct ChapterDownloadStatusView: View {
     var retry: (identifier: String, action: () -> Void)?
 
     var body: some View {
+        status
+            // One line at its full width: the title beside it scrolls, the status never wraps.
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    @ViewBuilder
+    private var status: some View {
         switch state {
         case .downloaded:
             Image(systemName: "checkmark")

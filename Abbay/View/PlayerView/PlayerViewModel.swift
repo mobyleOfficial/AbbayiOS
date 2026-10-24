@@ -58,6 +58,12 @@ final class PlayerViewModel {
         return downloads?.entry(for: id)
     }
 
+    /// A Wait-for-Wi-Fi book held only by the Wi-Fi's Low Data Mode: the chapter list says so.
+    var isHeldByLowDataMode: Bool {
+        guard let id = book.librivoxID, let downloads else { return false }
+        return downloads.isHeldByLowDataMode(bookID: id, allowsCellular: book.allowsCellularDownload)
+    }
+
     /// The clock for the loaded book, the saved position otherwise. Call it only from a leaf: it
     /// makes the caller depend on every tick.
     func bookTime(in clock: PlaybackClock) -> Double {

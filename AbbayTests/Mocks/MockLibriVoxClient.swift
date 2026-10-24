@@ -43,9 +43,18 @@ final class FakeNetworkPath: NetworkPathProviding {
         didSet { onlineSubject.send(isOnline) }
     }
 
+    var isLowDataMode = false {
+        didSet { lowDataModeSubject.send(isLowDataMode) }
+    }
+
     private let onlineSubject = CurrentValueSubject<Bool, Never>(true)
+    private let lowDataModeSubject = CurrentValueSubject<Bool, Never>(false)
 
     var onlinePublisher: AnyPublisher<Bool, Never> {
         onlineSubject.eraseToAnyPublisher()
+    }
+
+    var lowDataModePublisher: AnyPublisher<Bool, Never> {
+        lowDataModeSubject.eraseToAnyPublisher()
     }
 }

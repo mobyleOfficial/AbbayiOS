@@ -28,7 +28,9 @@ protocol BookDownloadManagerProtocol: ChapterPrioritizing {
 /// Downloads LibriVox books chapter by chapter, at most two chapters per book at a time.
 ///
 /// A chapter that fails is retried after each of `retryDelays` in turn, then marked `.failed`
-/// until the listener retries it or the network path becomes satisfied again.
+/// until the listener retries it or the network path becomes satisfied again. Failure counts are
+/// persisted (`ChapterFailureStore`), so after a relaunch a chapter that had failed starts again at
+/// once but keeps its place in the backoff, and a `.failed` one stays failed.
 ///
 /// Isolation: main-thread confinement. All mutable state is only touched on the main thread:
 /// public methods run inline when called on main and hop there otherwise, and provider events are
@@ -50,7 +52,8 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         var queue: [Int] = []
         /// Chapters with a live task.
         var active = Set<Int>()
-        /// Failures in a row per chapter, since its last success or fresh start.
+        /// Failures in a row per chapter, since its last success or fresh start. Mirrored in
+        /// `failureStore`.
         var failures: [Int: Int] = [:]
         /// The scheduled retry per chapter. A retry whose token no longer matches was superseded.
         var pendingRetries: [Int: UUID] = [:]
@@ -62,6 +65,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
     private let root: URL
     private let updateFlags: UpdateDownloadFlagsUseCaseProtocol
     private let loadAll: LoadAllAudiosUseCaseProtocol
+    private let failureStore: ChapterFailureStore
     private let scheduleRetry: (TimeInterval, @escaping () -> Void) -> Void
     private var pathCancellable: AnyCancellable?
     private let statesSubject = CurrentValueSubject<[String: BookDownloadState], Never>([:])
@@ -80,6 +84,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
 
     /// - Parameters:
     ///   - path: Its going back online restarts the chapters waiting to retry and the failed ones.
+    ///   - failures: Where each chapter's failure count is kept across launches.
     ///   - scheduleRetry: Runs a failed chapter's retry after the given delay, on the main thread.
     init(
         provider: DownloadProviderProtocol = BookDownloadManager.makeBackgroundProvider(),
@@ -87,6 +92,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         updateFlags: UpdateDownloadFlagsUseCaseProtocol = UpdateDownloadFlagsUseCase(),
         loadAll: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         path: NetworkPathProviding = NetworkPathMonitor.shared,
+        failures: ChapterFailureStore = ChapterFailureStore(),
         scheduleRetry: @escaping (TimeInterval, @escaping () -> Void) -> Void = { delay, retry in
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: retry)
         }
@@ -95,6 +101,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         self.root = root
         self.updateFlags = updateFlags
         self.loadAll = loadAll
+        failureStore = failures
         self.scheduleRetry = scheduleRetry
         let events = provider.events
         eventsTask = Task { @MainActor [weak self] in
@@ -179,6 +186,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
     func remove(bookID: String) {
         onMain { [self] in
             let book = books.removeValue(forKey: bookID)
+            failureStore.removeAll(bookID: bookID)
             awaitingCancel.formUnion(book?.active.map { Self.taskID(bookID, $0) } ?? [])
             try? FileManager.default.removeItem(at: root.appendingPathComponent(bookID, isDirectory: true))
             publish()
@@ -219,7 +227,21 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
             publish()
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                let running = await provider.runningIDs()
+                var running = await provider.runningIDs()
+                // A Wi-Fi-only book's task started before #134 may still use a hotspot or Low Data
+                // Mode, and a running task's request can't change: restart it from scratch. Marked
+                // before cancelling, so its cancel is swallowed whenever it arrives.
+                let metered = await provider.runningIDsAllowingMeteredNetworks()
+                let restarted = metered.filter { taskID in
+                    guard case let (bookID, _)? = locate(taskID), restored.contains(bookID) else { return false }
+                    return books[bookID]?.model.allowsCellularDownload == false
+                }
+                if !restarted.isEmpty {
+                    Log.downloads.info("restarting \(restarted.count, privacy: .public) tasks allowed on metered networks")
+                    awaitingCancel.formUnion(restarted)
+                    running.subtract(restarted)
+                    await provider.cancel(ids: restarted)
+                }
                 for id in restored {
                     guard var book = books[id] else { continue }
                     let attached = book.queue.filter { running.contains(Self.taskID(id, $0)) }
@@ -246,7 +268,7 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
         onMain { [self] in
             guard var book = books[id], book.chapters.indices.contains(chapterIndex),
                   book.chapters[chapterIndex] != .downloaded, !book.active.contains(chapterIndex) else { return }
-            Self.resetFailures(of: chapterIndex, in: &book)
+            resetFailures(of: chapterIndex, in: &book)
             book.queue.removeAll { $0 == chapterIndex }
             book.queue.insert(chapterIndex, at: 0)
             books[id] = book
@@ -313,7 +335,7 @@ private extension BookDownloadManager {
         book.active.remove(index)
         book.queue.removeAll { $0 == index }
         book.chapters[index] = .downloaded
-        Self.resetFailures(of: index, in: &book)
+        resetFailures(of: index, in: &book)
         books[bookID] = book
         pump(bookID)
     }
@@ -350,6 +372,7 @@ private extension BookDownloadManager {
         book.active.remove(index)
         let failures = book.failures[index, default: 0] + 1
         book.failures[index] = failures
+        failureStore.set(failures, bookID: book.id, chapter: book.model.chapters[index])
         // Once the retries are used up the chapter's row shows "Failed · Retry": no notice.
         Log.downloads.error("chapter \(index, privacy: .public) failed, attempt \(failures, privacy: .public)")
         guard failures <= Self.retryDelays.count else {
@@ -389,7 +412,7 @@ private extension BookDownloadManager {
             }
             guard !failing.isEmpty else { continue }
             for index in failing {
-                Self.resetFailures(of: index, in: &book)
+                resetFailures(of: index, in: &book)
                 book.queue.removeAll { $0 == index }
             }
             book.queue.insert(contentsOf: failing, at: 0)
@@ -415,12 +438,29 @@ private extension BookDownloadManager {
         return (bookID, index)
     }
 
+    /// The book as its files on disk and its persisted failure counts leave it: a chapter that used
+    /// up its retries is `.failed` and not queued; one that failed fewer times is queued with its
+    /// count, so its next failure waits the next delay rather than the first.
     func makeBook(_ model: AudioModel, id: String) -> Book {
-        let chapters: [ChapterDownloadState] = model.chapters.map { chapter in
-            LibriVoxIdentity.isDownloaded(chapter, bookID: id, root: root) ? .downloaded : .waiting
+        var failures: [Int: Int] = [:]
+        let chapters: [ChapterDownloadState] = model.chapters.enumerated().map { index, chapter in
+            if LibriVoxIdentity.isDownloaded(chapter, bookID: id, root: root) {
+                failureStore.set(0, bookID: id, chapter: chapter)
+                return .downloaded
+            }
+            let failed = failureStore.failures(bookID: id, chapter: chapter)
+            if failed > 0 { failures[index] = failed }
+            return failed > Self.retryDelays.count ? .failed : .waiting
         }
         let queue = chapters.indices.filter { chapters[$0] == .waiting && model.chapters[$0].remoteURL != nil }
-        return Book(id: id, model: model, chapters: chapters, isPaused: model.isDownloadPaused, queue: queue)
+        return Book(
+            id: id,
+            model: model,
+            chapters: chapters,
+            isPaused: model.isDownloadPaused,
+            queue: queue,
+            failures: failures
+        )
     }
 
     /// Starts queued chapters in order until the book has `maxConcurrentChapters` running.
@@ -440,8 +480,9 @@ private extension BookDownloadManager {
     }
 
     /// Forgets the chapter's failures and any scheduled retry, and shows a failed one as waiting.
-    static func resetFailures(of index: Int, in book: inout Book) {
+    func resetFailures(of index: Int, in book: inout Book) {
         book.failures[index] = nil
+        failureStore.set(0, bookID: book.id, chapter: book.model.chapters[index])
         book.pendingRetries[index] = nil
         if book.chapters[index] == .failed {
             book.chapters[index] = .waiting

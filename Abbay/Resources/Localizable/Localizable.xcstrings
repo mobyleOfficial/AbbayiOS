@@ -62,7 +62,25 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Falhou · Tentar de novo"
+            "value" : "Falhou · Repetir"
+          }
+        }
+      }
+    },
+    "lowDataModeWaiting" : {
+      "comment" : "Under a book's download progress: a Wait-for-Wi-Fi book is held because the Wi-Fi is in Low Data Mode",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting: Low Data Mode is on"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aguardando: Modo Dados Reduzidos ativado"
           }
         }
       }

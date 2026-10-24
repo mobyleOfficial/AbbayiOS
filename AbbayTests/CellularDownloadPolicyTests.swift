@@ -96,6 +96,21 @@ final class NetworkPathSnapshotTests: XCTestCase {
     func testUnknownPathIsOnlineAndNotMetered() {
         XCTAssertTrue(NetworkPathSnapshot.unknown.isSatisfied)
         XCTAssertFalse(NetworkPathSnapshot.unknown.isMetered)
+        XCTAssertFalse(NetworkPathSnapshot.unknown.isLowDataModeWiFi)
+    }
+
+    /// The one hold the app explains (#148): Wi-Fi in Low Data Mode. On cellular or a hotspot a
+    /// Wait-for-Wi-Fi book waits as asked, Low Data Mode or not.
+    func testLowDataModeWiFi_onlyOnConstrainedWiFiThatIsOtherwiseUnmetered() {
+        XCTAssertTrue(path(wifi: true, constrained: true).isLowDataModeWiFi)
+        XCTAssertTrue(path(cellular: true, wifi: true, constrained: true).isLowDataModeWiFi)
+        XCTAssertFalse(path(wifi: true).isLowDataModeWiFi)
+        XCTAssertFalse(path(wifi: true, expensive: true, constrained: true).isLowDataModeWiFi, "Hotspot")
+        XCTAssertFalse(path(cellular: true, expensive: true, constrained: true).isLowDataModeWiFi, "Cellular")
+        let offline = NetworkPathSnapshot(
+            isSatisfied: false, usesCellular: false, usesWiFi: true, isExpensive: false, isConstrained: true
+        )
+        XCTAssertFalse(offline.isLowDataModeWiFi)
     }
 
     private func path(

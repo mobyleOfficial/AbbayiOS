@@ -58,7 +58,8 @@ LibriVox page's Play all open it.
   early unless `model.isPlaying`.
 - **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
   `N%`, *Waiting* or *Failed · Retry*, and a thin overall progress bar (`player.download.progress`)
-  sits under the header. The failed status is a button (`player.chapter.<n>.retry`, unverified by UI
+  sits under the header, with *"Waiting: Low Data Mode is on"* under it (`player.download.lowDataMode`)
+  while a *Wait for Wi-Fi* book is held by Low Data Mode. The failed status is a button (`player.chapter.<n>.retry`, unverified by UI
   test) that restarts the chapter's download, playing or not; the rest of the row keeps its seek tap. Both vanish when the download completes. Imported books never show them. See
   [downloads](downloads.md).
 - **multi-file-books:** a LibriVox book is one book made of many files. Time, the scrubber, the
@@ -116,8 +117,8 @@ $B drag player.close down                                 # planned: collapse un
 The screen is reached by a row tap, the bar (tap and drag) and Play on the stub LibriVox book's
 details page.
 
-**Implemented but unverified:** `player.download.progress`. It renders only while a download is
-incomplete, and the stub download manager never reports one.
+**Implemented but unverified:** `player.download.progress`, `player.download.lowDataMode`. They
+render only while a download is incomplete, and the stub download manager never reports one.
 
 Speed itself (the requested `rate`/`defaultRate` across pause, seek and files) is unit-tested in
 `PlayerSpeedTests`; seeded books have no audio, so no UI test hears it.

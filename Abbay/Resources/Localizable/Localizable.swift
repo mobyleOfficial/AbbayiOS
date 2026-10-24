@@ -38,6 +38,7 @@ enum Localizable: String {
     case waitForWiFi
     case waiting
     case chapterDownloadFailed
+    case lowDataModeWaiting
     case detailsFailed
     case retry
     case rowChapter

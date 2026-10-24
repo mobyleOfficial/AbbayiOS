@@ -46,7 +46,9 @@ once the book is in the library. The only way to add a LibriVox book.
 - **chapters:** the shared `ChapterListView` in its stack layout: *Chapters* header, one row per
   chapter with scrolling title and duration. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
-  sits under the header; once complete both disappear. Rows are not tappable here — Play opens the
+  sits under the header; once complete both disappear. A *Wait for Wi-Fi* book held by Low Data
+  Mode on Wi-Fi also shows *"Waiting: Low Data Mode is on"* under the bar (`detail.lowDataMode`, see
+  [downloads](downloads.md) *low-data-mode-hint*). Rows are not tappable here — Play opens the
   player, which is where chapters are chosen — but a failed chapter's status is a button
   (`detail.chapter.<n>.retry`) that restarts its download. A book with no sections shows the
   list's *No chapters* empty state (`detail.chapters.empty`; unverified by UI test, the stub book
@@ -82,7 +84,8 @@ longer presents its own player sheet.
 
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
 UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`,
-`detail.cellular.wait`, `detail.progress`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`. The stub
+`detail.cellular.wait`, `detail.progress`, `detail.lowDataMode`, `detail.chapter.<n>`,
+`detail.chapter.<n>.retry`. The stub
 book is 1,000 bytes, so the cellular alert is unreachable by UI; the stub client never fails
 `details`, so Retry is too; and the stub download manager reports no state, so `detail.progress` and
 the chapter retry never appear (see [downloads](downloads.md)).

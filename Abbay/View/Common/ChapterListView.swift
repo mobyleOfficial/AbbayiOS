@@ -32,6 +32,9 @@ struct ChapterListView: View {
     var layout: Layout = .list
     var titleIdentifier: String?
     var progressIdentifier: String?
+    /// Shows "Waiting: Low Data Mode is on" under the progress bar (see `showsLowDataModeHint`).
+    var isHeldByLowDataMode = false
+    var lowDataModeIdentifier: String?
     /// The "No chapters" message shown instead of rows when there are none.
     var emptyIdentifier: String?
     let rowIdentifier: (Int) -> String
@@ -60,6 +63,12 @@ struct ChapterListView: View {
         return !state.isComplete
     }
 
+    /// Why a Wait-for-Wi-Fi book isn't moving: the Wi-Fi is in Low Data Mode, which its tasks are
+    /// kept off. Only while the progress bar shows, so never for a finished book.
+    static func showsLowDataModeHint(_ state: BookDownloadState?, isHeldByLowDataMode: Bool) -> Bool {
+        isHeldByLowDataMode && showsProgress(state)
+    }
+
     static func status(at index: Int, in state: BookDownloadState?) -> ChapterDownloadState? {
         guard let state, state.chapters.indices.contains(index) else { return nil }
         return state.chapters[index]
@@ -80,6 +89,9 @@ struct ChapterListView: View {
                     .scaleEffect(x: 1, y: 0.5)
                     .frame(height: SpaceConstants.sx2.value)
                     .accessibilityIdentifier(ifPresent: progressIdentifier)
+            }
+            if Self.showsLowDataModeHint(downloadState, isHeldByLowDataMode: isHeldByLowDataMode) {
+                lowDataModeHint
             }
             if Self.showsEmptyState(chapters) {
                 emptyState
@@ -114,6 +126,17 @@ struct ChapterListView: View {
         .frame(maxWidth: .infinity, maxHeight: layout == .list ? .infinity : nil)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(ifPresent: emptyIdentifier)
+    }
+
+    private var lowDataModeHint: some View {
+        Label(Localizable.lowDataModeWaiting.localized, systemImage: "wifi.exclamationmark")
+            .font(.caption)
+            .foregroundColor(ColorConstants.lightSilver.value)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, spacing)
+            .padding(.top, SpaceConstants.sx8.value)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(ifPresent: lowDataModeIdentifier)
     }
 
     private var header: some View {

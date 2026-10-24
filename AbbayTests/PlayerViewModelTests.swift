@@ -282,6 +282,28 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertNil(sut.downloadEntry)
     }
 
+    func test_isHeldByLowDataMode_forAWiFiOnlyBookWhileLowDataModeIsOn() {
+        let manager = MockBookDownloadManager()
+        let path = FakeNetworkPath()
+        let store = DownloadStateStore(downloads: manager, path: path)
+        var wifiOnly = libriVoxBook()
+        wifiOnly.allowsCellularDownload = false
+        var cellular = libriVoxBook()
+        cellular.allowsCellularDownload = true
+        manager.statesSubject.send(["42": BookDownloadState(chapters: [.waiting], expectedBytes: [1], isPaused: false)])
+        path.isLowDataMode = true
+
+        let viewModel = { (book: AudioModel) in
+            PlayerViewModel(book, state: PlaybackState(), player: nil, downloads: store)
+        }
+        XCTAssertTrue(viewModel(wifiOnly).isHeldByLowDataMode)
+        XCTAssertFalse(viewModel(cellular).isHeldByLowDataMode)
+        XCTAssertFalse(
+            PlayerViewModel(ViewModelSupport.chaptered(), state: PlaybackState(), player: nil, downloads: store)
+                .isHeldByLowDataMode
+        )
+    }
+
     func test_downloadEntry_isTheBooksStoreEntry() {
         let manager = MockBookDownloadManager()
         let store = DownloadStateStore(downloads: manager)

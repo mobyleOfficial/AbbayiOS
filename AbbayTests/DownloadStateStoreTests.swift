@@ -113,4 +113,45 @@ final class DownloadStateStoreTests: XCTestCase {
         XCTAssertEqual(downloads.paused, ["a"])
         XCTAssertEqual(downloads.resumed, ["b"])
     }
+
+    // MARK: - Low Data Mode (#148)
+
+    func test_lowDataMode_followsThePath_andNotifiesOnlyOnChange() {
+        let path = FakeNetworkPath()
+        let store = DownloadStateStore(downloads: MockBookDownloadManager(), path: path)
+        XCTAssertFalse(store.lowDataMode.isOn)
+        var fired = 0
+        withObservationTracking({ _ = store.lowDataMode.isOn }, onChange: { fired += 1 })
+
+        path.isLowDataMode = true
+
+        XCTAssertTrue(store.lowDataMode.isOn)
+        XCTAssertEqual(fired, 1)
+        path.isLowDataMode = false
+        XCTAssertFalse(store.lowDataMode.isOn)
+    }
+
+    func test_isHeldByLowDataMode_onlyForAnUnpausedWiFiOnlyBookStillDownloading() {
+        let paused = BookDownloadState(chapters: [.waiting], isPaused: true, fraction: 0)
+        let held = DownloadStateStore.isHeldByLowDataMode(_:allowsCellular:isLowDataMode:)
+
+        XCTAssertTrue(held(downloading(0.1), false, true))
+        XCTAssertFalse(held(downloading(0.1), true, true), "Cellular allowed: Low Data Mode doesn't hold it")
+        XCTAssertFalse(held(downloading(0.1), false, false), "Not in Low Data Mode")
+        XCTAssertFalse(held(paused, false, true), "Paused says so itself")
+        XCTAssertFalse(held(complete, false, true))
+        XCTAssertFalse(held(nil, false, true))
+    }
+
+    func test_isHeldByLowDataMode_forABook_readsItsEntryAndCellularFlag() {
+        let downloads = MockBookDownloadManager()
+        let path = FakeNetworkPath()
+        let store = DownloadStateStore(downloads: downloads, path: path)
+        downloads.statesSubject.send(["a": downloading(0.1)])
+        path.isLowDataMode = true
+
+        XCTAssertTrue(store.isHeldByLowDataMode(bookID: "a", allowsCellular: false))
+        XCTAssertFalse(store.isHeldByLowDataMode(bookID: "a", allowsCellular: true))
+        XCTAssertFalse(store.isHeldByLowDataMode(bookID: "other", allowsCellular: false))
+    }
 }
