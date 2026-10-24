@@ -28,7 +28,11 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   on `Player.pause()` (every pause path: app, lock screen, CarPlay, Siri, book end) and when a
   playing tick lands in a different chapter than the last one (`Player.noteChapter`, which also
   catches chapter skips). A repeat for the same book inside `IntentDonor.repeatWindow` (2 minutes)
-  is dropped and doesn't restart the window. Interruptions don't donate (no `pause()`).
+  is dropped and doesn't restart the window. An `AVAudioSession` interruption (call, Siri, another
+  app's audio) that begins while the user had asked to play donates too (#160): `Player` tracks the
+  play request itself (`isPlayRequested`), since the system has already paused the queue player when
+  the notification arrives. Donations pass a completion handler; a failure logs
+  `donation failed: <domain> <code>` to the `Siri` category at `.error`, never the title (#157).
 - **cross-process state:** the extension cannot touch Core Data. It reads
   `abbay.librarySnapshot.v1` from the App Group, which the app writes on every library mutation.
   `LibrarySnapshotWriter` compiles a no-op `LoadAllAudios` under `ABBAY_INTENTS_EXTENSION`.

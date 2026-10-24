@@ -19,6 +19,9 @@ two of its original bugs (#90, #95) are still open.
   pops back.
 - **live-progress:** the time subscription writes progress into `currentPlayingItem`, the row for the
   book now playing (re-resolved by URL when playback moves to another book).
+- **siri-freshness (#160):** `didConnect` and `sceneDidBecomeActive` call `carPlayBecameActive()`,
+  which asks the shared `SiriContextRefresher` (from `DependencyContainer`) for a throttled refresh,
+  reason `carPlay`; see [siri-library-publish](siri-library-publish.md).
 - **disconnect:** removes the now-playing observer, cancels the time **and** URL subscriptions, and
   nils the cached state, including the row map.
 
