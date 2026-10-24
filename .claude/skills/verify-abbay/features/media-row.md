@@ -47,8 +47,9 @@ subscriptions; it is constant per switch and independent of the clock.
 ## How to get to it (user POV)
 
 Every row in the Library tab's list, including while its local search filters it (rows keep the
-`library.row.<n>` namespace, positional within the filtered list). The play button acts without
-leaving the list; tapping anywhere else opens the details screen ([player](player.md)).
+`library.row.<n>` namespace, positional within the filtered list). The play button (VoiceOver:
+*Play* / *Pause*, since #144) acts without leaving the list; tapping anywhere else opens the details
+screen ([player](player.md)).
 
 ## Driving it with abbay-ctl
 

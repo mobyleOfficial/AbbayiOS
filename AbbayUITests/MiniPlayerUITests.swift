@@ -9,7 +9,7 @@ import XCTest
 /// and the inset that keeps it off the last row. Seeded books have no audio, but pressing play
 /// still loads one, which is all the bar needs.
 final class MiniPlayerUITests: XCTestCase {
-    private var app = XCUIApplication()
+    var app = XCUIApplication()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -19,16 +19,16 @@ final class MiniPlayerUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func launch(_ arguments: [String]) {
+    func launch(_ arguments: [String]) {
         app.launchArguments = arguments
         app.launch()
     }
 
-    private func element(_ identifier: String) -> XCUIElement {
+    func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func assertResolves(
+    func assertResolves(
         _ identifier: String,
         timeout: TimeInterval = 15,
         file: StaticString = #filePath,
@@ -43,7 +43,7 @@ final class MiniPlayerUITests: XCTestCase {
     }
 
     /// Row order isn't insertion order (`LoadAllAudiosUseCase` doesn't sort): find it by title.
-    private func rowIndex(titled title: String, maxRows: Int = 4) -> Int? {
+    func rowIndex(titled title: String, maxRows: Int = 4) -> Int? {
         for index in 0..<maxRows {
             let candidate = element(AccessibilityID.Element.title(AccessibilityID.Library.row(index)))
             if candidate.exists, candidate.label == title {
@@ -54,7 +54,7 @@ final class MiniPlayerUITests: XCTestCase {
     }
 
     /// The player slides up from the bottom; wait until its header is near the top.
-    private func waitForPlayerToArrive(file: StaticString = #filePath, line: UInt = #line) {
+    func waitForPlayerToArrive(file: StaticString = #filePath, line: UInt = #line) {
         let close = element(AccessibilityID.Player.close)
         XCTAssertTrue(close.waitForExistence(timeout: 15), "the player has no close button", file: file, line: line)
         let deadline = Date().addingTimeInterval(5)
@@ -67,7 +67,7 @@ final class MiniPlayerUITests: XCTestCase {
 
     /// Loads a seeded book by pressing its row's play button. There is no audio behind it, but
     /// the player announces the book, which is all the bar needs.
-    private func loadSeededBook(
+    func loadSeededBook(
         titled title: String,
         arguments: [String] = [LaunchArgument.seedLibrary]
     ) throws {
@@ -134,13 +134,13 @@ final class MiniPlayerUITests: XCTestCase {
 
     // MARK: - Interactive expansion
 
-    private var transportPlay: XCUIElement {
+    var transportPlay: XCUIElement {
         element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
     }
 
     /// The grabber's center: hidden from accessibility (the chevron is VoiceOver's close), so it
     /// is found from the chevron beside it, at the header's horizontal center.
-    private func grabberCenter(file: StaticString = #filePath, line: UInt = #line) -> XCUICoordinate {
+    func grabberCenter(file: StaticString = #filePath, line: UInt = #line) -> XCUICoordinate {
         let close = element(AccessibilityID.Player.close)
         XCTAssertTrue(close.waitForExistence(timeout: 5), "the details screen has no header", file: file, line: line)
         return app.coordinate(withNormalizedOffset: .zero)
@@ -369,7 +369,7 @@ final class MiniPlayerUITests: XCTestCase {
 
 // MARK: - Collapse checks
 
-private extension MiniPlayerUITests {
+extension MiniPlayerUITests {
     /// The bar's frame once it has stopped moving (two reads 0.2 s apart agree), or its last frame
     /// after `timeout`.
     func restingFrame(of bar: XCUIElement, timeout: TimeInterval = 5) -> CGRect {

@@ -66,6 +66,13 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-seedLongBook` — with `-seedLibrary`, also adds *Seeded Long Book*, 60 one-minute chapters,
     so the details screen's chapter list is far longer than the screen (the list-at-top collapse
     tests).
+  - `-seedPlayableBook` — with `-seedLibrary`, also adds *Seeded Playable Book*: the real
+    four-chapter LibriVox m4b from `AbbayTests/Fixtures/Christmastide.m4b`, copied into Debug
+    builds only, saved 200 s in (chapter 2, 39% through it). The one seeded book that plays and
+    seeks, for the mini player's *Next chapter* / *Restart chapter* tests. It makes sound: pause it.
+  - `-forceReduceMotion` — run with Reduce Motion on whatever the system setting says
+    (`DebugOverrides.reduceMotion`, applied as the environment's Reduce Motion in `AppRootView`),
+    because XCUITest can't switch the setting.
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
     one stub book, which any query containing "stub" also finds) and swaps in a download manager
     that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
@@ -77,9 +84,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
   cumulative. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
-  `DebugOverrides` returns `nil` there. The seeded models carry **no playable audio**: pressing a
-  seeded row's play button loads the book (the mini player and the row's loaded state appear), but
-  nothing plays and the clock doesn't move, so anything needing real playback — time advancing,
+  `DebugOverrides` returns `nil` there. Apart from `-seedPlayableBook`, the seeded models carry
+  **no playable audio**: pressing a seeded row's play button loads the book (the mini player and
+  the row's loaded state appear), but nothing plays and the clock doesn't move, so anything needing real playback — time advancing,
   tapping a chapter — is unreachable this way. The stub LibriVox book is the same: Play opens the
   details screen and the mini player appears; its chapter URL is `/dev/null`. Because nothing is
   there to play, both now also show the error banner (`notice.banner`) for about 5 s: the

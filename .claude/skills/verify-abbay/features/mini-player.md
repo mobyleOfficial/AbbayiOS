@@ -43,8 +43,11 @@
   event.
 - **accessibility:** the title and subtitle are one element (`miniPlayer.bar`, a button). Its
   default action opens the details screen. Its named actions are *Open player*, *Next chapter*
-  and *Restart chapter*, so VoiceOver can do everything the gestures do. The progress line carries
-  a percentage value and `.updatesFrequently`.
+  and *Restart chapter*, so VoiceOver can do everything the gestures do. The progress line is
+  labelled *Chapter progress* and carries a whole-percent value ("39%") and `.updatesFrequently`.
+  The play/pause button reads *Play* or *Pause* (`PlayButtonView`, shared with the rows and the
+  details screen; labelled since #144). On the details screen the chevron is *Close player*
+  and the panel's escape action (the two-finger scrub) closes it too.
 - **expansion:** `PlayerExpansionOverlay`, one panel above the tabs. Its frame grows from the bar's
   frame to the full screen as `PlayerPresentation.progress` goes from 0 to 1.
   - The corner radius goes from the bar's to 0.
@@ -66,7 +69,8 @@
     bottom strip. The UI tests check a collapse lands with the bar at rest along the bottom, taking
     touches, and where it was before the open (`assertCollapsedIntoBar`).
 - **reduce-motion:** with Reduce Motion on, open and close are an opacity cross-fade between the
-  same end states, with no frame, corner or cover interpolation. This is only checked by hand.
+  same end states, with no frame, corner or cover interpolation: the panel is full-screen at every
+  progress and only its opacity moves. `-forceReduceMotion` turns it on for a launch.
 - **interruptions:** a gesture the system cancels (an incoming call) has no `onEnded`. The overlay
   settles any drag in flight when the scene goes inactive (`cancelInteractive`).
 
@@ -100,6 +104,8 @@ $B tap player.close && $B wait miniPlayer.bar
 $B drag miniPlayer.bar up                                # planned: finger-tracked expansion
 $B drag player.close down                                # planned: collapse into the bar (the grabber has no a11y element)
 $B a11y-action miniPlayer.bar "Next chapter"             # planned: VoiceOver custom action
+$B launch -seedLibrary -seedPlayableBook                 # a real m4b, 200 s in (chapter 2)
+$B launch -seedLibrary -forceReduceMotion                # the cross-fade expansion
 ```
 
 **Verified** (`MiniPlayerUITests`, `AccessibilityIdentifierTests`):
@@ -112,16 +118,36 @@ $B a11y-action miniPlayer.bar "Next chapter"             # planned: VoiceOver cu
 - the last row clearing the bar (`-seedFillerBooks`)
 - the bar on both tabs after Play on the stub LibriVox book
   (`test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer`)
+- VoiceOver actions (`MiniPlayerAccessibilityUITests.swift`, `test_a11y_*`), performed the way
+  VoiceOver does through `AbbayUITests/AccessibilityActions.swift` (a `tap()` would test the
+  gestures instead):
+  - the bar's named actions are exactly *Open player*, *Next chapter*, *Restart chapter*
+  - the default action and *Open player* open the details screen
+  - *Next chapter* moves to chapter 3 and *Restart chapter* back to 0% of chapter 2
+    (`-seedPlayableBook`)
+  - *Close player* is labelled, and activating it or the escape scrub collapses into the bar
+  - the progress line's label and value (0% on a seeded book, about 39% on the playable one)
+  - play/pause buttons have a label, which flips *Pause* to *Play*
+- Reduce Motion (`-forceReduceMotion`): tap open, chevron close, drag open, grabber collapse and a
+  short drag settling closed all land, and afterwards the bar, its play button and a library row
+  take touches (nothing invisible left over the tabs).
 
-The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock).
+The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock). The `test_a11y_*` tests were added
+and run on 26.4 only (#126; 18.5 is #162).
 
 **Unit-tested only:**
 - swipes and their no-op haptic (`MiniPlayerActionsTests`)
 - the subtitle and progress maths
 - the settle thresholds and the release-velocity window (`ExpansionMathTests`, `ExpansionDragTests`)
 - presentation state (`PlayerPresentationTests`)
+- `-forceReduceMotion` itself (`DebugOverridesTests`), and the playable seed's chapters against
+  the file (`UITestSeederTests`)
 
-The named accessibility actions and Reduce Motion are not exercised by any test.
+**Not automated:**
+- whether the panel really cross-fades rather than grows: XCUITest only reads the screen once it
+  is idle. Checked by a screenshot mid-drag (a full-screen, half-transparent panel) for #126;
+  automating it is #162, with running `test_a11y_*` on 18.5.
+- a VoiceOver pass on a device: what is spoken, focus order, and the actions rotor itself (#161).
 
 ## Gotchas
 
@@ -136,5 +162,8 @@ The named accessibility actions and Reduce Motion are not exercised by any test.
   the lift. `ExpansionMath.releaseVelocity` also looks at the 60 ms before the release.
 - **The bar's frame is snapshotted at drag start** (Ruling 6). The accessory jumps about 70 pt when
   the tab bar hides, so the overlay never re-reads it mid-drag.
+- **XCUITest has no public API for accessibility actions.** `AccessibilityActions` goes through
+  XCTest's private `XCAXClient_iOS` with VoiceOver's AX action numbers (2010 activate, 2013
+  escape, 2021 custom). An Xcode update may move them; it throws naming the missing piece.
 - iOS 17 can't collapse from the chapter list. Grab the header or the cover.
 - A device check of the list-at-top bounce interaction on iOS 18+ is left to the owner.

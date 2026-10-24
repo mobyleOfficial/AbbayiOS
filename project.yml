@@ -58,6 +58,9 @@ targets:
       - path: Abbay/Resources/AppIcon.icon
         type: file
         buildPhase: resources
+      # The UI tests' one playable book (`-seedPlayableBook`). Debug only: Release excludes it below.
+      - path: AbbayTests/Fixtures/Christmastide.m4b
+        buildPhase: resources
     postBuildScripts:
       - script: chmod +x ./Scripts/lint-checker
         name: Lint permissions
@@ -75,9 +78,10 @@ targets:
       configs:
         # UI-test stand-ins stay out of the shipped binary. XcodeGen's `excludes` can't vary by
         # configuration, so this is the build setting instead. DebugOverrides.swift is not
-        # listed: it compiles in Release, where every override returns nil.
+        # listed: it compiles in Release, where every override returns nil. The seeded audio
+        # fixture is left out the same way.
         Release:
-          EXCLUDED_SOURCE_FILE_NAMES: "$(SRCROOT)/Abbay/DebugSupport/UITest*.swift"
+          EXCLUDED_SOURCE_FILE_NAMES: "$(SRCROOT)/Abbay/DebugSupport/UITest*.swift $(SRCROOT)/AbbayTests/Fixtures/Christmastide.m4b"
     dependencies:
       - sdk: AVFoundation.framework
       - sdk: CarPlay.framework

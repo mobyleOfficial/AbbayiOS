@@ -18,6 +18,9 @@ enum LaunchArgument {
     /// With `seedLibrary`: also add a book with 60 chapters, so the details screen's chapter list
     /// is much longer than the screen (the list-at-top collapse checks).
     static let seedLongBook = "-seedLongBook"
+    /// With `seedLibrary`: also add *Seeded Playable Book*, the real four-chapter LibriVox m4b the
+    /// unit tests use, 56 s into its second chapter, so chapter actions have something to move.
+    static let seedPlayableBook = "-seedPlayableBook"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
@@ -29,4 +32,7 @@ enum LaunchArgument {
     /// Start from the default settings, kept in memory for this launch only, so a test that changes
     /// the language or a skip interval can't leak it into the next launch.
     static let resetSettings = "-resetSettings"
+    /// Run with Reduce Motion on, whatever the system setting says: XCUITest can't switch the
+    /// setting itself.
+    static let forceReduceMotion = "-forceReduceMotion"
 }
