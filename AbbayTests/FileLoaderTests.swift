@@ -167,6 +167,27 @@ final class FileLoaderTests: XCTestCase {
         XCTAssertEqual(saveAudio.savedModels.count, 1, "a freshly parsed file is persisted")
     }
 
+    /// One import saves its new files together, so the library snapshot is written (and Siri
+    /// published to) once per import, not once a file (#85).
+    func test_loadUrls_savesTheNewFilesInOneBatch() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FileLoaderTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let copy = directory.appendingPathComponent("Copy.m4b")
+        try FileManager.default.copyItem(at: try fixtureURL(), to: copy)
+        let cached = directory.appendingPathComponent("Cached.m4b")
+        let loadAudio = MockLoadAudioUseCase()
+        loadAudio.stubs[cached.absoluteString] = AudioModel(title: "Cached", url: cached)
+        let saveAudio = MockSaveAudioUseCase()
+
+        let result = await makeLoader(loadAudio: loadAudio, saveAudio: saveAudio)
+            .load(urls: [try fixtureURL(), cached, copy])
+
+        XCTAssertEqual(result.loaded.count, 3)
+        XCTAssertEqual(saveAudio.batches.map { $0.map(\.url) }, [[try fixtureURL(), copy]])
+    }
+
     /// #115: a file that won't load is reported back, so the library can say which one it was.
     func test_loadUrls_reportsTheFilesThatFailedAlongsideTheLoadedOnes() async throws {
         let missing = FileManager.default.temporaryDirectory

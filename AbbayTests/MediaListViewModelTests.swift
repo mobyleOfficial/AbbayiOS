@@ -7,79 +7,48 @@
 import XCTest
 
 final class MediaListViewModelTests: XCTestCase {
-    private var testSuite: UserDefaults?
-    private var suiteName: String?
     private var mockFileLoader: MockFileLoader?
     private var mockLoadAll: MockLoadAllAudiosUseCase?
-    private var sharedWriterOriginal: LibrarySnapshotWriterProtocol?
-    private var sharedPublisherOriginal: SiriLibraryPublisherProtocol?
+    private var mockDelete: MockDeleteAudioUseCase?
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.viewmodel-snapshot.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        suiteName = name
-        testSuite = suite
-        let loader = MockFileLoader()
-        let loadAll = MockLoadAllAudiosUseCase()
-        mockFileLoader = loader
-        mockLoadAll = loadAll
-
-        sharedWriterOriginal = LibrarySnapshotWriter.shared
-        LibrarySnapshotWriter.shared = LibrarySnapshotWriter(store: suite, loadAllAudios: loadAll)
-        sharedPublisherOriginal = SiriLibraryPublisher.shared
-    }
-
-    override func tearDownWithError() throws {
-        if let name = suiteName, let suite = testSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        if let original = sharedWriterOriginal {
-            LibrarySnapshotWriter.shared = original
-        }
-        if let original = sharedPublisherOriginal {
-            SiriLibraryPublisher.shared = original
-        }
-        try super.tearDownWithError()
+        mockFileLoader = MockFileLoader()
+        mockLoadAll = MockLoadAllAudiosUseCase()
+        mockDelete = MockDeleteAudioUseCase()
     }
 
     @MainActor
-    func test_importAudio_appendsNonDuplicates_writesSnapshot() async throws {
+    private func makeLibrary() throws -> MediaListViewModel {
+        MediaListViewModel(
+            playback: PlaybackCenter(player: MockPlayer()),
+            loadAllAudiosUseCase: try XCTUnwrap(mockLoadAll),
+            deleteAudioUseCase: try XCTUnwrap(mockDelete),
+            fileLoader: try XCTUnwrap(mockFileLoader)
+        )
+    }
+
+    // The snapshot Siri and CarPlay read is written by the use cases, not here (#85): see
+    // `LibrarySnapshotOnMutationTests`. These cover what the list shows.
+
+    @MainActor
+    func test_importAudio_appendsNonDuplicates() async throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
         modelA.title = "A"
         let loader = try XCTUnwrap(mockFileLoader)
-        let loadAll = try XCTUnwrap(mockLoadAll)
         loader.modelsToReturn = [modelA]
-
-        let viewModel = MediaListViewModel(
-            playback: PlaybackCenter(player: MockPlayer()),
-            loadAllAudiosUseCase: loadAll,
-            deleteAudioUseCase: MockDeleteAudioUseCase(),
-            fileLoader: loader
-        )
+        let viewModel = try makeLibrary()
 
         let url = try XCTUnwrap(URL(string: "file:///a.m4a"))
         await viewModel.importAudio(from: [url])
+        await viewModel.importAudio(from: [url])
 
-        XCTAssertEqual(viewModel.audioList.count, 1)
-        XCTAssertEqual(viewModel.audioList.first?.title, "A")
-
-        let suite = try XCTUnwrap(testSuite)
-        let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
-        let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
-        XCTAssertEqual(snapshot.audios.first?.title, "A")
+        XCTAssertEqual(viewModel.audioList.map(\.title), ["A"])
     }
 
     @MainActor
-    func test_addLibriVoxBook_appendsOnceAndWritesSnapshot() throws {
-        let loadAll = try XCTUnwrap(mockLoadAll)
-        let viewModel = MediaListViewModel(
-            playback: PlaybackCenter(player: MockPlayer()),
-            loadAllAudiosUseCase: loadAll,
-            deleteAudioUseCase: MockDeleteAudioUseCase(),
-            fileLoader: try XCTUnwrap(mockFileLoader)
-        )
+    func test_addLibriVoxBook_appendsOnce() throws {
+        let viewModel = try makeLibrary()
         var book = AudioModel(url: URL(string: "librivox://book/7"))
         book.title = "Remote"
         book.librivoxID = "7"
@@ -88,62 +57,35 @@ final class MediaListViewModelTests: XCTestCase {
         viewModel.addLibriVoxBook(book)
 
         XCTAssertEqual(viewModel.audioList.map(\.librivoxID), ["7"])
-        let suite = try XCTUnwrap(testSuite)
-        let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
-        let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
-        XCTAssertEqual(snapshot.audios.first?.title, "Remote")
-    }
-
-    /// The snapshot write is the one path to Siri: it publishes, and publishing refreshes the App
-    /// Shortcut parameters. Import and LibriVox-add reach it once each, with no direct refresh of
-    /// their own (#84).
-    @MainActor
-    func test_importAndAddLibriVoxBook_publishToSiriOnceEach() async throws {
-        let spy = PublishCountingSpy()
-        let loader = try XCTUnwrap(mockFileLoader)
-        let viewModel = MediaListViewModel(
-            playback: PlaybackCenter(player: MockPlayer()),
-            loadAllAudiosUseCase: try XCTUnwrap(mockLoadAll),
-            deleteAudioUseCase: MockDeleteAudioUseCase(),
-            fileLoader: loader
-        )
-        SiriLibraryPublisher.shared = spy
-        var imported = AudioModel(url: URL(string: "file:///a.m4a"))
-        imported.title = "A"
-        loader.modelsToReturn = [imported]
-        var remote = AudioModel(url: URL(string: "librivox://book/7"))
-        remote.title = "Remote"
-
-        await viewModel.importAudio(from: [try XCTUnwrap(imported.url)])
-        viewModel.addLibriVoxBook(remote)
-
-        XCTAssertEqual(spy.publishedTitles, [["A"], ["A", "Remote"]])
     }
 
     @MainActor
-    func test_deleteAudio_writesSnapshot() async throws {
+    func test_deleteAudio_removesTheRowThroughTheUseCase() throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
         modelA.title = "A"
-        let loader = try XCTUnwrap(mockFileLoader)
-        let loadAll = try XCTUnwrap(mockLoadAll)
-        loadAll.stub = [modelA]
-
-        let viewModel = MediaListViewModel(
-            playback: PlaybackCenter(player: MockPlayer()),
-            loadAllAudiosUseCase: loadAll,
-            deleteAudioUseCase: MockDeleteAudioUseCase(),
-            fileLoader: loader
-        )
+        try XCTUnwrap(mockLoadAll).stub = [modelA]
+        let viewModel = try makeLibrary()
         // init's defer block populates audioList from loadAllAudios
         XCTAssertEqual(viewModel.audioList.count, 1)
 
         viewModel.deleteAudio(modelA)
 
         XCTAssertEqual(viewModel.audioList.count, 0)
-        let suite = try XCTUnwrap(testSuite)
-        let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
-        let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
-        XCTAssertEqual(snapshot.audios.count, 0)
+        XCTAssertEqual(try XCTUnwrap(mockDelete).batches.map { $0.map(\.url) }, [[modelA.url]])
+    }
+
+    /// Settings' "Delete finished downloads" deletes its books in one use-case call, so the
+    /// snapshot is written once for them all rather than once a book.
+    @MainActor
+    func test_deleteAudios_deletesThemAllInOneUseCaseCall() throws {
+        let books = ["a", "b", "c"].map { AudioModel(title: $0, url: URL(string: "file:///\($0).m4a")) }
+        try XCTUnwrap(mockLoadAll).stub = books
+        let viewModel = try makeLibrary()
+
+        viewModel.deleteAudios(Array(books.prefix(2)))
+
+        XCTAssertEqual(viewModel.audioList.map(\.title), ["c"])
+        XCTAssertEqual(try XCTUnwrap(mockDelete).batches.map { $0.map(\.title) }, [["a", "b"]])
     }
 
     // MARK: - Refresh from storage on a book switch (task 4 review I1, I2)
@@ -324,13 +266,5 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertNil(presentation.presentedBook)
         XCTAssertEqual(player.unloadCallCount, 0)
         XCTAssertEqual(center.state.loadedBook?.url, urlA)
-    }
-}
-
-private final class PublishCountingSpy: SiriLibraryPublisherProtocol {
-    private(set) var publishedTitles: [[String]] = []
-
-    func publish(audios: [AudioModel]) {
-        publishedTitles.append(audios.map(\.title))
     }
 }

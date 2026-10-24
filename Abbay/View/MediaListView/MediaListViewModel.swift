@@ -9,7 +9,8 @@ import Foundation
 import os
 
 /// The library: its books, import, delete and adding LibriVox books. Owned by the root, above the
-/// tabs, so the Search tab adds books through it.
+/// tabs, so the Search tab adds books through it. Presentation only: the use cases that change the
+/// library also rewrite Siri's App Group snapshot (#85).
 @MainActor
 final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
@@ -55,7 +56,6 @@ final class MediaListViewModel: ObservableObject {
         self.loadedURL = playback.state.loadedBook?.url
         defer {
             audioList = loadAllAudiosUseCase.execute()
-            LibrarySnapshotWriter.shared.write(audios: audioList)
         }
     }
 
@@ -84,15 +84,21 @@ final class MediaListViewModel: ObservableObject {
     /// Deleting the loaded book unloads it, so the bar goes away; deleting the book the details
     /// screen shows closes it.
     func deleteAudio(_ audio: AudioModel) {
-        if presentation?.presentedBook?.url == audio.url {
-            presentation?.close(animated: false)
+        deleteAudios([audio])
+    }
+
+    /// Settings' "Delete finished downloads": one use-case call, so one snapshot write for them all.
+    func deleteAudios(_ audios: [AudioModel]) {
+        for audio in audios {
+            if presentation?.presentedBook?.url == audio.url {
+                presentation?.close(animated: false)
+            }
+            if let url = audio.url, playback.state.loadedBook?.url == url || playback.player.url == url {
+                playback.unload()
+            }
         }
-        if let url = audio.url, playback.state.loadedBook?.url == url || playback.player.url == url {
-            playback.unload()
-        }
-        deleteAudioUseCase.execute(audio)
-        audioList.removeAll { $0.url == audio.url }
-        LibrarySnapshotWriter.shared.write(audios: audioList)
+        deleteAudioUseCase.execute(audios)
+        audioList.removeAll { row in audios.contains { $0.url == row.url } }
     }
 
     /// *Import file*: presents the document picker, or under `-stubFailingImport` imports the
@@ -111,7 +117,6 @@ final class MediaListViewModel: ObservableObject {
         for file in result.loaded where !audioList.contains(where: { $0.url == file.url }) {
             audioList.append(file)
         }
-        LibrarySnapshotWriter.shared.write(audios: audioList)
         guard !result.failed.isEmpty else { return }
         Log.importing.error(
             "import: \(result.failed.count, privacy: .public) of \(urls.count, privacy: .public) files failed"
@@ -119,10 +124,9 @@ final class MediaListViewModel: ObservableObject {
         noticeReporter.report(.importFailed(fileNames: result.failed.map(\.lastPathComponent)))
     }
 
-    /// A LibriVox book the details page just saved. Refreshed like an import.
+    /// A LibriVox book the details page just saved (which wrote the snapshot).
     func addLibriVoxBook(_ book: AudioModel) {
         guard !audioList.contains(where: { $0.url == book.url }) else { return }
         audioList.append(book)
-        LibrarySnapshotWriter.shared.write(audios: audioList)
     }
 }

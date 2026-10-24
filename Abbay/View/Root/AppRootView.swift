@@ -69,7 +69,7 @@ struct AppRootView: View {
         SettingsLibrary(
             books: container.loadAllAudios.execute,
             downloadState: { [downloads = container.downloadStates] in downloads.entry(for: $0).state },
-            delete: { [model] books in books.forEach(model.deleteAudio) }
+            delete: { [model] books in model.deleteAudios(books) }
         )
     }
 

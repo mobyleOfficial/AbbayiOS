@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
     lazy var seeder: AppDelegateSeederProtocol = AppDelegateSeeder()
     lazy var intentRouter: IntentRouterProtocol = IntentRouter()
-    lazy var siriLibraryPublisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared
+    lazy var librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
     lazy var playMediaHandler = InAppPlayMediaHandler()
     lazy var launchState: LaunchStateFlag = .shared
 
@@ -53,11 +53,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             SiriDiagnostics.record("app launch siriAuth=\(status.rawValue)")
         }
 
-        // Publish the library to Siri on every launch. Apple requires at least one
-        // successful entity fetch before entity-parameter phrases ("Play <title> in
-        // Abbay") resolve at all, and the snapshot seeder only writes when the
-        // snapshot is missing — so launch cannot rely on the write path running.
-        siriLibraryPublisher.publish(audios: DependencyContainer.shared.loadAllAudios.execute())
+        // Rewrite the snapshot, which publishes the library to Siri, on every launch.
+        // Apple requires at least one successful entity fetch before entity-parameter
+        // phrases ("Play <title> in Abbay") resolve at all, and the snapshot seeder
+        // only writes when the snapshot is missing — so launch cannot rely on a
+        // mutation having run. The library list used to do this write (#85).
+        librarySnapshotWriter.refresh()
 
         return true
     }

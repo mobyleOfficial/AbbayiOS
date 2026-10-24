@@ -23,10 +23,12 @@ final class MockFileLoader: FileLoaderProtocol {
 }
 
 final class MockDeleteAudioUseCase: DeleteAudioUseCaseProtocol {
-    var deletedAudios: [AudioModel] = []
+    /// Every call, as passed (an empty one too).
+    private(set) var batches: [[AudioModel]] = []
+    var deletedAudios: [AudioModel] { batches.flatMap { $0 } }
 
-    func execute(_ audio: AudioModel) {
-        deletedAudios.append(audio)
+    func execute(_ audios: [AudioModel]) {
+        batches.append(audios)
     }
 }
 

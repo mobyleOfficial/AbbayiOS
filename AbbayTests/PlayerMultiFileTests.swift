@@ -44,6 +44,11 @@ final class PlayerMultiFileTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// Real Core Data, but no App Group snapshot: that isn't what these tests are about.
+    private func makeDelete() -> DeleteAudioUseCase {
+        DeleteAudioUseCase(removeDownloads: { _ in }, snapshotWriter: MockLibrarySnapshotWriter())
+    }
+
     private func makePlayer(
         savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol? = nil
     ) throws -> Player {
@@ -143,14 +148,14 @@ final class PlayerMultiFileTests: XCTestCase {
 
     func test_saveTime_afterTheBookWasDeleted_insertsNoRow() throws {
         let model = libriVoxBook()
-        try SaveAudioUseCase().execute(model)
-        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(model)
+        defer { makeDelete().execute(model) }
         let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
         var loaded = model
         player.play(&loaded)
 
         // Deleted from the Library while the player still holds it.
-        DeleteAudioUseCase(removeDownloads: { _ in }).execute(model)
+        makeDelete().execute(model)
         player.seek(150)
         player.pause()
 
@@ -159,8 +164,8 @@ final class PlayerMultiFileTests: XCTestCase {
 
     func test_saveTime_existingBook_updatesItsPosition() throws {
         let model = libriVoxBook()
-        try SaveAudioUseCase().execute(model)
-        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(model)
+        defer { makeDelete().execute(model) }
         let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
         var loaded = model
         player.play(&loaded)

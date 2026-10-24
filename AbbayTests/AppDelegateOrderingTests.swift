@@ -34,10 +34,29 @@ final class AppDelegateOrderingTests: XCTestCase {
         delegate.audioSessionActivator = OrderRecorderActivator { sequence.append("session") }
         delegate.seeder = OrderRecorderSeeder { sequence.append("seed") }
         delegate.launchState = .inMemory()
+        delegate.librarySnapshotWriter = MockLibrarySnapshotWriter()
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 
         XCTAssertEqual(sequence, ["session", "seed"])
+    }
+
+    /// Launch rewrites the library snapshot once, which publishes the library to Siri. The
+    /// library list used to do this write as it loaded (#85).
+    func test_didFinishLaunching_writesTheLibrarySnapshotOnce() {
+        DependencyContainer.reset()
+        let writer = MockLibrarySnapshotWriter()
+
+        let delegate = AppDelegate()
+        delegate.audioSessionActivator = OrderRecorderActivator {}
+        delegate.seeder = OrderRecorderSeeder {}
+        delegate.launchState = .inMemory()
+        delegate.librarySnapshotWriter = writer
+
+        _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
+
+        XCTAssertEqual(writer.refreshCallCount, 1)
+        XCTAssertEqual(writer.writeCallCount, 0)
     }
 
     func test_didFinishLaunching_audioSessionThrows_setsFlag_skipsSeed() throws {
@@ -54,6 +73,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         delegate.audioSessionActivator = ThrowingActivator()
         delegate.seeder = OrderRecorderSeeder { seedCalled = true }
         delegate.launchState = flag
+        delegate.librarySnapshotWriter = MockLibrarySnapshotWriter()
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 

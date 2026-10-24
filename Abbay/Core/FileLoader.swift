@@ -32,18 +32,22 @@ final class FileLoader: FileLoaderProtocol {
     }
 
     /// Files that fail to load are returned in `failed`, so the library can say which (#115).
+    /// New files are saved together at the end: one save, so one snapshot write and one Siri
+    /// publish per import, however many files (#84, #85).
     func load(urls: [URL]) async -> FileImportResult {
         var result = FileImportResult()
+        var newFiles: [AudioModel] = []
         for url in urls {
             if let file = loadAudioUseCase.execute(url: url) {
                 result.loaded.append(file)
             } else if let file = await load(url: url) {
                 result.loaded.append(file)
-                try? saveAudioUseCase.execute(file)
+                newFiles.append(file)
             } else {
                 result.failed.append(url)
             }
         }
+        try? saveAudioUseCase.execute(newFiles)
         return result
     }
 

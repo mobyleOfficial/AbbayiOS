@@ -13,9 +13,14 @@ final class CoreDataConcurrencyTests: XCTestCase {
     private let urlPrefix = "abbay-test://concurrency/"
     private let bookCount = 20
 
+    /// Real Core Data, but no App Group snapshot: that isn't what these tests are about.
+    private func makeDelete() -> DeleteAudioUseCase {
+        DeleteAudioUseCase(removeDownloads: { _ in }, snapshotWriter: MockLibrarySnapshotWriter())
+    }
+
     override func tearDown() {
         for index in 0..<bookCount {
-            DeleteAudioUseCase(removeDownloads: { _ in }).execute(makeBook(index))
+            makeDelete().execute(makeBook(index))
         }
         super.tearDown()
     }
@@ -45,11 +50,11 @@ final class CoreDataConcurrencyTests: XCTestCase {
         // The main thread keeps writing, and spins its run loop so the readers' blocks get to run.
         for round in 0..<10 {
             for index in 0..<bookCount {
-                try SaveAudioUseCase().execute(makeBook(index))
+                try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(makeBook(index))
             }
             RunLoop.main.run(until: Date().addingTimeInterval(0.005))
             for index in 0..<bookCount where index % 2 == round % 2 {
-                DeleteAudioUseCase(removeDownloads: { _ in }).execute(makeBook(index))
+                makeDelete().execute(makeBook(index))
             }
             RunLoop.main.run(until: Date().addingTimeInterval(0.005))
         }

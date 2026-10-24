@@ -9,20 +9,10 @@ import XCTest
 /// #115: an import that drops files says which ones, instead of leaving the user to guess.
 final class MediaListViewModelImportTests: XCTestCase {
     private var mockFileLoader: MockFileLoader?
-    private var sharedWriterOriginal: LibrarySnapshotWriterProtocol?
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        sharedWriterOriginal = LibrarySnapshotWriter.shared
-        LibrarySnapshotWriter.shared = MockLibrarySnapshotWriter()
         mockFileLoader = MockFileLoader()
-    }
-
-    override func tearDownWithError() throws {
-        if let original = sharedWriterOriginal {
-            LibrarySnapshotWriter.shared = original
-        }
-        try super.tearDownWithError()
     }
 
     @MainActor
