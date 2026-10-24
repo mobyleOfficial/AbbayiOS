@@ -572,19 +572,41 @@
       }
     },
     "rowTimeLeft" : {
-      "comment" : "Library row: time left in a book without chapters, e.g. \"3m left\"",
+      "comment" : "Library row: time left in a book without chapters, e.g. \"3m left\". The second argument is the count the word agrees with (1 for \"1m\", more for \"1m 30s\").",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ left"
+            "value" : "%1$@ left"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ restantes"
+            "value" : "%1$@ %2$#@remaining@"
+          },
+          "substitutions" : {
+            "remaining" : {
+              "argNum" : 2,
+              "formatSpecifier" : "ld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restante"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restantes"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -662,19 +684,41 @@
       }
     },
     "miniPlayerSubtitle" : {
-      "comment" : "Mini player subtitle: chapter number and time left in it, e.g. \"Chapter 35 · 12 min left\"",
+      "comment" : "Mini player subtitle: chapter number and time left in it, e.g. \"Chapter 35 · 12 min left\". The third argument is the count the word agrees with (1 for \"1 min\", more for \"2 min\").",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chapter %d · %@ left"
+            "value" : "Chapter %1$d · %2$@ left"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Capítulo %d · %@ restantes"
+            "value" : "Capítulo %1$d · %2$@ %3$#@remaining@"
+          },
+          "substitutions" : {
+            "remaining" : {
+              "argNum" : 3,
+              "formatSpecifier" : "ld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restante"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restantes"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1413,6 +1457,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Capítulo anterior"
+          }
+        }
+      }
+    },
+    "localeIdentifier" : {
+      "comment" : "Not displayed. The locale of this translation, read by AbbayBundle.locale so formatters (durations) follow the app's language. Must be this localization's own identifier.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pt-BR"
           }
         }
       }
