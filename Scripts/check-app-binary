@@ -1,0 +1,201 @@
+#!/bin/bash
+#
+# Checks a built Abbay app before it is handed out or uploaded.
+#
+#   Scripts/check-app-binary [--allow-debug-resources] <Abbay.app | Abbay.xcarchive | Abbay.ipa>
+#
+# Fails (exit 1) on any of:
+#
+#   1. Load paths. `otool -L` on every Mach-O in the .app (the app executable, a Debug
+#      `*.debug.dylib`, app extensions, embedded frameworks) must show only `@rpath`,
+#      `@executable_path`, `@loader_path`, `/usr/lib` or `/System` paths. A framework linked by an
+#      absolute path such as `/Library/Frameworks/...` crashes every device build at launch, while
+#      simulator and test builds hide it (#142).
+#   2. Entitlements. The signed app must carry CarPlay audio, Siri and the App Group, and every
+#      app extension must carry the App Group: `AppGroup.swift` calls `fatalError` when the group
+#      is missing, so a provisioning mismatch is a crash on launch, not a degraded feature (#111).
+#      When the bundle has an `embedded.mobileprovision`, the profile must grant the same.
+#   3. Debug-only resources. UI-test fixtures (`Christmastide.m4b`, #168) must not ship in Release.
+#      Pass `--allow-debug-resources` for Debug builds such as the OTA test builds, which carry
+#      the fixture on purpose.
+#
+# Exit codes: 0 all checks passed, 1 a check failed, 2 usage error.
+
+set -uo pipefail
+
+APP_GROUP="group.com.edyuto.abbay"
+APP_ENTITLEMENTS=(com.apple.developer.carplay-audio com.apple.developer.siri)
+ALLOWED_PREFIXES=("@rpath/" "@executable_path/" "@loader_path/" "/usr/lib/" "/System/")
+# Files that exist only for UI tests. Matched against file names anywhere in the bundle.
+DEBUG_ONLY_RESOURCES=("Christmastide.m4b" "*.m4b")
+
+allow_debug_resources=0
+input=""
+
+usage() {
+    sed -n '3,5p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --allow-debug-resources) allow_debug_resources=1 ;;
+        -h|--help) usage ;;
+        -*) echo "Unknown option: $1" >&2; usage ;;
+        *) [ -z "$input" ] || usage; input="$1" ;;
+    esac
+    shift
+done
+[ -n "$input" ] || usage
+[ -e "$input" ] || { echo "No such file: $input" >&2; exit 2; }
+
+scratch=""
+cleanup() { [ -n "$scratch" ] && rm -rf "$scratch"; }
+trap cleanup EXIT
+
+# Resolve the input to a single .app.
+case "$input" in
+    *.xcarchive|*.xcarchive/)
+        app=$(find "$input/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -n 1)
+        ;;
+    *.ipa)
+        scratch=$(mktemp -d "${TMPDIR:-/private/var/tmp}/check-app-binary.XXXXXX")
+        unzip -q "$input" -d "$scratch" || { echo "Cannot unzip $input" >&2; exit 2; }
+        app=$(find "$scratch/Payload" -maxdepth 1 -name '*.app' -type d | head -n 1)
+        ;;
+    *)
+        app="${input%/}"
+        ;;
+esac
+if [ -z "${app:-}" ] || [ ! -d "$app" ]; then
+    echo "No .app found in $input" >&2
+    exit 2
+fi
+
+failures=0
+fail() { echo "  FAIL: $*"; failures=$((failures + 1)); }
+pass() { echo "  ok:   $*"; }
+
+echo "Checking $app"
+
+# --- 1. Load paths ----------------------------------------------------------------------------
+
+echo "Load paths (otool -L)"
+binaries=0
+while IFS= read -r -d '' file; do
+    file -b "$file" | grep -q 'Mach-O' || continue
+    binaries=$((binaries + 1))
+    rel="${file#"$app"/}"
+    bad=""
+    # Skip the "<file> (architecture x):" header lines; every other line is a load command.
+    while IFS= read -r line; do
+        path=$(echo "$line" | sed -E 's/^[[:space:]]+//; s/ \(compatibility version.*$//')
+        [ -n "$path" ] || continue
+        ok=0
+        for prefix in "${ALLOWED_PREFIXES[@]}"; do
+            case "$path" in "$prefix"*) ok=1 ;; esac
+        done
+        [ $ok -eq 1 ] || bad="$bad $path"
+    done < <(otool -L "$file" | grep -v ':$')
+    if [ -n "$bad" ]; then
+        fail "$rel links by a non-relocatable path:$bad"
+    else
+        pass "$rel"
+    fi
+done < <(find "$app" -type f -not -path '*.dSYM/*' -print0)
+[ $binaries -gt 0 ] || fail "no Mach-O binaries found"
+
+# --- 2. Entitlements --------------------------------------------------------------------------
+
+# Prints the signed entitlements of a bundle as an XML plist, or nothing when unsigned.
+signed_entitlements() {
+    codesign -d --entitlements - --xml "$1" 2>/dev/null
+}
+
+# Prints the entitlements granted by a bundle's embedded provisioning profile, if it has one.
+profile_entitlements() {
+    [ -f "$1/embedded.mobileprovision" ] || return 0
+    security cms -D -i "$1/embedded.mobileprovision" 2>/dev/null \
+        | plutil -extract Entitlements xml1 -o - - 2>/dev/null
+}
+
+# has_true <plist> <key>
+has_true() {
+    [ "$(plutil -extract "$2" raw -o - - <<<"$1" 2>/dev/null)" = "true" ]
+}
+
+# has_group <plist> -- the App Group is listed under application-groups.
+has_group() {
+    plutil -extract com.apple.security.application-groups xml1 -o - - <<<"$1" 2>/dev/null \
+        | grep -q "<string>$APP_GROUP</string>"
+}
+
+# check_bundle <bundle> <label> <need-app-entitlements: 0|1>
+check_bundle() {
+    local bundle="$1" label="$2" full="$3" source plist key
+    for source in signature profile; do
+        if [ "$source" = signature ]; then
+            plist=$(signed_entitlements "$bundle")
+            if [ -z "$plist" ]; then
+                fail "$label is not signed with entitlements"
+                continue
+            fi
+        else
+            plist=$(profile_entitlements "$bundle")
+            if [ -z "$plist" ]; then
+                echo "  note: $label has no embedded.mobileprovision; profile not checked"
+                continue
+            fi
+        fi
+        if [ "$full" -eq 1 ]; then
+            for key in "${APP_ENTITLEMENTS[@]}"; do
+                if has_true "$plist" "$key"; then
+                    pass "$label $source: $key"
+                else
+                    fail "$label $source: missing $key"
+                fi
+            done
+        fi
+        if has_group "$plist"; then
+            pass "$label $source: App Group $APP_GROUP"
+        else
+            fail "$label $source: missing App Group $APP_GROUP"
+        fi
+    done
+}
+
+echo "Entitlements"
+check_bundle "$app" "$(basename "$app")" 1
+extensions=0
+while IFS= read -r -d '' appex; do
+    extensions=$((extensions + 1))
+    check_bundle "$appex" "PlugIns/$(basename "$appex")" 0
+done < <(find "$app/PlugIns" -maxdepth 1 -name '*.appex' -type d -print0 2>/dev/null)
+[ $extensions -gt 0 ] || fail "no app extension found (expected AbbayIntents.appex)"
+
+# --- 3. Debug-only resources ------------------------------------------------------------------
+
+echo "Debug-only resources"
+if [ $allow_debug_resources -eq 1 ]; then
+    echo "  skipped (--allow-debug-resources)"
+else
+    found=""
+    for pattern in "${DEBUG_ONLY_RESOURCES[@]}"; do
+        while IFS= read -r -d '' hit; do
+            case "$found" in *"${hit#"$app"/}"*) ;; *) found="$found ${hit#"$app"/}" ;; esac
+        done < <(find "$app" -name "$pattern" -print0)
+    done
+    if [ -n "$found" ]; then
+        fail "Debug-only resources ship in this build:$found"
+    else
+        pass "none of: ${DEBUG_ONLY_RESOURCES[*]}"
+    fi
+fi
+
+# --- Result -----------------------------------------------------------------------------------
+
+if [ $failures -gt 0 ]; then
+    echo "check-app-binary: $failures check(s) failed"
+    exit 1
+fi
+echo "check-app-binary: all checks passed ($binaries Mach-O binaries)"
