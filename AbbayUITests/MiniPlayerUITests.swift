@@ -6,8 +6,8 @@
 import XCTest
 
 /// The one-row mini player: its identifiers, tap to open, hiding under the open details screen,
-/// and the inset that keeps it off the last row. Seeded books have no audio, but pressing play
-/// still loads one, which is all the bar needs.
+/// and the inset that keeps it off the last row. Seeded books play the Debug-only fixture's audio
+/// (#147); the bar only needs the book loaded.
 final class MiniPlayerUITests: XCTestCase {
     var app = XCUIApplication()
 
@@ -65,8 +65,7 @@ final class MiniPlayerUITests: XCTestCase {
 
     // MARK: - Tests
 
-    /// Loads a seeded book by pressing its row's play button. There is no audio behind it, but
-    /// the player announces the book, which is all the bar needs.
+    /// Loads a seeded book by pressing its row's play button: it plays, and the bar shows it.
     func loadSeededBook(
         titled title: String,
         arguments: [String] = [LaunchArgument.seedLibrary]
@@ -106,8 +105,8 @@ final class MiniPlayerUITests: XCTestCase {
 
     /// #166's owner decision: a chapter tap plays that chapter of the shown book, even with nothing
     /// playing. The book isn't loaded, so the tap loads it, and the bar shows it once the screen
-    /// closes. (Before, the tap did nothing while paused.) Seeded books have no audio, so the seek
-    /// itself is proven in `PlayerViewModelTests`.
+    /// closes, at that chapter. (Before, the tap did nothing while paused.) Chapter 4 starts at 3:00,
+    /// inside the seed's audio (#147).
     func test_tappingAChapter_ofABookNotLoaded_loadsIt() throws {
         launch([LaunchArgument.seedLibrary, LaunchArgument.seedLongBook])
         assertResolves(AccessibilityID.Library.list)
@@ -124,6 +123,9 @@ final class MiniPlayerUITests: XCTestCase {
         let bar = element(AccessibilityID.MiniPlayer.bar)
         XCTAssertTrue(bar.waitForExistence(timeout: 15), "the chapter tap did not load the book")
         XCTAssertTrue(bar.label.contains("Seeded Long Book"), "the bar shows \"\(bar.label)\"")
+        let atChapter = NSPredicate(format: "label CONTAINS %@", "Chapter 4")
+        let result = XCTWaiter().wait(for: [expectation(for: atChapter, evaluatedWith: bar)], timeout: 10)
+        XCTAssertEqual(result, .completed, "the bar is not at the tapped chapter: \"\(bar.label)\"")
     }
 
     /// The bar and the tab bar inset the list: scrolled to the bottom, the last row ends above

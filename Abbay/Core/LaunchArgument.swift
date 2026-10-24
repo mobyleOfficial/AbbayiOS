@@ -11,7 +11,8 @@
 /// `Abbay/DebugSupport/` (`DebugOverrides` and the `UITest*` stand-ins), which stays app-side
 /// because it touches Core Data and is `#if DEBUG` only.
 enum LaunchArgument {
-    /// Replace the library with deterministic sample books.
+    /// Replace the library with deterministic sample books. Their audio is the Debug-only
+    /// `Christmastide.m4b` fixture (one hard-linked copy per book), so pressing Play plays (#147).
     static let seedLibrary = "-seedLibrary"
     /// With `seedLibrary`: also add filler books, so the list is longer than the screen.
     static let seedFillerBooks = "-seedFillerBooks"
@@ -25,6 +26,9 @@ enum LaunchArgument {
     /// row reads "0s left") and *Seeded Hour Book* (a first chapter exactly one hour long, so the
     /// mini player reads "1 hr left" once it is loaded): the time-left edge cases of #152.
     static let seedTimeLeftEdges = "-seedTimeLeftEdges"
+    /// With `seedLibrary`: also add *Seeded Missing Book*, whose file doesn't exist, which is what a
+    /// moved or renamed import looks like: Play shows the moved-file banner (#139, #147).
+    static let seedMissingFile = "-seedMissingFile"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the

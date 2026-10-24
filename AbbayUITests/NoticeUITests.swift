@@ -61,17 +61,17 @@ final class NoticeUITests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 15), "the banner did not dismiss itself")
     }
 
-    /// The seeded file isn't there, which is what a moved or renamed import looks like. The bar
-    /// still appears (the book is loaded), and the banner says how to recover.
+    /// `-seedMissingFile`'s book has no file, which is what a moved or renamed import looks like.
+    /// The bar still appears (the book is loaded), and the banner says how to recover.
     func test_playingABookWhoseFileIsGone_saysItMovedAndToImportItAgain() throws {
-        launch([LaunchArgument.seedLibrary])
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedMissingFile])
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
-        let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Missing Book"))
 
         element(AccessibilityID.Element.play(AccessibilityID.Library.row(index))).tap()
 
         XCTAssertTrue(banner.waitForExistence(timeout: 10), "no banner for a missing file")
-        XCTAssertTrue(banner.label.contains("Seeded Plain Book"), "title missing: \"\(banner.label)\"")
+        XCTAssertTrue(banner.label.contains("Seeded Missing Book"), "title missing: \"\(banner.label)\"")
         XCTAssertTrue(banner.label.contains("Import it again"), "no recovery hint: \"\(banner.label)\"")
         XCTAssertTrue(element(AccessibilityID.MiniPlayer.bar).exists, "the bar must still appear")
     }
@@ -79,9 +79,9 @@ final class NoticeUITests: XCTestCase {
     /// After the failure the row and the bar show Play, not Pause, so one tap retries: the banner
     /// comes back after it had gone, and the button still shows Play.
     func test_afterABookFailsToPlay_theButtonsShowPlay_andOneTapRetries() throws {
-        launch([LaunchArgument.seedLibrary])
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedMissingFile])
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
-        let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Missing Book"))
         let rowPlay = element(AccessibilityID.Element.play(AccessibilityID.Library.row(index)))
         let barPlay = element(AccessibilityID.MiniPlayer.playPause)
 

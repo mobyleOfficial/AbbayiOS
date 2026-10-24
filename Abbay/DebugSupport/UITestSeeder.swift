@@ -12,16 +12,19 @@ import Foundation
 /// through -- `XCUIApplication.launchArguments` is the only channel. Wrapped in `#if DEBUG` so
 /// the hook cannot reach a Release build.
 ///
-/// The seeded models deliberately carry no playable audio. They exist so a driver can reach the
-/// library row and the player screen and assert their accessibility identifiers. Pressing play
-/// still loads the book (the player announces it before any audio is read), so the mini player
-/// appears; anything that needs audio to advance still needs a real file.
+/// The seeded books play real audio (#147): each is a hard link, under its own name, to the
+/// public-domain `Christmastide.m4b` fixture that Debug builds carry (Release excludes it, and this
+/// file). Rows are keyed by URL, so every book needs its own path; a link stores the 6.5 MB once.
+/// Their titles, durations and chapters are the seed's own, not the file's: only *Seeded Playable
+/// Book* matches the file. No file behind: `-seedMissingFile`'s book (the moved-file banner) and
+/// `-seedTimeLeftEdges`' two, whose clocks must stay where they were saved.
 enum UITestSeeder {
     static func run(
         arguments: [String] = ProcessInfo.processInfo.arguments,
         loadAll: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         save: SaveAudioUseCaseProtocol = SaveAudioUseCase(),
-        delete: DeleteAudioUseCaseProtocol = DeleteAudioUseCase()
+        delete: DeleteAudioUseCaseProtocol = DeleteAudioUseCase(),
+        audio: (String) -> URL = UITestSeeder.liveAudio()
     ) {
         let wantsSeed = arguments.contains(LaunchArgument.seedLibrary)
         let wantsReset = arguments.contains(LaunchArgument.resetLibrary)
@@ -31,12 +34,15 @@ enum UITestSeeder {
         delete.execute(loadAll.execute())
 
         guard wantsSeed else { return }
-        var models = seedModels()
+        var models = seedModels(audio: audio)
         if arguments.contains(LaunchArgument.seedFillerBooks) {
-            models += fillerModels()
+            models += fillerModels(audio: audio)
         }
         if arguments.contains(LaunchArgument.seedLongBook) {
-            models.append(longBookModel())
+            models.append(longBookModel(audio: audio))
+        }
+        if arguments.contains(LaunchArgument.seedMissingFile) {
+            models.append(missingFileModel())
         }
         if arguments.contains(LaunchArgument.seedTimeLeftEdges) {
             models += timeLeftEdgeModels()
@@ -47,23 +53,80 @@ enum UITestSeeder {
         try? save.execute(models)
     }
 
+    // MARK: - Audio
+
+    /// A URL with no file behind it: what the seeds use when the fixture isn't available.
+    static func placeholderAudio(_ name: String) -> URL {
+        URL(fileURLWithPath: "/seed/\(name)")
+    }
+
+    /// The app's own seed audio: the bundled fixture, linked into Application Support.
+    static func liveAudio(fileManager: FileManager = .default) -> (String) -> URL {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        guard let directory = support?.appendingPathComponent("UITestSeedAudio", isDirectory: true) else {
+            return placeholderAudio
+        }
+        let fixture = Bundle.main.url(forResource: "Christmastide", withExtension: "m4b")
+        return linkedFixture(in: directory, fixture: fixture, fileManager: fileManager)
+    }
+
+    /// Gives each name a file in `directory` with the fixture's audio: a hard link (a copy if the
+    /// link fails), made once and reused. Falls back to `placeholderAudio` without a fixture, or
+    /// when the file can't be made.
+    static func linkedFixture(
+        in directory: URL,
+        fixture: URL?,
+        fileManager: FileManager = .default
+    ) -> (String) -> URL {
+        guard let fixture else { return placeholderAudio }
+        return { name in
+            let url = directory.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: url.path) { return url }
+            do {
+                try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+                do {
+                    try fileManager.linkItem(at: fixture, to: url)
+                } catch {
+                    try fileManager.copyItem(at: fixture, to: url)
+                }
+                return url
+            } catch {
+                return placeholderAudio(name)
+            }
+        }
+    }
+
+    static let missingFileBookTitle = "Seeded Missing Book"
+
+    /// A book whose file isn't there, as after a move or rename in Files: Play shows the banner.
+    static func missingFileModel() -> AudioModel {
+        AudioModel(
+            title: missingFileBookTitle,
+            albumName: "Seed Album",
+            artist: "Seed Author",
+            duration: 200,
+            url: placeholderAudio("missing.m4b")
+        )
+    }
+
     /// Plain books that only make the list scroll.
-    static func fillerModels(count: Int = 12) -> [AudioModel] {
+    static func fillerModels(count: Int = 12, audio: (String) -> URL = placeholderAudio) -> [AudioModel] {
         (1...count).map { number in
             AudioModel(
                 title: "Filler Book \(number)",
                 albumName: "Seed Album",
                 artist: "Seed Author",
                 duration: 100,
-                url: URL(string: "file:///seed/filler-\(number).mp3")
+                url: audio("filler-\(number).m4b")
             )
         }
     }
 
     static let longBookTitle = "Seeded Long Book"
 
-    /// One book of 60 one-minute chapters: a chapter list far longer than the screen.
-    static func longBookModel(chapterCount: Int = 60) -> AudioModel {
+    /// One book of 60 one-minute chapters: a chapter list far longer than the screen. The audio is
+    /// the 14-minute fixture, so a chapter past the 13th starts past the end of the file.
+    static func longBookModel(chapterCount: Int = 60, audio: (String) -> URL = placeholderAudio) -> AudioModel {
         let chapters = (0..<chapterCount).map { index in
             ChapterModel(title: "Long Chapter \(index + 1)", startTime: Double(index) * 60, duration: 60)
         }
@@ -73,7 +136,7 @@ enum UITestSeeder {
             artist: "Seed Author",
             duration: Double(chapterCount) * 60,
             chapters: chapters,
-            url: URL(string: "file:///seed/long.m4b")
+            url: audio("long.m4b")
         )
     }
 
@@ -82,7 +145,8 @@ enum UITestSeeder {
 
     /// The time-left edge cases (#152): a book without chapters listened to the end (nothing
     /// left), and a book whose first chapter is exactly one hour, which the mini player shows from
-    /// 0 s once the book is loaded.
+    /// 0 s once the book is loaded. No audio on purpose (#147 left them so): playing would move the
+    /// clock off the edge being checked.
     static func timeLeftEdgeModels() -> [AudioModel] {
         [
             AudioModel(
@@ -110,7 +174,7 @@ enum UITestSeeder {
 
     static let playableBookTitle = "Seeded Playable Book"
 
-    /// The one seeded book with real audio: `Christmastide.m4b` (public domain, see
+    /// The one seeded book whose chapters are the file's own: `Christmastide.m4b` (public domain, see
     /// `AbbayTests/Fixtures/README.md`), copied into Debug builds only. Its four real chapters,
     /// 200 s in: 56 s into the second, so *Restart chapter* and *Next chapter* both move it.
     /// `nil` if the file isn't in the bundle.
@@ -134,7 +198,7 @@ enum UITestSeeder {
     }
 
     /// Two books: one chaptered, one without chapters, so both row states are reachable.
-    static func seedModels() -> [AudioModel] {
+    static func seedModels(audio: (String) -> URL = placeholderAudio) -> [AudioModel] {
         [
             AudioModel(
                 title: "Seeded Chaptered Book",
@@ -146,7 +210,7 @@ enum UITestSeeder {
                     ChapterModel(title: "Chapter Two", startTime: 100, duration: 100),
                     ChapterModel(title: "Chapter Three", startTime: 200, duration: 200)
                 ],
-                url: URL(string: "file:///seed/chaptered.m4b")
+                url: audio("chaptered.m4b")
             ),
             AudioModel(
                 title: "Seeded Plain Book",
@@ -154,7 +218,7 @@ enum UITestSeeder {
                 artist: "Seed Author",
                 duration: 200,
                 chapters: [],
-                url: URL(string: "file:///seed/plain.mp3")
+                url: audio("plain.m4b")
             )
         ]
     }

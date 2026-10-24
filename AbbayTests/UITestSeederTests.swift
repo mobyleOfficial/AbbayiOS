@@ -23,7 +23,14 @@ final class UITestSeederTests: XCTestCase {
     }
 
     private func run(_ arguments: [String]) {
-        UITestSeeder.run(arguments: arguments, loadAll: loadAll, save: save, delete: delete)
+        // Placeholder audio: the live default links the fixture into the host app's container.
+        UITestSeeder.run(
+            arguments: arguments,
+            loadAll: loadAll,
+            save: save,
+            delete: delete,
+            audio: UITestSeeder.placeholderAudio
+        )
     }
 
     func test_noLaunchArguments_leavesTheLibraryAlone() {
@@ -166,6 +173,70 @@ final class UITestSeederTests: XCTestCase {
 
         XCTAssertEqual(Set(models.map(\.title)).count, models.count, "titles identify rows in UI tests")
         XCTAssertEqual(Set(models.compactMap(\.url)).count, models.count, "rows are keyed by url")
+    }
+
+    // MARK: - Audio (#147)
+
+    /// The moved-file banner's UI test needs a book whose file isn't there.
+    func test_missingFileArgument_addsABookWithNoFile() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedMissingFile])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 1)
+        let missing = try XCTUnwrap(save.savedModels.first { $0.title == UITestSeeder.missingFileBookTitle })
+        let url = try XCTUnwrap(missing.url)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    func test_missingFileArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedMissingFile])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+    }
+
+    /// The regular seeds take their audio from the seeder's source, one file per book (rows are
+    /// keyed by URL).
+    func test_seeds_useTheAudioSource_oneFilePerBook() {
+        var names: [String] = []
+        let audio: (String) -> URL = { name in
+            names.append(name)
+            return URL(fileURLWithPath: "/linked/\(name)")
+        }
+
+        let models = UITestSeeder.seedModels(audio: audio)
+            + UITestSeeder.fillerModels(audio: audio)
+            + [UITestSeeder.longBookModel(audio: audio)]
+
+        XCTAssertEqual(Set(names).count, models.count)
+        XCTAssertTrue(models.allSatisfy { $0.url?.path.hasPrefix("/linked/") == true })
+    }
+
+    /// The live source: the Debug app's fixture, linked under each seed's own name, so every
+    /// regular seed plays real audio and the fixture is stored once.
+    func test_linkedFixture_givesEachNameAPlayableFile() throws {
+        let fixture = try TestFixtures.christmastideURL()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UITestSeederTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let audio = UITestSeeder.linkedFixture(in: directory, fixture: fixture)
+
+        let first = audio("chaptered.m4b")
+        let second = audio("plain.m4b")
+        let again = audio("chaptered.m4b")
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(first, again)
+        let size = try XCTUnwrap(try fixture.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        for url in [first, second] {
+            XCTAssertEqual(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size, "\(url)")
+        }
+    }
+
+    func test_linkedFixture_withoutAFixture_fallsBackToPlaceholders() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("unused-\(UUID().uuidString)")
+
+        let url = UITestSeeder.linkedFixture(in: directory, fixture: nil)("plain.m4b")
+
+        XCTAssertEqual(url, UITestSeeder.placeholderAudio("plain.m4b"))
     }
 }
 #endif
