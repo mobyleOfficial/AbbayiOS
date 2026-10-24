@@ -26,14 +26,4 @@ enum ViewModelSupport {
             url: url
         )
     }
-
-    /// An observer whose player already reports `url` as loaded and playing.
-    static func observer(loaded model: AudioModel, isPlaying: Bool = true) -> MockPlayerObserver {
-        let player = MockPlayer()
-        player.url = model.url
-        player.isPlayingResult = isPlaying
-        let observer = MockPlayerObserver()
-        observer.player = player
-        return observer
-    }
 }

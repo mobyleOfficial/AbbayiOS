@@ -7,51 +7,63 @@
 
 import SwiftUI
 
+/// The details screen: cover, title, transport, timeline and the chapter list. It is drawn inside
+/// the expansion overlay (`PlayerExpansionOverlay`), which adds the grabber header on top.
+///
+/// What it reads, so a clock tick does as little as possible:
+/// - this body reads the slow state only (the book, playing or not, via `PlayerViewModel`);
+/// - `PlayerTimeline` reads `PlaybackClock.bookTime` and re-renders once per tick;
+/// - `PlayerChapters` reads `PlaybackClock.currentChapter`, so it re-renders per chapter.
 struct PlayerView: View {
     // MARK: - Properties
-    @StateObject
-    private var model: PlayerViewModel
+    /// Shared with the expansion, which draws the growing cover and tint from the same book.
+    private let model: PlayerViewModel
+    /// The expansion draws the cover itself while it grows from the bar, landing exactly where
+    /// this view lays it out; meanwhile the space stays and only the image is hidden.
+    @Environment(\.expansionDrawsPlayerCover)
+    private var hidesCover
+    /// Where the cover is laid out, in `coordinateSpace`: the growing cover's destination.
+    private let onCoverFrame: ((CGRect) -> Void)?
+
+    /// The named space `onCoverFrame` reports in: the details screen's own frame.
+    static let coordinateSpace = "player.details"
+    static let coverSide: CGFloat = SpaceConstants.sx72.value * SpaceConstants.sx4.value
+    static let coverRadius: CGFloat = SpaceConstants.sx32.value
 
     // MARK: - Inits
-    init(_ audioModel: AudioModel) {
-        self._model = .init(wrappedValue: .init(audioModel))
+    init(model: PlayerViewModel, onCoverFrame: ((CGRect) -> Void)? = nil) {
+        self.model = model
+        self.onCoverFrame = onCoverFrame
     }
 
     // MARK: - Body
     var body: some View {
         VStack(spacing: SpaceConstants.sx16.value) {
-            topButtonsView
             coverView
             playerView
-            chaptersView
+            PlayerChapters(model: model)
         }
         .padding(.horizontal, SpaceConstants.sx32.value)
         .backgroundColor(ColorConstants.onyx.value)
     }
 
-    // MARK: - Top buttons
-    @ViewBuilder
-    private var topButtonsView: some View {
-        Rectangle()
-            .foregroundColor(ColorConstants.spanishGray.value)
-            .frame(
-                width: SpaceConstants.sx24.value,
-                height: SpaceConstants.sx2.value
-            )
-            .padding(SpaceConstants.sx8.value)
-    }
-
     // MARK: - Cover view
-    @ViewBuilder
     private var coverView: some View {
         VStack {
-            DataImageView(data: model.info.imageData)
+            DataImageView(data: model.book.imageData)
                 .scaledToFit()
-                .cornerRadius(SpaceConstants.sx32.value)
-                .frame(side: SpaceConstants.sx72.value * SpaceConstants.sx4.value)
+                .cornerRadius(Self.coverRadius)
+                .frame(side: Self.coverSide)
+                .opacity(hidesCover ? 0 : 1)
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .named(Self.coordinateSpace))
+                } action: { frame in
+                    onCoverFrame?(frame)
+                }
+                .accessibilityHidden(true)
             PlayerTitleView(
-                isPlaying: $model.isPlaying,
-                text: model.info.title,
+                isPlaying: .constant(model.isPlaying),
+                text: model.book.title,
                 alignment: .center
             )
             .font(.system(size: SpaceConstants.sx24.value))
@@ -60,7 +72,6 @@ struct PlayerView: View {
     }
 
     // MARK: - Player buttons
-    @ViewBuilder
     private var playerButtonsView: some View {
         HStack {
             IconButtonView(systemName: "gobackward.30") {
@@ -71,7 +82,7 @@ struct PlayerView: View {
                 model.backward(withSeconds: 15)
             }
             .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back15))
-            PlayButtonView(isPlaying: $model.isPlaying) {
+            PlayButtonView(isPlaying: .constant(model.isPlaying)) {
                 model.play()
             } onPause: {
                 model.pause()
@@ -90,50 +101,109 @@ struct PlayerView: View {
         .foregroundColor(ColorConstants.white.value)
     }
 
-    // MARK: - Timestamp
-    @ViewBuilder
-    private var timestamp: some View {
+    // MARK: - Player view
+    private var playerView: some View {
+        VStack(spacing: SpaceConstants.sx24.value) {
+            playerButtonsView
+            PlayerTimeline(model: model)
+        }
+    }
+}
+
+// MARK: - Leaves
+
+/// The timeline and its two timestamps. Reads `PlaybackClock.bookTime` for the loaded book (the
+/// book's saved position otherwise), so it is the one part of the screen that ticks.
+private struct PlayerTimeline: View {
+    let model: PlayerViewModel
+
+    @Environment(PlaybackClock.self)
+    private var clock
+    /// While the finger scrubs, and after it lifts until the clock reports the seek, the slider
+    /// shows the scrubbed time instead of the clock, so it doesn't jump back for a tick.
+    @State
+    private var scrub = Scrub()
+
+    var body: some View {
+        let time = model.bookTime(in: clock)
         PlayerProgressView(
-            currentTime: $model.currentTime,
-            totalTime: model.info.duration,
-            onStartUpdate: {
-                model.willSeek()
+            currentTime: Binding(get: { scrub.time ?? time }, set: { scrub.drag(to: $0) }),
+            totalTime: model.book.duration,
+            onStartUpdate: { [clock] in
+                scrub.drag(to: model.bookTime(in: clock))
             },
             onFinishUpdate: { time in
                 model.seek(time)
+                scrub.finish()
             }
         )
         .font(.system(size: SpaceConstants.sx16.value))
         .foregroundColor(ColorConstants.white.value)
-        .onChange(of: model.currentTime) { time in
-            model.setCurrentChapter(for: time)
+        .onChange(of: time) {
+            scrub.clockMoved()
+        }
+    }
+}
+
+/// The scrubbed time, in a reference type so the slider's touch callbacks (captured once, when its
+/// UIKit view is made) always reach the live value. Observable, read only by `PlayerTimeline`.
+@MainActor
+@Observable
+private final class Scrub {
+    private(set) var time: Double?
+    @ObservationIgnored private var isDragging = false
+    @ObservationIgnored private var generation = 0
+
+    func drag(to time: Double) {
+        isDragging = true
+        if self.time != time { self.time = time }
+    }
+
+    /// Keeps the scrubbed time until the clock reports the seek, or 1.5 s if it never does (the
+    /// book isn't loaded, or the seek landed on the same second).
+    func finish() {
+        isDragging = false
+        generation += 1
+        let current = generation
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(1500))
+            guard let self, generation == current, !isDragging else { return }
+            clear()
         }
     }
 
-    // MARK: - Player view
-    @ViewBuilder
-    private var playerView: some View {
-        VStack(spacing: SpaceConstants.sx24.value) {
-            playerButtonsView
-            timestamp
-        }
+    func clockMoved() {
+        guard !isDragging else { return }
+        clear()
     }
 
-    private var chaptersView: some View {
+    private func clear() {
+        if time != nil { time = nil }
+    }
+}
+
+/// The chapter list. Reads `PlaybackClock.currentChapter` only, so it re-renders when the chapter
+/// changes, not on every tick.
+private struct PlayerChapters: View {
+    let model: PlayerViewModel
+
+    @Environment(PlaybackClock.self)
+    private var clock
+    @Environment(\.expansionListCollapse)
+    private var listCollapse
+
+    var body: some View {
         ChapterListView(
-            chapters: model.info.chapters.map(ChapterListView.Item.init),
-            currentIndex: model.currentChapter,
-            downloadState: model.downloadState,
+            chapters: model.book.chapters.map(ChapterListView.Item.init),
+            currentIndex: model.currentChapter(in: clock),
+            downloadState: model.downloadEntry?.state,
             isDimmed: !model.isPlaying,
             layout: .list,
             titleIdentifier: AccessibilityID.Player.chaptersTitle,
             progressIdentifier: AccessibilityID.Player.downloadProgress,
             rowIdentifier: AccessibilityID.Player.chapter,
-            onSelect: { index in
-                guard model.isPlaying, model.info.chapters.indices.contains(index) else { return }
-                model.willSeek()
-                model.seek(model.info.chapters[index].startTime)
-            }
+            onSelect: { model.selectChapter($0) },
+            listCollapse: listCollapse
         )
     }
 }
@@ -141,7 +211,7 @@ struct PlayerView: View {
 // MARK: - Preview
 struct PlayerView_Previews: PreviewProvider {
     static var previews: some View {
-        PlayerView(
+        PlayerView(model: PlayerViewModel(
             AudioModel(
                 title: "title",
                 albumName: "album name",
@@ -151,7 +221,11 @@ struct PlayerView_Previews: PreviewProvider {
                     repeating: ChapterModel(title: "Chapter"),
                     count: 3
                 )
-            )
-        )
+            ),
+            state: PlaybackState(),
+            player: nil,
+            downloads: nil
+        ))
+        .environment(PlaybackClock())
     }
 }

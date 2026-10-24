@@ -11,14 +11,20 @@ struct LibriVoxDetailView: View {
     @State
     private var isExpanded = false
 
-    init(book: LibriVoxBook, onAdded: @escaping (AudioModel) -> Void) {
+    init(
+        book: LibriVoxBook,
+        onAdded: @escaping (AudioModel) -> Void,
+        openPlayer: @escaping (AudioModel) -> Void
+    ) {
         _model = StateObject(wrappedValue: LibriVoxDetailViewModel(
             book: book,
             client: Self.makeClient(),
             downloads: DependencyContainer.shared.downloads,
+            downloadStates: DependencyContainer.shared.downloadStates,
             saveAudio: SaveAudioUseCase(),
             path: NetworkPathMonitor.shared,
-            onAdded: onAdded
+            onAdded: onAdded,
+            openPlayer: openPlayer
         ))
     }
 
@@ -34,11 +40,6 @@ struct LibriVoxDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier(AccessibilityID.Detail.view)
             .task { await model.load() }
-            .sheet(isPresented: $model.isShowingPlayer) {
-                if let addedBook = model.addedBook {
-                    PlayerView(addedBook)
-                }
-            }
             .alert(
                 Localizable.largeDownloadTitle.localized,
                 isPresented: $model.isShowingCellularAlert
@@ -173,8 +174,8 @@ struct LibriVoxDetailView: View {
         }
     }
 
-    /// The player sheet's chapter list, embedded in this page's scroll view. Rows are not tappable:
-    /// Play opens the player sheet, which is where chapters are chosen.
+    /// The player's chapter list, embedded in this page's scroll view. Rows are not tappable:
+    /// Play opens the player, which is where chapters are chosen.
     private func chapterList(_ book: LibriVoxBook) -> some View {
         ChapterListView(
             chapters: book.sections.map(ChapterListView.Item.init),

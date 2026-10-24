@@ -52,6 +52,38 @@ final class UITestSeederTests: XCTestCase {
         XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count)
     }
 
+    /// The mini player's last-row test needs a list longer than the screen.
+    func test_fillerArgument_addsDistinctFillerBooks() {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedFillerBooks])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 12)
+        XCTAssertEqual(Set(save.savedModels.compactMap(\.url)).count, save.savedModels.count)
+    }
+
+    /// The chapter list's collapse is checked on a list much longer than the screen.
+    func test_longBookArgument_addsASixtyChapterBook() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedLongBook])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 1)
+        let long = try XCTUnwrap(save.savedModels.first { $0.title == UITestSeeder.longBookTitle })
+        XCTAssertEqual(long.chapters.count, 60)
+        XCTAssertEqual(long.chapters.last?.endTime, long.duration)
+        XCTAssertEqual(Set(save.savedModels.compactMap(\.url)).count, save.savedModels.count)
+    }
+
+    func test_longBookArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedLongBook])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+    }
+
+    func test_fillerArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedFillerBooks])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+        XCTAssertTrue(delete.deletedAudios.isEmpty)
+    }
+
     func test_seedModels_coverBothChapterStates() {
         let models = UITestSeeder.seedModels()
 

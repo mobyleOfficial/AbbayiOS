@@ -1,8 +1,8 @@
 # LibriVox details page
 
-`LibriVoxDetailView` — the page pushed from a LibriVox search result. Describes one book, starts its
-download, and becomes a **Play** button once the book is in the library. The only way to add a
-LibriVox book.
+`LibriVoxDetailView` — the page pushed in the **Search tab** from a Popular card or a LibriVox search
+result (see [tabs](tabs.md)). Describes one book, starts its download, and becomes a **Play** button
+once the book is in the library. The only way to add a LibriVox book.
 
 ## Sub-features
 
@@ -24,10 +24,16 @@ LibriVox book.
   Waiting). Over the threshold on Wi-Fi it starts without asking, with cellular *not* allowed, so a
   later move to cellular pauses it. At or under the threshold it never asks and allows cellular.
   The choice is stored per book (`allowsCellularDownload`). Streaming is unaffected.
-- **play:** **Play** (`detail.play`) starts playback and presents the same [player](player.md) sheet a
-  Library row opens. Dismissing the sheet returns to the page.
+- **play:** **Play** (`detail.play`) starts playback and opens the details screen
+  ([player](player.md)) through the injected `openPlayer`, i.e. `presentation.open`, the same
+  presentation a Library row or the [mini player](mini-player.md) opens. With nothing visible to grow
+  from yet it grows up from the bottom strip; collapsing it (`player.close`, or a drag down) lands on
+  the mini player, which now shows this book, and returns to the page.
 - **already-owned:** a book already in the Library opens with **Play** instead of Download (looked up
   by its `librivox://book/<id>` URL) and is never added twice.
+- **download-state:** read from the app-wide `DownloadStateStore` entry for this book, not from a
+  `statesPublisher` sink of its own, so the download manager keeps one subscriber
+  (`SubscriptionBudgetTests`).
 - **chapters:** the shared `ChapterListView` in its stack layout: *Chapters* header, one row per
   chapter with scrolling title and duration. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* and a thin overall progress bar (`detail.progress`) sits under the
@@ -37,25 +43,29 @@ LibriVox book.
 
 ## How to get to it (user POV)
 
-Library → ＋ → *Browse LibriVox* (or *Browse free audiobooks* on the empty library), or type in the
-search field → tap a result under **On LibriVox** / **Popular on LibriVox**. A result already in the
-Library appears under *In your library* instead and opens the player, not this page.
+Tap **Search** in the tab bar (or *Browse free audiobooks* on the empty library, which switches to
+it), then tap a *Popular on LibriVox* card, or type in *Search LibriVox* and tap a result. The page
+is pushed on the Search tab's `NavigationStack`. A book that is already in the Library opens here
+too, showing **Play**. The Library tab's own search is local only and never leads here.
 
 ## Driving it with abbay-ctl
 
 ```bash
 $B launch --seed-library --stub-librivox      # -stubLibriVox: in-memory catalog, nothing downloads
-$B wait library.list
+$B tap root.tab.search
 $B tap searchfield && $B type "Stub"          # the only query the stub answers (any query containing "stub")
-$B tap library.remote.0 && $B wait detail.download
+$B tap search.result.0 && $B wait detail.download
 $B tap detail.download && $B wait detail.play # page stays open; Download is gone
 $B tap detail.play && $B wait player.transport.play
-$B swipe down                                 # dismiss the sheet (drag from the top edge)
+$B tap player.close                           # or drag its header down
 ```
 
-**Verified** (`AccessibilityIdentifierTests`): `detail.view`, `detail.download`, `detail.play`
+**Verified** (`AccessibilityIdentifierTests`): `detail.view` (also from `search.card.0`,
+`test_searchTab_showsPopularCards_andOpensDetails`), `detail.download`, `detail.play`
 (`test_libriVoxDownload_keepsDetailPageOpenAndShowsPlay`,
-`test_search_showsFloatingPlayerAfterPlayingFromDetail`), reached through `library.remote.0`.
+`test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer`), reached through the Search tab's
+`search.result.0`. Play calls the injected `openPlayer`, i.e. `presentation.open`; the page no
+longer presents its own player sheet.
 
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
 UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`,
@@ -71,11 +81,12 @@ The decisions behind them are unit-tested: `CellularDownloadPolicyTests`,
 
 - **Stub limits.** `UITestLibriVoxClient` serves one book (`ui-test-stub`, one 60 s chapter whose
   `/dev/null/...` URLs are not real files) and `UITestDownloadManager` downloads nothing. Playing it
-  therefore opens the player and the floating player appears, but no audio plays. Everything about
+  therefore opens the details screen and the mini player appears, but no audio plays. Everything about
   real search results, real sizes, real covers and real downloads is **unreachable by UI automation**.
-- **The page is state-held by the Library, not by the result row.** `MediaListView` keeps the opened
-  book in `openedBook` because adding the book removes its search row, which would pop a row-owned
-  link before **Play** could appear (regression-tested).
+- **The page is state-held by the Search tab, not by the result row.** `SearchTab` (in
+  `AppRootView.swift`) keeps the opened book in `openedBook` and pushes it with
+  `navigationDestination(item:)`, so a result row changing under it can't pop the page before
+  **Play** appears (regression-tested by `test_libriVoxDownload_keepsDetailPageOpenAndShowsPlay`).
 - **`detail.view` is set on the page's outer view** while its children carry their own ids. The UI
   tests resolve both together today, but do not assume the container id is stable evidence that a
   child exists — assert on the leaf you need.

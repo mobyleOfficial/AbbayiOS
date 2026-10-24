@@ -19,8 +19,26 @@ ordering breaks, and most of it is invisible in the UI.
   (`DependencyContainer.shared`). `isConfigured` exists precisely because AppIntents entity
   queries can run outside the launch path; those call sites fall back to the App Group snapshot.
 - **scene-routing:** `configurationForConnecting` returns a CarPlay configuration for
-  `carTemplateApplication`, otherwise the default `WindowGroup` hosting `MediaListView`
+  `carTemplateApplication`, otherwise the default `WindowGroup` hosting `AppRootView`
   (`configurationForConnecting`).
+- **root:** `AppRootView` owns `MediaListViewModel`, `PlayerPresentation` and the selected tab, and
+  injects `PlaybackState`, `PlaybackClock`, `PlaybackCenter`, `DownloadStateStore` and
+  `PlayerPresentation` into the environment. Two tabs, Library and Search, each with its own
+  `NavigationStack` (`root.tab.library`, `root.tab.search`); see [tabs](tabs.md). iOS 26.1+: the
+  system `TabView` with two regular `Tab`s (no `role: .search`, which would move the Search field
+  into the bottom tab bar; both search fields stay at the top), with the
+  [mini player](mini-player.md) as its bottom accessory. Identifiers are set on the `UITabBar` items
+  by a small UIKit probe, since SwiftUI can't. iOS 17.0–26.0: the hand-built `RootTabs` bar with
+  `MiniPlayerDock` above it. Above the tabs, `PlayerExpansionOverlay` presents the details screen
+  ([player](player.md)) for `presentation.presentedBook`, growing it out of the mini player under
+  the finger and collapsing it back. Nothing presents the player as a sheet.
+- **root-reads:** the root body reads only the selected tab. `LoadedBookObserver`, the overlay, the
+  dock / accessory modifier and the tab-bar-hiding modifiers read playback and presentation state as
+  small leaves, and the library model is held without being observed, so a tick, a book switch or a
+  drag never rebuilds the `TabView` (the Task 1 spike's condition for the accessory's gesture).
+- **one-playback-source:** `DependencyContainer` builds one `PlaybackCenter` (the only subscriber to
+  the player's three publishers, besides CarPlay's `PlayerObserver`) and one `DownloadStateStore`
+  (the only subscriber to `statesPublisher`). `SubscriptionBudgetTests` pins both counts.
 - **siri-authorisation:** requested on every launch. Without an explicit grant iOS refuses to
   dispatch to the extension and Siri answers "Abbay hasn't added support for that with Siri".
 - **background-downloads:** `handleEventsForBackgroundURLSession` accepts only the download session

@@ -3,7 +3,6 @@
 //  Abbay
 //
 
-import Combine
 import Foundation
 
 @MainActor
@@ -12,50 +11,49 @@ final class LibriVoxDetailViewModel: ObservableObject {
     @Published private(set) var loadFailed = false
     /// Non-nil once Download was confirmed and the book was saved.
     @Published private(set) var addedBook: AudioModel?
-    /// Non-nil only while this book's download is incomplete, matching `PlayerViewModel`, so a
-    /// finished book shows no per-chapter status and no progress bar on either screen.
-    @Published private(set) var downloadState: BookDownloadState?
     @Published var isShowingCellularAlert = false
-    /// Drives the full player sheet, the same one a Library row opens.
-    @Published var isShowingPlayer = false
 
     let book: LibriVoxBook
     private let client: LibriVoxClientProtocol
+    /// Where a confirmed download is enqueued. Its states are read through `downloadStates`.
     private let downloads: BookDownloadManagerProtocol
+    private let downloadStates: DownloadStateStore
     private let saveAudio: SaveAudioUseCaseProtocol
     private let path: NetworkPathProviding
     private let onAdded: (AudioModel) -> Void
+    /// Presents the details screen, the same presentation a Library row opens.
+    private let openPlayer: (AudioModel) -> Void
     private var isStarting = false
-    private var cancellables = Set<AnyCancellable>()
 
     init(
         book: LibriVoxBook,
         client: LibriVoxClientProtocol,
         downloads: BookDownloadManagerProtocol,
+        downloadStates: DownloadStateStore,
         saveAudio: SaveAudioUseCaseProtocol,
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
-        onAdded: @escaping (AudioModel) -> Void
+        onAdded: @escaping (AudioModel) -> Void,
+        openPlayer: @escaping (AudioModel) -> Void
     ) {
         self.book = book
         self.client = client
         self.downloads = downloads
+        self.downloadStates = downloadStates
         self.saveAudio = saveAudio
         self.path = path
         self.onAdded = onAdded
+        self.openPlayer = openPlayer
         // A book already in the library shows Play and its progress, and is never added again.
         addedBook = loadAudio.execute(url: LibriVoxIdentity.bookURL(id: book.id))
-        downloads.statesPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] states in
-                guard let self else { return }
-                guard let state = states[self.book.id], !state.isComplete else {
-                    downloadState = nil
-                    return
-                }
-                downloadState = state
-            }
-            .store(in: &cancellables)
+    }
+
+    /// Non-nil only while this book's download is incomplete, matching `PlayerViewModel`, so a
+    /// finished book shows no per-chapter status and no progress bar on either screen. Read from
+    /// the app-wide store's entry for this book (observable), not from a sink of its own, so the
+    /// download manager keeps one subscriber; a view reading this re-renders on this book only.
+    var downloadState: BookDownloadState? {
+        downloadStates.entry(for: book.id).state
     }
 
     /// The size shown on the page and used by the cellular policy.
@@ -88,11 +86,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
         start(details, allowsCellular: shouldContinue)
     }
 
-    /// Starts the book and opens the player sheet, where pause, seek and chapters live.
+    /// Starts the book and opens the details screen, where pause, seek and chapters live.
     func play() {
         guard var model = addedBook else { return }
         DependencyContainer.shared.player.play(&model)
-        isShowingPlayer = true
+        openPlayer(model)
     }
 
     private func start(_ details: LibriVoxBookDetails, allowsCellular: Bool) {

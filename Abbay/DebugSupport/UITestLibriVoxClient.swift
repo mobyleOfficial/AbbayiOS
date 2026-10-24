@@ -7,7 +7,7 @@
 import Foundation
 
 /// Answers LibriVox requests from memory, so UI tests that exercise the search never touch the
-/// network. Enabled by `LaunchArgument.stubLibriVox`. Popular is empty and only a query containing
+/// network. Enabled by `LaunchArgument.stubLibriVox`. Popular is the one book and only a query containing
 /// "stub" finds a book, so every other query still reaches the "no results" state.
 struct UITestLibriVoxClient: LibriVoxClientProtocol {
     static let book = LibriVoxBook(
@@ -32,7 +32,7 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
         query.range(of: "stub", options: .caseInsensitive) == nil ? [] : [Self.book]
     }
 
-    func popular() async throws -> [LibriVoxBook] { [] }
+    func popular() async throws -> [LibriVoxBook] { [Self.book] }
 
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails {
         guard book.id == Self.book.id else { throw URLError(.unsupportedURL) }

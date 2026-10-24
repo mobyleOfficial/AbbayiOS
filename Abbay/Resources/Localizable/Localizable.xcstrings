@@ -37,24 +37,6 @@
         }
       }
     },
-    "browseLibriVox" : {
-      "comment" : "Plus menu item",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Browse LibriVox"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Explorar o LibriVox"
-          }
-        }
-      }
-    },
     "chapterCount" : {
       "comment" : "Current chapter / Total chapters",
       "extractionState" : "manual",
@@ -283,24 +265,6 @@
         }
       }
     },
-    "inYourLibrary" : {
-      "comment" : "Search section header",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In your library"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Na sua biblioteca"
-          }
-        }
-      }
-    },
     "largeDownloadMessage" : {
       "comment" : "LibriVox details page",
       "extractionState" : "manual",
@@ -409,20 +373,20 @@
         }
       }
     },
-    "onLibriVox" : {
-      "comment" : "Search section header",
+    "librivoxSearchPrompt" : {
+      "comment" : "Search tab field prompt",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "On LibriVox"
+            "value" : "Search LibriVox"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No LibriVox"
+            "value" : "Buscar no LibriVox"
           }
         }
       }
@@ -517,32 +481,20 @@
         }
       }
     },
-    "searchPrompt" : {
-      "comment" : "Search field prompt",
+    "searchTitle" : {
+      "comment" : "Search tab title",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Search your library and LibriVox"
+            "value" : "Search"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscar na biblioteca e no LibriVox"
-          }
-        }
-      }
-    },
-    "timestamp" : {
-      "comment" : "Current timestamp / total time",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@/%@"
+            "value" : "Buscar"
           }
         }
       }
@@ -579,6 +531,204 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aguardando"
+          }
+        }
+      }
+    },
+    "rowChapter" : {
+      "comment" : "Library row: current chapter (1-based) / total chapters",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ch %d/%d"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap. %d/%d"
+          }
+        }
+      }
+    },
+    "rowTimeLeft" : {
+      "comment" : "Library row: time left in a book without chapters, e.g. \"3m left\"",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ restantes"
+          }
+        }
+      }
+    },
+    "libraryTab" : {
+      "comment" : "Library tab name in the tab bar",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca"
+          }
+        }
+      }
+    },
+    "searchTab" : {
+      "comment" : "Search tab name in the tab bar",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
+          }
+        }
+      }
+    },
+    "librarySearchPrompt" : {
+      "comment" : "Library search field prompt (local books only)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search your library"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar na sua biblioteca"
+          }
+        }
+      }
+    },
+    "closePlayer" : {
+      "comment" : "Accessibility label of the button that closes the player",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close player"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar player"
+          }
+        }
+      }
+    },
+    "miniPlayerSubtitle" : {
+      "comment" : "Mini player subtitle: chapter number and time left in it, e.g. \"Chapter 35 · 12 min left\"",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter %d · %@ left"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo %d · %@ restantes"
+          }
+        }
+      }
+    },
+    "chapterProgress" : {
+      "comment" : "Accessibility label of the mini player's thin progress line: progress within the current chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter progress"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progresso do capítulo"
+          }
+        }
+      }
+    },
+    "openPlayer" : {
+      "comment" : "Accessibility action on the mini player that opens the details screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open player"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir player"
+          }
+        }
+      }
+    },
+    "nextChapterAction" : {
+      "comment" : "Accessibility action on the mini player (swipe left): next chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo capítulo"
+          }
+        }
+      }
+    },
+    "restartChapterAction" : {
+      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar capítulo"
           }
         }
       }

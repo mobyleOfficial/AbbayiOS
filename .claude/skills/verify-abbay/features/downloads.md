@@ -3,7 +3,7 @@
 `BookDownloadManager` and the views that show it — how a LibriVox book gets onto the device chapter
 by chapter, keeps going in the background, can be streamed meanwhile, and is paused, resumed and
 deleted. Not a screen of its own: it surfaces on the Library row, the
-[LibriVox details page](librivox-details.md) and the [player](player.md) sheet.
+[LibriVox details page](librivox-details.md) and the [player](player.md) details screen.
 
 ## Sub-features
 
@@ -29,9 +29,12 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   directory. The player's position saves are update-only, so a deleted book that was loaded in the
   player is not re-inserted.
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
-  the ring; the player sheet and the details page show the overall progress bar and per-chapter
+  the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
   ✓ / `N%` / *Waiting* through the shared `ChapterListView`. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.
+  Every view reads the state through `DownloadStateStore`, the manager's one `statesPublisher`
+  subscriber, which fans it out into one observable entry per book, so one book's progress only
+  re-renders the views showing that book (`DownloadStateStoreTests`, `SubscriptionBudgetTests`).
 
 ## How to get to it (user POV)
 
@@ -48,8 +51,8 @@ LibriVox book chosen deliberately small:
 
 ```bash
 $B launch --seed-library                      # real catalog; needs network
-$B tap library.toolbar.add && $B tap library.menu.browse
-$B tap library.remote.0 && $B tap detail.download
+$B tap root.tab.search
+$B tap search.card.0 && $B tap detail.download
 $B wait library.row.<n>.downloadRing          # planned: row index by title
 $B tap library.row.<n>.downloadRing           # pause; again to resume
 $B snapshot | jq '.elements[] | select(.id|startswith("detail.chapter"))'
@@ -59,7 +62,7 @@ $B terminate && $B launch                     # restore: ring and statuses come 
 **Verified:** nothing in this file by UI test.
 
 **Implemented but unverified** (attached in the views, never resolved by a UI test):
-`library.row.<n>.downloadRing` (and `library.search.local.<n>.downloadRing`, same component),
+`library.row.<n>.downloadRing`,
 `detail.progress`, `detail.chapter.<n>`, `player.download.progress`.
 
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, retry, restore,

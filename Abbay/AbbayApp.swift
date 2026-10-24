@@ -129,7 +129,9 @@ struct AbbayApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MediaListView()
+            // Built in the body, after `didFinishLaunching` configured the container. The root
+            // injects the playback and download sources and the player presentation.
+            AppRootView()
         }
     }
 }

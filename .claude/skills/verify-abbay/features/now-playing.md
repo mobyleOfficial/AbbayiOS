@@ -18,6 +18,8 @@ own UI.
   `clearNowPlaying()`. Consumed by `PauseAbbayIntent`, `NextChapterIntent`,
   `PreviousChapterIntent`, `PlayChapterIntent` and `ChapterEntity.currentBook()`.
 - **clearing:** `clearNowPlaying()` nils the system dictionary. Called from `Player.cleanup()`.
+- **toggle:** `togglePlayPause()` (the lock screen's, Control Center's and CarPlay's play/pause
+  toggle) pauses when `Player.isPlaying(_:)` says playing, plays otherwise.
 
 ## How to get to it (user POV)
 
@@ -40,6 +42,14 @@ The honest coverage for this feature is unit tests over the dictionary construct
 that a handler ran.
 
 ## Gotchas
+
+- **Behavior change on the tabs + mini player branch: buffering counts as playing.**
+  `Player.isPlaying(_:)` now uses the same mapping as `isPlayingPublisher`
+  (`Player.isPlaying(status:reason:)`): `.playing`, or `.waitingToPlayAtSpecifiedRate` with a
+  buffering reason (`toMinimizeStalls`, `evaluatingBufferingRate`). So the toggle pressed while
+  the audio buffers **pauses** it, matching the pause icon the app shows; before, it called `play`
+  again. Waiting with `.noItemToPlay` (audio that can't load) still reads as not playing, so the
+  toggle plays. Pinned by `NowPlayingManagerTests.test_togglePlayPause_whileBuffering_pauses`.
 
 - **The playback gate is refreshed on every `play()` and dropped by `clearNowPlaying()`** (fixed for
   #93 in #98): after `Player.cleanup()` the intents see no loaded book, and replaying the

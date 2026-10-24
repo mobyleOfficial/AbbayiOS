@@ -76,7 +76,20 @@ final class AccessibilityIdentifierTests: XCTestCase {
         let index = try XCTUnwrap(rowIndex(titled: title), "no seeded row titled \"\(title)\"")
         element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
         assertResolves(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
+        waitForPlayerToArrive()
         return index
+    }
+
+    /// The player slides up from the bottom; tapping inside it mid-slide can miss.
+    private func waitForPlayerToArrive(file: StaticString = #filePath, line: UInt = #line) {
+        let close = element(AccessibilityID.Player.close)
+        XCTAssertTrue(close.waitForExistence(timeout: 15), "the player has no close button", file: file, line: line)
+        let deadline = Date().addingTimeInterval(5)
+        while close.frame.minY > app.frame.height / 4, Date() < deadline {
+            usleep(100_000)
+        }
+        let arrived = close.frame.minY <= app.frame.height / 4
+        XCTAssertTrue(arrived, "the player never arrived (close at \(close.frame.minY))", file: file, line: line)
     }
 
     // MARK: - Library
@@ -94,14 +107,15 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Library.toolbarSettings)
     }
 
-    func test_addMenu_offersBrowseAndImport() {
+    /// The Search tab replaced "Browse LibriVox": the ＋ menu only imports a file.
+    func test_addMenu_offersImportOnly() {
         launch([LaunchArgument.resetLibrary])
         assertResolves(AccessibilityID.Library.toolbarAdd)
 
         element(AccessibilityID.Library.toolbarAdd).tap()
 
-        assertResolves(AccessibilityID.Library.menuBrowse)
         assertResolves(AccessibilityID.Library.menuImport)
+        XCTAssertFalse(element("library.menu.browse").exists)
     }
 
     func testEmptyLibrary_showsBothAddButtons() {
@@ -115,46 +129,165 @@ final class AccessibilityIdentifierTests: XCTestCase {
         launch([LaunchArgument.resetLibrary])
         assertResolves(AccessibilityID.Library.empty)
 
-        XCTAssertFalse(app.searchFields.firstMatch.exists)
+        XCTAssertFalse(searchField(prompt: libraryPrompt).exists)
     }
 
-    // MARK: - Search
+    // MARK: - Tabs
+
+    /// The LibriVox field's placeholder (`Localizable.librivoxSearchPrompt`, English).
+    private let libriVoxPrompt = "Search LibriVox"
+    /// The Library field's placeholder (`Localizable.librarySearchPrompt`, English).
+    private let libraryPrompt = "Search your library"
+
+    private func openSearchTab() {
+        assertResolves(AccessibilityID.Root.tabSearch)
+        element(AccessibilityID.Root.tabSearch).tap()
+    }
+
+    /// The visible search field whose placeholder is `prompt`.
+    private func searchField(prompt: String) -> XCUIElement {
+        app.searchFields.matching(NSPredicate(format: "placeholderValue == %@", prompt)).firstMatch
+    }
+
+    func test_tabs_switchBetweenLibraryAndSearch() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        assertResolves(AccessibilityID.Root.tabLibrary)
+        assertResolves(AccessibilityID.Root.tabSearch)
+
+        element(AccessibilityID.Root.tabSearch).tap()
+        XCTAssertTrue(searchField(prompt: libriVoxPrompt).waitForExistence(timeout: 15))
+
+        element(AccessibilityID.Root.tabLibrary).tap()
+        assertResolves(AccessibilityID.Library.list)
+        XCTAssertTrue(searchField(prompt: libraryPrompt).waitForExistence(timeout: 15))
+    }
+
+    /// The LibriVox field sits at the top, like the Library's, on every iOS version.
+    func test_searchTab_fieldIsAtTheTop() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        openSearchTab()
+        let field = searchField(prompt: libriVoxPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        XCTAssertLessThan(field.frame.midY, app.frame.height / 2, "search field at \(field.frame)")
+    }
+
+    /// Typing doesn't lift the tab bar above the keyboard: like a system tab bar, it stays
+    /// underneath (or is hidden), so the keyboard sits directly under the content.
+    func test_typing_doesNotLiftTheTabBarAboveTheKeyboard() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let tab = element(AccessibilityID.Root.tabLibrary)
+        XCTAssertTrue(tab.waitForExistence(timeout: 15))
+        let field = searchField(prompt: libraryPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.waitForExistence(timeout: 5) else {
+            throw XCTSkip("no software keyboard (hardware keyboard connected)")
+        }
+        // Let it finish sliding up.
+        let deadline = Date().addingTimeInterval(5)
+        while keyboard.frame.minY > app.frame.height * 0.75, Date() < deadline {
+            usleep(100_000)
+        }
+
+        // With the system tab bar's bottom accessory attached (iOS 26.1+), the accessibility tree
+        // reports the keyboard just off screen (minY = screen height) although it is visibly up.
+        // Fall back to the top of a portrait iPhone keyboard (always over 35% of the screen).
+        let reportedTop = keyboard.frame.minY
+        let keyboardTop = reportedTop < app.frame.height ? reportedTop : app.frame.height * 0.65
+
+        if tab.exists {
+            // Not exact positions: the system bar on iOS 26 shrinks under the keyboard.
+            XCTAssertGreaterThan(
+                tab.frame.maxY,
+                keyboardTop,
+                "the tab bar rides above the keyboard: tab \(tab.frame), keyboard \(keyboard.frame)"
+            )
+        }
+    }
+
+    func test_emptyLibrary_browseButton_opensSearchTab() {
+        launch([LaunchArgument.resetLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.emptyBrowse)
+
+        element(AccessibilityID.Library.emptyBrowse).tap()
+
+        XCTAssertTrue(searchField(prompt: libriVoxPrompt).waitForExistence(timeout: 15))
+        assertResolves(AccessibilityID.Search.card(0))
+    }
+
+    func test_searchTab_showsPopularCards_andOpensDetails() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        openSearchTab()
+        assertResolves(AccessibilityID.Search.card(0))
+
+        element(AccessibilityID.Search.card(0)).tap()
+
+        assertResolves(AccessibilityID.Detail.view)
+    }
+
+    // MARK: - Library search
 
     func test_search_filtersLocalRows() throws {
         launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
         assertResolves(AccessibilityID.Library.list)
-        let field = app.searchFields.firstMatch
+        let field = searchField(prompt: libraryPrompt)
         XCTAssertTrue(field.waitForExistence(timeout: 15))
 
         field.tap()
         field.typeText("Chaptered")
 
-        let title = element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(0)))
+        let title = element(AccessibilityID.Element.title(AccessibilityID.Library.row(0)))
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         XCTAssertEqual(title.label, "Seeded Chaptered Book")
-        XCTAssertFalse(element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(1))).exists)
+        XCTAssertFalse(element(AccessibilityID.Element.title(AccessibilityID.Library.row(1))).exists)
         XCTAssertFalse(app.staticTexts["Seeded Plain Book"].exists)
     }
 
-    /// Drags a sheet down by its grabber area. Swiping a content element doesn't work: the player's
-    /// scrolling title and chapter list take the gesture.
-    private func dismissSheet() {
-        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
-        let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
-        top.press(forDuration: 0.1, thenDragTo: bottom)
-    }
-
-    /// Opens the stub client's only remote book. Its details are tiny, so Download never asks
-    /// about cellular, and the stub download manager never touches the network.
-    private func openStubLibriVoxBook() {
+    /// The Library search never reaches LibriVox: a query only the stub catalog matches finds nothing.
+    func test_librarySearch_isLocalOnly() {
         launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
         assertResolves(AccessibilityID.Library.list)
-        let field = app.searchFields.firstMatch
+        let field = searchField(prompt: libraryPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        field.typeText("Stub")
+
+        assertResolves(AccessibilityID.Library.noResults)
+        XCTAssertFalse(app.staticTexts["Stub LibriVox Book"].exists)
+    }
+
+    func test_search_withoutMatches_showsNoResultsState() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        assertResolves(AccessibilityID.Library.list)
+        let field = searchField(prompt: libraryPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+
+        field.tap()
+        field.typeText("zzzzqqq")
+
+        assertResolves(AccessibilityID.Library.noResults)
+        XCTAssertFalse(element(AccessibilityID.Library.empty).exists)
+    }
+
+    // MARK: - LibriVox details
+
+    /// Opens the stub client's only remote book from the Search tab. Its details are tiny, so
+    /// Download never asks about cellular, and the stub download manager never touches the network.
+    private func openStubLibriVoxBook() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        openSearchTab()
+        let field = searchField(prompt: libriVoxPrompt)
         XCTAssertTrue(field.waitForExistence(timeout: 15))
         field.tap()
         field.typeText("Stub")
-        assertResolves(AccessibilityID.Library.remoteRow(0))
-        element(AccessibilityID.Library.remoteRow(0)).tap()
+        assertResolves(AccessibilityID.Search.result(0))
+        element(AccessibilityID.Search.result(0)).tap()
         assertResolves(AccessibilityID.Detail.download)
     }
 
@@ -170,38 +303,28 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertFalse(element(AccessibilityID.Detail.download).exists)
     }
 
-    func test_search_showsFloatingPlayerAfterPlayingFromDetail() {
+    func test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer() {
         openStubLibriVoxBook()
         element(AccessibilityID.Detail.download).tap()
         assertResolves(AccessibilityID.Detail.play)
 
         element(AccessibilityID.Detail.play).tap()
-        // Play opens the same full player sheet a Library row opens.
+        // Play opens the same player presentation a Library row opens.
         assertResolves(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
         let playerTitle = element(AccessibilityID.Player.title)
         assertResolves(AccessibilityID.Player.title)
+        waitForPlayerToArrive()
 
-        dismissSheet()
-        XCTAssertTrue(playerTitle.waitForNonExistence(timeout: 15), "the player sheet did not dismiss")
+        element(AccessibilityID.Player.close).tap()
+        XCTAssertTrue(playerTitle.waitForNonExistence(timeout: 15), "the player did not close")
         assertResolves(AccessibilityID.Detail.play)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        assertResolves(AccessibilityID.Library.floatingPlayer)
-        // Still in search: the added book is now an "In your library" result.
-        XCTAssertTrue(element(AccessibilityID.Element.title(AccessibilityID.Library.localRow(0))).exists)
-    }
-
-    func test_search_withoutMatches_showsNoResultsState() {
-        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
-        assertResolves(AccessibilityID.Library.list)
-        let field = app.searchFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
-
-        field.tap()
-        field.typeText("zzzzqqq")
-
-        assertResolves(AccessibilityID.Library.noResults)
-        XCTAssertFalse(element(AccessibilityID.Library.empty).exists)
+        // The bar shows on both tabs once a book is loaded.
+        assertResolves(AccessibilityID.MiniPlayer.bar)
+        element(AccessibilityID.Root.tabLibrary).tap()
+        assertResolves(AccessibilityID.MiniPlayer.bar)
+        // The added book is in the library behind the details page.
+        XCTAssertTrue(app.staticTexts["Stub LibriVox Book"].waitForExistence(timeout: 15))
     }
 
     func test_seededLibrary_listResolves() {
@@ -218,8 +341,7 @@ final class AccessibilityIdentifierTests: XCTestCase {
 
         assertResolves(AccessibilityID.Element.artwork(row))
         assertResolves(AccessibilityID.Element.title(row))
-        assertResolves(AccessibilityID.Element.chapterCount(row))
-        assertResolves(AccessibilityID.Element.timestamp(row))
+        assertResolves(AccessibilityID.Element.detail(row))
         assertResolves(AccessibilityID.Element.play(row))
     }
 
@@ -255,6 +377,29 @@ final class AccessibilityIdentifierTests: XCTestCase {
         }
     }
 
+    func test_player_closeButton_dismisses() throws {
+        _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
+        let title = element(AccessibilityID.Player.title)
+
+        element(AccessibilityID.Player.close).tap()
+
+        XCTAssertTrue(title.waitForNonExistence(timeout: 15), "the player did not close")
+        assertResolves(AccessibilityID.Library.list)
+    }
+
+    /// Drags the player down by its header, above the scrolling title and chapter list.
+    func test_player_swipeDown_dismisses() throws {
+        _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
+        let title = element(AccessibilityID.Player.title)
+        let close = element(AccessibilityID.Player.close)
+
+        let start = close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: 500))
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        XCTAssertTrue(title.waitForNonExistence(timeout: 15), "the player did not close")
+    }
+
     func test_player_titleResolves() throws {
         _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
 
@@ -265,33 +410,32 @@ final class AccessibilityIdentifierTests: XCTestCase {
 
     /// End-to-end guard for #104. The counter is rendered from a 0-based index by
     /// `ChapterCountView`, so a three-chapter book at rest must read 1/3 -- it previously read
-    /// 0/3 until playback reported a time. Substring rather than equality because the element's
-    /// label is a combination of its icon and text.
+    /// 0/3 until playback reported a time. Substring rather than equality because the detail line
+    /// also carries the author.
     func test_seededChapteredRow_showsOneBasedChapterCounter() throws {
         launch([LaunchArgument.seedLibrary])
         assertResolves(AccessibilityID.Library.list)
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
-        let counter = element(AccessibilityID.Element.chapterCount(AccessibilityID.Library.row(index)))
+        let counter = element(AccessibilityID.Element.detail(AccessibilityID.Library.row(index)))
         XCTAssertTrue(counter.waitForExistence(timeout: 15))
 
         XCTAssertTrue(
-            counter.label.contains("1/3"),
+            counter.label.contains("Ch 1/3"),
             "expected a 1-based counter for a three-chapter book, got \"\(counter.label)\""
         )
     }
 
-    /// The chapterless seeded book must read 0/0 rather than 1/0.
-    func test_seededPlainRow_showsZeroOfZero() throws {
+    /// A book without chapters shows the time left instead of a chapter counter.
+    func test_seededPlainRow_showsAuthorAndTimeLeft() throws {
         launch([LaunchArgument.seedLibrary])
         assertResolves(AccessibilityID.Library.list)
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
-        let counter = element(AccessibilityID.Element.chapterCount(AccessibilityID.Library.row(index)))
-        XCTAssertTrue(counter.waitForExistence(timeout: 15))
+        let detail = element(AccessibilityID.Element.detail(AccessibilityID.Library.row(index)))
+        XCTAssertTrue(detail.waitForExistence(timeout: 15))
 
-        XCTAssertTrue(
-            counter.label.contains("0/0"),
-            "expected 0/0 for a book with no chapters, got \"\(counter.label)\""
-        )
+        XCTAssertTrue(detail.label.contains("Seed Author"), "author missing from \"\(detail.label)\"")
+        XCTAssertTrue(detail.label.contains("left"), "expected the time left, got \"\(detail.label)\"")
+        XCTAssertFalse(detail.label.contains("Ch "), "a book without chapters has no counter: \"\(detail.label)\"")
     }
 
     func test_player_chapterIdentifiersResolve() throws {

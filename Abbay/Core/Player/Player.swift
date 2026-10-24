@@ -14,14 +14,22 @@ protocol PlayerProtocol {
     var currentTime: Double { get }
     var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
+    /// Whether the player is playing (or buffering towards it), on the main queue, without
+    /// duplicates. See `Player.isPlaying(status:reason:)`.
+    /// Unlike the time publisher it also fires on a pause, which stops the ticks.
+    var isPlayingPublisher: AnyPublisher<Bool, Never> { get }
 
     func play(_ model: inout AudioModel)
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
+    /// Whether `url` is loaded and playing, by the same rule as `isPlayingPublisher`.
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
     func cleanup()
+    /// Stops and forgets the loaded book (it was deleted), so `url` becomes nil. Unlike `cleanup`,
+    /// which runs at termination, the player stays usable: the next `play` loads normally.
+    func unload()
     func skipToNextChapter()
     func skipToPreviousChapter()
     @discardableResult
@@ -60,6 +68,19 @@ final class Player: PlayerProtocol {
 
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
+    }
+
+    /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
+    /// screen, CarPlay, an interruption) shows at once. Either change re-reads both on main, where
+    /// they agree again, and maps them through `isPlaying(status:reason:)`.
+    var isPlayingPublisher: AnyPublisher<Bool, Never> {
+        let status = player.publisher(for: \.timeControlStatus).map { _ in () }
+        let reason = player.publisher(for: \.reasonForWaitingToPlay).map { _ in () }
+        return status.merge(with: reason)
+            .receive(on: DispatchQueue.main)
+            .map { [player] in Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay) }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
     }
 
     /// Book time. For a single file that is the item's time; a multi-file book adds the current
@@ -108,6 +129,16 @@ final class Player: PlayerProtocol {
         NowPlayingManager.shared.clearNowPlaying()
     }
 
+    func unload() {
+        player.pause()
+        cancellables.removeAll()
+        stopAccessingCurrentURL()
+        multiFileQueue = nil
+        player.removeAllItems()
+        model = nil
+        NowPlayingManager.shared.clearNowPlaying()
+    }
+
     // MARK: - PlayerProtocol
     func play(_ model: inout AudioModel) {
         // TODO: Add logging for playback attempts using logging library
@@ -128,6 +159,12 @@ final class Player: PlayerProtocol {
         // Step 2 — lazy bookmark population on the inout model.
         // MUST happen BEFORE updatePlayItem so the playItem observer + any future Player
         // observer of the model see the populated bookmark via the copy.
+        // A replay of the loaded book can come with a stale copy (a row built before the bookmark
+        // existed): reuse the bookmark already held, rather than re-creating it and writing the
+        // copy's old position over the one `pause` saved.
+        if model.bookmarkData == nil, url == self.url, let loadedBookmark = self.model?.bookmarkData {
+            model.bookmarkData = loadedBookmark
+        }
         // `librivox://` identity URLs aren't files: there is nothing to bookmark.
         if !Self.isLibriVoxURL(url),
            model.bookmarkData == nil,
@@ -172,9 +209,26 @@ final class Player: PlayerProtocol {
     }
 
 
+    /// What the app shows as playing. Waiting counts only while the player buffers towards
+    /// playback (the user's intent is play); waiting with no item to play (audio that can't load)
+    /// or for any other reason is not playing, so the bar doesn't show "pause" forever.
+    static func isPlaying(status: AVPlayer.TimeControlStatus, reason: AVPlayer.WaitingReason?) -> Bool {
+        switch status {
+        case .playing:
+            return true
+        case .waitingToPlayAtSpecifiedRate:
+            return reason == .toMinimizeStalls || reason == .evaluatingBufferingRate
+        case .paused:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    /// The same mapping as `isPlayingPublisher`, so `PlaybackCenter`'s seed at launch agrees with it.
     func isPlaying(_ url: URL?) -> Bool {
-        guard let url = url else { return false }
-        return self.url == url && player.timeControlStatus == .playing
+        guard let url = url, self.url == url else { return false }
+        return Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay)
     }
 
     func seek(_ seconds: Double) {

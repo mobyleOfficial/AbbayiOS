@@ -8,53 +8,85 @@
 import AppIntents
 import Foundation
 
+/// The library: its books, import, delete and adding LibriVox books. Owned by the root, above the
+/// tabs, so the Search tab adds books through it.
+@MainActor
 final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
+    private let playback: PlaybackCenter
+    /// Weak: the root owns both. Optional so tests that don't present can omit it.
+    private weak var presentation: PlayerPresentation?
     private let fileLoader: FileLoaderProtocol
-    private let playerObserver: PlayerObserverProtocol
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
     private let deleteAudioUseCase: DeleteAudioUseCaseProtocol
+    private let loadAudioUseCase: LoadAudioUseCaseProtocol
+    /// The book loaded at the last switch, so the next one knows which book it left.
+    private var loadedURL: URL?
 
     // MARK: - Observed properties
     @Published
     var audioList = [AudioModel]()
     @Published
-    var selectedAudio: AudioModel?
-    @Published
     var isShowingFilePicker = false
-    @Published
-    var tappedAudio: AudioModel?
-    @Published
-    var isShowingPlayer = false
 
     // MARK: - Init
     init(
-        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
+        playback: PlaybackCenter,
+        presentation: PlayerPresentation? = nil,
         loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         deleteAudioUseCase: DeleteAudioUseCaseProtocol = DeleteAudioUseCase(),
-        fileLoader: FileLoaderProtocol = FileLoader()
+        fileLoader: FileLoaderProtocol = FileLoader(),
+        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase()
     ) {
-        self.playerObserver = playerObserver
+        self.playback = playback
+        self.presentation = presentation
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
         self.deleteAudioUseCase = deleteAudioUseCase
         self.fileLoader = fileLoader
+        self.loadAudioUseCase = loadAudioUseCase
+        self.loadedURL = playback.state.loadedBook?.url
         defer {
             audioList = loadAllAudiosUseCase.execute()
             LibrarySnapshotWriter.shared.write(audios: audioList)
-            self.playerObserver.subscribeToPlayUrlPublisher { [weak self] newItem in
-                self?.selectedAudio = newItem
-            }
         }
     }
 
     // MARK: - Methods
+    /// Called when `PlaybackState.loadedBook` changes (the root observes it), so once per switch,
+    /// never per tick. Rows are built from `audioList`, which loads once, so re-read both books
+    /// from storage: the outgoing one so its row shows (and a replay resumes from) where it
+    /// stopped -- the player saves its position before announcing the next book -- and the
+    /// incoming one so later presses pass the bookmark the player just made.
+    func loadedBookChanged(to book: AudioModel?) {
+        let outgoing = loadedURL
+        loadedURL = book?.url
+        if outgoing != book?.url {
+            refreshFromStorage(outgoing)
+        }
+        refreshFromStorage(book?.url)
+    }
+
+    private func refreshFromStorage(_ url: URL?) {
+        guard let url,
+              let index = audioList.firstIndex(where: { $0.url == url }),
+              let stored = loadAudioUseCase.execute(url: url) else { return }
+        audioList[index] = stored
+    }
+
+    /// Deleting the loaded book unloads it, so the bar goes away; deleting the book the details
+    /// screen shows closes it.
     func deleteAudio(_ audio: AudioModel) {
+        if presentation?.presentedBook?.url == audio.url {
+            presentation?.close(animated: false)
+        }
+        if let url = audio.url, playback.state.loadedBook?.url == url || playback.player.url == url {
+            playback.unload()
+        }
         deleteAudioUseCase.execute(audio)
         audioList.removeAll { $0.url == audio.url }
         LibrarySnapshotWriter.shared.write(audios: audioList)
     }
 
-    @MainActor
     func importAudio(from urls: [URL]) async {
         let newFiles = await fileLoader.load(urls: urls)
         for file in newFiles where !audioList.contains(where: { $0.url == file.url }) {

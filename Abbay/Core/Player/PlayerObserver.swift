@@ -8,6 +8,11 @@
 import AVFoundation
 import Combine
 
+/// A per-consumer subscription to the player's publishers. Its one remaining consumer is
+/// `CarPlaySceneDelegate` (CarPlay was out of scope for the tabs + mini player work): every other
+/// view and view model reads `PlaybackCenter`'s `PlaybackState` and `PlaybackClock`; the center
+/// subscribes once per publisher (see `SubscriptionBudgetTests`). Don't add new users;
+/// move CarPlay onto `PlaybackCenter` and delete this when CarPlay is next touched.
 protocol PlayerObserverProtocol {
     var player: PlayerProtocol { get }
 

@@ -11,6 +11,7 @@ import Foundation
 final class MockPlayer: PlayerProtocol {
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
+    private let isPlayingSubject = PassthroughSubject<Bool, Never>()
 
     // Recordings
     var playCalls: [AudioModel] = []
@@ -21,6 +22,7 @@ final class MockPlayer: PlayerProtocol {
     var backwardSeconds: [Double] = []
     var seekSeconds: [Double] = []
     var cleanupCallCount = 0
+    var unloadCallCount = 0
 
     // Stubs
     var url: URL?
@@ -32,18 +34,27 @@ final class MockPlayer: PlayerProtocol {
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
     }
+    var isPlayingPublisher: AnyPublisher<Bool, Never> {
+        isPlayingSubject.eraseToAnyPublisher()
+    }
 
     // MARK: - Test drivers
     //
     // The subjects are private, so this is the only way to exercise a real `PlayerObserver`
     // sitting on top of a mock player.
 
+    /// Like `Player`, which holds the new book before announcing it.
     func emitPlayUrl(_ model: AudioModel) {
+        url = model.url
         playUrlSubject.send(model)
     }
 
     func emitTime(_ seconds: Double) {
         currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600))
+    }
+
+    func emitPlaying(_ isPlaying: Bool) {
+        isPlayingSubject.send(isPlaying)
     }
 
     func play(_ model: inout AudioModel) {
@@ -59,6 +70,10 @@ final class MockPlayer: PlayerProtocol {
     func isPlaying(_ url: URL?) -> Bool { isPlayingResult }
     func seek(_ seconds: Double) { seekSeconds.append(seconds) }
     func cleanup() { cleanupCallCount += 1 }
+    func unload() {
+        unloadCallCount += 1
+        url = nil
+    }
     func skipToNextChapter() { skipNextCallCount += 1 }
     func skipToPreviousChapter() { skipPreviousCallCount += 1 }
 

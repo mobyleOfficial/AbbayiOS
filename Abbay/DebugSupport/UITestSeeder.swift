@@ -13,9 +13,9 @@ import Foundation
 /// the hook cannot reach a Release build.
 ///
 /// The seeded models deliberately carry no playable audio. They exist so a driver can reach the
-/// library row and the player screen and assert their accessibility identifiers. Anything that
-/// depends on playback actually starting -- the floating player, tapping a chapter -- still
-/// needs a real file and is out of scope here.
+/// library row and the player screen and assert their accessibility identifiers. Pressing play
+/// still loads the book (the player announces it before any audio is read), so the mini player
+/// appears; anything that needs audio to advance still needs a real file.
 enum UITestSeeder {
     static func run(
         arguments: [String] = ProcessInfo.processInfo.arguments,
@@ -33,9 +33,46 @@ enum UITestSeeder {
         }
 
         guard wantsSeed else { return }
-        for model in seedModels() {
+        var models = seedModels()
+        if arguments.contains(LaunchArgument.seedFillerBooks) {
+            models += fillerModels()
+        }
+        if arguments.contains(LaunchArgument.seedLongBook) {
+            models.append(longBookModel())
+        }
+        for model in models {
             try? save.execute(model)
         }
+    }
+
+    /// Plain books that only make the list scroll.
+    static func fillerModels(count: Int = 12) -> [AudioModel] {
+        (1...count).map { number in
+            AudioModel(
+                title: "Filler Book \(number)",
+                albumName: "Seed Album",
+                artist: "Seed Author",
+                duration: 100,
+                url: URL(string: "file:///seed/filler-\(number).mp3")
+            )
+        }
+    }
+
+    static let longBookTitle = "Seeded Long Book"
+
+    /// One book of 60 one-minute chapters: a chapter list far longer than the screen.
+    static func longBookModel(chapterCount: Int = 60) -> AudioModel {
+        let chapters = (0..<chapterCount).map { index in
+            ChapterModel(title: "Long Chapter \(index + 1)", startTime: Double(index) * 60, duration: 60)
+        }
+        return AudioModel(
+            title: longBookTitle,
+            albumName: "Seed Album",
+            artist: "Seed Author",
+            duration: Double(chapterCount) * 60,
+            chapters: chapters,
+            url: URL(string: "file:///seed/long.m4b")
+        )
     }
 
     /// Two books: one chaptered, one without chapters, so both row states are reachable.

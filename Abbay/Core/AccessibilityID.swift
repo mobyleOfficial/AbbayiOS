@@ -20,37 +20,51 @@
 /// `library.list` / `library.empty` and a specific player control as the "screen is up" signal.
 /// Verified by `AbbayUITests/AccessibilityIdentifierTests`.
 ///
-/// Scope note: this covers the library, the row and the player -- everything a driver can reach
-/// without working playback. The floating player's internals and the progress labels are not
-/// here yet, because the floating player only appears once audio is actually playing and that
-/// needs the seeded fixture to be playable.
+/// Scope note: this covers the tabs, the library, the row, the mini player and the player. The
+/// mini player appears once a book is loaded, which the seeded and stub books reach without
+/// playable audio.
 enum AccessibilityID {
+    /// The root tab bar's items: the system tab bar on iOS 26.1+, the hand-built one before.
+    enum Root {
+        static let tabLibrary = "root.tab.library"
+        static let tabSearch = "root.tab.search"
+    }
+
     enum Library {
         static let list = "library.list"
         static let empty = "library.empty"
         static let toolbarAdd = "library.toolbar.add"
-        static let menuBrowse = "library.menu.browse"
         static let menuImport = "library.menu.import"
         static let emptyBrowse = "library.empty.browse"
         static let emptyImport = "library.empty.import"
         static let noResults = "library.search.noResults"
-        static let searchMessage = "library.search.message"
         static let toolbarSettings = "library.toolbar.settings"
-        static let floatingPlayer = "library.floatingPlayer"
-
-        /// Namespace for one LibriVox search result, positional within the "On LibriVox" section.
-        static func remoteRow(_ index: Int) -> String {
-            "library.remote.\(index)"
-        }
-
-        /// Namespace for one local search match, positional within "In your library".
-        static func localRow(_ index: Int) -> String {
-            "library.search.local.\(index)"
-        }
 
         /// Namespace for one library row. Positional: read a snapshot, then address by index.
         static func row(_ index: Int) -> String {
             "library.row.\(index)"
+        }
+    }
+
+    /// The one-row mini player, docked above the tabs.
+    enum MiniPlayer {
+        /// The title and subtitle: one element that taps open the details screen and carries the
+        /// open / next chapter / restart chapter actions. A leaf, not the bar's container.
+        static let bar = "miniPlayer.bar"
+        static let playPause = "miniPlayer.playPause"
+        static let progress = "miniPlayer.progress"
+    }
+
+    enum Search {
+        static let message = "search.message"
+        static let noResults = "search.noResults"
+
+        static func card(_ index: Int) -> String {
+            "search.card.\(index)"
+        }
+
+        static func result(_ index: Int) -> String {
+            "search.result.\(index)"
         }
     }
 
@@ -70,6 +84,10 @@ enum AccessibilityID {
     }
 
     enum Player {
+        /// Closes the details screen (the chevron in its header; the header also drags down).
+        static let close = "player.close"
+        /// The grabber at the top of the details screen: drag it down to collapse into the bar.
+        static let grabber = "player.grabber"
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
         static let downloadProgress = "player.download.progress"
@@ -99,12 +117,9 @@ enum AccessibilityID {
             "\(namespace).play"
         }
 
-        static func chapterCount(_ namespace: String) -> String {
-            "\(namespace).chapterCount"
-        }
-
-        static func timestamp(_ namespace: String) -> String {
-            "\(namespace).timestamp"
+        /// A row's one line of detail: author plus chapter N/M, or time left.
+        static func detail(_ namespace: String) -> String {
+            "\(namespace).detail"
         }
 
         static func downloadRing(_ namespace: String) -> String {

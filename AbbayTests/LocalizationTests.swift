@@ -14,17 +14,14 @@ final class LocalizationTests: XCTestCase {
         .emptyLibraryTitle,
         .chapterSelectionTitle,
         .chapterCount,
-        .timestamp,
         .delete,
         .addMenu,
-        .browseLibriVox,
         .importFile,
         .browseFreeAudiobooks,
         .importAFile,
-        .searchPrompt,
-        .inYourLibrary,
-        .onLibriVox,
         .popularOnLibriVox,
+        .librivoxSearchPrompt,
+        .searchTitle,
         .searchOffline,
         .searchFailed,
         .noResults,
@@ -42,7 +39,18 @@ final class LocalizationTests: XCTestCase {
         .waitForWiFi,
         .waiting,
         .detailsFailed,
-        .retry
+        .retry,
+        .rowChapter,
+        .rowTimeLeft,
+        .libraryTab,
+        .searchTab,
+        .librarySearchPrompt,
+        .closePlayer,
+        .miniPlayerSubtitle,
+        .chapterProgress,
+        .openPlayer,
+        .nextChapterAction,
+        .restartChapterAction
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -53,14 +61,12 @@ final class LocalizationTests: XCTestCase {
         .chapterSelectionTitle,
         .delete,
         .addMenu,
-        .browseLibriVox,
         .importFile,
         .browseFreeAudiobooks,
         .importAFile,
-        .searchPrompt,
-        .inYourLibrary,
-        .onLibriVox,
         .popularOnLibriVox,
+        .librivoxSearchPrompt,
+        .searchTitle,
         .searchOffline,
         .searchFailed,
         .noResults,
@@ -78,12 +84,23 @@ final class LocalizationTests: XCTestCase {
         .waitForWiFi,
         .waiting,
         .detailsFailed,
-        .retry
+        .retry,
+        .rowChapter,
+        .rowTimeLeft,
+        .libraryTab,
+        .searchTab,
+        .librarySearchPrompt,
+        .closePlayer,
+        .miniPlayerSubtitle,
+        .chapterProgress,
+        .openPlayer,
+        .nextChapterAction,
+        .restartChapterAction
     ]
 
-    /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship
-    /// a single entry and fall back to the base language rather than being duplicated per locale.
-    private let formatOnlyKeys: [Localizable] = [.chapterCount, .timestamp]
+    /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
+    /// entry and fall back to the base language rather than being duplicated per locale.
+    private let formatOnlyKeys: [Localizable] = [.chapterCount]
 
     override func tearDownWithError() throws {
         AbbayBundle.value.unsetLocalizedLanguage()
@@ -130,11 +147,10 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// Pins the decision that these two are shared rather than translated, so nobody "fixes" the
+    /// Pins the decision that this one is shared rather than translated, so nobody "fixes" the
     /// gap by pasting `%d/%d` into every locale.
     func test_formatOnlyKeysCarryTheirSpecifiersAndAreNotTranslated() {
         XCTAssertEqual(Localizable.chapterCount.localized, "%d/%d")
-        XCTAssertEqual(Localizable.timestamp.localized, "%@/%@")
 
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
 
@@ -149,8 +165,7 @@ final class LocalizationTests: XCTestCase {
 
     // MARK: - Format strings
 
-    /// `localized(with:)` passes a variadic list through to `String(format:)`. These two keys are
-    /// the only format strings in the app and both are rendered in the library row.
+    /// `localized(with:)` passes a variadic list through to `String(format:)`.
     func test_chapterCountFormatsBothArguments() {
         let formatted = Localizable.chapterCount.localized(with: 2, 7)
 
@@ -158,10 +173,25 @@ final class LocalizationTests: XCTestCase {
         XCTAssertTrue(formatted.contains("7"), "chapter total missing from \"\(formatted)\"")
     }
 
-    func test_timestampFormatsBothArguments() {
-        let formatted = Localizable.timestamp.localized(with: "00:01:00", "00:10:00")
+    func test_rowDetailFormatsTakeTheirArguments() {
+        XCTAssertEqual(Localizable.rowChapter.localized(with: 2, 7), "Ch 2/7")
+        XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "3m"), "3m left")
+    }
 
-        XCTAssertTrue(formatted.contains("00:01:00"), "current time missing from \"\(formatted)\"")
-        XCTAssertTrue(formatted.contains("00:10:00"), "total time missing from \"\(formatted)\"")
+    func test_miniPlayerSubtitleFormatsItsArguments() {
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Chapter 35 · 12 min left")
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Capítulo 35 · 12 min restantes")
+    }
+
+    /// pt-BR reads "%@ restantes", not "faltam %@", which is wrong at one minute ("faltam 1 min").
+    func test_timeLeftStrings_inPortuguese_readAsRemaining() {
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "1 min"), "1 min restantes")
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 2, "1 min"), "Capítulo 2 · 1 min restantes")
+        XCTAssertEqual(Localizable.chapterProgress.localized, "Progresso do capítulo")
     }
 }
