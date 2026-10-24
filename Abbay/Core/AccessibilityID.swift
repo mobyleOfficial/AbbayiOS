@@ -88,6 +88,8 @@ enum AccessibilityID {
         static let more = "detail.more"
         static let retry = "detail.retry"
         static let progress = "detail.progress"
+        /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
+        static let lowDataMode = "detail.lowDataMode"
         static let chaptersEmpty = "detail.chapters.empty"
         static let cellularContinue = "detail.cellular.continue"
         static let cellularWait = "detail.cellular.wait"
@@ -154,6 +156,8 @@ enum AccessibilityID {
         /// The chapter list's "No chapters" message, for a book with no chapter markers.
         static let chaptersEmpty = "player.chapters.empty"
         static let downloadProgress = "player.download.progress"
+        /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
+        static let downloadLowDataMode = "player.download.lowDataMode"
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"

@@ -64,6 +64,13 @@ final class LibriVoxDetailViewModel: ObservableObject {
         downloadStates.entry(for: book.id).state
     }
 
+    /// Once added as a Wait-for-Wi-Fi book, its download is held only by the Wi-Fi's Low Data Mode:
+    /// the chapter list says so.
+    var isHeldByLowDataMode: Bool {
+        guard let addedBook else { return false }
+        return downloadStates.isHeldByLowDataMode(bookID: book.id, allowsCellular: addedBook.allowsCellularDownload)
+    }
+
     /// The size shown on the page and used by the cellular policy.
     var totalBytes: Int64 { details?.totalBytes ?? 0 }
 

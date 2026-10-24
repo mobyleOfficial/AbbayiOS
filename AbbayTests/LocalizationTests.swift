@@ -39,6 +39,7 @@ final class LocalizationTests: XCTestCase {
         .waitForWiFi,
         .waiting,
         .chapterDownloadFailed,
+        .lowDataModeWaiting,
         .detailsFailed,
         .retry,
         .rowChapter,
@@ -146,6 +147,7 @@ final class LocalizationTests: XCTestCase {
         .waitForWiFi,
         .waiting,
         .chapterDownloadFailed,
+        .lowDataModeWaiting,
         .detailsFailed,
         .retry,
         .rowChapter,
@@ -275,6 +277,20 @@ final class LocalizationTests: XCTestCase {
                 english[key.rawValue],
                 "\(key.rawValue) is identical in both languages, so it is probably untranslated"
             )
+        }
+    }
+
+    /// A chapter's download status sits between its title and its duration, on one line. pt-BR
+    /// "Falhou · Tentar de novo" wrapped and squeezed the title on an iPhone SE (#148), so every
+    /// status stays as short as "Aguardando" plus a word, in both languages.
+    func test_chapterStatusesStayShortInBothLanguages() {
+        let statuses: [Localizable] = [.waiting, .chapterDownloadFailed]
+        let limit = 16
+        for language in ["en", "pt-BR"] {
+            XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: language))
+            for key in statuses {
+                XCTAssertLessThanOrEqual(key.localized.count, limit, "\(language) \(key.rawValue): \(key.localized)")
+            }
         }
     }
 

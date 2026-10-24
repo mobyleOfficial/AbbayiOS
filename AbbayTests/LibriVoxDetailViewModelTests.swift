@@ -11,7 +11,7 @@ import XCTest
 final class LibriVoxDetailViewModelTests: XCTestCase {
     private let client = MockLibriVoxClient()
     private let downloads = MockBookDownloadManager()
-    private lazy var store = DownloadStateStore(downloads: downloads)
+    private lazy var store = DownloadStateStore(downloads: downloads, path: path)
     private let save = MockSaveAudioUseCase()
     private let notices = MockNoticeReporter()
     private let path = FakeNetworkPath()
@@ -186,6 +186,34 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertFalse(sut.isShowingCellularAlert)
         XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [false])
+    }
+
+    /// "Wait for Wi-Fi" at home with Low Data Mode on: the page says why nothing moves (#148).
+    func test_isHeldByLowDataMode_onlyForTheAddedWiFiOnlyBookWhileLowDataModeIsOn() async {
+        let sut = await makeSUT(totalBytes: 200_000_000, cellular: false)
+        path.isLowDataMode = true
+        XCTAssertFalse(sut.isHeldByLowDataMode, "Not added yet")
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+        let waiting = BookDownloadState(chapters: [.waiting, .waiting], expectedBytes: [1, 1], isPaused: false)
+        downloads.statesSubject.send([book.id: waiting])
+
+        XCTAssertTrue(sut.isHeldByLowDataMode)
+        path.isLowDataMode = false
+        XCTAssertFalse(sut.isHeldByLowDataMode)
+    }
+
+    func test_isHeldByLowDataMode_falseForABookAllowedOnCellular() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+        path.isLowDataMode = true
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+        let waiting = BookDownloadState(chapters: [.waiting, .waiting], expectedBytes: [1, 1], isPaused: false)
+        downloads.statesSubject.send([book.id: waiting])
+
+        XCTAssertFalse(sut.isHeldByLowDataMode)
     }
 
     func test_retryChapter_forwardsToTheDownloadManager() async {
