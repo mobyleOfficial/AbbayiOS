@@ -25,11 +25,14 @@
   - a 2 pt line along the bottom edge for progress within the chapter, or within the book without
     chapters (`miniPlayer.progress`)
 
-  The background is tinted from the cover (`CoverTint`, cached per book).
+  The background is tinted from the cover (`CoverTintBackground`). The tint is computed off the
+  main thread the first time a book shows, and cached per book (by URL, or by artwork for a book
+  without one). Until it lands, a frame or two, the background is `onyx`.
 - **tap:** opens the details screen on the loaded book (`presentation.open`).
 - **drag up:** a vertical drag expands the details screen under the finger, starting from the bar's
-  frame. Released past 30% of the travel, or flicked up faster than 800 pt/s, it settles open.
-  Otherwise it settles back into the bar. A slow drag animates slowly, and grabbing mid-spring
+  frame. Released past 30% of the travel, it settles open; otherwise back into the bar. A flick
+  of at least 800 pt/s decides by its own direction, even against the drag's: up opens, down
+  closes. A slow drag animates slowly, and grabbing mid-spring
   continues from what is on screen. See `ExpansionMath`.
 - **swipes:** a horizontal drag past 40 pt that is more horizontal than vertical acts on release:
   - **left:** the next chapter (`skipToNextChapter`)
@@ -58,7 +61,10 @@
     (`onScrollGeometryChange`).
   - **iOS 17:** only the header and the cover collapse. iOS 17 has no scroll-offset API (Ruling 13).
   - The collapse lands on the bar's resting frame, even after Play loaded the book while the screen
-    was open (`test_collapseAfterPlayingInDetails_landsOnTheBar`).
+    was open (`test_collapseAfterPlayingInDetails_landsOnTheBar`). Released while the bar is still
+    coming back with the tab bar, it follows the bar's frames and lands on the bar, not on the
+    bottom strip. The UI tests check a collapse lands with the bar at rest along the bottom, taking
+    touches, and where it was before the open (`assertCollapsedIntoBar`).
 - **reduce-motion:** with Reduce Motion on, open and close are an opacity cross-fade between the
   same end states, with no frame, corner or cover interpolation. This is only checked by hand.
 - **interruptions:** a gesture the system cancels (an incoming call) has no `onEnded`. The overlay
