@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 
 @MainActor
 final class LibriVoxDetailViewModel: ObservableObject {
@@ -25,6 +26,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
     private let onAdded: (AudioModel) -> Void
     /// Presents the details screen, the same presentation a Library row opens.
     private let openPlayer: (AudioModel) -> Void
+    private let noticeReporter: NoticeReporting
     private var isStarting = false
 
     init(
@@ -36,6 +38,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
         cellularPreference: @escaping () -> CellularDownloadPreference = { .ask },
+        noticeReporter: NoticeReporting = NoticeCenter.shared,
         onAdded: @escaping (AudioModel) -> Void,
         openPlayer: @escaping (AudioModel) -> Void
     ) {
@@ -46,6 +49,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.saveAudio = saveAudio
         self.path = path
         self.cellularPreference = cellularPreference
+        self.noticeReporter = noticeReporter
         self.onAdded = onAdded
         self.openPlayer = openPlayer
         // A book already in the library shows Play and its progress, and is never added again.
@@ -117,6 +121,12 @@ final class LibriVoxDetailViewModel: ObservableObject {
             do {
                 try saveAudio.execute(model)
             } catch {
+                // Download would otherwise do nothing at all (#115).
+                let error = error as NSError
+                Log.downloads.error(
+                    "saving the book failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
+                )
+                noticeReporter.report(.saveFailed)
                 isStarting = false
                 return
             }

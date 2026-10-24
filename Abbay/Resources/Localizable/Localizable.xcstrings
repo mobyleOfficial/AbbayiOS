@@ -1659,6 +1659,60 @@
         }
       }
     },
+    "pause" : {
+      "comment" : "Accessibility label of the play/pause button while playing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar"
+          }
+        }
+      }
+    },
+    "noChaptersTitle" : {
+      "comment" : "Chapter list empty state title, for a book with no chapter markers",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No chapters"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem capítulos"
+          }
+        }
+      }
+    },
+    "noChaptersMessage" : {
+      "comment" : "Chapter list empty state message, for a book with no chapter markers",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This book has no chapter markers, so it plays from start to finish."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este livro não tem marcações de capítulo, então toca do começo ao fim."
+          }
+        }
+      }
+    },
     "settingsTitle" : {
       "comment" : "Settings screen title and the library toolbar button's label",
       "extractionState" : "manual",

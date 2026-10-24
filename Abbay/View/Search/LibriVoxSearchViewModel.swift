@@ -73,8 +73,9 @@ final class LibriVoxSearchViewModel {
         do {
             let books = try await client.popular()
             guard token == popularToken else { return }
-            guard isOnline || !books.isEmpty else {
-                if !hadPopular { settlePopular(.offline) }
+            // Nothing to show is a failure too: the "Popular" heading over a blank grid says nothing.
+            guard !books.isEmpty else {
+                if !hadPopular { settlePopular(isOnline ? .failed : .offline) }
                 return
             }
             set(popular: books)

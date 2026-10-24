@@ -33,7 +33,9 @@ above the tab bar on both tabs.
   There is no field while the library is empty. See [library](library.md).
 - **librivox-search:** the Search tab (`LibriVoxSearchView`, title *Search*), same placement, prompt
   *Search LibriVox* (`librivoxSearchPrompt`).
-  - **Empty query:** *Popular on LibriVox* as a grid of cards (`search.card.<n>`).
+  - **Empty query:** *Popular on LibriVox* as a grid of cards (`search.card.<n>`). An empty
+    Popular list online is shown as the *Could not reach LibriVox* message, not a heading over a
+    blank grid (offline, as *You are offline…*).
   - **Typed query:** a debounced LibriVox search whose results are `search.result.<n>`.
   - **No matches:** *No results* (`search.noResults`).
   - **Offline or failed:** a message (`search.message`): *You are offline…* or *Could not reach

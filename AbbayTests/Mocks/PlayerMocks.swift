@@ -54,8 +54,13 @@ final class MockSaveAudioUseCase: SaveAudioUseCaseProtocol {
     /// Every call, as passed (an empty one too).
     private(set) var batches: [[AudioModel]] = []
     var savedModels: [AudioModel] { batches.flatMap { $0 } }
+    /// Thrown instead of saving, when set.
+    var error: Error?
 
-    func execute(_ models: [AudioModel]) throws { batches.append(models) }
+    func execute(_ models: [AudioModel]) throws {
+        if let error { throw error }
+        batches.append(models)
+    }
 }
 
 final class MockSavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol {

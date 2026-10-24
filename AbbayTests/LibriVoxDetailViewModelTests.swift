@@ -13,6 +13,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
     private let downloads = MockBookDownloadManager()
     private lazy var store = DownloadStateStore(downloads: downloads)
     private let save = MockSaveAudioUseCase()
+    private let notices = MockNoticeReporter()
     private let path = FakeNetworkPath()
     private let player = MockPlayer()
     private var added: [AudioModel] = []
@@ -65,6 +66,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             path: path,
             loadAudio: MockLoadAudioUseCase(),
             cellularPreference: { preference },
+            noticeReporter: notices,
             onAdded: { [unowned self] in added.append($0) },
             openPlayer: { [unowned self] in opened.append($0) }
         )
@@ -106,6 +108,20 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertFalse(sut.isShowingCellularAlert)
         XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [true])
+    }
+
+    /// Download must not just do nothing when the book can't be saved (#115).
+    func test_download_whenTheBookCannotBeSaved_reportsItAndStartsNothing() async {
+        let sut = await makeSUT(totalBytes: 10_000_000, cellular: false)
+        save.error = NSError(domain: "test", code: 1)
+
+        sut.downloadTapped()
+        await waitUntil { !notices.notices.isEmpty }
+
+        XCTAssertEqual(notices.notices, [.saveFailed])
+        XCTAssertNil(sut.addedBook)
+        XCTAssertTrue(downloads.enqueued.isEmpty)
+        XCTAssertTrue(added.isEmpty)
     }
 
     func test_download_largeOnCellular_showsAlertAndDoesNotStart() async {

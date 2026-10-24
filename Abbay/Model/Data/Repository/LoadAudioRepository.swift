@@ -7,6 +7,7 @@
 
 import CoreData
 import Foundation
+import os
 
 /// Returns a managed object of `LocalStorage.persistent`'s context: read or change it only inside
 /// its `performAndWait`.
@@ -24,7 +25,9 @@ final class LoadAudioRepository: LoadAudioRepositoryProtocol {
             do {
                 return try context.fetch(request).first
             } catch let error as NSError {
-                print("Fetch error: \(error) description: \(error.userInfo)")
+                // Logged, not reported: a fetch runs on every row and tick, and the save that
+                // could lose data already reports its own failure.
+                Log.data.error("fetch one failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)")
             }
             return nil
         }

@@ -88,6 +88,7 @@ enum AccessibilityID {
         static let more = "detail.more"
         static let retry = "detail.retry"
         static let progress = "detail.progress"
+        static let chaptersEmpty = "detail.chapters.empty"
         static let cellularContinue = "detail.cellular.continue"
         static let cellularWait = "detail.cellular.wait"
 
@@ -150,6 +151,8 @@ enum AccessibilityID {
         static let grabber = "player.grabber"
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
+        /// The chapter list's "No chapters" message, for a book with no chapter markers.
+        static let chaptersEmpty = "player.chapters.empty"
         static let downloadProgress = "player.download.progress"
 
         static func chapter(_ index: Int) -> String {

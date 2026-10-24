@@ -76,6 +76,34 @@ final class NoticeUITests: XCTestCase {
         XCTAssertTrue(element(AccessibilityID.MiniPlayer.bar).exists, "the bar must still appear")
     }
 
+    /// After the failure the row and the bar show Play, not Pause, so one tap retries: the banner
+    /// comes back after it had gone, and the button still shows Play.
+    func test_afterABookFailsToPlay_theButtonsShowPlay_andOneTapRetries() throws {
+        launch([LaunchArgument.seedLibrary])
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
+        let rowPlay = element(AccessibilityID.Element.play(AccessibilityID.Library.row(index)))
+        let barPlay = element(AccessibilityID.MiniPlayer.playPause)
+
+        rowPlay.tap()
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), "no banner for a missing file")
+        XCTAssertTrue(barPlay.waitForExistence(timeout: 10))
+        assertLabel(of: rowPlay, becomes: "Play")
+        assertLabel(of: barPlay, becomes: "Play")
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 15), "the banner did not dismiss itself")
+
+        barPlay.tap()
+
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), "one tap on Play did not retry")
+        assertLabel(of: barPlay, becomes: "Play")
+    }
+
+    private func assertLabel(of element: XCUIElement, becomes label: String, file: StaticString = #filePath, line: UInt = #line) {
+        let predicate = NSPredicate(format: "label == %@", label)
+        let result = XCTWaiter().wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: 10)
+        XCTAssertEqual(result, .completed, "label is \"\(element.label)\", expected \"\(label)\"", file: file, line: line)
+    }
+
     /// The banner sits over the navigation bar but doesn't take touches.
     func test_whileTheBannerShows_theToolbarUnderItStillWorks() {
         launch([LaunchArgument.resetLibrary, LaunchArgument.stubFailingImport])
