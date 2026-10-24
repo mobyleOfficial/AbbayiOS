@@ -118,6 +118,20 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertFalse(app.searchFields.firstMatch.exists)
     }
 
+    // MARK: - Search tab
+
+    func test_searchTab_showsPopularCards_andOpensDetails() throws {
+        throw XCTSkip("Enabled in Task 6 when the Search tab is wired")
+        // swiftlint:disable:next unreachable_code
+        launch([LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox])
+        app.tabBars.buttons["Search"].tap()
+        assertResolves(AccessibilityID.Search.card(0))
+
+        element(AccessibilityID.Search.card(0)).tap()
+
+        assertResolves(AccessibilityID.Detail.view)
+    }
+
     // MARK: - Search
 
     func test_search_filtersLocalRows() throws {

@@ -409,6 +409,24 @@
         }
       }
     },
+    "librivoxSearchPrompt" : {
+      "comment" : "Search tab field prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search LibriVox"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar no LibriVox"
+          }
+        }
+      }
+    },
     "onLibriVox" : {
       "comment" : "Search section header",
       "extractionState" : "manual",
@@ -513,6 +531,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Você está offline. Os resultados do LibriVox precisam de conexão."
+          }
+        }
+      }
+    },
+    "searchTitle" : {
+      "comment" : "Search tab title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
           }
         }
       }

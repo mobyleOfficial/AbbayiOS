@@ -54,6 +54,19 @@ enum AccessibilityID {
         }
     }
 
+    enum Search {
+        static let message = "search.message"
+        static let noResults = "search.noResults"
+
+        static func card(_ index: Int) -> String {
+            "search.card.\(index)"
+        }
+
+        static func result(_ index: Int) -> String {
+            "search.result.\(index)"
+        }
+    }
+
     enum Detail {
         static let view = "detail.view"
         static let download = "detail.download"

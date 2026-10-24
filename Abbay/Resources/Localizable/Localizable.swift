@@ -23,6 +23,8 @@ enum Localizable: String {
     case inYourLibrary
     case onLibriVox
     case popularOnLibriVox
+    case librivoxSearchPrompt
+    case searchTitle
     case searchOffline
     case searchFailed
     case noResults
