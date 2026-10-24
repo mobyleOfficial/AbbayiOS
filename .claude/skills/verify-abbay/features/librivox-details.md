@@ -9,9 +9,17 @@ once the book is in the library. The only way to add a LibriVox book.
 - **load:** `.task` calls `client.details(for:)` (archive.org item metadata, plus chapter titles from
   the LibriVox API when the item matches one). While loading it shows a `ProgressView`; on failure
   *"Couldn't load this book."* and a **Retry** button (`detail.retry`) that reloads.
-- **header:** cover (`AsyncImage`, onyx placeholder), title, author, then
+- **header:** cover (`AsyncImageView`, see *cover-loading* below), title, author, then
   `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour) and the
   whole-book download size (`ByteCountFormatter`, summed over the chapter files).
+- **cover-loading:** `AsyncImageView`, shared with the Search tab's cards and results. While the
+  cover loads, an `onyx` tile with a light band sweeping across it (`cover.loading`); then the
+  image fades in (`cover.loaded`). A failed load (offline, non-2xx, not an image) leaves the `onyx`
+  tile with a `book.closed` glyph (`cover.failed`). Covers load through `NetworkProvider`
+  (`AsyncImageLoader`) and are kept in memory per URL (`NSCache`, 100 covers), so a cover that
+  already loaded, on this page or a Search card, shows at once with no shimmer and no fade.
+  Reduce Motion: a plain `onyx` tile instead of the sweep, and no fade. Leaving the screen
+  cancels the load; a failure is retried on the next appearance.
 - **description:** three lines, with a **More** button (`detail.more`) that expands it in place. The
   button shows whenever the description is non-empty and collapsed — not only when the text is
   actually truncated.
@@ -78,7 +86,12 @@ the chapter retry never appear (see [downloads](downloads.md)).
 The decisions behind them are unit-tested: `CellularDownloadPolicyTests`, `NetworkPathSnapshotTests`,
 `LibriVoxDetailViewModelTests`, `ChapterListViewTests`.
 
-**Not addressable:** there is no identifier on the cover, title, author, size or credit text.
+`cover.failed` is verified by `CoverUITests` (the stub's cover is a `/dev/null` file URL, so it
+always fails). `cover.loading` and `cover.loaded` are **implemented but unverified**: the stub has
+no cover that loads, and loading is too brief to catch. Load, cache hit and failure are unit-tested
+in `AsyncImageLoaderTests`.
+
+**Not addressable:** there is no identifier on the title, author, size or credit text.
 
 ## Gotchas
 

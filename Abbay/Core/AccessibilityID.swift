@@ -68,6 +68,14 @@ enum AccessibilityID {
         }
     }
 
+    /// A remote cover (`AsyncImageView`), by load state. Verified on the details page; inside a
+    /// search card or result the button keeps its own id.
+    enum Cover {
+        static let loading = "cover.loading"
+        static let loaded = "cover.loaded"
+        static let failed = "cover.failed"
+    }
+
     enum Detail {
         static let view = "detail.view"
         static let download = "detail.download"
