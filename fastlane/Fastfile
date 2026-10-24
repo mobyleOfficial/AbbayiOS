@@ -187,7 +187,7 @@ generates the project once and reuses that build for both suites, rather than le
 2. Archives Release for `generic/platform=iOS` to build/Abbay.xcarchive.
 3. Runs Scripts/check-app-binary on the archived .app: load paths (#142), entitlements, no
    Debug-only resources.
-4. Exports build/Abbay.ipa with fastlane/ExportOptions-AppStore.plist and checks it again (the
+4. Exports build/export/Abbay.ipa with fastlane/ExportOptions-AppStore.plist and checks it again (the
    export re-signs with the distribution profile, which is what users get).
 5. Uploads to TestFlight with an App Store Connect API key. Without the key env vars the lane
    stops after the .ipa with a message, so it is runnable locally.
@@ -239,21 +239,17 @@ APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (
       message('Checking the archived app')
       sh "#{check_script.shellescape} #{archive_path.shellescape}"
 
+      # xcodebuild directly, not build_app: gym (through fastlane 2.240) rejects the
+      # `app-store-connect` method that Xcode 15.3+ uses in place of the deprecated `app-store`.
       message('Exporting the App Store .ipa')
-      build_app(
-        project: "#{project_name}.xcodeproj",
-        scheme: project_name.to_s,
-        archive_path: archive_path,
-        skip_build_archive: true,
-        export_options: "#{project_dir}/fastlane/ExportOptions-AppStore.plist",
-        # Keep automatic signing: gym's profile detection would otherwise switch the export to
-        # manual signing with whatever profiles it finds.
-        skip_profile_detection: true,
-        export_xcargs: signing_args,
-        output_directory: build_dir,
-        output_name: ipa_name
-      )
-      ipa_path = "#{build_dir}/#{ipa_name}"
+      export_dir = "#{build_dir}/export"
+      export_options = "#{project_dir}/fastlane/ExportOptions-AppStore.plist"
+      sh 'xcodebuild -exportArchive ' \
+         "-archivePath #{archive_path.shellescape} " \
+         "-exportPath #{export_dir.shellescape} " \
+         "-exportOptionsPlist #{export_options.shellescape} #{signing_args}"
+      ipa_path = "#{export_dir}/#{ipa_name}"
+      UI.user_error!("Export finished but #{ipa_path} is missing") unless File.exist?(ipa_path)
 
       message('Checking the exported .ipa (distribution-signed)')
       sh "#{check_script.shellescape} #{ipa_path.shellescape}"
