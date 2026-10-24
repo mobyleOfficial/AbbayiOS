@@ -104,10 +104,8 @@ struct SettingsView: View {
     ) -> some View {
         Picker(selection: selection) {
             ForEach(SkipInterval.allCases) { interval in
-                Label(
-                    Localizable.skipSeconds.localized(with: interval.rawValue),
-                    systemImage: interval[keyPath: symbol]
-                )
+                // Text only: the row's own label already shows the arrow with the chosen number.
+                Text(Localizable.skipSeconds.localized(with: interval.rawValue))
                     .tag(interval)
             }
         } label: {
@@ -237,7 +235,10 @@ struct SettingsView: View {
     private var audioStatusRow: some View {
         let isUnavailable = model.isAudioUnavailable
         return VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
-            LabeledContent(Localizable.siriAudioStatus.localized) {
+            // An HStack, not `LabeledContent`: inside this VStack the latter stretches to fill the row.
+            HStack {
+                Text(Localizable.siriAudioStatus.localized)
+                Spacer()
                 Label(
                     isUnavailable ? Localizable.audioStatusUnavailable.localized : Localizable.audioStatusOK.localized,
                     systemImage: isUnavailable ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"

@@ -23,11 +23,6 @@ final class AbbayBundle {
         return localized
     }
 
-    /// For number and date formatting that should follow the in-app language.
-    static var locale: Locale {
-        languageCode.map(Locale.init(identifier:)) ?? .current
-    }
-
     /// The locale of the language the app's strings resolve in, for formatters (durations) whose
     /// units must match the sentence around them rather than the device locale.
     ///
