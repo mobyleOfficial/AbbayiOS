@@ -25,6 +25,9 @@ protocol PlayerProtocol {
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
     func cleanup()
+    /// Stops and forgets the loaded book (it was deleted), so `url` becomes nil. Unlike `cleanup`,
+    /// which runs at termination, the player stays usable: the next `play` loads normally.
+    func unload()
     func skipToNextChapter()
     func skipToPreviousChapter()
     @discardableResult
@@ -118,6 +121,16 @@ final class Player: PlayerProtocol {
         if let timeObserverToken {
             player.removeTimeObserver(timeObserverToken)
         }
+        NowPlayingManager.shared.clearNowPlaying()
+    }
+
+    func unload() {
+        player.pause()
+        cancellables.removeAll()
+        stopAccessingCurrentURL()
+        multiFileQueue = nil
+        player.removeAllItems()
+        model = nil
         NowPlayingManager.shared.clearNowPlaying()
     }
 

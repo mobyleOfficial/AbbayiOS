@@ -25,28 +25,22 @@
 /// here yet, because the floating player only appears once audio is actually playing and that
 /// needs the seeded fixture to be playable.
 enum AccessibilityID {
+    /// The root tab bar's items: the system tab bar on iOS 26.1+, the hand-built one before.
+    enum Root {
+        static let tabLibrary = "root.tab.library"
+        static let tabSearch = "root.tab.search"
+    }
+
     enum Library {
         static let list = "library.list"
         static let empty = "library.empty"
         static let toolbarAdd = "library.toolbar.add"
-        static let menuBrowse = "library.menu.browse"
         static let menuImport = "library.menu.import"
         static let emptyBrowse = "library.empty.browse"
         static let emptyImport = "library.empty.import"
         static let noResults = "library.search.noResults"
-        static let searchMessage = "library.search.message"
         static let toolbarSettings = "library.toolbar.settings"
         static let floatingPlayer = "library.floatingPlayer"
-
-        /// Namespace for one LibriVox search result, positional within the "On LibriVox" section.
-        static func remoteRow(_ index: Int) -> String {
-            "library.remote.\(index)"
-        }
-
-        /// Namespace for one local search match, positional within "In your library".
-        static func localRow(_ index: Int) -> String {
-            "library.search.local.\(index)"
-        }
 
         /// Namespace for one library row. Positional: read a snapshot, then address by index.
         static func row(_ index: Int) -> String {
@@ -83,6 +77,8 @@ enum AccessibilityID {
     }
 
     enum Player {
+        /// Closes the details screen (the chevron in its header; the header also drags down).
+        static let close = "player.close"
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
         static let downloadProgress = "player.download.progress"

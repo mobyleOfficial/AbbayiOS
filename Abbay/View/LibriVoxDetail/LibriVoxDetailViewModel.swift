@@ -16,8 +16,6 @@ final class LibriVoxDetailViewModel: ObservableObject {
     /// finished book shows no per-chapter status and no progress bar on either screen.
     @Published private(set) var downloadState: BookDownloadState?
     @Published var isShowingCellularAlert = false
-    /// Drives the full player sheet, the same one a Library row opens.
-    @Published var isShowingPlayer = false
 
     let book: LibriVoxBook
     private let client: LibriVoxClientProtocol
@@ -25,6 +23,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
     private let saveAudio: SaveAudioUseCaseProtocol
     private let path: NetworkPathProviding
     private let onAdded: (AudioModel) -> Void
+    /// Presents the details screen, the same presentation a Library row opens.
+    private let openPlayer: (AudioModel) -> Void
     private var isStarting = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -35,7 +35,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
         saveAudio: SaveAudioUseCaseProtocol,
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
-        onAdded: @escaping (AudioModel) -> Void
+        onAdded: @escaping (AudioModel) -> Void,
+        openPlayer: @escaping (AudioModel) -> Void
     ) {
         self.book = book
         self.client = client
@@ -43,6 +44,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.saveAudio = saveAudio
         self.path = path
         self.onAdded = onAdded
+        self.openPlayer = openPlayer
         // A book already in the library shows Play and its progress, and is never added again.
         addedBook = loadAudio.execute(url: LibriVoxIdentity.bookURL(id: book.id))
         downloads.statesPublisher
@@ -88,11 +90,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
         start(details, allowsCellular: shouldContinue)
     }
 
-    /// Starts the book and opens the player sheet, where pause, seek and chapters live.
+    /// Starts the book and opens the details screen, where pause, seek and chapters live.
     func play() {
         guard var model = addedBook else { return }
         DependencyContainer.shared.player.play(&model)
-        isShowingPlayer = true
+        openPlayer(model)
     }
 
     private func start(_ details: LibriVoxBookDetails, allowsCellular: Bool) {

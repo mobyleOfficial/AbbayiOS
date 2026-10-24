@@ -47,4 +47,8 @@ final class LibraryFilterTests: XCTestCase {
     func test_noMatch_returnsEmpty() {
         XCTAssertEqual(titles("zzzzqqq"), [])
     }
+
+    func test_surroundingWhitespace_isIgnored() {
+        XCTAssertEqual(titles("  pride  "), ["Pride and Prejudice"])
+    }
 }

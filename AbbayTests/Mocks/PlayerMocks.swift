@@ -116,6 +116,7 @@ final class CountingMockPlayer: PlayerProtocol {
     func isPlaying(_ url: URL?) -> Bool { isPlayingResult }
     func seek(_ seconds: Double) {}
     func cleanup() {}
+    func unload() { url = nil }
     func skipToNextChapter() {}
     func skipToPreviousChapter() {}
     func playChapter(at index: Int) -> Bool { false }

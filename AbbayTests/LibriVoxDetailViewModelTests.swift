@@ -15,6 +15,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
     private let path = FakeNetworkPath()
     private let player = MockPlayer()
     private var added: [AudioModel] = []
+    private var opened: [AudioModel] = []
 
     override func setUp() {
         super.setUp()
@@ -57,7 +58,8 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             saveAudio: save,
             path: path,
             loadAudio: MockLoadAudioUseCase(),
-            onAdded: { [unowned self] in added.append($0) }
+            onAdded: { [unowned self] in added.append($0) },
+            openPlayer: { [unowned self] in opened.append($0) }
         )
         await sut.load()
         return sut
@@ -78,7 +80,8 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             saveAudio: save,
             path: path,
             loadAudio: MockLoadAudioUseCase(),
-            onAdded: { _ in }
+            onAdded: { _ in },
+            openPlayer: { _ in }
         )
 
         await sut.load()
@@ -165,7 +168,8 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             saveAudio: save,
             path: path,
             loadAudio: loadAudio,
-            onAdded: { [unowned self] in added.append($0) }
+            onAdded: { [unowned self] in added.append($0) },
+            openPlayer: { _ in }
         )
         await sut.load()
 
@@ -227,24 +231,24 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         XCTAssertEqual(player.playCalls.map(\.librivoxID), ["moby_dick_librivox"])
     }
 
-    /// Play hands control to the same player sheet a Library row opens.
-    func test_play_requestsThePlayerSheet() async {
+    /// Play hands the book to the one player presentation, the same one a Library row opens.
+    func test_play_opensThePlayerOnTheAddedBook() async {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
         sut.downloadTapped()
         await waitUntil { sut.addedBook != nil }
-        XCTAssertFalse(sut.isShowingPlayer)
+        XCTAssertTrue(opened.isEmpty)
 
         sut.play()
 
-        XCTAssertTrue(sut.isShowingPlayer)
+        XCTAssertEqual(opened.map(\.librivoxID), ["moby_dick_librivox"])
     }
 
-    func test_play_beforeTheBookIsAdded_doesNotRequestThePlayerSheet() async {
+    func test_play_beforeTheBookIsAdded_doesNotOpenThePlayer() async {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
 
         sut.play()
 
-        XCTAssertFalse(sut.isShowingPlayer)
+        XCTAssertTrue(opened.isEmpty)
         XCTAssertTrue(player.playCalls.isEmpty)
     }
 }

@@ -46,7 +46,11 @@ final class LocalizationTests: XCTestCase {
         .detailsFailed,
         .retry,
         .rowChapter,
-        .rowTimeLeft
+        .rowTimeLeft,
+        .libraryTab,
+        .searchTab,
+        .librarySearchPrompt,
+        .closePlayer
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -86,7 +90,11 @@ final class LocalizationTests: XCTestCase {
         .detailsFailed,
         .retry,
         .rowChapter,
-        .rowTimeLeft
+        .rowTimeLeft,
+        .libraryTab,
+        .searchTab,
+        .librarySearchPrompt,
+        .closePlayer
     ]
 
     /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship

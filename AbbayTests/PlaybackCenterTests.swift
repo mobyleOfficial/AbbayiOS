@@ -118,4 +118,23 @@ final class PlaybackCenterTests: XCTestCase {
 
         XCTAssertEqual(center.clock.currentChapter, 1, "0/100/200: 150 s falls in the second chapter")
     }
+
+    // MARK: - Unload
+
+    /// Deleting the loaded book unloads it, so the bar and the row's playing state go away.
+    func test_unload_unloadsThePlayerAndClearsState() {
+        let player = MockPlayer()
+        let center = PlaybackCenter(player: player)
+        player.emitPlayUrl(ViewModelSupport.chaptered())
+        player.emitPlaying(true)
+        player.emitTime(150)
+
+        center.unload()
+
+        XCTAssertEqual(player.unloadCallCount, 1)
+        XCTAssertNil(center.state.loadedBook)
+        XCTAssertFalse(center.state.isPlaying)
+        XCTAssertEqual(center.clock.bookTime, 0)
+        XCTAssertEqual(center.clock.currentChapter, 0)
+    }
 }

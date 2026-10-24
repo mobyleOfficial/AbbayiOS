@@ -22,6 +22,7 @@ final class MockPlayer: PlayerProtocol {
     var backwardSeconds: [Double] = []
     var seekSeconds: [Double] = []
     var cleanupCallCount = 0
+    var unloadCallCount = 0
 
     // Stubs
     var url: URL?
@@ -67,6 +68,10 @@ final class MockPlayer: PlayerProtocol {
     func isPlaying(_ url: URL?) -> Bool { isPlayingResult }
     func seek(_ seconds: Double) { seekSeconds.append(seconds) }
     func cleanup() { cleanupCallCount += 1 }
+    func unload() {
+        unloadCallCount += 1
+        url = nil
+    }
     func skipToNextChapter() { skipNextCallCount += 1 }
     func skipToPreviousChapter() { skipPreviousCallCount += 1 }
 

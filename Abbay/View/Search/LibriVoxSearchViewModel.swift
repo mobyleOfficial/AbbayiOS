@@ -6,6 +6,15 @@
 import Foundation
 import Observation
 
+/// Where a LibriVox request stands, for the Search tab's states.
+enum RemoteStatus: Equatable {
+    case idle
+    case loading
+    case offline
+    case failed
+    case loaded
+}
+
 /// The LibriVox search. The request is debounced and skipped entirely while offline.
 @MainActor
 @Observable

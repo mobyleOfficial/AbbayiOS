@@ -7,70 +7,50 @@
 
 import SwiftUI
 
+/// The Library tab: the books in the library, a local-only search over them, the empty state and
+/// the toolbar. The root owns the model and the tab's `NavigationStack`; LibriVox lives in the
+/// Search tab.
 struct MediaListView: View {
-    // MARK: - States
-    @StateObject
-    var model = MediaListViewModel()
-    @StateObject
-    private var search = LibrarySearchViewModel.makeDefault()
+    // MARK: - Properties
+    @ObservedObject
+    var model: MediaListViewModel
+    /// Switches to the Search tab (the empty state's primary button).
+    let onBrowse: () -> Void
+
+    @Environment(PlayerPresentation.self)
+    private var presentation
     @State
-    private var isSearchPresented = false
-    @State
-    private var isBrowsing = false
-    @State
-    private var downloadStates: [String: BookDownloadState] = [:]
-    /// The LibriVox book whose page is pushed. State, not a row-owned link: adding the book removes
-    /// its search row, which would otherwise pop the page.
-    @State
-    private var openedBook: LibriVoxBook?
+    private var query = ""
 
     // MARK: - Body
     var body: some View {
-        NavigationStack {
-            contentView
-                .navigationTitle(Localizable.libraryTitle.localized)
-                .navigationDestination(item: $openedBook) { book in
-                    LibriVoxDetailView(book: book, onAdded: { model.addLibriVoxBook($0) })
-                }
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        addMenu
-                        // Settings is out of scope: same behavior as before (no action), but a
-                        // real `Button` so the system sizes it like the add menu.
-                        Button {
-                        } label: {
-                            Image(systemName: "gearshape")
-                        }
-                        .accessibilityIdentifier(AccessibilityID.Library.toolbarSettings)
+        contentView
+            .navigationTitle(Localizable.libraryTitle.localized)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    addMenu
+                    // Settings is out of scope: same behavior as before (no action), but a
+                    // real `Button` so the system sizes it like the add menu.
+                    Button {
+                    } label: {
+                        Image(systemName: "gearshape")
                     }
+                    .accessibilityIdentifier(AccessibilityID.Library.toolbarSettings)
                 }
-                .sheet(isPresented: $model.isShowingFilePicker) {
-                    DocumentPickerView(onImport: { urls in
-                        await model.importAudio(from: urls)
-                    })
-                }
-                .sheet(isPresented: $model.isShowingPlayer) {
-                    if let file = model.tappedAudio {
-                        PlayerView(file)
-                    }
-                }
-                .backgroundColor(ColorConstants.background.value)
-                .foregroundColor(ColorConstants.white.value)
-                .onReceive(model.$audioList) { search.update(library: $0) }
-                .onReceive(DependencyContainer.shared.downloads.statesPublisher) { downloadStates = $0 }
-        }
-        .preferredColorScheme(.dark)
+            }
+            .sheet(isPresented: $model.isShowingFilePicker) {
+                DocumentPickerView(onImport: { urls in
+                    await model.importAudio(from: urls)
+                })
+            }
+            .backgroundColor(ColorConstants.background.value)
+            .foregroundColor(ColorConstants.white.value)
     }
 
     // MARK: - Toolbar
+    /// Only Import file: the Search tab replaced "Browse LibriVox".
     var addMenu: some View {
         Menu {
-            Button {
-                startBrowsing()
-            } label: {
-                Label(Localizable.browseLibriVox.localized, systemImage: "books.vertical")
-            }
-            .accessibilityIdentifier(AccessibilityID.Library.menuBrowse)
             Button {
                 model.isShowingFilePicker = true
             } label: {
@@ -84,50 +64,21 @@ struct MediaListView: View {
         .accessibilityIdentifier(AccessibilityID.Library.toolbarAdd)
     }
 
-    private func startBrowsing() {
-        isBrowsing = true
-        if isSearchPresented {
-            Task { await search.loadPopular() }
-        } else {
-            // The search field only exists once the content has switched to its searchable form.
-            DispatchQueue.main.async { isSearchPresented = true }
-        }
-    }
-
     // MARK: - Content View
     @ViewBuilder
     var contentView: some View {
-        if model.audioList.isEmpty && !isBrowsing {
+        if model.audioList.isEmpty {
             emptyView
         } else {
-            searchableContent
-                .searchable(
-                    text: $search.query,
-                    isPresented: $isSearchPresented,
-                    prompt: Localizable.searchPrompt.localized
-                )
-                .onChange(of: isSearchPresented) { presented in
-                    if presented {
-                        Task { await search.loadPopular() }
-                    } else {
-                        isBrowsing = false
-                    }
-                }
-        }
-    }
-
-    private var isSearchActive: Bool {
-        isSearchPresented || isBrowsing || !search.query.isEmpty
-    }
-
-    private var searchableContent: some View {
-        ZStack {
-            if isSearchActive {
-                searchResultsView
-            } else {
+            ZStack {
                 listView
+                playerView
             }
-            playerView
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: Localizable.librarySearchPrompt.localized
+            )
         }
     }
 
@@ -142,7 +93,7 @@ struct MediaListView: View {
             Text(Localizable.emptyLibraryTitle.localized)
                 .accessibilityIdentifier(AccessibilityID.Library.empty)
             Button {
-                startBrowsing()
+                onBrowse()
             } label: {
                 Text(Localizable.browseFreeAudiobooks.localized)
             }
@@ -157,21 +108,32 @@ struct MediaListView: View {
             .accessibilityIdentifier(AccessibilityID.Library.emptyImport)
         }
         .padding(.horizontal, SpaceConstants.sx32.value)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - List View
+    private var isSearching: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     @ViewBuilder
     var listView: some View {
+        let books = LibraryFilter.filter(model.audioList, query: query)
         List {
             // `enumerated()` keeps url-based identity while exposing the positional index the
             // accessibility identifiers use.
-            ForEach(Array(model.audioList.enumerated()), id: \.element.url) { index, file in
-                MediaView(file, namespace: AccessibilityID.Library.row(index))
+            ForEach(Array(books.enumerated()), id: \.element.url) { index, file in
+                VStack(alignment: .leading, spacing: 0) {
+                    MediaView(file, namespace: AccessibilityID.Library.row(index))
+                    // As before: while searching, a fully downloaded LibriVox book says so.
+                    if isSearching {
+                        DownloadedTag(book: file)
+                    }
+                }
                 .listRowBackground(ColorConstants.background.value)
                 .listRowInsets(EdgeInsets())
                 .onTapGesture {
-                    model.tappedAudio = file
-                    model.isShowingPlayer = true
+                    presentation.open(file, animated: true)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
@@ -181,99 +143,21 @@ struct MediaListView: View {
                     }
                 }
             }
+            if books.isEmpty {
+                Text(Localizable.noResults.localized)
+                    .foregroundColor(ColorConstants.lightSilver.value)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(ColorConstants.background.value)
+                    .accessibilityIdentifier(AccessibilityID.Library.noResults)
+            }
         }
         .listStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.Library.list)
     }
 
-    // MARK: - Search Results
-    private var isQueryEmpty: Bool {
-        search.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var showsNoResults: Bool {
-        !isQueryEmpty && search.localResults.isEmpty
-            && search.remoteStatus == .loaded && search.remoteResults.isEmpty
-    }
-
-    @ViewBuilder
-    var searchResultsView: some View {
-        List {
-            if !search.localResults.isEmpty {
-                Section(Localizable.inYourLibrary.localized) {
-                    ForEach(Array(search.localResults.enumerated()), id: \.element.url) { index, file in
-                        localRow(file, index: index)
-                    }
-                }
-            }
-            if showsNoResults {
-                Text(Localizable.noResults.localized)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(ColorConstants.background.value)
-                    .accessibilityIdentifier(AccessibilityID.Library.noResults)
-            } else {
-                Section(isQueryEmpty ? Localizable.popularOnLibriVox.localized : Localizable.onLibriVox.localized) {
-                    remoteSection
-                }
-            }
-        }
-        .listStyle(.plain)
-    }
-
-    private func localRow(_ file: AudioModel, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            MediaView(file, namespace: AccessibilityID.Library.localRow(index))
-            if LibriVoxIdentity.isFullyDownloaded(file, state: file.librivoxID.flatMap { downloadStates[$0] }) {
-                Text(Localizable.downloadedTag.localized)
-                    .font(.caption)
-                    .foregroundColor(ColorConstants.malachite.value)
-                    .padding(.horizontal, SpaceConstants.sx16.value)
-                    .padding(.bottom, SpaceConstants.sx8.value)
-            }
-        }
-        .listRowBackground(ColorConstants.background.value)
-        .listRowInsets(EdgeInsets())
-        .onTapGesture {
-            model.tappedAudio = file
-            model.isShowingPlayer = true
-        }
-    }
-
-    @ViewBuilder
-    private var remoteSection: some View {
-        switch search.remoteStatus {
-        case .idle:
-            EmptyView()
-        case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .listRowBackground(ColorConstants.background.value)
-        case .offline:
-            remoteMessage(Localizable.searchOffline.localized)
-        case .failed:
-            remoteMessage(Localizable.searchFailed.localized)
-        case .loaded:
-            ForEach(Array(search.remoteResults.enumerated()), id: \.element.id) { index, book in
-                Button {
-                    openedBook = book
-                } label: {
-                    RemoteBookRow(book: book)
-                }
-                .listRowBackground(ColorConstants.background.value)
-                .accessibilityIdentifier(AccessibilityID.Library.remoteRow(index))
-            }
-        }
-    }
-
-    private func remoteMessage(_ text: String) -> some View {
-        Text(text)
-            .foregroundColor(ColorConstants.lightSilver.value)
-            .frame(maxWidth: .infinity)
-            .listRowBackground(ColorConstants.background.value)
-            .accessibilityIdentifier(AccessibilityID.Library.searchMessage)
-    }
-
     // MARK: - Player View
+    /// The floating player, until the docked bar replaces it. Inside the tab's content, so the tab
+    /// bar's inset keeps it above the bar.
     @ViewBuilder
     var playerView: some View {
         if let selectedAudio = model.selectedAudio {
@@ -283,39 +167,30 @@ struct MediaListView: View {
                 .padding(.horizontal, SpaceConstants.sx4.value)
                 .padding(.bottom, SpaceConstants.sx8.value)
                 .onTapGesture {
-                    model.tappedAudio = selectedAudio
-                    model.isShowingPlayer = true
+                    presentation.open(selectedAudio, animated: true)
                 }
         }
     }
 }
 
 // MARK: - Subviews
-private struct RemoteBookRow: View {
-    let book: LibriVoxBook
+/// "Downloaded" under a LibriVox book whose chapters are all on disk. Reads only its own book's
+/// download entry.
+private struct DownloadedTag: View {
+    let book: AudioModel
+
+    @Environment(\.downloadStateStore)
+    private var downloads
 
     var body: some View {
-        HStack(spacing: SpaceConstants.sx12.value) {
-            AsyncImage(url: book.coverURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ColorConstants.onyx.value
-            }
-            .frame(side: SpaceConstants.sx48.value)
-            .cornerRadius(SpaceConstants.sx8.value)
-            VStack(alignment: .leading) {
-                Text(book.title)
-                    .lineLimit(2)
-                Text(book.authors)
-                    .font(.caption)
-                    .foregroundColor(ColorConstants.lightSilver.value)
-                    .lineLimit(1)
-            }
-            Spacer()
-            Image(systemName: "arrow.down.circle")
+        let state = book.librivoxID.flatMap { downloads?.entry(for: $0).state }
+        if LibriVoxIdentity.isFullyDownloaded(book, state: state) {
+            Text(Localizable.downloadedTag.localized)
+                .font(.caption)
                 .foregroundColor(ColorConstants.malachite.value)
+                .padding(.horizontal, SpaceConstants.sx16.value)
+                .padding(.bottom, SpaceConstants.sx8.value)
         }
-        .foregroundColor(ColorConstants.white.value)
     }
 }
 
@@ -331,13 +206,5 @@ private struct LibraryActionButtonStyle: ButtonStyle {
             .background(isPrimary ? ColorConstants.malachite.value : ColorConstants.onyx.value)
             .cornerRadius(SpaceConstants.sx12.value)
             .opacity(configuration.isPressed ? 0.7 : 1)
-    }
-}
-
-// MARK: - Preview
-struct MediaListView_Previews: PreviewProvider {
-    static var previews: some View {
-        MediaListView()
-            .playbackEnvironment(DependencyContainer.shared)
     }
 }

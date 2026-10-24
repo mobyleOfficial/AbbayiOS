@@ -8,65 +8,68 @@
 import AppIntents
 import Foundation
 
+/// The library: its books, import, delete and adding LibriVox books. Owned by the root, above the
+/// tabs, so the Search tab adds books through it.
+@MainActor
 final class MediaListViewModel: ObservableObject {
     // MARK: - Properties
+    private let playback: PlaybackCenter
+    /// Weak: the root owns both. Optional so tests that don't present can omit it.
+    private weak var presentation: PlayerPresentation?
     private let fileLoader: FileLoaderProtocol
-    private let playerObserver: PlayerObserverProtocol
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
     private let deleteAudioUseCase: DeleteAudioUseCaseProtocol
     private let loadAudioUseCase: LoadAudioUseCaseProtocol
-    /// The book the player last announced, so a switch knows which book it left.
+    /// The book loaded at the last switch, so the next one knows which book it left.
     private var loadedURL: URL?
 
     // MARK: - Observed properties
     @Published
     var audioList = [AudioModel]()
     @Published
-    var selectedAudio: AudioModel?
-    @Published
     var isShowingFilePicker = false
-    @Published
-    var tappedAudio: AudioModel?
-    @Published
-    var isShowingPlayer = false
+
+    /// The book loaded in the player, from the app-wide `PlaybackState` (which is observable, so a
+    /// view reading this re-renders on a switch).
+    var selectedAudio: AudioModel? {
+        playback.state.loadedBook
+    }
 
     // MARK: - Init
     init(
-        playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player),
+        playback: PlaybackCenter,
+        presentation: PlayerPresentation? = nil,
         loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         deleteAudioUseCase: DeleteAudioUseCaseProtocol = DeleteAudioUseCase(),
         fileLoader: FileLoaderProtocol = FileLoader(),
         loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase()
     ) {
-        self.playerObserver = playerObserver
+        self.playback = playback
+        self.presentation = presentation
         self.loadAllAudiosUseCase = loadAllAudiosUseCase
         self.deleteAudioUseCase = deleteAudioUseCase
         self.fileLoader = fileLoader
         self.loadAudioUseCase = loadAudioUseCase
-        self.loadedURL = playerObserver.player.url
+        self.loadedURL = playback.state.loadedBook?.url
         defer {
             audioList = loadAllAudiosUseCase.execute()
             LibrarySnapshotWriter.shared.write(audios: audioList)
-            self.playerObserver.subscribeToPlayUrlPublisher { [weak self] newItem in
-                Self.onMain { self?.bookLoaded(newItem) }
-            }
         }
     }
 
     // MARK: - Methods
-    /// Rows are built from `audioList`, which loads once. On a book switch, re-read both books
+    /// Called when `PlaybackState.loadedBook` changes (the root observes it), so once per switch,
+    /// never per tick. Rows are built from `audioList`, which loads once, so re-read both books
     /// from storage: the outgoing one so its row shows (and a replay resumes from) where it
     /// stopped -- the player saves its position before announcing the next book -- and the
-    /// incoming one so later presses pass the bookmark the player just made. Once per switch,
-    /// never per tick.
-    private func bookLoaded(_ book: AudioModel) {
-        selectedAudio = book
+    /// incoming one so later presses pass the bookmark the player just made.
+    func loadedBookChanged(to book: AudioModel?) {
         let outgoing = loadedURL
-        loadedURL = book.url
-        if outgoing != book.url {
+        loadedURL = book?.url
+        if outgoing != book?.url {
             refreshFromStorage(outgoing)
         }
-        refreshFromStorage(book.url)
+        refreshFromStorage(book?.url)
     }
 
     private func refreshFromStorage(_ url: URL?) {
@@ -76,22 +79,20 @@ final class MediaListViewModel: ObservableObject {
         audioList[index] = stored
     }
 
-    /// The player can announce a book off the main thread (SiriKit); `audioList` drives the UI.
-    private static func onMain(_ work: @escaping () -> Void) {
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.async(execute: work)
-        }
-    }
-
+    /// Deleting the loaded book unloads it, so the bar goes away; deleting the book the details
+    /// screen shows closes it.
     func deleteAudio(_ audio: AudioModel) {
+        if presentation?.presentedBook?.url == audio.url {
+            presentation?.close(animated: false)
+        }
+        if let url = audio.url, playback.state.loadedBook?.url == url || playback.player.url == url {
+            playback.unload()
+        }
         deleteAudioUseCase.execute(audio)
         audioList.removeAll { $0.url == audio.url }
         LibrarySnapshotWriter.shared.write(audios: audioList)
     }
 
-    @MainActor
     func importAudio(from urls: [URL]) async {
         let newFiles = await fileLoader.load(urls: urls)
         for file in newFiles where !audioList.contains(where: { $0.url == file.url }) {

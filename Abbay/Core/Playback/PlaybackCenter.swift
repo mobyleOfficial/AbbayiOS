@@ -58,6 +58,16 @@ final class PlaybackCenter {
         self.cancellables = cancellables
     }
 
+    // MARK: - Actions
+    /// The loaded book was deleted: unload it from the player and forget it here, so the bar and
+    /// the row's playing state go away. The player announces no event for this, hence the reset.
+    func unload() {
+        player.unload()
+        state.setLoadedBook(nil)
+        state.setIsPlaying(false)
+        clock.update(bookTime: 0, currentChapter: 0)
+    }
+
     // MARK: - Deliveries
     private func receive(book: AudioModel) {
         let isNewBook = book.url != state.loadedBook?.url

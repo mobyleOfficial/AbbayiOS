@@ -45,6 +45,10 @@ enum Localizable: String {
     case retry
     case rowChapter
     case rowTimeLeft
+    case libraryTab
+    case searchTab
+    case librarySearchPrompt
+    case closePlayer
 }
 
 extension Localizable {
