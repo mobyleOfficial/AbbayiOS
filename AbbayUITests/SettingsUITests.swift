@@ -19,8 +19,15 @@ final class SettingsUITests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// English with a US region, so labels ("30 seconds") and speeds ("1.5×", not "1,5×") don't
+    /// depend on the simulator's region.
     private func launch() {
-        app.launchArguments = [LaunchArgument.seedLibrary, LaunchArgument.resetSettings]
+        app.launchArguments = [
+            LaunchArgument.seedLibrary,
+            LaunchArgument.resetSettings,
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US"
+        ]
         app.launch()
     }
 
