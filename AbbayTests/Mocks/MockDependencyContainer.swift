@@ -16,6 +16,7 @@ final class MockDependencyContainer: DependencyContainerProtocol {
     let lastPlayed: LastPlayedStore
     let launchState: LaunchStateFlag
     let librarySnapshot: LibrarySnapshotReader
+    let siriContext: SiriContextRefreshing = NoopSiriContextRefresher()
 
     /// The App Group stores default to one fresh in-memory store, so nothing a test does through
     /// the container reaches the real App Group. Pass `appGroup` to seed or inspect it.

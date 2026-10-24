@@ -11,6 +11,18 @@ user-facing, but every title-matching Siri phrase depends on it.
   missing, so launch cannot rely on the write path.
 - **publish-on-mutation:** `LibrarySnapshotWriter.write` calls the publisher at the end, guarded out
   of the extension build. Every import and delete therefore refreshes Siri's view.
+- **publish-on-foreground and on pause (#127, experiment):** `SiriContextRefresher` re-publishes
+  the library when the scene becomes active (`AbbayApp` → `AppDelegate.scenePhaseChanged`) and on
+  every `Player.pause()`, at most once per `SiriContextRefresher.minimumInterval` (10 minutes,
+  in-memory clock). Launch's snapshot write calls `markPublished()`, so the first foreground after a
+  cold launch doesn't publish twice. Library mutations publish through the snapshot writer and do
+  not restart the throttle.
+- **daily background refresh (#127, experiment):** `SiriBackgroundRefresh` registers the
+  `BGAppRefreshTask` `com.edyuto.Abbay.siriRefresh` (listed in `BGTaskSchedulerPermittedIdentifiers`,
+  background mode `fetch`) at launch, schedules it a day out each time the scene goes to the
+  background, reschedules on every run, publishes with `refreshNow` (ignores the throttle) and
+  completes the task once — unsuccessfully if it expires first. iOS decides when, or whether, it
+  runs. Drop it if the device judgement in #127 shows no improvement.
 - **snapshot:** `abbay.librarySnapshot.v1` in the App Group — a versioned `LibrarySnapshot` of
   `{title, urlString, bookmarkData}`. The extension's only data source.
 - **spotlight:** `LibrarySpotlightIndexer` indexes each book as a `CSSearchableItem` in a named index
@@ -25,7 +37,9 @@ user-facing, but every title-matching Siri phrase depends on it.
   (#84 removed the view model's second call;
   `test_importAndAddLibriVoxBook_publishToSiriOnceEach`).
 - **media-affinity:** `MediaUserContextDonor` and `IntentDonor.donatePlayMedia` donate interactions
-  so the system learns to prefer Abbay for audiobook requests.
+  so the system learns to prefer Abbay for audiobook requests. `IntentDonor` donates at play start,
+  on pause and when a playing tick crosses into another chapter (#127); see
+  [siri-playmedia](siri-playmedia.md).
 
 ## How to get to it (user POV)
 
@@ -40,6 +54,14 @@ $B appgroup get abbay.librarySnapshot.v1 | jq '.audios | length'
 $B appgroup get abbay.librarySnapshot.v1 | jq '[.audios[] | select(.bookmarkData != null)] | length'
 $B spotlight query "<title>"                  # planned: CSSearchQuery against our named index
 ```
+
+The foreground/pause refresh and the background task are not observable from the app's state: they
+log to the `Siri` category (`context refresh (foreground|pause|backgroundTask): N books`, `… skipped
+… throttled`, `background refresh: …`). On the simulator `BGTaskScheduler.submit` is refused (logged,
+expected). To fire the task on a device under the debugger, pause and run
+`e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.edyuto.Abbay.siriRefresh"]`.
+Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests`,
+`AppDelegateSiriFreshnessTests` and `PlayerSiriFreshnessTests`.
 
 `AppIntentsTesting` can validate entity queries and Spotlight indexing directly, which makes this
 feature one of the better arguments for taking the Xcode 27 upgrade.

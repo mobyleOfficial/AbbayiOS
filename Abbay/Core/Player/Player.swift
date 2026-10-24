@@ -75,6 +75,8 @@ final class Player: PlayerProtocol {
     private let speeds: PlaybackSpeedStoring
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
+    /// Donations on pause and at chapter boundaries, and the context refresh on pause (#127).
+    private let siriSignals: PlayerSiriSignals
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -137,11 +139,13 @@ final class Player: PlayerProtocol {
         networkPath: NetworkPathProviding = NetworkPathMonitor.shared,
         speeds: PlaybackSpeedStoring = NormalPlaybackSpeed(),
         lastPlayed: LastPlayedStore = .shared,
-        launchState: LaunchStateFlag = .shared
+        launchState: LaunchStateFlag = .shared,
+        siriContext: SiriContextRefreshing = NoopSiriContextRefresher()
     ) {
         self.speeds = speeds
         self.lastPlayed = lastPlayed
         self.launchState = launchState
+        self.siriSignals = PlayerSiriSignals(donor: intentDonor, context: siriContext)
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
@@ -251,6 +255,7 @@ final class Player: PlayerProtocol {
     func pause() {
         saveTime()
         player.pause()
+        siriSignals.paused(model)
     }
 
     func forward(withSeconds seconds: Double) {
@@ -445,7 +450,17 @@ final class Player: PlayerProtocol {
                 playbackRate: self.playbackRate
             )
             self.savePositionIfDue(isPlaying: isPlaying)
+            self.noteChapter(atBookTime: currentTime, isPlaying: isPlaying)
         }
+    }
+}
+
+// MARK: - Siri donations at chapter boundaries
+extension Player {
+    /// Called on every periodic-observer tick, to donate when playback crosses into another
+    /// chapter (#127). Internal for tests: the observer only fires while an item plays.
+    func noteChapter(atBookTime time: Double, isPlaying: Bool) {
+        siriSignals.tick(model, bookTime: time, isPlaying: isPlaying)
     }
 }
 
