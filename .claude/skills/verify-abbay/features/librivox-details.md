@@ -115,7 +115,9 @@ All three cover states are verified by `CoverUITests`:
   (`test_detailCover_afterARelaunch_isServedFromDisk`).
 - Reduce Motion: two frames of the loading cover 0.5 s apart differ normally
   (`test_loadingCover_shimmers`) and are identical with `-forceReduceMotion`
-  (`test_loadingCover_withReduceMotion_isStatic`).
+  (`test_loadingCover_withReduceMotion_isStatic`). On iOS 18.5 `-forceReduceMotion` doesn't reach
+  this page, so that test fails there; with the system Reduce Motion setting on it passes, so the
+  app is right and the override is not (#185). The other four pass on 18.5.
 
 ```bash
 $B launch -seedLibrary -stubLibriVox -stubCovers   # cover loads for 12 s, then a green square

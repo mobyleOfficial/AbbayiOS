@@ -56,10 +56,21 @@ final class CoverUITests: XCTestCase {
 
     /// Two frames of the loading cover, half a second apart, compared pixel for pixel.
     private func loadingCoverChangesOverTime() throws -> Bool {
-        let cover = element(AccessibilityID.Cover.loading)
-        let first = cover.screenshot().pngRepresentation
+        // On iOS 18 the Search tab's card cover, under the pushed page, also resolves the id:
+        // bind to the one on screen so both frames are of the same view.
+        let covers = app.descendants(matching: .any).matching(identifier: AccessibilityID.Cover.loading)
+        let cover = try XCTUnwrap(covers.allElementsBoundByIndex.first { $0.isHittable }, "no loading cover on screen")
+        let firstShot = cover.screenshot()
         Thread.sleep(forTimeInterval: 0.5)
-        let second = cover.screenshot().pngRepresentation
+        let secondShot = cover.screenshot()
+        // Kept on failure, so a mismatch can be looked at.
+        for (name, shot) in [("first frame", firstShot), ("second frame", secondShot)] {
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name
+            add(attachment)
+        }
+        let first = firstShot.pngRepresentation
+        let second = secondShot.pngRepresentation
         // The frames are only meaningful while the cover was still loading for both.
         try XCTSkipUnless(cover.exists, "the cover finished loading before the second frame")
         return first != second
