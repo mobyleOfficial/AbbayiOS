@@ -537,6 +537,7 @@ extension Player {
             \(error?.domain ?? "", privacy: .public) \(error?.code ?? 0, privacy: .public)
             """
         )
+        stopAfterFailure()
         noticeReporter.report(isReachable ? .playbackFailed : .fileMissing(title: Notice.title(of: book)))
     }
 
@@ -547,7 +548,16 @@ extension Player {
         Log.player.error(
             "chapter failed: streaming=\(isStreaming, privacy: .public), online=\(isOnline, privacy: .public)"
         )
+        stopAfterFailure()
         noticeReporter.report(isStreaming && !isOnline ? .streamingOffline : .chapterFailed)
+    }
+
+    /// A player asked to play keeps its rate after its item fails, and with no item left it can
+    /// report itself as playing, so the bar and the row showed Pause and the first tap only paused
+    /// (#115). Pausing makes them show Play, and one tap retries through `play`. No `saveTime()`:
+    /// a failed item has no position worth keeping.
+    private func stopAfterFailure() {
+        player.pause()
     }
 }
 

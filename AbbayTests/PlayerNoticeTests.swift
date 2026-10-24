@@ -137,6 +137,59 @@ final class PlayerNoticeTests: XCTestCase {
         XCTAssertEqual(notices.notices.last, .fileMissing(title: "Moved Book"))
     }
 
+    // MARK: - Playing state after a failure
+
+    /// After a failure the bar and the row must show Play, not Pause: the player asked to play is
+    /// paused, so one tap on Play retries instead of the first tap pausing a player that plays nothing.
+    func test_aFailedFile_leavesThePlayerPaused() throws {
+        let player = try makePlayer()
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent("gone-\(UUID().uuidString).m4b")
+        var model = AudioModel(title: "Moved Book", url: missing)
+        var published: [Bool] = []
+        let subscription = player.isPlayingPublisher.sink { published.append($0) }
+
+        player.play(&model)
+        _ = try waitForNotice()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+        XCTAssertFalse(player.isPlaying(missing))
+        XCTAssertEqual(player.requestedRates.rate, 0)
+        XCTAssertEqual(published.last, false)
+        subscription.cancel()
+    }
+
+    func test_aFailedChapter_leavesThePlayerPaused() throws {
+        try XCTUnwrap(network).isOnline = false
+        let player = try makePlayer()
+        var model = libriVoxBook()
+
+        player.play(&model)
+        _ = try waitForNotice()
+
+        XCTAssertFalse(player.isPlaying(model.url))
+        XCTAssertEqual(player.requestedRates.rate, 0)
+    }
+
+    /// One tap on Play after a failure retries (and so reports again), rather than doing nothing.
+    func test_oneTapAfterAFailedChapter_retriesAndReportsAgain() throws {
+        try XCTUnwrap(network).isOnline = false
+        let player = try makePlayer()
+        var model = libriVoxBook()
+        player.play(&model)
+        _ = try waitForNotice()
+        let notices = try XCTUnwrap(notices)
+        let firstCount = notices.notices.count
+        let again = expectation(description: "reported again")
+        again.assertForOverFulfill = false
+        notices.onReport = { _ in again.fulfill() }
+
+        player.play(&model)
+
+        wait(for: [again], timeout: 10)
+        XCTAssertGreaterThan(notices.notices.count, firstCount)
+        XCTAssertEqual(player.requestedRates.rate, 0)
+    }
+
     /// The file is there but isn't playable audio: re-importing won't help, so don't suggest it.
     func test_play_aFileThatIsThereButUnreadable_reportsPlaybackFailed() throws {
         let player = try makePlayer()
