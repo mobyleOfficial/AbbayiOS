@@ -11,6 +11,7 @@ final class MockDependencyContainer: DependencyContainerProtocol {
     let loadAllAudios: LoadAllAudiosUseCaseProtocol
     let downloads: BookDownloadManagerProtocol
     let playback: PlaybackCenter
+    let downloadStates: DownloadStateStore
 
     init(player: PlayerProtocol,
          loadAudio: LoadAudioUseCaseProtocol,
@@ -20,6 +21,7 @@ final class MockDependencyContainer: DependencyContainerProtocol {
         self.loadAudio = loadAudio
         self.loadAllAudios = loadAllAudios
         self.downloads = downloads
+        self.downloadStates = DownloadStateStore(downloads: downloads)
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
     }
 }
