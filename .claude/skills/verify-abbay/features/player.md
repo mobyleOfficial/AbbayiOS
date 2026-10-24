@@ -126,7 +126,7 @@ $B drag player.close down                                 # planned: collapse un
   no audio), and with real audio it plays from the tapped chapter, not the saved position
   (`test_chapterTap_bookNotLoaded_playsThatChapter`, `-seedPlayableBook`: the transport flips to
   *Pause* and the bar reads *Chapter 4*). The three cases are unit-tested in
-  `PlayerViewModelTests.test_selectChapter_*`.
+  `PlayerViewModelChapterTapTests`.
 - `player.chapters.empty` on "Seeded Plain Book", and its absence on "Seeded Chaptered Book"
   (`EmptyStateUITests`)
 - `player.close` (`test_player_closeButton_dismisses`)

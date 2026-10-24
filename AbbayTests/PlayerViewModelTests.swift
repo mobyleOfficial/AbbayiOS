@@ -256,59 +256,6 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(player.seekSeconds, [120])
     }
 
-    // MARK: - Tapping a chapter (#166, owner decision)
-
-    /// Tapping a chapter always plays that chapter of the shown book: paused is no exception.
-    func test_selectChapter_shownBookLoadedAndPaused_seeksToTheChapterAndPlays() {
-        let book = ViewModelSupport.chaptered()
-        let state = loadedState(book, isPlaying: false)
-        let player = MockPlayer()
-        player.url = book.url
-        let sut = PlayerViewModel(book, state: state, player: player, downloads: nil)
-
-        sut.selectChapter(2)
-        sut.selectChapter(9)
-
-        XCTAssertEqual(player.playChapterCalls, [2], "seeks to chapter three's start and plays; 9 is out of range")
-        XCTAssertEqual(player.playCalls.map(\.url), [], "the loaded book is resumed in place, not reloaded")
-    }
-
-    /// Another book is loaded: the tap loads the shown book at the chapter's start, then seeks it.
-    /// It must never seek the loaded book on the shown one's behalf (the wrong chapter of the
-    /// wrong book).
-    func test_selectChapter_anotherBookLoaded_switchesToTheShownBookThenSeeks() {
-        let loaded = ViewModelSupport.chaptered()
-        let player = MockPlayer()
-        player.url = loaded.url
-        let shown = otherBook(currentTime: 250)
-        let sut = PlayerViewModel(shown, state: loadedState(loaded), player: player, downloads: nil)
-
-        sut.selectChapter(1)
-
-        XCTAssertEqual(player.playCalls.map(\.url), [otherURL], "the shown book is loaded first")
-        XCTAssertEqual(player.playCalls.first?.currentTime, 100, "at the chapter's start, not its saved 250 s")
-        XCTAssertEqual(player.playChapterCalls, [1], "then the chapter is played, in the shown book")
-        XCTAssertEqual(player.seekSeconds, [])
-    }
-
-    /// The shown book can't be played (not downloaded and offline, or its file is gone): the tap
-    /// does what Play does, so the player reports why, and nothing seeks the loaded book.
-    func test_selectChapter_shownBookCannotPlay_doesWhatPlayDoes_andLeavesTheLoadedBookAlone() {
-        let loaded = ViewModelSupport.chaptered()
-        let player = MockPlayer()
-        player.url = loaded.url
-        player.loadsOnPlay = false
-        let shown = libriVoxBook()
-        let sut = PlayerViewModel(shown, state: loadedState(loaded), player: player, downloads: nil)
-
-        sut.selectChapter(1)
-
-        XCTAssertEqual(player.playCalls.map(\.url), [shown.url])
-        XCTAssertEqual(player.playChapterCalls, [], "the loaded book is not moved on the shown book's behalf")
-        XCTAssertEqual(player.seekSeconds, [])
-        XCTAssertEqual(player.url, loaded.url)
-    }
-
     // MARK: - Download state
 
     func test_downloadEntry_nilForImportedBook() {
