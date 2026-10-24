@@ -210,6 +210,34 @@ final class AccessibilityIdentifierTests: XCTestCase {
         }
     }
 
+    /// The details screen opens over the Library in the same hierarchy as its search field: the
+    /// keyboard must not stay up over the timeline and the chapters.
+    func test_openingDetailsFromASearch_dismissesTheKeyboard() throws {
+        launch([LaunchArgument.seedLibrary])
+        assertResolves(AccessibilityID.Library.list)
+        let field = searchField(prompt: libraryPrompt)
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        guard app.keyboards.firstMatch.waitForExistence(timeout: 5) else {
+            throw XCTSkip("no software keyboard (hardware keyboard connected)")
+        }
+        field.typeText("Chaptered")
+        let title = element(AccessibilityID.Element.title(AccessibilityID.Library.row(0)))
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+
+        title.tap()
+
+        let play = element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
+        XCTAssertTrue(play.waitForExistence(timeout: 15), "the details screen did not open")
+        let deadline = Date().addingTimeInterval(5)
+        let keyboard = app.keyboards.firstMatch
+        while keyboard.exists, Date() < deadline {
+            usleep(100_000)
+        }
+        XCTAssertFalse(keyboard.exists, "the keyboard stayed up over the details screen")
+        XCTAssertTrue(play.isHittable, "the transport's play button is covered")
+    }
+
     func test_emptyLibrary_browseButton_opensSearchTab() {
         launch([LaunchArgument.resetLibrary, LaunchArgument.stubLibriVox])
         assertResolves(AccessibilityID.Library.emptyBrowse)

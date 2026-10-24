@@ -37,6 +37,9 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedFillerBooks) {
             models += fillerModels()
         }
+        if arguments.contains(LaunchArgument.seedLongBook) {
+            models.append(longBookModel())
+        }
         for model in models {
             try? save.execute(model)
         }
@@ -53,6 +56,23 @@ enum UITestSeeder {
                 url: URL(string: "file:///seed/filler-\(number).mp3")
             )
         }
+    }
+
+    static let longBookTitle = "Seeded Long Book"
+
+    /// One book of 60 one-minute chapters: a chapter list far longer than the screen.
+    static func longBookModel(chapterCount: Int = 60) -> AudioModel {
+        let chapters = (0..<chapterCount).map { index in
+            ChapterModel(title: "Long Chapter \(index + 1)", startTime: Double(index) * 60, duration: 60)
+        }
+        return AudioModel(
+            title: longBookTitle,
+            albumName: "Seed Album",
+            artist: "Seed Author",
+            duration: Double(chapterCount) * 60,
+            chapters: chapters,
+            url: URL(string: "file:///seed/long.m4b")
+        )
     }
 
     /// Two books: one chaptered, one without chapters, so both row states are reachable.

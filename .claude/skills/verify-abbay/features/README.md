@@ -48,7 +48,7 @@ added. Resolve a row by matching its title label rather than assuming an index.
 
 - Fresh build: the app binary is newer than every source file under `Abbay/`.
 - Portrait iPhone only (`TARGET_DEVICE_FAMILY: 1`), forced dark mode
-  (`MediaListView` sets `.preferredColorScheme(.dark)`), deployment target iOS 17.0.
+  (`AppRootView` sets `.preferredColorScheme(.dark)`), deployment target iOS 17.0.
 - The library is seeded through launch arguments, handled by `UITestSeeder` in DEBUG builds and
   named in `Abbay/Core/LaunchArgument.swift`. The seeder and the other UI-test stand-ins live in
   `Abbay/DebugSupport/`, which `DebugOverrides` reads and Release builds leave out:
@@ -57,6 +57,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-resetLibrary` — empties the library, for the empty state.
   - `-seedFillerBooks` — with `-seedLibrary`, also adds filler books so the list is longer than
     the screen (the mini player's last-row inset test).
+  - `-seedLongBook` — with `-seedLibrary`, also adds *Seeded Long Book*, 60 one-minute chapters,
+    so the details screen's chapter list is far longer than the screen (the list-at-top collapse
+    tests).
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
     one stub book, which any query containing "stub" also finds) and swaps in a download manager
     that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search

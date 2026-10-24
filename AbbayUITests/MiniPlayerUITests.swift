@@ -178,6 +178,7 @@ final class MiniPlayerUITests: XCTestCase {
 
     /// iOS 18+: with the chapter list resting at its top, dragging it down collapses the screen.
     func test_draggingChapterListDown_atItsTop_collapses() throws {
+        guard #available(iOS 18, *) else { throw XCTSkip("the list-at-top collapse is iOS 18+") }
         try loadSeededBook(titled: "Seeded Chaptered Book")
         element(AccessibilityID.MiniPlayer.bar).tap()
         waitForPlayerToArrive()
@@ -200,6 +201,7 @@ final class MiniPlayerUITests: XCTestCase {
     /// iOS 18+: a short, slow drag down the chapter list at its top moves the screen under the
     /// finger and, released short of 30%, settles back open. Also the recorded list scenario.
     func test_shortSlowListDrag_settlesBackOpen() throws {
+        guard #available(iOS 18, *) else { throw XCTSkip("the list-at-top collapse is iOS 18+") }
         try loadSeededBook(titled: "Seeded Chaptered Book")
         element(AccessibilityID.MiniPlayer.bar).tap()
         waitForPlayerToArrive()
@@ -236,6 +238,86 @@ final class MiniPlayerUITests: XCTestCase {
         let bar = element(AccessibilityID.MiniPlayer.bar)
         XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
         XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+    }
+
+    // MARK: - A long chapter list
+
+    /// A drag on the open details screen's chapter list, between two points of the list's area.
+    private func dragList(from start: XCUICoordinate, by dy: CGFloat, velocity: CGFloat) {
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)),
+            withVelocity: XCUIGestureVelocity(velocity),
+            thenHoldForDuration: 0
+        )
+    }
+
+    /// The first chapter row that can take a tap, from `range`.
+    private func firstHittableChapter(in range: Range<Int>) -> Int? {
+        range.first { element(AccessibilityID.Player.chapter($0)).isHittable }
+    }
+
+    /// The final review's long-list check (60 chapters): the list scrolls down and back up (its
+    /// offset changes, the screen stays open), a fast drag down mid-list scrolls instead of
+    /// collapsing, and only a drag down that starts with the list at its top collapses (iOS 18+).
+    /// Also the scenario recorded on 26.4 and 18.5.
+    func test_longChapterList_scrolls_andCollapsesOnlyFromItsTop() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedLongBook])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Long Book"), "no seeded long book")
+        element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
+        waitForPlayerToArrive()
+        XCTAssertTrue(transportPlay.waitForExistence(timeout: 5))
+        sleep(1)
+        let first = element(AccessibilityID.Player.chapter(0))
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        let listTop = first.frame.minY
+        // Inside the list's area: just under its top row, and a little above the home indicator.
+        let upper = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.midX, dy: listTop + 30))
+        let lower = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.midX, dy: app.frame.height - 60))
+        let span = (app.frame.height - 60) - (listTop + 30)
+
+        // Down to the middle of the list.
+        for _ in 0..<3 {
+            dragList(from: lower, by: -span, velocity: 1500)
+        }
+        sleep(2)
+        XCTAssertTrue(transportPlay.exists, "scrolling the list collapsed the screen")
+        let middle = try XCTUnwrap(firstHittableChapter(in: 1..<60), "no chapter row on screen")
+        XCTAssertGreaterThanOrEqual(middle, 8, "the list did not scroll down (first visible row \(middle))")
+        XCTAssertFalse(first.isHittable, "the first chapter is still on screen")
+
+        // A fast drag down mid-list: the list scrolls back up, the screen stays open.
+        dragList(from: upper, by: span * 0.6, velocity: 2500)
+        sleep(2)
+        XCTAssertTrue(transportPlay.exists, "a drag down mid-list collapsed the screen")
+        XCTAssertTrue(transportPlay.isHittable, "the screen moved: a drag down mid-list must scroll the list")
+        let afterDown = try XCTUnwrap(firstHittableChapter(in: 0..<60))
+        XCTAssertLessThan(afterDown, middle, "the drag down mid-list did not scroll the list")
+
+        // Back to the top, never starting a drag there: each one starts mid-list.
+        for _ in 0..<8 {
+            if first.isHittable, first.frame.minY >= listTop - 1 { break }
+            dragList(from: upper, by: span * 0.6, velocity: 1500)
+            sleep(1)
+        }
+        sleep(1)
+        XCTAssertTrue(transportPlay.exists, "scrolling back up collapsed the screen")
+        XCTAssertEqual(first.frame.minY, listTop, accuracy: 2, "the list is not back at its top")
+
+        guard #available(iOS 18, *) else { return }
+        // At the top: a fast drag down collapses (iOS 18+). From the top row, as the short-list
+        // test does: the finger can't travel 30% from there, so it is a flick.
+        let start = first.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(
+            forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
+            withVelocity: 3000,
+            thenHoldForDuration: 0
+        )
+        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the drag down at the top did not collapse")
     }
 
     /// A short, slow drag stays under 30% of the travel: released, it settles back into the bar.
