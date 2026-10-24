@@ -87,4 +87,13 @@ final class MockPlayer: PlayerProtocol {
         playChapterCalls.append(index)
         return playChapterResult
     }
+
+    /// Rates passed to `setPlaybackRate(_:)`.
+    var rateCalls = [Double]()
+    var playbackRate: Double = 1
+
+    func setPlaybackRate(_ rate: Double) {
+        rateCalls.append(rate)
+        playbackRate = rate
+    }
 }

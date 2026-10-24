@@ -26,7 +26,6 @@ enum LaunchArgument {
     /// Make *Import file* skip the system picker and import two files that don't exist, so the
     /// failed-import banner shows.
     static let stubFailingImport = "-stubFailingImport"
-
     /// Start from the default settings, kept in memory for this launch only, so a test that changes
     /// the language or a skip interval can't leak it into the next launch.
     static let resetSettings = "-resetSettings"

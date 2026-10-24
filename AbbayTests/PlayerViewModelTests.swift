@@ -323,4 +323,39 @@ final class PlayerViewModelTests: XCTestCase {
 
         XCTAssertTrue(manager.retried.isEmpty)
     }
+
+    // MARK: - Speed
+
+    func test_setSpeed_onTheLoadedBook_goesToThePlayer() {
+        let book = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        let settings = AppSettings(store: InMemoryKeyValueStore())
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        sut.setSpeed(1.5, in: settings)
+
+        XCTAssertEqual(player.rateCalls, [1.5], "the player applies it at once and saves it")
+    }
+
+    /// Another book's transport does nothing until it plays; its speed is just remembered.
+    func test_setSpeed_onAnotherBook_isRememberedForIt_withoutTouchingThePlayer() {
+        let player = MockPlayer()
+        let settings = AppSettings(store: InMemoryKeyValueStore())
+        let state = loadedState(ViewModelSupport.chaptered())
+        let sut = PlayerViewModel(otherBook(), state: state, player: player, downloads: nil)
+
+        sut.setSpeed(2, in: settings)
+
+        XCTAssertTrue(player.rateCalls.isEmpty)
+        XCTAssertEqual(settings.speed(for: otherURL), 2)
+        XCTAssertEqual(sut.speed(in: settings), 2)
+    }
+
+    func test_speed_ofABookWithoutItsOwn_isTheDefault() {
+        let settings = AppSettings(store: InMemoryKeyValueStore())
+        settings.defaultSpeed = 1.25
+        let sut = PlayerViewModel(otherBook(), state: PlaybackState(), player: nil, downloads: nil)
+
+        XCTAssertEqual(sut.speed(in: settings), 1.25)
+    }
 }

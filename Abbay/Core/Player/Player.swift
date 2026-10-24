@@ -35,6 +35,18 @@ protocol PlayerProtocol {
     func skipToPreviousChapter()
     @discardableResult
     func playChapter(at index: Int) -> Bool
+    /// The loaded book's speed; normal speed when nothing is loaded.
+    var playbackRate: Double { get }
+    /// Sets the loaded book's speed, saves it for that book, and applies it at once when playing.
+    /// It holds across pause and resume, seeks and chapter files.
+    func setPlaybackRate(_ rate: Double)
+}
+
+/// For players with no speed control (test doubles that predate it).
+extension PlayerProtocol {
+    var playbackRate: Double { PlaybackSpeed.normal }
+
+    func setPlaybackRate(_ rate: Double) {}
 }
 
 final class Player: PlayerProtocol {
@@ -60,6 +72,7 @@ final class Player: PlayerProtocol {
     /// `positionSaveInterval`. Restarts on every save and on loading a book.
     private var lastPositionSave: Date?
     private var notificationObservers: [NSObjectProtocol] = []
+    private let speeds: PlaybackSpeedStoring
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -101,6 +114,12 @@ final class Player: PlayerProtocol {
 
     internal var currentItemURL: URL? { (player.currentItem?.asset as? AVURLAsset)?.url }
 
+    /// What the queue player was asked for, for tests: `rate` is 0 while paused, `defaultRate` is
+    /// what the next `play()` starts at.
+    internal var requestedRates: (rate: Float, defaultRate: Float) { (player.rate, player.defaultRate) }
+
+    private(set) var playbackRate: Double = PlaybackSpeed.normal
+
     // MARK: - Init
     init(
         savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol = SavePlaybackPositionUseCase(),
@@ -113,8 +132,10 @@ final class Player: PlayerProtocol {
         notificationCenter: NotificationCenter = .default,
         now: @escaping () -> Date = Date.init,
         noticeReporter: NoticeReporting = NoticeCenter.shared,
-        networkPath: NetworkPathProviding = NetworkPathMonitor.shared
+        networkPath: NetworkPathProviding = NetworkPathMonitor.shared,
+        speeds: PlaybackSpeedStoring = NormalPlaybackSpeed()
     ) {
+        self.speeds = speeds
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
@@ -349,6 +370,7 @@ final class Player: PlayerProtocol {
         player.actionAtItemEnd = .pause
         player.removeAllItems()
         player.replaceCurrentItem(with: playerItem)
+        applyBookSpeed(url)
         playUrlSubject.send(item)
     }
 
@@ -369,6 +391,7 @@ final class Player: PlayerProtocol {
                 onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) }
             )
         }
+        applyBookSpeed(item.url)
         playUrlSubject.send(item)
     }
 
@@ -412,7 +435,8 @@ final class Player: PlayerProtocol {
             NowPlayingManager.shared.updateNowPlaying(
                 for: model,
                 currentTime: currentTime,
-                isPlaying: isPlaying
+                isPlaying: isPlaying,
+                playbackRate: self.playbackRate
             )
             self.savePositionIfDue(isPlaying: isPlaying)
         }
@@ -518,5 +542,43 @@ extension Player {
             "chapter failed: streaming=\(isStreaming, privacy: .public), online=\(isOnline, privacy: .public)"
         )
         noticeReporter.report(isStreaming && !isOnline ? .streamingOffline : .chapterFailed)
+    }
+}
+
+// MARK: - Speed
+extension Player {
+    func setPlaybackRate(_ rate: Double) {
+        let speed = PlaybackSpeed.snap(rate)
+        if let url = model?.url {
+            speeds.setSpeed(speed, for: url)
+        }
+        apply(speed: speed)
+        if let model {
+            NowPlayingManager.shared.updateNowPlaying(
+                for: model,
+                currentTime: currentTime,
+                isPlaying: player.timeControlStatus == .playing,
+                playbackRate: speed
+            )
+        }
+    }
+
+    /// A book plays at its own speed. The first time it loads it has none, so it takes the default
+    /// for new books and keeps it: changing the default later changes only books not played yet.
+    private func applyBookSpeed(_ url: URL?) {
+        let speed = speeds.playbackSpeed(for: url)
+        speeds.setSpeed(speed, for: url)
+        apply(speed: speed)
+    }
+
+    /// One `AVQueuePlayer` plays every chapter file, so its `defaultRate` (what `play()` starts at)
+    /// carries the speed across pause and resume, seeks and file hand-offs. A playing player also
+    /// takes the new `rate` at once.
+    private func apply(speed: Double) {
+        playbackRate = speed
+        player.defaultRate = Float(speed)
+        if player.rate != 0 {
+            player.rate = Float(speed)
+        }
     }
 }
