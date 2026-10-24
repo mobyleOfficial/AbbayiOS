@@ -16,11 +16,21 @@ enum CellularDownloadPolicy {
         case askUser
     }
 
-    /// Small books count as "Continue" chosen. Large books ask on a metered network; on unmetered
-    /// Wi-Fi they proceed without cellular so moving to a metered network later holds the download.
-    static func decide(totalBytes: Int64, isMetered: Bool) -> Decision {
+    /// Small books count as "Continue" chosen. Large books follow the Settings preference: `.ask`
+    /// asks on a metered network and on unmetered Wi-Fi proceeds without cellular, so moving to a
+    /// metered network later holds the download; `.always` and `.wifiOnly` answer without asking.
+    static func decide(
+        totalBytes: Int64,
+        isMetered: Bool,
+        preference: CellularDownloadPreference = .ask
+    ) -> Decision {
         if totalBytes <= largeDownloadThreshold {
             return .proceed(allowsCellular: true)
+        }
+        switch preference {
+        case .always: return .proceed(allowsCellular: true)
+        case .wifiOnly: return .proceed(allowsCellular: false)
+        case .ask: break
         }
         return isMetered ? .askUser : .proceed(allowsCellular: false)
     }

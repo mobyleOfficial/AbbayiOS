@@ -62,4 +62,14 @@ enum DebugOverrides {
         #endif
         return nil
     }
+
+    /// A fresh in-memory settings store, for `-resetSettings`.
+    static func settingsStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> KeyValueStoring? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.resetSettings) {
+            return InMemoryKeyValueStore()
+        }
+        #endif
+        return nil
+    }
 }

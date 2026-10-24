@@ -8,8 +8,19 @@
 import Foundation
 
 final class AbbayBundle {
+    /// The in-app language override (`AppLanguage.languageCode`): nil follows the device. Set by
+    /// `AppSettings` at launch and whenever the Settings screen changes it.
+    static var languageCode: String?
+
+    /// Where `Localizable` reads strings: the override's `.lproj` when there is one, else the app
+    /// bundle, which follows the device.
     static var value: Bundle {
-        Bundle(for: Self.self)
+        let bundle = Bundle(for: Self.self)
+        guard let languageCode,
+              let path = bundle.path(forResource: languageCode, ofType: "lproj"),
+              let localized = Bundle(path: path)
+        else { return bundle }
+        return localized
     }
 
     /// The locale of the language the app's strings resolve in, for formatters (durations) whose

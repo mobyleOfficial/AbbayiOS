@@ -101,9 +101,50 @@ enum AccessibilityID {
         }
     }
 
+    /// The Settings sheet, opened by `library.toolbar.settings`. `settings.done` is the "screen is
+    /// up" signal (there is no `settings.root`, per the leaf rule).
+    enum Settings {
+        static let done = "settings.done"
+        static let defaultSpeed = "settings.playback.defaultSpeed"
+        static let skipBack = "settings.playback.skipBack"
+        static let skipForward = "settings.playback.skipForward"
+        static let cellular = "settings.downloads.cellular"
+        static let spaceUsed = "settings.downloads.spaceUsed"
+        static let deleteFinished = "settings.downloads.deleteFinished"
+        static let deleteConfirm = "settings.downloads.deleteConfirm"
+        static let deleteCancel = "settings.downloads.deleteCancel"
+        static let privacyPolicy = "settings.about.privacyPolicy"
+        static let version = "settings.about.version"
+        static let librivox = "settings.about.librivox"
+        static let licenses = "settings.about.licenses"
+        static let licensesBody = "settings.about.licenses.body"
+        static let audioStatus = "settings.about.audioStatus"
+
+        /// One option of the language picker; `language` is an `AppLanguage` raw value.
+        static func language(_ language: String) -> String {
+            "settings.language.\(language)"
+        }
+    }
+
+    /// The speed control: in the player's speed sheet, and on Settings' default speed page.
+    enum Speed {
+        static let value = "speed.value"
+        static let decrease = "speed.decrease"
+        static let increase = "speed.increase"
+        static let slider = "speed.slider"
+        static let setDefault = "speed.setDefault"
+
+        /// A preset chip, by its speed: `speed.preset.1.5`.
+        static func preset(_ speed: Double) -> String {
+            "speed.preset.\(speed)"
+        }
+    }
+
     enum Player {
         /// Closes the details screen (the chevron in its header; the header also drags down).
         static let close = "player.close"
+        /// Opens the speed sheet; its label is the book's speed ("1.5×").
+        static let speed = "player.speed"
         /// The grabber at the top of the details screen: drag it down to collapse into the bar.
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
         static let grabber = "player.grabber"
@@ -151,11 +192,10 @@ enum AccessibilityID {
         }
     }
 
+    /// The back and forward skips jump by the Settings amounts, so their identifiers carry no number.
     enum Transport {
-        static let back30 = "back30"
-        static let back15 = "back15"
+        static let back = "back"
         static let play = "play"
-        static let forward15 = "forward15"
-        static let forward30 = "forward30"
+        static let forward = "forward"
     }
 }

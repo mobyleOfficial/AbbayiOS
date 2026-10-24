@@ -14,6 +14,8 @@ protocol DependencyContainerProtocol {
     var playback: PlaybackCenter { get }
     /// The one app-wide download source, one observable entry per book.
     var downloadStates: DownloadStateStore { get }
+    /// The app's settings: skip intervals, speeds, downloads and language.
+    var settings: AppSettings { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -47,13 +49,20 @@ final class DependencyContainer: DependencyContainerProtocol {
     let downloads: BookDownloadManagerProtocol
     let playback: PlaybackCenter
     let downloadStates: DownloadStateStore
+    let settings: AppSettings
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
         // background session identifier may back only one session.
         let downloads = Self.makeDownloads()
         self.downloads = downloads
-        let player = Player(chapterPrioritizer: downloads)
+        // Before the player: it reads each book's speed from here as it loads it.
+        let settings = AppSettings(
+            store: DebugOverrides.settingsStore() ?? LocalStorage.preferences,
+            effects: LiveSettingsEffects()
+        )
+        self.settings = settings
+        let player = Player(chapterPrioritizer: downloads, speeds: settings)
         let loadAudio = LoadAudioUseCase()
         self.player = player
         self.loadAudio = loadAudio

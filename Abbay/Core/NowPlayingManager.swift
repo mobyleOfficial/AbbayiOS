@@ -13,6 +13,10 @@ final class NowPlayingManager {
 
     private var player: PlayerProtocol?
     private var model: AudioModel?
+    /// The Settings skip amounts, in seconds. The lock screen and CarPlay draw the arrows from the
+    /// commands' `preferredIntervals`; the handlers jump by these.
+    private(set) var skipBackwardInterval = SkipInterval.standard.seconds
+    private(set) var skipForwardInterval = SkipInterval.standard.seconds
 
     /// Read-only view of the audio currently associated with the playback session.
     /// Set via `setPlayer(_:currentAudio:)`. Consumed by App Intents to gate
@@ -29,7 +33,9 @@ final class NowPlayingManager {
     }
 
     // MARK: - Now Playing Info
-    func updateNowPlaying(for audio: AudioModel, currentTime: Double, isPlaying: Bool) {
+    /// `playbackRate` is the book's speed: the system extrapolates elapsed time by it, so the lock
+    /// screen's clock runs at the real speed between updates.
+    func updateNowPlaying(for audio: AudioModel, currentTime: Double, isPlaying: Bool, playbackRate: Double = 1) {
         var nowPlayingInfo = [String: Any]()
 
         // Basic info
@@ -40,7 +46,8 @@ final class NowPlayingManager {
         // Timing info
         nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = audio.duration
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? playbackRate : 0.0
+        nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = playbackRate
 
         // Artwork
         if let imageData = audio.imageData, let image = UIImage(data: imageData) {
@@ -85,6 +92,7 @@ final class NowPlayingManager {
         setupSkipCommands(commandCenter)
         setupTrackCommands(commandCenter)
         setupSeekCommand(commandCenter)
+        setupPlaybackRateCommand(commandCenter)
         print("📻 NowPlaying: Remote Command Center configured")
     }
 
@@ -125,35 +133,56 @@ final class NowPlayingManager {
         return .success
     }
 
+    /// Sets the lock screen's and CarPlay's skip amounts (Settings). Their arrows show the number.
+    func setSkipIntervals(backward: Double, forward: Double) {
+        skipBackwardInterval = backward
+        skipForwardInterval = forward
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: backward)]
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: forward)]
+    }
+
+    func skipForward() -> MPRemoteCommandHandlerStatus {
+        guard let player else { return .commandFailed }
+        player.forward(withSeconds: skipForwardInterval)
+        return .success
+    }
+
+    func skipBackward() -> MPRemoteCommandHandlerStatus {
+        guard let player else { return .commandFailed }
+        player.backward(withSeconds: skipBackwardInterval)
+        return .success
+    }
+
     private func setupSkipCommands(_ commandCenter: MPRemoteCommandCenter) {
         commandCenter.skipForwardCommand.isEnabled = true
-        commandCenter.skipForwardCommand.preferredIntervals = [15]
-        commandCenter.skipForwardCommand.addTarget { [weak self] event in
-            guard let self = self, let player = self.player else {
-                return .commandFailed
-            }
-            if let command = event.command as? MPSkipIntervalCommand,
-               let interval = command.preferredIntervals.first {
-                player.forward(withSeconds: interval.doubleValue)
-            } else {
-                player.forward(withSeconds: 15)
-            }
-            return .success
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: skipForwardInterval)]
+        commandCenter.skipForwardCommand.addTarget { [weak self] _ in
+            self?.skipForward() ?? .commandFailed
         }
 
         commandCenter.skipBackwardCommand.isEnabled = true
-        commandCenter.skipBackwardCommand.preferredIntervals = [15]
-        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
-            guard let self = self, let player = self.player else {
-                return .commandFailed
-            }
-            if let command = event.command as? MPSkipIntervalCommand,
-               let interval = command.preferredIntervals.first {
-                player.backward(withSeconds: interval.doubleValue)
-            } else {
-                player.backward(withSeconds: 15)
-            }
-            return .success
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: skipBackwardInterval)]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
+            self?.skipBackward() ?? .commandFailed
+        }
+    }
+
+    /// A speed picked outside the app (an accessory's or the system's speed control) becomes the
+    /// loaded book's speed, as if picked in the speed sheet.
+    func changePlaybackRate(to rate: Double) -> MPRemoteCommandHandlerStatus {
+        guard let player, model != nil else { return .commandFailed }
+        player.setPlaybackRate(rate)
+        return .success
+    }
+
+    private func setupPlaybackRateCommand(_ commandCenter: MPRemoteCommandCenter) {
+        let command = commandCenter.changePlaybackRateCommand
+        command.isEnabled = true
+        command.supportedPlaybackRates = PlaybackSpeed.presets.map { NSNumber(value: $0) }
+        command.addTarget { [weak self] event in
+            guard let event = event as? MPChangePlaybackRateCommandEvent else { return .commandFailed }
+            return self?.changePlaybackRate(to: Double(event.playbackRate)) ?? .commandFailed
         }
     }
 

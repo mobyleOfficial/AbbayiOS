@@ -20,6 +20,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
     private let downloadStates: DownloadStateStore
     private let saveAudio: SaveAudioUseCaseProtocol
     private let path: NetworkPathProviding
+    /// Read when Download is tapped, so a change in Settings applies to the next download.
+    private let cellularPreference: () -> CellularDownloadPreference
     private let onAdded: (AudioModel) -> Void
     /// Presents the details screen, the same presentation a Library row opens.
     private let openPlayer: (AudioModel) -> Void
@@ -33,6 +35,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         saveAudio: SaveAudioUseCaseProtocol,
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
+        cellularPreference: @escaping () -> CellularDownloadPreference = { .ask },
         onAdded: @escaping (AudioModel) -> Void,
         openPlayer: @escaping (AudioModel) -> Void
     ) {
@@ -42,6 +45,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.downloadStates = downloadStates
         self.saveAudio = saveAudio
         self.path = path
+        self.cellularPreference = cellularPreference
         self.onAdded = onAdded
         self.openPlayer = openPlayer
         // A book already in the library shows Play and its progress, and is never added again.
@@ -71,7 +75,12 @@ final class LibriVoxDetailViewModel: ObservableObject {
 
     func downloadTapped() {
         guard let details, addedBook == nil, !isStarting else { return }
-        switch CellularDownloadPolicy.decide(totalBytes: details.totalBytes, isMetered: path.isMetered) {
+        let decision = CellularDownloadPolicy.decide(
+            totalBytes: details.totalBytes,
+            isMetered: path.isMetered,
+            preference: cellularPreference()
+        )
+        switch decision {
         case let .proceed(allowsCellular):
             start(details, allowsCellular: allowsCellular)
         case .askUser:

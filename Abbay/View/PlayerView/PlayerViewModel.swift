@@ -98,6 +98,23 @@ final class PlayerViewModel {
         player?.seek(seconds)
     }
 
+    // MARK: - Speed
+
+    /// The shown book's speed. Read from the settings (observable), which the player also writes,
+    /// so a change from the lock screen shows here too.
+    func speed(in settings: AppSettings) -> Double {
+        settings.speed(for: book.url)
+    }
+
+    /// The loaded book changes speed at once; another book just remembers it for when it plays.
+    func setSpeed(_ speed: Double, in settings: AppSettings) {
+        if isLoaded, let player {
+            player.setPlaybackRate(speed)
+        } else {
+            settings.setSpeed(speed, for: book.url)
+        }
+    }
+
     /// A chapter row seeks to its start, only while playing, as before.
     /// A chapter's "Failed · Retry" status: restarts its download now. Works whether or not the
     /// book is loaded, since it touches only the download.

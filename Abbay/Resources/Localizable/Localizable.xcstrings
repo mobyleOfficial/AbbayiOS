@@ -1658,6 +1658,834 @@
           }
         }
       }
+    },
+    "settingsTitle" : {
+      "comment" : "Settings screen title and the library toolbar button's label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        }
+      }
+    },
+    "done" : {
+      "comment" : "Closes the Settings screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "settingsPlayback" : {
+      "comment" : "Settings section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprodução"
+          }
+        }
+      }
+    },
+    "defaultSpeed" : {
+      "comment" : "Settings row: the speed new books start at",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default speed for new books"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidade padrão para novos livros"
+          }
+        }
+      }
+    },
+    "defaultSpeedFooter" : {
+      "comment" : "Settings default speed page footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Books you have set a speed for keep their own."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Livros com velocidade própria continuam com ela."
+          }
+        }
+      }
+    },
+    "skipBack" : {
+      "comment" : "Settings row: how far the back button jumps",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip back"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar"
+          }
+        }
+      }
+    },
+    "skipForward" : {
+      "comment" : "Settings row: how far the forward button jumps",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip forward"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avançar"
+          }
+        }
+      }
+    },
+    "skipSeconds" : {
+      "comment" : "A skip amount in the Settings pickers, e.g. 15 seconds",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d seconds"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d segundos"
+          }
+        }
+      }
+    },
+    "skipFooter" : {
+      "comment" : "Settings playback section footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip amounts also apply on the lock screen and in CarPlay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os intervalos também valem na tela bloqueada e no CarPlay."
+          }
+        }
+      }
+    },
+    "settingsDownloads" : {
+      "comment" : "Settings section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
+          }
+        }
+      }
+    },
+    "cellularDownloads" : {
+      "comment" : "Settings row: what a large LibriVox download does on cellular",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large downloads on cellular"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads grandes na rede celular"
+          }
+        }
+      }
+    },
+    "cellularAsk" : {
+      "comment" : "Cellular download option: ask each time",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perguntar"
+          }
+        }
+      }
+    },
+    "cellularAlways" : {
+      "comment" : "Cellular download option: always use cellular",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sempre"
+          }
+        }
+      }
+    },
+    "cellularWifiOnly" : {
+      "comment" : "Cellular download option: wait for Wi-Fi",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi only"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apenas Wi-Fi"
+          }
+        }
+      }
+    },
+    "cellularFooter" : {
+      "comment" : "Settings downloads footer; the argument is a size such as 99 MB",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to books over %@. Smaller books download on any network."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vale para livros com mais de %@. Livros menores são baixados em qualquer rede."
+          }
+        }
+      }
+    },
+    "spaceUsed" : {
+      "comment" : "Settings row: disk space taken by LibriVox downloads",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space used"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espaço usado"
+          }
+        }
+      }
+    },
+    "calculating" : {
+      "comment" : "Shown while the space used is measured",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculating…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculando…"
+          }
+        }
+      }
+    },
+    "deleteFinished" : {
+      "comment" : "Settings button: delete books downloaded and listened to the end",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete finished downloads"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir downloads já ouvidos"
+          }
+        }
+      }
+    },
+    "deleteFinishedFooter" : {
+      "comment" : "Explains the delete finished downloads button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes LibriVox books you have downloaded and listened to the end."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove os livros do LibriVox que você baixou e ouviu até o fim."
+          }
+        }
+      }
+    },
+    "deleteFinishedNone" : {
+      "comment" : "Shown when no book qualifies for delete finished downloads",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No finished downloads to delete."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum download já ouvido para excluir."
+          }
+        }
+      }
+    },
+    "deleteFinishedTitle" : {
+      "comment" : "Confirmation alert title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete finished downloads?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir downloads já ouvidos?"
+          }
+        }
+      }
+    },
+    "deleteFinishedMessage" : {
+      "comment" : "Confirmation alert message; the argument is the size freed, such as 120 MB",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Books you have downloaded and listened to the end will be removed from your library, with their files (%@)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os livros que você baixou e ouviu até o fim serão removidos da sua biblioteca, junto com os arquivos (%@)."
+          }
+        }
+      }
+    },
+    "cancel" : {
+      "comment" : "Cancels an alert",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        }
+      }
+    },
+    "settingsLanguage" : {
+      "comment" : "Settings section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        }
+      }
+    },
+    "languageSystem" : {
+      "comment" : "Language option: follow the device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Padrão do sistema"
+          }
+        }
+      }
+    },
+    "languageFooter" : {
+      "comment" : "Settings language footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes apply right away."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A alteração vale na hora."
+          }
+        }
+      }
+    },
+    "settingsAbout" : {
+      "comment" : "Settings section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sobre"
+          }
+        }
+      }
+    },
+    "privacyPolicy" : {
+      "comment" : "Settings row: opens the privacy policy",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy policy"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Política de privacidade"
+          }
+        }
+      }
+    },
+    "version" : {
+      "comment" : "Settings row: app version and build",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versão"
+          }
+        }
+      }
+    },
+    "librivoxAbout" : {
+      "comment" : "Settings about: LibriVox and public domain credit",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free audiobooks come from LibriVox. Its recordings are read by volunteers and are in the public domain."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os audiolivros gratuitos vêm do LibriVox. As gravações são lidas por voluntários e são de domínio público."
+          }
+        }
+      }
+    },
+    "openSourceLicenses" : {
+      "comment" : "Settings row and page title: open-source licenses",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open-source licenses"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licenças de código aberto"
+          }
+        }
+      }
+    },
+    "licensesBody" : {
+      "comment" : "Open-source licenses page body",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbay includes no third-party libraries. All of its code, including the NetworkProvider networking module, is written by Mobyle."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Abbay não inclui bibliotecas de terceiros. Todo o código, incluindo o módulo de rede NetworkProvider, é escrito pela Mobyle."
+          }
+        }
+      }
+    },
+    "licensesContent" : {
+      "comment" : "Open-source licenses page: about the audiobooks",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiobooks from LibriVox are in the public domain and free to use."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os audiolivros do LibriVox são de domínio público e de uso livre."
+          }
+        }
+      }
+    },
+    "siriAudioStatus" : {
+      "comment" : "Settings row: whether audio and Siri work",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri & audio"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri e áudio"
+          }
+        }
+      }
+    },
+    "audioStatusOK" : {
+      "comment" : "Siri & audio status: fine",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funcionando"
+          }
+        }
+      }
+    },
+    "audioStatusUnavailable" : {
+      "comment" : "Siri & audio status: the audio session failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unavailable"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indisponível"
+          }
+        }
+      }
+    },
+    "audioStatusOKDetail" : {
+      "comment" : "Explains the working status",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio and Siri commands are ready."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O áudio e os comandos da Siri estão prontos."
+          }
+        }
+      }
+    },
+    "audioStatusUnavailableDetail" : {
+      "comment" : "Explains the unavailable status",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio could not start the last time Abbay opened, so Siri answers “Audio temporarily unavailable”. This clears by itself the next time a book plays."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O áudio não pôde ser iniciado na última vez que o Abbay abriu, por isso a Siri responde “Áudio temporariamente indisponível”. Isso se resolve sozinho na próxima vez que um livro tocar."
+          }
+        }
+      }
+    },
+    "playbackSpeed" : {
+      "comment" : "Speed sheet title and the player's speed button label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback speed"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidade de reprodução"
+          }
+        }
+      }
+    },
+    "speedDecrease" : {
+      "comment" : "Speed sheet minus button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slower"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mais devagar"
+          }
+        }
+      }
+    },
+    "speedIncrease" : {
+      "comment" : "Speed sheet plus button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faster"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mais rápido"
+          }
+        }
+      }
+    },
+    "speedPresets" : {
+      "comment" : "Speed sheet: the row of preset speeds",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presets"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predefinições"
+          }
+        }
+      }
+    },
+    "speedSetDefault" : {
+      "comment" : "Speed sheet button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set as default for new books"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definir como padrão para novos livros"
+          }
+        }
+      }
+    },
+    "speedIsDefault" : {
+      "comment" : "Speed sheet: the speed already is the default",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is the default for new books"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta é a velocidade padrão para novos livros"
+          }
+        }
+      }
+    },
+    "skipBackAction" : {
+      "comment" : "Player back button VoiceOver label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip back %d seconds"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar %d segundos"
+          }
+        }
+      }
+    },
+    "skipForwardAction" : {
+      "comment" : "Player forward button VoiceOver label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip forward %d seconds"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avançar %d segundos"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

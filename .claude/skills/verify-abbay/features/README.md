@@ -72,6 +72,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
     debounce. Combine it with the others; without it search and downloads use the real network.
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
     exist, so the failed-import banner shows (see [notices](notices.md)).
+  - `-resetSettings` — start from default settings kept in memory for that launch only, so a test
+    that changes the language, a skip amount or a speed leaves nothing behind (see [settings](settings.md)).
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
   cumulative. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
@@ -131,6 +133,7 @@ substitute: it records every intent firing across processes and survives app dea
 - [import](import.md): the document picker, metadata and chapter extraction, security-scoped bookmarks.
 - [media-row](media-row.md): the per-book row component, including the download ring.
 - [notices](notices.md): the app-wide error banner, and every failure that reports to it.
+- [settings](settings.md): the gear's sheet — default speed, skip amounts, cellular downloads, space used, delete finished, language, About.
 
 ### LibriVox
 

@@ -4,6 +4,7 @@
 //
 
 @testable import Abbay
+import MediaPlayer
 import XCTest
 
 final class NowPlayingManagerTests: XCTestCase {
@@ -48,6 +49,78 @@ final class NowPlayingManagerTests: XCTestCase {
         XCTAssertEqual(status, .success)
         XCTAssertEqual(player.pauseCallCount, 1)
         XCTAssertTrue(player.playCalls.isEmpty, "a buffering player is playing: the toggle must not play again")
+    }
+
+    // MARK: - Skip intervals (Settings)
+
+    func test_setSkipIntervals_drivesTheRemoteCommandsAndTheirHandlers() {
+        let player = MockPlayer()
+        NowPlayingManager.shared.setPlayer(player, currentAudio: model)
+        defer { NowPlayingManager.shared.setSkipIntervals(backward: 15, forward: 15) }
+
+        NowPlayingManager.shared.setSkipIntervals(backward: 10, forward: 45)
+
+        let commands = MPRemoteCommandCenter.shared()
+        XCTAssertEqual(commands.skipBackwardCommand.preferredIntervals, [10])
+        XCTAssertEqual(commands.skipForwardCommand.preferredIntervals, [45])
+        XCTAssertEqual(NowPlayingManager.shared.skipBackward(), .success)
+        XCTAssertEqual(NowPlayingManager.shared.skipForward(), .success)
+        XCTAssertEqual(player.backwardSeconds, [10])
+        XCTAssertEqual(player.forwardSeconds, [45])
+    }
+
+    /// Building the container applies the stored intervals, so the lock screen matches Settings from
+    /// launch, not only after the first change.
+    func test_appSettings_withLiveEffects_appliesTheStoredIntervals() {
+        defer { NowPlayingManager.shared.setSkipIntervals(backward: 15, forward: 15) }
+        let store = InMemoryKeyValueStore([AppSettings.Key.skipBackward: 30, AppSettings.Key.skipForward: 10])
+
+        _ = AppSettings(store: store, effects: LiveSettingsEffects())
+
+        XCTAssertEqual(MPRemoteCommandCenter.shared().skipBackwardCommand.preferredIntervals, [30])
+        XCTAssertEqual(MPRemoteCommandCenter.shared().skipForwardCommand.preferredIntervals, [10])
+    }
+
+    // MARK: - Speed
+
+    func test_changePlaybackRate_setsTheLoadedBooksSpeed() {
+        let player = MockPlayer()
+        NowPlayingManager.shared.setPlayer(player, currentAudio: model)
+
+        XCTAssertEqual(NowPlayingManager.shared.changePlaybackRate(to: 1.5), .success)
+
+        XCTAssertEqual(player.rateCalls, [1.5])
+    }
+
+    func test_changePlaybackRate_withNothingLoaded_fails() {
+        let player = MockPlayer()
+        NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
+
+        XCTAssertEqual(NowPlayingManager.shared.changePlaybackRate(to: 1.5), .commandFailed)
+        XCTAssertTrue(player.rateCalls.isEmpty)
+    }
+
+    func test_changePlaybackRateCommand_offersThePresets() {
+        let command = MPRemoteCommandCenter.shared().changePlaybackRateCommand
+        _ = NowPlayingManager.shared
+
+        XCTAssertTrue(command.isEnabled)
+        XCTAssertEqual(command.supportedPlaybackRates.map(\.doubleValue), PlaybackSpeed.presets)
+    }
+
+    /// The lock screen extrapolates the clock by the published rate, so it must be the real speed.
+    func test_updateNowPlaying_publishesTheRealRate() throws {
+        NowPlayingManager.shared.updateNowPlaying(for: model, currentTime: 12, isPlaying: true, playbackRate: 1.75)
+
+        let info = try XCTUnwrap(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+        XCTAssertEqual(info[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 1.75)
+        XCTAssertEqual(info[MPNowPlayingInfoPropertyDefaultPlaybackRate] as? Double, 1.75)
+
+        NowPlayingManager.shared.updateNowPlaying(for: model, currentTime: 12, isPlaying: false, playbackRate: 1.75)
+
+        let paused = try XCTUnwrap(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+        XCTAssertEqual(paused[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 0)
+        XCTAssertEqual(paused[MPNowPlayingInfoPropertyDefaultPlaybackRate] as? Double, 1.75)
     }
 
     func test_clearNowPlaying_isIdempotent() {

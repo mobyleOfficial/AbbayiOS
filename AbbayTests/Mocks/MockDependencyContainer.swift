@@ -12,11 +12,14 @@ final class MockDependencyContainer: DependencyContainerProtocol {
     let downloads: BookDownloadManagerProtocol
     let playback: PlaybackCenter
     let downloadStates: DownloadStateStore
+    let settings: AppSettings
 
     init(player: PlayerProtocol,
          loadAudio: LoadAudioUseCaseProtocol,
          loadAllAudios: LoadAllAudiosUseCaseProtocol,
-         downloads: BookDownloadManagerProtocol = MockBookDownloadManager()) {
+         downloads: BookDownloadManagerProtocol = MockBookDownloadManager(),
+         settings: AppSettings = AppSettings(store: InMemoryKeyValueStore())) {
+        self.settings = settings
         self.player = player
         self.loadAudio = loadAudio
         self.loadAllAudios = loadAllAudios

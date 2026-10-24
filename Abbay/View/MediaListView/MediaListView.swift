@@ -16,6 +16,8 @@ struct MediaListView: View {
     var model: MediaListViewModel
     /// Switches to the Search tab (the empty state's primary button).
     let onBrowse: () -> Void
+    /// Opens the Settings sheet, which the root presents.
+    var onSettings: VoidCallback?
 
     @Environment(PlayerPresentation.self)
     private var presentation
@@ -29,12 +31,12 @@ struct MediaListView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     addMenu
-                    // Settings is out of scope: same behavior as before (no action), but a
-                    // real `Button` so the system sizes it like the add menu.
                     Button {
+                        onSettings?()
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel(Localizable.settingsTitle.localized)
                     .accessibilityIdentifier(AccessibilityID.Library.toolbarSettings)
                 }
             }

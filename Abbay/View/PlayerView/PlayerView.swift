@@ -24,6 +24,11 @@ struct PlayerView: View {
     private var hidesCover
     /// Where the cover is laid out, in `coordinateSpace`: the growing cover's destination.
     private let onCoverFrame: ((CGRect) -> Void)?
+    /// Skip amounts and speeds. Changes only from Settings or the speed sheet, never on a tick.
+    @Environment(AppSettings.self)
+    private var settings
+    @State
+    private var isShowingSpeed = false
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
     static let coordinateSpace = "player.details"
@@ -72,30 +77,28 @@ struct PlayerView: View {
     }
 
     // MARK: - Player buttons
+    /// Back, play/pause, forward. The skips jump by the Settings amounts, and their SF Symbols
+    /// draw that number.
     private var playerButtonsView: some View {
-        HStack {
-            IconButtonView(systemName: "gobackward.30") {
-                model.backward(withSeconds: 30)
+        let back = settings.skipBackward
+        let forward = settings.skipForward
+        return HStack(spacing: SpaceConstants.sx48.value) {
+            IconButtonView(systemName: back.backwardSymbol) {
+                model.backward(withSeconds: back.seconds)
             }
-            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back30))
-            IconButtonView(systemName: "gobackward.15") {
-                model.backward(withSeconds: 15)
-            }
-            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back15))
+            .accessibilityLabel(Localizable.skipBackAction.localized(with: back.rawValue))
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back))
             PlayButtonView(isPlaying: .constant(model.isPlaying)) {
                 model.play()
             } onPause: {
                 model.pause()
             }
             .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
-            IconButtonView(systemName: "goforward.15") {
-                model.forward(withSeconds: 15)
+            IconButtonView(systemName: forward.forwardSymbol) {
+                model.forward(withSeconds: forward.seconds)
             }
-            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward15))
-            IconButtonView(systemName: "goforward.30") {
-                model.forward(withSeconds: 30)
-            }
-            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward30))
+            .accessibilityLabel(Localizable.skipForwardAction.localized(with: forward.rawValue))
+            .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward))
         }
         .frame(height: SpaceConstants.sx32.value)
         .foregroundColor(ColorConstants.white.value)
@@ -103,9 +106,38 @@ struct PlayerView: View {
 
     // MARK: - Player view
     private var playerView: some View {
-        VStack(spacing: SpaceConstants.sx24.value) {
+        VStack(spacing: SpaceConstants.sx16.value) {
             playerButtonsView
             PlayerTimeline(model: model)
+            speedButton
+        }
+    }
+
+    // MARK: - Speed
+    private var speedButton: some View {
+        let speed = model.speed(in: settings)
+        return Button {
+            isShowingSpeed = true
+        } label: {
+            Label(PlaybackSpeed.label(speed), systemImage: "gauge.with.dots.needle.33percent")
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .padding(.horizontal, SpaceConstants.sx16.value)
+                .padding(.vertical, SpaceConstants.sx8.value)
+                .background(ColorConstants.onyx.value, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(speed == PlaybackSpeed.normal ? ColorConstants.white.value : ColorConstants.malachite.value)
+        .accessibilityLabel(Localizable.playbackSpeed.localized)
+        .accessibilityValue(PlaybackSpeed.label(speed))
+        .accessibilityIdentifier(AccessibilityID.Player.speed)
+        .sheet(isPresented: $isShowingSpeed) {
+            SpeedSheetView(
+                speed: model.speed(in: settings),
+                defaultSpeed: settings.defaultSpeed,
+                onChange: { model.setSpeed($0, in: settings) },
+                onSetDefault: { settings.defaultSpeed = $0 }
+            )
         }
     }
 }
@@ -228,5 +260,6 @@ struct PlayerView_Previews: PreviewProvider {
             downloads: nil
         ))
         .environment(PlaybackClock())
+        .environment(AppSettings(store: InMemoryKeyValueStore()))
     }
 }

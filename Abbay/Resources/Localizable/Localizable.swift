@@ -62,6 +62,54 @@ enum Localizable: String {
     case noticeChapterFailed
     case noticeSaveFailed
     case noticeDismiss
+    // Settings
+    case settingsTitle
+    case done
+    case settingsPlayback
+    case defaultSpeed
+    case defaultSpeedFooter
+    case skipBack
+    case skipForward
+    case skipSeconds
+    case skipFooter
+    case settingsDownloads
+    case cellularDownloads
+    case cellularAsk
+    case cellularAlways
+    case cellularWifiOnly
+    case cellularFooter
+    case spaceUsed
+    case calculating
+    case deleteFinished
+    case deleteFinishedFooter
+    case deleteFinishedNone
+    case deleteFinishedTitle
+    case deleteFinishedMessage
+    case cancel
+    case settingsLanguage
+    case languageSystem
+    case languageFooter
+    case settingsAbout
+    case privacyPolicy
+    case version
+    case librivoxAbout
+    case openSourceLicenses
+    case licensesBody
+    case licensesContent
+    case siriAudioStatus
+    case audioStatusOK
+    case audioStatusUnavailable
+    case audioStatusOKDetail
+    case audioStatusUnavailableDetail
+    // Speed and skip
+    case playbackSpeed
+    case speedDecrease
+    case speedIncrease
+    case speedPresets
+    case speedSetDefault
+    case speedIsDefault
+    case skipBackAction
+    case skipForwardAction
 }
 
 extension Localizable {
