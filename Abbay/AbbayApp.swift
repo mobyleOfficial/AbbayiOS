@@ -129,7 +129,10 @@ struct AbbayApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // Read in the body, after `didFinishLaunching` configured the container. Moves to
+            // the app root view once the tabs exist.
             MediaListView()
+                .playbackEnvironment(DependencyContainer.shared)
         }
     }
 }

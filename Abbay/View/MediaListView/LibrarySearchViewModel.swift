@@ -145,9 +145,6 @@ final class LibrarySearchViewModel: ObservableObject {
             localResults = []
             return
         }
-        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        localResults = library.filter {
-            $0.title.range(of: text, options: options) != nil || $0.artist.range(of: text, options: options) != nil
-        }
+        localResults = LibraryFilter.filter(library, query: text)
     }
 }

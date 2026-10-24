@@ -338,5 +338,6 @@ private struct LibraryActionButtonStyle: ButtonStyle {
 struct MediaListView_Previews: PreviewProvider {
     static var previews: some View {
         MediaListView()
+            .playbackEnvironment(DependencyContainer.shared)
     }
 }

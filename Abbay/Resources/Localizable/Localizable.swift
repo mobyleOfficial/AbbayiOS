@@ -41,6 +41,8 @@ enum Localizable: String {
     case waiting
     case detailsFailed
     case retry
+    case rowChapter
+    case rowTimeLeft
 }
 
 extension Localizable {

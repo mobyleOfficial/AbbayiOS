@@ -99,12 +99,9 @@ enum AccessibilityID {
             "\(namespace).play"
         }
 
-        static func chapterCount(_ namespace: String) -> String {
-            "\(namespace).chapterCount"
-        }
-
-        static func timestamp(_ namespace: String) -> String {
-            "\(namespace).timestamp"
+        /// A row's one line of detail: author plus chapter N/M, or time left.
+        static func detail(_ namespace: String) -> String {
+            "\(namespace).detail"
         }
 
         static func downloadRing(_ namespace: String) -> String {

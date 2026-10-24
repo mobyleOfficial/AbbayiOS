@@ -582,6 +582,42 @@
           }
         }
       }
+    },
+    "rowChapter" : {
+      "comment" : "Library row: current chapter (1-based) / total chapters",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ch %d/%d"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap. %d/%d"
+          }
+        }
+      }
+    },
+    "rowTimeLeft" : {
+      "comment" : "Library row: time left in a book without chapters, e.g. \"3m left\"",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faltam %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

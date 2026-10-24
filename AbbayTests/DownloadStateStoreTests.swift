@@ -34,7 +34,11 @@ private final class CountingMockBookDownloadManager: BookDownloadManagerProtocol
 @MainActor
 final class DownloadStateStoreTests: XCTestCase {
     private func downloading(_ fraction: Double) -> BookDownloadState {
-        BookDownloadState(chapters: [.downloading(fraction: fraction), .waiting], isPaused: false, fraction: fraction / 2)
+        BookDownloadState(
+            chapters: [.downloading(fraction: fraction), .waiting],
+            isPaused: false,
+            fraction: fraction / 2
+        )
     }
 
     private let complete = BookDownloadState(chapters: [.downloaded, .downloaded], isPaused: false, fraction: 1)
