@@ -49,9 +49,8 @@ done
 [ -n "$input" ] || usage
 [ -e "$input" ] || { echo "No such file: $input" >&2; exit 2; }
 
-scratch=""
-cleanup() { [ -n "$scratch" ] && rm -rf "$scratch"; }
-trap cleanup EXIT
+scratch=$(mktemp -d "${TMPDIR:-/private/var/tmp}/check-app-binary.XXXXXX") || exit 2
+trap 'rm -rf "$scratch"' EXIT
 
 # Resolve the input to a single .app.
 case "$input" in
@@ -59,7 +58,6 @@ case "$input" in
         app=$(find "$input/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -n 1)
         ;;
     *.ipa)
-        scratch=$(mktemp -d "${TMPDIR:-/private/var/tmp}/check-app-binary.XXXXXX")
         unzip -q "$input" -d "$scratch" || { echo "Cannot unzip $input" >&2; exit 2; }
         app=$(find "$scratch/Payload" -maxdepth 1 -name '*.app' -type d | head -n 1)
         ;;
@@ -107,45 +105,45 @@ done < <(find "$app" -type f -not -path '*.dSYM/*' -print0)
 
 # --- 2. Entitlements --------------------------------------------------------------------------
 
-# Prints the signed entitlements of a bundle as an XML plist, or nothing when unsigned.
-signed_entitlements() {
-    codesign -d --entitlements - --xml "$1" 2>/dev/null
+# Entitlement keys contain dots, which `plutil -extract` treats as key-path separators, so the
+# plists are written to the scratch directory and read with PlistBuddy (`:` separates keys).
+
+# write_signed_entitlements <bundle> <out> -- fails when the bundle has no signed entitlements.
+write_signed_entitlements() {
+    codesign -d --entitlements - --xml "$1" >"$2" 2>/dev/null && [ -s "$2" ]
 }
 
-# Prints the entitlements granted by a bundle's embedded provisioning profile, if it has one.
-profile_entitlements() {
-    [ -f "$1/embedded.mobileprovision" ] || return 0
-    security cms -D -i "$1/embedded.mobileprovision" 2>/dev/null \
-        | plutil -extract Entitlements xml1 -o - - 2>/dev/null
+# write_profile_entitlements <bundle> <out> -- fails when there is no embedded profile.
+write_profile_entitlements() {
+    [ -f "$1/embedded.mobileprovision" ] || return 1
+    security cms -D -i "$1/embedded.mobileprovision" >"$2.profile" 2>/dev/null || return 1
+    /usr/libexec/PlistBuddy -x -c "Print :Entitlements" "$2.profile" >"$2" 2>/dev/null
 }
 
-# has_true <plist> <key>
+# has_true <plist-file> <key>
 has_true() {
-    [ "$(plutil -extract "$2" raw -o - - <<<"$1" 2>/dev/null)" = "true" ]
+    [ "$(/usr/libexec/PlistBuddy -c "Print :$2" "$1" 2>/dev/null)" = "true" ]
 }
 
-# has_group <plist> -- the App Group is listed under application-groups.
+# has_group <plist-file> -- the App Group is listed under application-groups.
 has_group() {
-    plutil -extract com.apple.security.application-groups xml1 -o - - <<<"$1" 2>/dev/null \
-        | grep -q "<string>$APP_GROUP</string>"
+    /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups" "$1" 2>/dev/null \
+        | grep -qx "[[:space:]]*$APP_GROUP"
 }
 
 # check_bundle <bundle> <label> <need-app-entitlements: 0|1>
 check_bundle() {
     local bundle="$1" label="$2" full="$3" source plist key
     for source in signature profile; do
+        plist="$scratch/$(basename "$bundle").$source.plist"
         if [ "$source" = signature ]; then
-            plist=$(signed_entitlements "$bundle")
-            if [ -z "$plist" ]; then
+            if ! write_signed_entitlements "$bundle" "$plist"; then
                 fail "$label is not signed with entitlements"
                 continue
             fi
-        else
-            plist=$(profile_entitlements "$bundle")
-            if [ -z "$plist" ]; then
-                echo "  note: $label has no embedded.mobileprovision; profile not checked"
-                continue
-            fi
+        elif ! write_profile_entitlements "$bundle" "$plist"; then
+            echo "  note: $label has no embedded.mobileprovision; profile not checked"
+            continue
         fi
         if [ "$full" -eq 1 ]; then
             for key in "${APP_ENTITLEMENTS[@]}"; do
