@@ -122,8 +122,11 @@ $B drag player.close down                                 # planned: collapse un
   (`test_changingSkipForward_updatesThePlayersButton`)
 - `player.chapters.title` and `player.chapter.<n>`
 - a chapter tap on a book that isn't loaded, with nothing playing, loads that book: the bar
-  appears (`MiniPlayerUITests.test_tappingAChapter_ofABookNotLoaded_loadsIt`). The seek itself
-  is unit-tested (`PlayerViewModelTests.test_selectChapter_*`); seeded books have no audio.
+  appears (`MiniPlayerUITests.test_tappingAChapter_ofABookNotLoaded_loadsIt`, seeded long book,
+  no audio), and with real audio it plays from the tapped chapter, not the saved position
+  (`test_chapterTap_bookNotLoaded_playsThatChapter`, `-seedPlayableBook`: the transport flips to
+  *Pause* and the bar reads *Chapter 4*). The three cases are unit-tested in
+  `PlayerViewModelTests.test_selectChapter_*`.
 - `player.chapters.empty` on "Seeded Plain Book", and its absence on "Seeded Chaptered Book"
   (`EmptyStateUITests`)
 - `player.close` (`test_player_closeButton_dismisses`)
@@ -155,8 +158,9 @@ identifiers threaded through the component, not applied from the call site.
 - **A chapter tap starts playback, even from pause, and can switch books.** Since #166's owner
   decision there is no `isPlaying` gate and no dimming: tapping a row of a book that isn't loaded
   loads it (the previous book stops) at that chapter. A UI test that taps a chapter therefore
-  changes the loaded book; open the book you mean first. Seeded books have no audio, so the
-  tap loads the book but no seek is heard; the seek is proven in unit tests only.
+  changes the loaded book; open the book you mean first. Only *Seeded Playable Book*
+  (`-seedPlayableBook`) actually plays from the chapter; on the other seeds the tap loads the
+  book and the moved-file banner shows (#147). It makes sound: pause it afterwards.
 - **The overlay stays hit-testable only while a book is presented** (`allowsHitTesting`). After a
   close, taps reach the tabs once the collapse finishes.
 - `PlayerProgressView.swift:44` still uses the deprecated `onChange(of:perform:)` (deprecated as of
