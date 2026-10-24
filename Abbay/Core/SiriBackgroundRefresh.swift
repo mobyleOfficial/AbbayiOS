@@ -94,10 +94,10 @@ final class SiriBackgroundRefresh {
         }
     }
 
-    /// Internal for tests. Completes the task exactly once: unsuccessfully if the system expires it
-    /// first. The publish itself is synchronous; the Spotlight and App Shortcut work it starts
-    /// finishes on the system's side. The lock because the expiration handler can run on another
-    /// thread while the publish runs on main.
+    /// Internal for tests. Completes the task exactly once, when the publish reports it has
+    /// finished (Spotlight indexing included, #159), or unsuccessfully if the system expires it
+    /// first. The lock because the expiration handler can run on another thread than the publish's
+    /// completion.
     func handle(_ task: BackgroundRefreshTask) {
         schedule()
         let lock = NSLock()
@@ -114,7 +114,9 @@ final class SiriBackgroundRefresh {
             Log.siri.info("background refresh: expired")
             complete(false)
         }
-        refresher.refreshNow(.backgroundTask)
-        complete(true)
+        refresher.refreshNow(.backgroundTask) {
+            Log.siri.info("background refresh: publish finished")
+            complete(true)
+        }
     }
 }

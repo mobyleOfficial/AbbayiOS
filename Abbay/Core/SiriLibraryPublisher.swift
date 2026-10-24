@@ -24,7 +24,16 @@ import Intents
 /// * Core Spotlight indexing lets the system associate a spoken title with this
 ///   app while the app is not running.
 protocol SiriLibraryPublisherProtocol {
-    func publish(audios: [AudioModel])
+    /// Calls `completion` on the main queue once the publish's asynchronous part (Spotlight
+    /// indexing) has finished (#159).
+    func publish(audios: [AudioModel], completion: @escaping () -> Void)
+}
+
+extension SiriLibraryPublisherProtocol {
+    /// For callers that don't wait: library mutations and launch.
+    func publish(audios: [AudioModel]) {
+        publish(audios: audios) {}
+    }
 }
 
 final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
@@ -59,14 +68,23 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         self.lastPlayed = lastPlayed
     }
 
-    func publish(audios: [AudioModel]) {
+    /// Only Spotlight reports completion. `INVocabulary`, `INMediaUserContext.becomeCurrent()` and
+    /// `updateAppShortcutParameters()` are synchronous calls with no completion API: whatever
+    /// work they hand to the system afterwards can't be waited for.
+    func publish(audios: [AudioModel], completion: @escaping () -> Void) {
+        let indexing = DispatchGroup()
+        indexing.enter()
+        spotlightIndexer.index(audios: audios) { indexing.leave() }
         mediaUserContextDonor.donate(libraryItemCount: audios.count)
-        spotlightIndexer.index(audios: audios)
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
         SiriDiagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
         // The unified-log twin of the diagnostics line (#157). The count only, never titles.
         Log.siri.info("publish: \(audios.count, privacy: .public) books")
         refreshShortcutParameters()
+        indexing.notify(queue: .main) {
+            Log.siri.debug("publish: finished")
+            completion()
+        }
     }
 
     /// Exposed for tests: last-played title first, empty titles dropped, capped.

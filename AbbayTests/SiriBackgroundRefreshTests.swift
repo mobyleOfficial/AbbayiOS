@@ -76,4 +76,30 @@ final class SiriBackgroundRefreshTests: XCTestCase {
 
         XCTAssertEqual(task.completions, [false])
     }
+
+    /// #159: Spotlight indexing finishes asynchronously, so the task waits for the publish to
+    /// report completion before telling the system it is done.
+    func test_run_completesOnlyAfterThePublishFinishes() {
+        let task = FakeBackgroundRefreshTask()
+        refresher.completesImmediately = false
+
+        makeRefresh().handle(task)
+        XCTAssertTrue(task.completions.isEmpty, "the publish is still indexing")
+
+        refresher.finishPublishes()
+        XCTAssertEqual(task.completions, [true])
+    }
+
+    /// Expiring while the publish is in flight completes unsuccessfully, and the publish finishing
+    /// later doesn't complete the task a second time.
+    func test_expirationWhileThePublishIsInFlight_completesOnce_unsuccessfully() {
+        let task = FakeBackgroundRefreshTask()
+        refresher.completesImmediately = false
+
+        makeRefresh().handle(task)
+        task.expirationHandler?()
+        refresher.finishPublishes()
+
+        XCTAssertEqual(task.completions, [false])
+    }
 }

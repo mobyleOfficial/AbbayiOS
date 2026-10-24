@@ -23,8 +23,9 @@ enum SiriRefreshReason: String {
 protocol SiriContextRefreshing: AnyObject {
     /// Publishes unless the last publish was less than `minimumInterval` ago.
     func refreshIfDue(_ reason: SiriRefreshReason)
-    /// Publishes regardless of the throttle, and restarts it.
-    func refreshNow(_ reason: SiriRefreshReason)
+    /// Publishes regardless of the throttle, and restarts it. `completion` runs when the publish
+    /// has finished (see `SiriLibraryPublisherProtocol.publish(audios:completion:)`).
+    func refreshNow(_ reason: SiriRefreshReason, completion: @escaping () -> Void)
     /// Records a publish made elsewhere (launch's snapshot write), so the first foreground after
     /// it doesn't publish again.
     func markPublished()
@@ -33,8 +34,14 @@ protocol SiriContextRefreshing: AnyObject {
 /// For players and tests that don't refresh Siri.
 final class NoopSiriContextRefresher: SiriContextRefreshing {
     func refreshIfDue(_ reason: SiriRefreshReason) {}
-    func refreshNow(_ reason: SiriRefreshReason) {}
+    func refreshNow(_ reason: SiriRefreshReason, completion: @escaping () -> Void) { completion() }
     func markPublished() {}
+}
+
+extension SiriContextRefreshing {
+    func refreshNow(_ reason: SiriRefreshReason) {
+        refreshNow(reason) {}
+    }
 }
 
 final class SiriContextRefresher: SiriContextRefreshing {
@@ -64,10 +71,10 @@ final class SiriContextRefresher: SiriContextRefreshing {
         refreshNow(reason)
     }
 
-    func refreshNow(_ reason: SiriRefreshReason) {
+    func refreshNow(_ reason: SiriRefreshReason, completion: @escaping () -> Void) {
         let audios = loadAllAudios.execute()
         Log.siri.info("context refresh (\(reason.rawValue, privacy: .public)): \(audios.count, privacy: .public) books")
-        publisher.publish(audios: audios)
+        publisher.publish(audios: audios, completion: completion)
         markPublished()
     }
 
