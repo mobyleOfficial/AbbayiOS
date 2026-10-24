@@ -80,6 +80,9 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
 
 ## Gotchas
 
+- **Spotlight indexing is slow, and the background task waits for it (#159).** On the iOS 26.4
+  simulator `publish: finished` came ~42 s after `publish: 2 books`; a `BGAppRefreshTask` gets
+  about 30 s, so the task may expire before indexing ends. Device measurement tracked in #173.
 - **Publishing on every launch is deliberate — do not "optimise" it away.** The comment at
   the comment in `didFinishLaunchingWithOptions` records why: without one successful entity fetch, entity phrases never
   resolve.
