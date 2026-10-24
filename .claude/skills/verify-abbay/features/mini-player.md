@@ -133,7 +133,7 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
   take touches (nothing invisible left over the tabs).
 
 The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock). The `test_a11y_*` tests were added
-and run on 26.4 only (#126).
+and run on 26.4 only (#126; 18.5 is #162).
 
 **Unit-tested only:**
 - swipes and their no-op haptic (`MiniPlayerActionsTests`)
@@ -145,8 +145,9 @@ and run on 26.4 only (#126).
 
 **Not automated:**
 - whether the panel really cross-fades rather than grows: XCUITest only reads the screen once it
-  is idle. Checked by a screenshot mid-drag (a full-screen, half-transparent panel) for #126.
-- a VoiceOver pass on a device: what is spoken, focus order, and the actions rotor itself.
+  is idle. Checked by a screenshot mid-drag (a full-screen, half-transparent panel) for #126;
+  automating it is #162, with running `test_a11y_*` on 18.5.
+- a VoiceOver pass on a device: what is spoken, focus order, and the actions rotor itself (#161).
 
 ## Gotchas
 
