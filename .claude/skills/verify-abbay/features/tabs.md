@@ -12,7 +12,8 @@ above the tab bar on both tabs.
   the Search tab's field into the bottom tab bar, and the owner wants it at the top (Ruling 10).
   The mini player is the tab bar's `.tabViewBottomAccessory(isEnabled:)`, which needs 26.1, hence
   the version split (Ruling 7). SwiftUI can't set ids on system tab items, so a small UIKit probe
-  sets `root.tab.library` / `root.tab.search` on the `UITabBar` items.
+  sets `root.tab.library` / `root.tab.search` on the `UITabBar` items. `TabContent`'s
+  `.accessibilityIdentifier` (iOS 18 SDK) was tried on 26.4 and doesn't reach the bar's buttons.
 - **tab-bar (iOS 17.0–26.0):** the hand-built `RootTabs`: a `background2` bar with the same two
   items (malachite when selected) and the docked mini player right above it. The pages end where
   the mini player starts: they are stacked above it, not inset, because a `List` in a tab's
@@ -89,11 +90,13 @@ library* or *Search LibriVox* (`app.searchFields` matching `placeholderValue`).
 - **Two code paths.** iOS 26.1+ uses the system tab bar and accessory. iOS 17.0–26.0 uses
   `RootTabs` and `MiniPlayerDock`. iOS 26.0 is on the hand-built path. Verify a change on both
   (26.4 and 18.5 simulators).
-- **The tab ids on 26.1+ come from a UIKit probe** that walks the window after a tab switch and
-  re-applies on a 0.6 s timer. It matches items by title, so the ids are fragile. Wait for them
-  rather than reading them right after launch.
-- With the accessory attached (26.1+), the accessibility tree reports the keyboard just off screen
-  (minY = screen height) while it is visibly up. The keyboard UI test falls back to 65% of the
-  screen height.
+- **The tab ids on 26.1+ come from a UIKit probe** that walks the window when it lands in one and
+  on each tab switch. It re-applies over about 2.4 s (0, 0.1, 0.3, 0.6, 1.2 and 2.4 s), and a new
+  switch replaces a pending schedule. It matches items by title, so the ids are fragile. Wait for
+  them rather than reading them right after launch.
+- With the accessory attached (26.1+), the accessibility tree has reported the keyboard just off
+  screen (minY = screen height) while it is visibly up. Not reproduced on 26.4 in #130. The keyboard
+  UI test then uses the top row of keys, and 65% of the screen height only when no key is on screen
+  either.
 - Search needs `-stubLibriVox`. Without it, Popular and every query go to archive.org and
   librivox.org.

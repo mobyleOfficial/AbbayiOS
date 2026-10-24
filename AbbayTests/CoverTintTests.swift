@@ -96,18 +96,64 @@ final class CoverTintTests: XCTestCase {
     }
 
     /// Computed once per book: the same URL with different artwork still gets the first tint.
-    func test_tint_isCachedPerBook() {
+    func test_tint_isCachedPerBook() async {
         let url = URL(string: "file:///tint/\(UUID().uuidString).m4b")
         let dark = UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1)
         let first = AudioModel(title: "Dark", imageData: png(dark), url: url)
         let sameURL = AudioModel(title: "Dark", imageData: png(.white), url: url)
 
-        let cached = rgb(CoverTint.cached(for: first))
-        let again = rgb(CoverTint.cached(for: sameURL))
+        XCTAssertNil(CoverTint.cachedTint(for: first), "a lookup computes nothing")
+        let computed = rgb(await CoverTint.tint(for: first))
+        let again = rgb(await CoverTint.tint(for: sameURL))
+        let lookup = CoverTint.cachedTint(for: sameURL).map(rgb)
 
-        XCTAssertEqual(cached.red, again.red, accuracy: 0.0001)
-        XCTAssertEqual(cached.green, again.green, accuracy: 0.0001)
-        XCTAssertEqual(cached.blue, again.blue, accuracy: 0.0001)
+        XCTAssertEqual(computed.red, again.red, accuracy: 0.0001)
+        XCTAssertEqual(computed.green, again.green, accuracy: 0.0001)
+        XCTAssertEqual(computed.blue, again.blue, accuracy: 0.0001)
         XCTAssertEqual(again.blue, 0.20, accuracy: 0.02, "the second call computed a new tint")
+        XCTAssertEqual(lookup?.blue ?? -1, computed.blue, accuracy: 0.0001)
+    }
+
+    /// Books without a URL are cached too, by their artwork, so a body pass doesn't recompute it
+    /// (#130).
+    func test_tint_withoutURL_isCachedByArtwork() async {
+        // Random, so no earlier test in the process has cached the same bytes.
+        let color = UIColor(red: CGFloat.random(in: 0...0.2), green: 0.05, blue: 0.1, alpha: 1)
+        let book = AudioModel(title: "No URL", imageData: png(color), url: nil)
+        let sameArtwork = AudioModel(title: "Other", imageData: book.imageData, url: nil)
+
+        XCTAssertNil(CoverTint.cachedTint(for: book))
+        let computed = rgb(await CoverTint.tint(for: book))
+        let lookup = CoverTint.cachedTint(for: sameArtwork).map(rgb)
+
+        XCTAssertEqual(lookup?.red ?? -1, computed.red, accuracy: 0.0001)
+        XCTAssertEqual(lookup?.blue ?? -1, computed.blue, accuracy: 0.0001)
+    }
+
+    /// No URL and no artwork has nothing to compute: `onyx`, known at once.
+    func test_tint_withoutURLOrArtwork_isOnyxAtOnce() {
+        let onyx = rgb(ColorConstants.onyx.uiColor)
+
+        let lookup = CoverTint.cachedTint(for: AudioModel(title: "Bare", url: nil)).map(rgb)
+
+        XCTAssertEqual(lookup?.red ?? -1, onyx.red, accuracy: 0.001)
+        XCTAssertEqual(lookup?.green ?? -1, onyx.green, accuracy: 0.001)
+        XCTAssertEqual(lookup?.blue ?? -1, onyx.blue, accuracy: 0.001)
+    }
+
+    /// The computation never needs the main thread: with main blocked, it still lands in the cache.
+    @MainActor
+    func test_tint_isComputedOffTheMainThread() {
+        let url = URL(string: "file:///tint/\(UUID().uuidString).m4b")
+        let book = AudioModel(title: "Off main", imageData: png(.orange, side: 64), url: url)
+
+        Task.detached { _ = await CoverTint.tint(for: book) }
+        let deadline = Date().addingTimeInterval(5)
+        // Blocks the main thread (no run loop turns): only work done elsewhere fills the cache.
+        while CoverTint.cachedTint(for: book) == nil, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+
+        XCTAssertNotNil(CoverTint.cachedTint(for: book))
     }
 }

@@ -71,6 +71,9 @@ final class PlayerPresentation {
     /// A collapse started with no bar to land on (opened from the bottom strip) while a book is
     /// loaded: the bar is coming back with the tab bar, and the start is taken once it rests.
     @ObservationIgnored private var awaitingRestingBar = false
+    /// That collapse was released before the bar came to rest: the panel lands on the bar's frames
+    /// as they are reported, rather than waiting for a rest that can come after the landing (#130).
+    @ObservationIgnored private var landsOnMovingBar = false
     @ObservationIgnored private var restingCheck = 0
     /// How long the bar's frame must stay unchanged to count as resting.
     static let barRestDelay: Duration = .milliseconds(150)
@@ -100,6 +103,7 @@ final class PlayerPresentation {
         generation += 1
         interaction = nil
         awaitingRestingBar = false
+        landsOnMovingBar = false
         if presentedBook == nil {
             presentationID += 1
             dismissKeyboard()
@@ -115,6 +119,7 @@ final class PlayerPresentation {
         interaction = nil
         let current = generation
         setFullyOpen(false)
+        if awaitingRestingBar { landOnMovingBar() }
         guard animated else {
             set(progress: 0, animated: false, completion: nil)
             clearBook()
@@ -133,6 +138,7 @@ final class PlayerPresentation {
     /// the tab bar come back if it was settled open. Nil when there is nothing to present.
     func beginInteractive(_ book: AudioModel? = nil) -> InteractiveStart? {
         generation += 1
+        landsOnMovingBar = false
         if presentedBook == nil {
             guard let book else { return nil }
             presentationID += 1
@@ -208,7 +214,12 @@ final class PlayerPresentation {
         guard frame.minY >= screenHeight / 2, frame != barFrame else { return }
         barFrame = frame
         barFrameIsResting = !isFullyOpen
-        if awaitingRestingBar, !isFullyOpen { scheduleRestingSnapshot() }
+        guard awaitingRestingBar, !isFullyOpen else { return }
+        if landsOnMovingBar {
+            expansionStart = frame
+        } else {
+            scheduleRestingSnapshot()
+        }
     }
 
     func reportScreenSize(_ size: CGSize) {
@@ -248,6 +259,17 @@ final class PlayerPresentation {
         }
     }
 
+    /// A collapse is settling while the bar still moves: head for its latest frame now (if it was
+    /// reported with the tab bar back), then follow each new one until the landing.
+    private func landOnMovingBar() {
+        landsOnMovingBar = true
+        restingCheck += 1
+        guard barFrameIsResting, let frame = barFrame, expansionStart != frame else { return }
+        withAnimation(.easeOut(duration: 0.25)) {
+            expansionStart = frame
+        }
+    }
+
     /// Replaces an animation in flight with the value on screen, without animating.
     private func stop(at value: CGFloat) {
         renderedProgress = value
@@ -266,6 +288,7 @@ final class PlayerPresentation {
 
     private func clearBook() {
         awaitingRestingBar = false
+        landsOnMovingBar = false
         if presentedBook != nil { presentedBook = nil }
     }
 

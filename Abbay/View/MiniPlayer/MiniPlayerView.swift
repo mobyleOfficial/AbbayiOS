@@ -84,7 +84,7 @@ struct MiniPlayerView: View {
         .frame(height: isAccessory ? nil : Self.height)
         .frame(maxHeight: isAccessory ? .infinity : nil)
         .foregroundColor(ColorConstants.white.value)
-        .background(Color(uiColor: CoverTint.cached(for: book)))
+        .modifier(CoverTintBackground(book: book))
         .overlay(alignment: .bottom) {
             // Along the capsule's flat bottom, clear of the rounded ends.
             MiniPlayerProgressLine(book: book)

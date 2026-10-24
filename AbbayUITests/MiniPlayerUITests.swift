@@ -164,16 +164,17 @@ final class MiniPlayerUITests: XCTestCase {
     /// Drags the open details screen down by its grabber: it collapses back into the bar.
     func test_draggingDetailsDown_collapses() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")
-        element(AccessibilityID.MiniPlayer.bar).tap()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        let before = restingFrame(of: bar)
+        bar.tap()
         waitForPlayerToArrive()
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5), "not settled open")
         let start = grabberCenter()
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
 
         start.press(forDuration: 0.1, thenDragTo: end)
 
-        let bar = element(AccessibilityID.MiniPlayer.bar)
-        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
-        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+        assertCollapsedIntoBar(restingAt: before)
     }
 
     /// iOS 18+: with the chapter list resting at its top, dragging it down collapses the screen.
@@ -194,8 +195,7 @@ final class MiniPlayerUITests: XCTestCase {
         // drag eases out to ~0 pt/s, which settles back open.)
         start.press(forDuration: 0.1, thenDragTo: end, withVelocity: 3000, thenHoldForDuration: 0)
 
-        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
-        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the list drag did not collapse the screen")
+        assertCollapsedIntoBar()
     }
 
     /// iOS 18+: a short, slow drag down the chapter list at its top moves the screen under the
@@ -235,9 +235,7 @@ final class MiniPlayerUITests: XCTestCase {
 
         start.press(forDuration: 0.2, thenDragTo: end, withVelocity: 250, thenHoldForDuration: 0.5)
 
-        let bar = element(AccessibilityID.MiniPlayer.bar)
-        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
-        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+        assertCollapsedIntoBar()
     }
 
     // MARK: - A long chapter list
@@ -352,6 +350,7 @@ final class MiniPlayerUITests: XCTestCase {
     func test_slowDrags_openAndCollapse() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")
         let bar = element(AccessibilityID.MiniPlayer.bar)
+        let before = restingFrame(of: bar)
         let barCenter = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
 
@@ -364,7 +363,61 @@ final class MiniPlayerUITests: XCTestCase {
 
         grabberCenter.press(forDuration: 0.2, thenDragTo: bottom, withVelocity: 180, thenHoldForDuration: 1)
 
-        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the slow drag did not collapse the details screen")
-        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10))
+        assertCollapsedIntoBar(restingAt: before)
+    }
+}
+
+// MARK: - Collapse checks
+
+private extension MiniPlayerUITests {
+    /// The bar's frame once it has stopped moving (two reads 0.2 s apart agree), or its last frame
+    /// after `timeout`.
+    func restingFrame(of bar: XCUIElement, timeout: TimeInterval = 5) -> CGRect {
+        var previous = bar.frame
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            usleep(200_000)
+            let current = bar.frame
+            if current == previous { return current }
+            previous = current
+        }
+        return previous
+    }
+
+    /// A collapse has landed: the details screen is gone, and the bar is back, at rest along the
+    /// bottom, taking touches, and (when known) where it was before the open. Not just "a bar
+    /// exists": it reappears as soon as a collapse starts, even one that settles open again.
+    func assertCollapsedIntoBar(
+        restingAt expected: CGRect? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(
+            transportPlay.waitForNonExistence(timeout: 10),
+            "the details screen is still open",
+            file: file,
+            line: line
+        )
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back", file: file, line: line)
+        let frame = restingFrame(of: bar)
+        XCTAssertGreaterThan(
+            frame.minY,
+            app.frame.height * 0.75,
+            "the bar is not along the bottom: \(frame)",
+            file: file,
+            line: line
+        )
+        XCTAssertTrue(bar.isHittable, "the bar does not take touches after the collapse", file: file, line: line)
+        XCTAssertTrue(
+            element(AccessibilityID.MiniPlayer.playPause).isHittable,
+            "the bar's play button is covered after the collapse",
+            file: file,
+            line: line
+        )
+        if let expected {
+            XCTAssertEqual(frame.minY, expected.minY, accuracy: 2, "bar \(frame) vs \(expected) before the open", file: file, line: line)
+            XCTAssertEqual(frame.height, expected.height, accuracy: 2, "bar \(frame) vs \(expected) before the open", file: file, line: line)
+        }
     }
 }

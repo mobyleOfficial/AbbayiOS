@@ -301,6 +301,38 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(sut.expansionStart, barFrame, "the resting frame, not the slid-down one")
     }
 
+    /// A collapse released while the bar is still coming back (it never rests for 150 ms before the
+    /// landing) follows the bar's frames and lands on the bar, not on the bottom strip (#130).
+    func test_collapse_whileTheBarKeepsMoving_landsOnTheBar() async throws {
+        let state = PlaybackState()
+        let sut = PlayerPresentation(playback: state)
+        sut.reportScreenSize(screen)
+        sut.open(other, animated: false)
+        state.setLoadedBook(other)
+        sut.reportBarFrame(barFrame.offsetBy(dx: 0, dy: 70), screenHeight: screen.height)
+
+        _ = try XCTUnwrap(sut.beginInteractive())
+        sut.updateInteractive(0.5)
+        sut.endInteractive(open: false)
+        let first = barFrame.offsetBy(dx: 0, dy: 24)
+        sut.reportBarFrame(first, screenHeight: screen.height)
+        XCTAssertEqual(sut.expansionStart, first, "heads for the bar at once")
+
+        // A new frame every 50 ms, the last one under 150 ms before the 450 ms landing.
+        var last = first
+        for step in 1...8 {
+            try await Task.sleep(for: .milliseconds(50))
+            // A slow runner may land early: only frames reported before the landing count.
+            guard sut.presentedBook != nil else { break }
+            last = barFrame.offsetBy(dx: 0, dy: CGFloat(24 - 3 * step))
+            sut.reportBarFrame(last, screenHeight: screen.height)
+        }
+        await waitUntil { sut.presentedBook == nil }
+
+        XCTAssertNil(sut.presentedBook, "landed")
+        XCTAssertEqual(sut.expansionStart, last, "on the bar's last frame, not the bottom strip")
+    }
+
     /// Interruptible: grabbing mid-spring continues from what is on screen, not from the target,
     /// and the interrupted settle no longer completes.
     func test_grabMidSpring_continuesFromTheRenderedProgress() async throws {

@@ -195,10 +195,12 @@ final class AccessibilityIdentifierTests: XCTestCase {
         }
 
         // With the system tab bar's bottom accessory attached (iOS 26.1+), the accessibility tree
-        // reports the keyboard just off screen (minY = screen height) although it is visibly up.
-        // Fall back to the top of a portrait iPhone keyboard (always over 35% of the screen).
-        let reportedTop = keyboard.frame.minY
-        let keyboardTop = reportedTop < app.frame.height ? reportedTop : app.frame.height * 0.65
+        // has reported the keyboard just off screen (minY = screen height) although it is visibly
+        // up. Then the top row of keys, which is measured, stands in for it; only when no key is on
+        // screen either, the top of a portrait iPhone keyboard (always over 35% of the screen).
+        let keyboardTop = keyboard.frame.onScreenTop(height: app.frame.height)
+            ?? keyboard.topKeyRow(screenHeight: app.frame.height)
+            ?? app.frame.height * 0.65
 
         if tab.exists {
             // Not exact positions: the system bar on iOS 26 shrinks under the keyboard.
@@ -445,5 +447,23 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Player.chapter(0))
         assertResolves(AccessibilityID.Player.chapter(1))
         assertResolves(AccessibilityID.Player.chapter(2))
+    }
+}
+
+private extension CGRect {
+    /// `minY`, when the frame has a size and starts on a screen `height` tall.
+    func onScreenTop(height: CGFloat) -> CGFloat? {
+        self.height > 0 && minY < height ? minY : nil
+    }
+}
+
+private extension XCUIElement {
+    /// The top of a keyboard's first real key (the layout's leading entries are zero-size
+    /// padding), when it is on screen.
+    func topKeyRow(screenHeight: CGFloat) -> CGFloat? {
+        keys.allElementsBoundByIndex.prefix(4)
+            .lazy
+            .compactMap { $0.frame.onScreenTop(height: screenHeight) }
+            .first
     }
 }
