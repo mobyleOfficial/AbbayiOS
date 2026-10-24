@@ -15,7 +15,8 @@ import Foundation
 ///   `PlaybackState`, the time and chapter from `PlaybackClock`. Only the screen's leaves pass the
 ///   clock in, so its chrome never re-renders on a tick.
 /// - **Any other book** (a row tap opens a book without starting it) shows its saved position.
-///   Its transport does nothing until Play loads it, so it can't move the loaded book.
+///   Its transport does nothing until Play (or a chapter tap) loads it, so it can't move the
+///   loaded book.
 /// - Opened on the loaded book, the screen **follows the loaded book**: if Siri or CarPlay switches
 ///   books while it's open, it shows the new one. Pressing Play on another book does the same.
 @MainActor
@@ -121,7 +122,6 @@ final class PlayerViewModel {
         }
     }
 
-    /// A chapter row seeks to its start, only while playing, as before.
     /// A chapter's "Failed · Retry" status: restarts its download now. Works whether or not the
     /// book is loaded, since it touches only the download.
     func retryChapter(_ index: Int) {
@@ -129,10 +129,19 @@ final class PlayerViewModel {
         downloads?.retry(chapterIndex: index, bookID: id)
     }
 
+    /// Tapping a chapter always plays that chapter of the shown book, paused or not (owner
+    /// decision, #166). Another book loaded: the shown one is loaded first, at the chapter's start,
+    /// then played from it. If it doesn't load (`Player.play` reported why), nothing else happens:
+    /// the loaded book is never seeked on the shown one's behalf.
     func selectChapter(_ index: Int) {
-        let chapters = book.chapters
-        guard isPlaying, chapters.indices.contains(index) else { return }
-        player?.seek(chapters[index].startTime)
+        guard let player, book.chapters.indices.contains(index) else { return }
+        if !isLoaded {
+            var book = book
+            book.currentTime = book.chapters[index].startTime
+            player.play(&book)
+            guard book.url != nil, player.url == book.url else { return }
+        }
+        player.playChapter(at: index)
     }
 
     // MARK: - Private

@@ -229,7 +229,6 @@ private struct PlayerChapters: View {
             chapters: model.book.chapters.map(ChapterListView.Item.init),
             currentIndex: model.currentChapter(in: clock),
             downloadState: model.downloadEntry?.state,
-            isDimmed: !model.isPlaying,
             layout: .list,
             titleIdentifier: AccessibilityID.Player.chaptersTitle,
             progressIdentifier: AccessibilityID.Player.downloadProgress,

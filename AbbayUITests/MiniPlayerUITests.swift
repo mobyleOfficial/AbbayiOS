@@ -104,6 +104,28 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertTrue(bar.waitForExistence(timeout: 15), "the bar did not come back after closing")
     }
 
+    /// #166's owner decision: a chapter tap plays that chapter of the shown book, even with nothing
+    /// playing. The book isn't loaded, so the tap loads it, and the bar shows it once the screen
+    /// closes. (Before, the tap did nothing while paused.) Seeded books have no audio, so the seek
+    /// itself is proven in `PlayerViewModelTests`.
+    func test_tappingAChapter_ofABookNotLoaded_loadsIt() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedLongBook])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Long Book"), "no seeded long book")
+        element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
+        waitForPlayerToArrive()
+        XCTAssertFalse(element(AccessibilityID.MiniPlayer.bar).exists, "nothing should be loaded yet")
+
+        let chapter = element(AccessibilityID.Player.chapter(3))
+        XCTAssertTrue(chapter.waitForExistence(timeout: 5))
+        chapter.tap()
+        element(AccessibilityID.Player.close).tap()
+
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 15), "the chapter tap did not load the book")
+        XCTAssertTrue(bar.label.contains("Seeded Long Book"), "the bar shows \"\(bar.label)\"")
+    }
+
     /// The bar and the tab bar inset the list: scrolled to the bottom, the last row ends above
     /// the bar (the spec's anti-goal: the mini player never covers list content).
     func test_lastRow_isNotCoveredByMiniPlayer() throws {

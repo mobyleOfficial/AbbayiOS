@@ -27,8 +27,6 @@ struct ChapterListView: View {
     /// The row drawn in malachite, if any.
     var currentIndex: Int?
     var downloadState: BookDownloadState?
-    /// The player dims its list while paused.
-    var isDimmed = false
     var layout: Layout = .list
     var titleIdentifier: String?
     var progressIdentifier: String?
@@ -51,11 +49,6 @@ struct ChapterListView: View {
     /// A book with no chapter markers (a plain MP3) says so, rather than showing an empty card.
     static func showsEmptyState(_ chapters: [Item]) -> Bool {
         chapters.isEmpty
-    }
-
-    /// Only rows are dimmed (the player, while paused): the message that there are none isn't.
-    static func dims(_ chapters: [Item], isDimmed: Bool) -> Bool {
-        isDimmed && !showsEmptyState(chapters)
     }
 
     static func showsProgress(_ state: BookDownloadState?) -> Bool {
@@ -101,7 +94,6 @@ struct ChapterListView: View {
         }
         .background(ColorConstants.background.value)
         .cornerRadius(SpaceConstants.sx32.value)
-        .opacity(Self.dims(chapters, isDimmed: isDimmed) ? 0.5 : 1.0)
     }
 
     /// Styled like the library's empty state: a glyph over the text. In the player sheet it fills
