@@ -18,17 +18,22 @@ private final class SpyMediaUserContextDonor: MediaUserContextDonorProtocol {
 
 private final class SpySpotlightIndexer: LibrarySpotlightIndexerProtocol {
     var indexedTitles = [[String]]()
+    /// When false, the indexing completion waits in `pendingCompletion`.
+    var completesImmediately = true
+    var pendingCompletion: (() -> Void)?
 
-    func index(audios: [AudioModel]) {
+    func index(audios: [AudioModel], completion: @escaping () -> Void) {
         indexedTitles.append(audios.map(\.title))
+        if completesImmediately { completion() } else { pendingCompletion = completion }
     }
 }
 
 private final class SpySiriLibraryPublisher: SiriLibraryPublisherProtocol {
     var publishedTitles = [[String]]()
 
-    func publish(audios: [AudioModel]) {
+    func publish(audios: [AudioModel], completion: @escaping () -> Void) {
         publishedTitles.append(audios.map(\.title))
+        completion()
     }
 }
 
@@ -71,6 +76,81 @@ final class SiriLibraryPublisherTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
+    /// #157: a publish reaches the unified log with its book count, not just `SiriDiagnostics`.
+    func test_publish_logsTheBookCount_withoutTitles() throws {
+        let since = Date()
+        let publisher = SiriLibraryPublisher(
+            mediaUserContextDonor: SpyMediaUserContextDonor(),
+            spotlightIndexer: SpySpotlightIndexer(),
+            vocabulary: { _ in },
+            refreshShortcutParameters: {}
+        )
+
+        publisher.publish(audios: [
+            audio(title: "HiddenOne157", url: "file:///first"),
+            audio(title: "HiddenTwo157", url: "file:///second"),
+            audio(title: "HiddenThree157", url: "file:///third")
+        ])
+
+        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "publish: 3 books")
+        XCTAssertTrue(messages.contains { $0.contains("publish: 3 books") }, "\(messages)")
+        XCTAssertFalse(messages.contains { $0.contains("Hidden") }, "\(messages)")
+    }
+
+    /// #159: the publish completes once Spotlight has finished indexing, after the synchronous
+    /// registrations (the App Shortcut parameter update has no completion to wait for).
+    func test_publish_completesAfterSpotlightFinishesIndexing() throws {
+        let spotlight = SpySpotlightIndexer()
+        spotlight.completesImmediately = false
+        var refreshCount = 0
+        let publisher = SiriLibraryPublisher(
+            mediaUserContextDonor: SpyMediaUserContextDonor(),
+            spotlightIndexer: spotlight,
+            vocabulary: { _ in },
+            refreshShortcutParameters: { refreshCount += 1 }
+        )
+        var completed = false
+        let done = expectation(description: "publish completed")
+
+        publisher.publish(audios: [audio(title: "Dune", url: "file:///dune")]) {
+            completed = true
+            done.fulfill()
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        XCTAssertFalse(completed, "Spotlight is still indexing")
+        XCTAssertEqual(refreshCount, 1, "the shortcut update ran before the publish completed")
+
+        try XCTUnwrap(spotlight.pendingCompletion)()
+        wait(for: [done], timeout: 1)
+    }
+
+    /// Indexing reports completion even when it fails, and the failure is logged by domain/code.
+    func test_spotlightIndexer_completes_andLogsAFailure() throws {
+        let since = Date()
+        let indexer = LibrarySpotlightIndexer(indexItems: { _, done in
+            done(NSError(domain: "CSIndexErrorDomain", code: -1003))
+        })
+        var completed = false
+
+        indexer.index(audios: [audio(title: "SpotlightSecret159", url: "file:///s")]) { completed = true }
+
+        XCTAssertTrue(completed)
+        let messages = try LoggedMessages.messages(
+            category: "Siri", since: since, awaiting: "spotlight indexing failed"
+        )
+        let failure = try XCTUnwrap(messages.first { $0.contains("spotlight indexing failed") }, "\(messages)")
+        XCTAssertTrue(failure.contains("CSIndexErrorDomain") && failure.contains("-1003"), failure)
+        XCTAssertFalse(messages.contains { $0.contains("SpotlightSecret159") })
+    }
+
+    func test_spotlightIndexer_emptyLibrary_completesWithoutIndexing() {
+        var calls = 0
+        var completed = false
+        LibrarySpotlightIndexer(indexItems: { _, _ in calls += 1 }).index(audios: []) { completed = true }
+        XCTAssertEqual(calls, 0)
+        XCTAssertTrue(completed)
+    }
+
     func test_spotlightItem_carriesTitleAndStableIdentifier() throws {
         let item = try XCTUnwrap(
             LibrarySpotlightIndexer.searchableItem(for: audio(title: "Dune", url: "file:///dune"))
@@ -84,12 +164,6 @@ final class SiriLibraryPublisherTests: XCTestCase {
         var noURL = AudioModel()
         noURL.title = "Titled"
         XCTAssertNil(LibrarySpotlightIndexer.searchableItem(for: noURL))
-    }
-
-    func test_spotlightIndexer_skipsIndexCallForEmptyLibrary() {
-        var calls = 0
-        LibrarySpotlightIndexer(indexItems: { _ in calls += 1 }).index(audios: [])
-        XCTAssertEqual(calls, 0)
     }
 
     func test_orderedTitles_putsLastPlayedFirst() throws {

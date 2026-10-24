@@ -93,6 +93,28 @@ final class CarPlaySceneDelegateTests: XCTestCase {
         )
     }
 
+    // MARK: - Siri freshness (#160)
+
+    /// A CarPlay-only session (phone locked) never makes the window scene active, so the car
+    /// scene asks for the same throttled refresh the phone's foreground does.
+    func test_carPlayBecomingActive_asksForAThrottledSiriRefresh() {
+        let delegate = makeDelegate()
+        let siriContext = MockSiriContextRefresher()
+        delegate.siriContext = siriContext
+
+        delegate.carPlayBecameActive()
+
+        XCTAssertEqual(siriContext.dueReasons, [.carPlay])
+        XCTAssertTrue(siriContext.nowReasons.isEmpty, "CarPlay never bypasses the throttle")
+    }
+
+    func test_siriContext_resolvesFromTheContainer() {
+        let container = MockDependencyContainer(player: player, loadAudio: loadAudio, loadAllAudios: loadAll)
+        DependencyContainer.configure(with: container)
+
+        XCTAssertTrue(CarPlaySceneDelegate().siriContext === container.siriContext)
+    }
+
     // MARK: - Library template
 
     func test_buildLibraryTemplate_onePerAudioInStoreOrder() {

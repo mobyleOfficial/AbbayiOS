@@ -19,14 +19,15 @@ final class IntentDonor: IntentDonorProtocol {
     static let repeatWindow: TimeInterval = 2 * 60
 
     private let now: () -> Date
-    private let donate: (INInteraction) -> Void
+    /// Donates the interaction and calls back with the system's outcome.
+    private let donate: (INInteraction, @escaping (Error?) -> Void) -> Void
     private let lock = NSLock()
     /// The last donation made, not the last one asked for.
     private var lastDonation: (identifier: String, date: Date)?
 
     init(
         now: @escaping () -> Date = Date.init,
-        donate: @escaping (INInteraction) -> Void = { $0.donate(completion: nil) }
+        donate: @escaping (INInteraction, @escaping (Error?) -> Void) -> Void = { $0.donate(completion: $1) }
     ) {
         self.now = now
         self.donate = donate
@@ -36,7 +37,14 @@ final class IntentDonor: IntentDonorProtocol {
         guard shouldDonate(identifier: Self.mediaIdentifier(for: model)) else { return }
         let intent = buildIntent(for: model)
         let response = INPlayMediaIntentResponse(code: .success, userActivity: nil)
-        donate(INInteraction(intent: intent, response: response))
+        donate(INInteraction(intent: intent, response: response), Self.logOutcome)
+    }
+
+    /// A failed donation silently stops Siri learning to prefer Abbay (#157), so it is logged.
+    /// The error's domain and code only: the description can carry the title.
+    private static func logOutcome(_ error: Error?) {
+        guard let error = error as NSError? else { return }
+        Log.siri.error("donation failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)")
     }
 
     private func shouldDonate(identifier: String) -> Bool {

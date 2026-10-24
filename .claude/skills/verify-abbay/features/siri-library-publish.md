@@ -11,9 +11,13 @@ user-facing, but every title-matching Siri phrase depends on it.
   missing, so launch cannot rely on the write path.
 - **publish-on-mutation:** `LibrarySnapshotWriter.write` calls the publisher at the end, guarded out
   of the extension build. Every import and delete therefore refreshes Siri's view.
-- **publish-on-foreground and on pause (#127, experiment):** `SiriContextRefresher` re-publishes
-  the library when the scene becomes active (`AbbayApp` → `AppDelegate.scenePhaseChanged`) and on
-  every `Player.pause()`, at most once per `SiriContextRefresher.minimumInterval` (10 minutes,
+- **publish-on-foreground, pause, interruption and CarPlay (#127, #160, experiment):**
+  `SiriContextRefresher` re-publishes the library when the scene becomes active (`AbbayApp` →
+  `AppDelegate.scenePhaseChanged`), on every `Player.pause()`, when an audio-session interruption
+  begins while the user had asked to play (reason `interruption`), and when the CarPlay scene
+  connects or becomes active (`CarPlaySceneDelegate.carPlayBecameActive`, reason `carPlay`; a
+  CarPlay-only session with the phone locked never makes the window scene active), all at most once
+  per `SiriContextRefresher.minimumInterval` (10 minutes,
   in-memory clock). Launch's snapshot write calls `markPublished()`, so the first foreground after a
   cold launch doesn't publish twice. Library mutations publish through the snapshot writer and do
   not restart the throttle.
@@ -21,7 +25,11 @@ user-facing, but every title-matching Siri phrase depends on it.
   `BGAppRefreshTask` `com.edyuto.Abbay.siriRefresh` (listed in `BGTaskSchedulerPermittedIdentifiers`,
   background mode `fetch`) at launch, schedules it a day out each time the scene goes to the
   background, reschedules on every run, publishes with `refreshNow` (ignores the throttle) and
-  completes the task once — unsuccessfully if it expires first. iOS decides when, or whether, it
+  completes the task once, **after the publish reports completion** (#159) — unsuccessfully if it
+  expires first. `SiriLibraryPublisher.publish(audios:completion:)` completes on main once
+  Spotlight's `indexSearchableItems` completion handler has run. `updateAppShortcutParameters()`,
+  `INVocabulary` and `becomeCurrent()` are synchronous with no completion API, so whatever the
+  system does after they return can't be waited for. iOS decides when, or whether, it
   runs. Drop it if the device judgement in #127 shows no improvement.
 - **snapshot:** `abbay.librarySnapshot.v1` in the App Group — a versioned `LibrarySnapshot` of
   `{title, urlString, bookmarkData}`. The extension's only data source.
@@ -55,19 +63,26 @@ $B appgroup get abbay.librarySnapshot.v1 | jq '[.audios[] | select(.bookmarkData
 $B spotlight query "<title>"                  # planned: CSSearchQuery against our named index
 ```
 
-The foreground/pause refresh and the background task are not observable from the app's state: they
-log to the `Siri` category (`context refresh (foreground|pause|backgroundTask): N books`, `… skipped
-… throttled`, `background refresh: …`). On the simulator `BGTaskScheduler.submit` is refused (logged,
+The refreshes and the background task are not observable from the app's state: they log to the
+`Siri` category (`context refresh (foreground|pause|interruption|carPlay|backgroundTask): N books`,
+`… skipped … throttled`, `publish: N books` (#157, `.info`, count only), `publish: finished`
+(`.debug`), `spotlight indexing failed: <domain> <code>`, `background refresh: publish finished`,
+`background refresh: …`). Read `.info`/`.debug` with `log stream --level debug` or `log show --info --debug`. On the simulator `BGTaskScheduler.submit` is refused (logged,
 expected). To fire the task on a device under the debugger, pause and run
 `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.edyuto.Abbay.siriRefresh"]`.
-Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests`,
-`AppDelegateSiriFreshnessTests` and `PlayerSiriFreshnessTests`.
+Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests` (incl. completion order),
+`AppDelegateSiriFreshnessTests`, `PlayerSiriFreshnessTests` (incl. interruptions),
+`CarPlaySceneDelegateTests` and `SiriLibraryPublisherTests`; the log lines are pinned by reading the
+test process's own log through `OSLogStore` (`AbbayTests/Support/LoggedMessages.swift`).
 
 `AppIntentsTesting` can validate entity queries and Spotlight indexing directly, which makes this
 feature one of the better arguments for taking the Xcode 27 upgrade.
 
 ## Gotchas
 
+- **Spotlight indexing is slow, and the background task waits for it (#159).** On the iOS 26.4
+  simulator `publish: finished` came ~42 s after `publish: 2 books`; a `BGAppRefreshTask` gets
+  about 30 s, so the task may expire before indexing ends. Device measurement tracked in #173.
 - **Publishing on every launch is deliberate — do not "optimise" it away.** The comment at
   the comment in `didFinishLaunchingWithOptions` records why: without one successful entity fetch, entity phrases never
   resolve.

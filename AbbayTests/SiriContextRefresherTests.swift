@@ -8,9 +8,12 @@ import XCTest
 
 private final class CountingPublisher: SiriLibraryPublisherProtocol {
     var publishedCounts = [Int]()
+    /// The last publish's completion, held so a test decides when the publish finishes.
+    var pendingCompletion: (() -> Void)?
 
-    func publish(audios: [AudioModel]) {
+    func publish(audios: [AudioModel], completion: @escaping () -> Void) {
         publishedCounts.append(audios.count)
+        pendingCompletion = completion
     }
 }
 
@@ -83,5 +86,17 @@ final class SiriContextRefresherTests: XCTestCase {
         refresher.refreshIfDue(.pause)
 
         XCTAssertEqual(publisher.publishedCounts.count, 2)
+    }
+
+    /// #159: `refreshNow` reports completion when the publish does, not when it returns.
+    func test_refreshNow_completesWhenThePublishCompletes() throws {
+        let refresher = makeRefresher()
+        var completed = false
+
+        refresher.refreshNow(.backgroundTask) { completed = true }
+        XCTAssertFalse(completed)
+
+        try XCTUnwrap(publisher.pendingCompletion)()
+        XCTAssertTrue(completed)
     }
 }

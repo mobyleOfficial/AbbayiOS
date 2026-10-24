@@ -117,8 +117,9 @@ final class LibrarySnapshotOnMutationTests: XCTestCase {
     private final class PublishCountingSpy: SiriLibraryPublisherProtocol {
         private(set) var publishedTitles: [[String]] = []
 
-        func publish(audios: [AudioModel]) {
+        func publish(audios: [AudioModel], completion: @escaping () -> Void) {
             publishedTitles.append(audios.map(\.title))
+            completion()
         }
     }
 

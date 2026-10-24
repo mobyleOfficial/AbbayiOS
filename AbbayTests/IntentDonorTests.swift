@@ -32,7 +32,7 @@ final class IntentDonorRepeatTests: XCTestCase {
     private func makeDonor() -> IntentDonor {
         IntentDonor(
             now: { [unowned self] in self.now },
-            donate: { [unowned self] interaction in
+            donate: { [unowned self] interaction, _ in
                 let intent = interaction.intent as? INPlayMediaIntent
                 self.donatedTitles.append(intent?.mediaItems?.first?.title ?? "")
             }
@@ -84,5 +84,40 @@ final class IntentDonorRepeatTests: XCTestCase {
         donor.donatePlayMedia(model: book("One"))
 
         XCTAssertEqual(donatedTitles, ["One", "One"])
+    }
+}
+
+/// A donation's outcome reaches the unified log (#157): a failure with its public error domain and
+/// code, never the book's title.
+final class IntentDonorLoggingTests: XCTestCase {
+    private func book(_ title: String) -> AudioModel {
+        AudioModel(title: title, url: URL(string: "file:///\(title).m4b"))
+    }
+
+    func test_donation_passesACompletionHandler_andLogsAFailure_withoutTheTitle() throws {
+        let since = Date()
+        var completion: ((Error?) -> Void)?
+        let donor = IntentDonor(donate: { _, handler in completion = handler })
+
+        donor.donatePlayMedia(model: book("SecretTitle157"))
+        try XCTUnwrap(completion, "the donation must be given a completion handler")(
+            NSError(domain: "IntentsErrorDomain", code: 1901)
+        )
+
+        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "donation failed")
+        let failure = try XCTUnwrap(messages.first { $0.contains("donation failed") }, "\(messages)")
+        XCTAssertTrue(failure.contains("IntentsErrorDomain"), failure)
+        XCTAssertTrue(failure.contains("1901"), failure)
+        XCTAssertFalse(messages.contains { $0.contains("SecretTitle157") }, "\(messages)")
+    }
+
+    func test_successfulDonation_logsNoFailure() throws {
+        let since = Date()
+        let donor = IntentDonor(donate: { _, handler in handler(nil) })
+
+        donor.donatePlayMedia(model: book("Fine"))
+
+        let messages = try LoggedMessages.messages(category: "Siri", since: since)
+        XCTAssertFalse(messages.contains { $0.contains("donation failed") }, "\(messages)")
     }
 }

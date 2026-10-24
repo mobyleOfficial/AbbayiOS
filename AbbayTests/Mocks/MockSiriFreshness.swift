@@ -12,12 +12,27 @@ final class MockSiriContextRefresher: SiriContextRefreshing {
     private(set) var markPublishedCount = 0
     /// Runs inside `refreshNow`, to act while a background task is in flight.
     var onRefreshNow: (() -> Void)?
+    /// When false, `refreshNow`'s completion waits in `pendingCompletions` until a test finishes
+    /// the publish with `finishPublishes()`, as Spotlight's indexing does in the real publish.
+    var completesImmediately = true
+    private(set) var pendingCompletions: [() -> Void] = []
 
     func refreshIfDue(_ reason: SiriRefreshReason) { dueReasons.append(reason) }
 
-    func refreshNow(_ reason: SiriRefreshReason) {
+    func refreshNow(_ reason: SiriRefreshReason, completion: @escaping () -> Void) {
         nowReasons.append(reason)
         onRefreshNow?()
+        if completesImmediately {
+            completion()
+        } else {
+            pendingCompletions.append(completion)
+        }
+    }
+
+    func finishPublishes() {
+        let completions = pendingCompletions
+        pendingCompletions = []
+        completions.forEach { $0() }
     }
 
     func markPublished() { markPublishedCount += 1 }
