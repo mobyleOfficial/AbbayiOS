@@ -173,6 +173,13 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: 'YES'
         PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.NetworkProvider
+        # An embedded framework must be found through the app's runpath
+        # (@executable_path/Frameworks). Without these, Xcode falls back to INSTALL_PATH
+        # (/Library/Frameworks): the app links against an absolute path that doesn't exist on a
+        # device and crashes at launch, while simulator and test builds still load the framework
+        # from the build folder and pass. SKIP_INSTALL keeps it out of the archive's Products.
+        DYLIB_INSTALL_NAME_BASE: '@rpath'
+        SKIP_INSTALL: 'YES'
 
   NetworkProviderTests:
     type: bundle.unit-test
