@@ -119,7 +119,7 @@ need a device (#128); only the manager's logic against a mock provider is covere
 format: a keyed archive under `NSKeyedArchiveRootObjectKey` whose request entries are archived
 `NSMutableURLRequest`s); iOS resume data from the background session is a device check (#128).
 The hint and the shorter pt-BR status were driven live on iPhone 17 and iPhone SE (3rd gen)
-simulators with a temporary stub (see #148's PR).
+simulators with a temporary, uncommitted stub (see #148's PR); a committed stub that makes these ids UI-testable is #171.
 
 ## Gotchas
 
