@@ -141,6 +141,12 @@ final class Player: PlayerProtocol {
         // Step 2 — lazy bookmark population on the inout model.
         // MUST happen BEFORE updatePlayItem so the playItem observer + any future Player
         // observer of the model see the populated bookmark via the copy.
+        // A replay of the loaded book can come with a stale copy (a row built before the bookmark
+        // existed): reuse the bookmark already held, rather than re-creating it and writing the
+        // copy's old position over the one `pause` saved.
+        if model.bookmarkData == nil, url == self.url, let loadedBookmark = self.model?.bookmarkData {
+            model.bookmarkData = loadedBookmark
+        }
         // `librivox://` identity URLs aren't files: there is nothing to bookmark.
         if !Self.isLibriVoxURL(url),
            model.bookmarkData == nil,

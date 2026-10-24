@@ -165,4 +165,58 @@ final class PlayerTests: XCTestCase {
             "play() must refresh the gate even when the URL is unchanged"
         )
     }
+
+    // MARK: - Stale models from the list (task 4 review I2)
+
+    private func makePlayer(saving save: MockSavePlaybackPositionUseCase, bookmarks: MockBookmarkProvider) -> Player {
+        Player(
+            savePlaybackPositionUseCase: save,
+            intentDonor: MockIntentDonor(),
+            librarySnapshotWriter: MockLibrarySnapshotWriter(),
+            audioSessionActivator: MockAudioSessionActivator(),
+            bookmarkProvider: bookmarks
+        )
+    }
+
+    /// A row passes the book as the list loaded it: no bookmark, an old position. Replaying the
+    /// loaded book must reuse the bookmark the player already has, and must not write that old
+    /// position over the one `pause` saved.
+    func test_play_replayOfLoadedBookWithStaleModel_reusesBookmarkAndWritesNoPosition() {
+        let save = MockSavePlaybackPositionUseCase()
+        let bookmarks = MockBookmarkProvider()
+        bookmarks.bookmarkToReturn = Data([7, 8, 9])
+        let player = makePlayer(saving: save, bookmarks: bookmarks)
+        let listCopy = AudioModel(title: "Book", currentTime: 0, url: URL(string: "file:///book.m4a"))
+        var first = listCopy
+        player.play(&first)
+        XCTAssertEqual(bookmarks.createCallCount, 1)
+        let writesAfterFirstPlay = save.calls.count
+
+        var stale = listCopy
+        player.play(&stale)
+
+        XCTAssertEqual(bookmarks.createCallCount, 1, "the loaded book's bookmark must be reused")
+        XCTAssertEqual(save.calls.count, writesAfterFirstPlay, "no position write on a replay")
+        XCTAssertEqual(stale.bookmarkData, Data([7, 8, 9]), "the caller's model must carry the bookmark")
+    }
+
+    /// The list refreshes the outgoing book from storage on the play-URL event, so the player must
+    /// have saved that book's position before announcing the new one.
+    func test_bookSwitch_savesTheOutgoingPositionBeforeAnnouncingTheNewBook() throws {
+        let save = MockSavePlaybackPositionUseCase()
+        let player = makePlayer(saving: save, bookmarks: MockBookmarkProvider())
+        let first = URL(string: "file:///a.m4a")
+        var bookA = AudioModel(title: "A", url: first, bookmarkData: Data([1]))
+        var bookB = AudioModel(title: "B", url: URL(string: "file:///b.m4a"), bookmarkData: Data([2]))
+        player.play(&bookA)
+        var savedBeforeAnnouncement: [URL?] = []
+        let cancellable = player.playUrlSubjectPublisher.sink { _ in
+            savedBeforeAnnouncement = save.calls.map(\.url)
+        }
+
+        player.play(&bookB)
+
+        XCTAssertTrue(savedBeforeAnnouncement.contains(first), "A's position must be saved first")
+        withExtendedLifetime(cancellable) {}
+    }
 }

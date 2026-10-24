@@ -71,8 +71,10 @@ Remember row order is not insertion order (`LoadAllAudiosUseCase` applies no sor
 
 - **Chapter numbering is 0-based in the model and 1-based only on screen.** The conversion is
   `ChapterCountView.displayNumber` (#104): a three-chapter book at rest reads `Ch 1/3`.
-- **An idle row's detail uses the saved position**, which the list loads once; it can lag the
-  real position of a book played earlier in the session until the list reloads.
+- **An idle row's detail uses the saved position.** `audioList` loads once, so on every book
+  switch `MediaListViewModel` re-reads the outgoing and incoming books from storage (the player
+  saves the outgoing position before announcing the new book). That keeps the left book's row, and
+  a replay of it, at where it stopped, and gives later presses the bookmark the player made.
 - **The ring is a `Button` inside a row whose tap gesture opens the player.** That a tap on the ring
   pauses without also opening the player follows from SwiftUI button precedence and is not covered
   by any test.
