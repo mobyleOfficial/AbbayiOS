@@ -92,4 +92,6 @@ removed), and the VoiceOver announcement.
   audio-session activation (`Log.player`; Play reports it, Settings shows the status) and Now
   Playing updates (`Log.nowPlaying`, debug level). `CatalogCache` still ignores read and write
   failures by design: it only saves time.
-- Still on `os_log`/`print`: the Siri paths and `LibrarySnapshotWriter` (#87).
+- No `os_log` or `print` is left in `Abbay/` or `AbbayIntents/`: the Siri extension,
+  `LibrarySnapshotWriter` and `AppGroup` log through `Log` too (#87). `SiriDiagnostics` stays a
+  separate App Group trail.
