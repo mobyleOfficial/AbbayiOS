@@ -1,0 +1,232 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "${applicationName} open ${audiobook}" : {},
+    "${applicationName} play" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "${applicationName} tocar"
+            ]
+          }
+        }
+      }
+    },
+    "${applicationName} play ${audiobook}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "${applicationName} tocar ${audiobook}"
+            ]
+          }
+        }
+      }
+    },
+    "${applicationName} play ${chapter}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "${applicationName} tocar ${chapter}"
+            ]
+          }
+        }
+      }
+    },
+    "${applicationName} resume" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "${applicationName} continuar"
+            ]
+          }
+        }
+      }
+    },
+    "Continue audiobook in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Continuar audiolivro no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Continue audiobook on ${applicationName}" : {},
+    "In ${applicationName} play ${audiobook}" : {},
+    "In ${applicationName} play ${chapter}" : {},
+    "Listen to ${audiobook} in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ouvir ${audiobook} no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Listen to ${audiobook} on ${applicationName}" : {},
+    "Next chapter in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Próximo capítulo no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Next chapter on ${applicationName}" : {},
+    "Open ${audiobook} in ${applicationName}" : {},
+    "Open ${audiobook} on ${applicationName}" : {},
+    "Pause ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Pausar ${applicationName}",
+              "Pausar o ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Pick audiobook in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Escolher audiolivro no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Pick audiobook on ${applicationName}" : {},
+    "Play ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play ${audiobook} in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar ${audiobook} no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play ${audiobook} on ${applicationName}" : {},
+    "Play ${audiobook} using ${applicationName}" : {},
+    "Play ${chapter} in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar ${chapter} no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play ${chapter} on ${applicationName}" : {},
+    "Play audiobook in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar audiolivro no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play audiobook on ${applicationName}" : {},
+    "Play in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar no ${applicationName}",
+              "Reproduzir no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play on ${applicationName}" : {},
+    "Previous chapter in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Capítulo anterior no ${applicationName}",
+              "Voltar capítulo no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Previous chapter on ${applicationName}" : {},
+    "Resume ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Retomar ${applicationName}",
+              "Continuar ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Skip chapter in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Pular capítulo no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Skip chapter on ${applicationName}" : {},
+    "Skip to ${chapter} in ${applicationName}" : {},
+    "Skip to ${chapter} on ${applicationName}" : {}
+  },
+  "version" : "1.0"
+}

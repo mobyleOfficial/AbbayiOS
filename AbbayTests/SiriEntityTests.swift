@@ -186,10 +186,18 @@ final class SiriEntityTests: XCTestCase {
 
     func test_playAudiobookIntent_dialogConstantsMatchSpec() {
         XCTAssertEqual(
-            PlayAudiobookIntent.cannotFindDialog,
+            PlayAudiobookIntent.cannotFindDialog.resolved(in: "en"),
             "Cannot find that audiobook. It may have been removed or is not downloaded."
         )
-        XCTAssertEqual(PlayAudiobookIntent.playingDialog(title: "Foo"), "Playing Foo.")
+        XCTAssertEqual(PlayAudiobookIntent.playingDialog(title: "Foo").resolved(in: "en"), "Playing Foo.")
+    }
+
+    func test_playAudiobookIntent_dialogConstants_inPortuguese() {
+        XCTAssertEqual(
+            PlayAudiobookIntent.cannotFindDialog.resolved(in: "pt-BR"),
+            "Não encontrei esse audiolivro. Ele pode ter sido removido ou não estar baixado."
+        )
+        XCTAssertEqual(PlayAudiobookIntent.playingDialog(title: "Foo").resolved(in: "pt-BR"), "Tocando Foo.")
     }
 
     // MARK: - PlayChapterIntent
@@ -245,10 +253,32 @@ final class SiriEntityTests: XCTestCase {
 
     func test_playChapterIntent_dialogConstantsMatchSpec() {
         XCTAssertEqual(
-            PlayChapterIntent.nothingToPlayDialog,
+            PlayChapterIntent.nothingToPlayDialog.resolved(in: "en"),
             "Nothing to play. Say 'Play in Abbay' to start a book."
         )
-        XCTAssertEqual(PlayChapterIntent.noChapterDialog(9), "That audiobook doesn't have a chapter 9.")
-        XCTAssertEqual(PlayChapterIntent.playingChapterDialog(4), "Playing chapter 4.")
+        XCTAssertEqual(
+            PlayChapterIntent.noChapterDialog(9).resolved(in: "en"),
+            "That audiobook doesn't have a chapter 9."
+        )
+        XCTAssertEqual(PlayChapterIntent.playingChapterDialog(4).resolved(in: "en"), "Playing chapter 4.")
+    }
+
+    func test_playChapterIntent_dialogConstants_inPortuguese() {
+        XCTAssertEqual(
+            PlayChapterIntent.nothingToPlayDialog.resolved(in: "pt-BR"),
+            "Nada para tocar. Diga 'Tocar no Abbay' para começar um livro."
+        )
+        XCTAssertEqual(
+            PlayChapterIntent.noChapterDialog(9).resolved(in: "pt-BR"),
+            "Esse audiolivro não tem o capítulo 9."
+        )
+        XCTAssertEqual(PlayChapterIntent.playingChapterDialog(4).resolved(in: "pt-BR"), "Tocando o capítulo 4.")
+    }
+
+    /// Siri shows, and reads back, a chapter by its display representation.
+    func test_chapterEntity_displayRepresentation_isLocalized() {
+        let title = ChapterEntity(id: 3).displayRepresentation.title
+        XCTAssertEqual(title.resolved(in: "en"), "Chapter 4")
+        XCTAssertEqual(title.resolved(in: "pt-BR"), "Capítulo 4")
     }
 }

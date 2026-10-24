@@ -786,6 +786,636 @@
           }
         }
       }
+    },
+    "siriAudioUnavailable" : {
+      "comment" : "Siri dialog when the audio session cannot be activated",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio temporarily unavailable. Try again in a moment."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áudio temporariamente indisponível. Tente de novo em instantes."
+          }
+        }
+      }
+    },
+    "siriAddBookFirst" : {
+      "comment" : "Siri dialog when asked to resume with an empty library",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a book in Abbay first."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione um livro no Abbay primeiro."
+          }
+        }
+      }
+    },
+    "siriCannotFind" : {
+      "comment" : "Siri dialog when the requested book's file is gone",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot find that audiobook. It may have been removed or is not downloaded."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não encontrei esse audiolivro. Ele pode ter sido removido ou não estar baixado."
+          }
+        }
+      }
+    },
+    "siriPlayingTitle" : {
+      "comment" : "Siri dialog after starting a book. %@ is the book title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playing %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocando %@."
+          }
+        }
+      }
+    },
+    "siriNothingPlaying" : {
+      "comment" : "Siri dialog when asked to pause with nothing playing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is playing."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada está tocando."
+          }
+        }
+      }
+    },
+    "siriPaused" : {
+      "comment" : "Siri dialog after pausing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado."
+          }
+        }
+      }
+    },
+    "siriNothingPlayingHint" : {
+      "comment" : "Siri dialog when asked to skip a chapter with nothing playing. The quoted phrase must be a registered App Shortcut phrase in the same language (AppShortcuts.xcstrings)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is playing. Say 'Play in Abbay' to start."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada está tocando. Diga 'Tocar no Abbay' para começar."
+          }
+        }
+      }
+    },
+    "siriNextChapter" : {
+      "comment" : "Siri dialog after skipping forward a chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next chapter."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo capítulo."
+          }
+        }
+      }
+    },
+    "siriPreviousChapter" : {
+      "comment" : "Siri dialog after skipping back a chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous chapter."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo anterior."
+          }
+        }
+      }
+    },
+    "siriNoMatch" : {
+      "comment" : "Siri dialog when no book matches the spoken name. %@ echoes what the user said",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No audiobook matches '%@'."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum audiolivro corresponde a '%@'."
+          }
+        }
+      }
+    },
+    "siriNothingToPlay" : {
+      "comment" : "Siri dialog when asked for a chapter with no book to play. The quoted phrase must be a registered App Shortcut phrase in the same language (AppShortcuts.xcstrings)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to play. Say 'Play in Abbay' to start a book."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada para tocar. Diga 'Tocar no Abbay' para começar um livro."
+          }
+        }
+      }
+    },
+    "siriNoChapter" : {
+      "comment" : "Siri dialog when the requested chapter does not exist. %lld is the chapter number",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That audiobook doesn't have a chapter %lld."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse audiolivro não tem o capítulo %lld."
+          }
+        }
+      }
+    },
+    "siriPlayingChapter" : {
+      "comment" : "Siri dialog after jumping to a chapter. %lld is the chapter number",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playing chapter %lld."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocando o capítulo %lld."
+          }
+        }
+      }
+    },
+    "siriChapterNumber" : {
+      "comment" : "How Siri and Shortcuts show a chapter. %lld is the chapter number",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter %lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo %lld"
+          }
+        }
+      }
+    },
+    "Play in Abbay" : {
+      "comment" : "App Intent title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play in Abbay"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar no Abbay"
+          }
+        }
+      }
+    },
+    "Pause Abbay" : {
+      "comment" : "App Intent title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause Abbay"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar o Abbay"
+          }
+        }
+      }
+    },
+    "Next chapter in Abbay" : {
+      "comment" : "App Intent title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next chapter in Abbay"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo capítulo no Abbay"
+          }
+        }
+      }
+    },
+    "Previous chapter in Abbay" : {
+      "comment" : "App Intent title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous chapter in Abbay"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo anterior no Abbay"
+          }
+        }
+      }
+    },
+    "Play audiobook in Abbay" : {
+      "comment" : "App Intent title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play audiobook in Abbay"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar audiolivro no Abbay"
+          }
+        }
+      }
+    },
+    "Play audiobook" : {
+      "comment" : "App Intent title and App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play audiobook"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar audiolivro"
+          }
+        }
+      }
+    },
+    "Play chapter" : {
+      "comment" : "App Intent title and App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar capítulo"
+          }
+        }
+      }
+    },
+    "Resumes the last audiobook you played in Abbay." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumes the last audiobook you played in Abbay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retoma o último audiolivro que você ouviu no Abbay."
+          }
+        }
+      }
+    },
+    "Pauses the current audiobook in Abbay." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pauses the current audiobook in Abbay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausa o audiolivro atual no Abbay."
+          }
+        }
+      }
+    },
+    "Skips to the next chapter of the audiobook playing in Abbay." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skips to the next chapter of the audiobook playing in Abbay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pula para o próximo capítulo do audiolivro que está tocando no Abbay."
+          }
+        }
+      }
+    },
+    "Skips to the previous chapter of the audiobook playing in Abbay." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skips to the previous chapter of the audiobook playing in Abbay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volta para o capítulo anterior do audiolivro que está tocando no Abbay."
+          }
+        }
+      }
+    },
+    "Plays a specific audiobook in Abbay by name." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays a specific audiobook in Abbay by name."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca um audiolivro específico do Abbay pelo nome."
+          }
+        }
+      }
+    },
+    "Plays one of your Abbay audiobooks by name." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays one of your Abbay audiobooks by name."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca um dos seus audiolivros do Abbay pelo nome."
+          }
+        }
+      }
+    },
+    "Jumps to a chapter of the audiobook you are listening to." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jumps to a chapter of the audiobook you are listening to."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vai para um capítulo do audiolivro que você está ouvindo."
+          }
+        }
+      }
+    },
+    "Audiobook" : {
+      "comment" : "App Intent parameter title and entity type name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiobook"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiolivro"
+          }
+        }
+      }
+    },
+    "Chapter" : {
+      "comment" : "App Intent parameter title and entity type name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo"
+          }
+        }
+      }
+    },
+    "Which audiobook?" : {
+      "comment" : "Siri prompt for the book name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which audiobook?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qual audiolivro?"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "comment" : "App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "comment" : "App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar"
+          }
+        }
+      }
+    },
+    "Next chapter" : {
+      "comment" : "App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo capítulo"
+          }
+        }
+      }
+    },
+    "Previous chapter" : {
+      "comment" : "App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo anterior"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

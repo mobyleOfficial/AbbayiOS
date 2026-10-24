@@ -32,9 +32,14 @@ final class AppShortcutPhraseTests: XCTestCase {
 
     /// Apple caps an app at 1,000 App Shortcut phrases counting every parameter permutation; past
     /// it, phrases are silently dropped. Entity phrases expand to one phrase per suggested entity.
+    ///
+    /// The pt-BR phrases are counted on top of the English ones. Apple doesn't say whether the cap
+    /// is per language, so this assumes the stricter reading.
     func test_phraseBudget_staysUnderApplesLimit() throws {
+        let english = try Self.shippedPhrases().flatMap(\.phrases)
+        let portuguese = try Self.portuguesePhrases().values.flatMap { $0 }
         var total = 0
-        for phrase in try Self.shippedPhrases().flatMap(\.phrases) {
+        for phrase in english + portuguese {
             if phrase.contains("${audiobook}") {
                 total += AudiobookEntityQuery.suggestionLimit
             } else if phrase.contains("${chapter}") {
@@ -44,6 +49,42 @@ final class AppShortcutPhraseTests: XCTestCase {
             }
         }
         XCTAssertLessThanOrEqual(total, 1000, "App Shortcut phrase permutations: \(total)")
+    }
+
+    // MARK: - pt-BR
+
+    /// Without these, a Portuguese user hears translated answers but has to speak English to
+    /// trigger anything.
+    func test_portuguesePhrases_shipForEveryShortcut() throws {
+        let portuguese = try Self.portuguesePhrases()
+        for shortcut in try Self.shippedPhrases() {
+            let translated = shortcut.phrases.flatMap { portuguese[$0] ?? [] }
+            XCTAssertFalse(translated.isEmpty, "\(shortcut.action) has no pt-BR phrase")
+        }
+    }
+
+    /// A pt-BR phrase stands in for its English key, so it has to carry the same parameter and
+    /// name the app exactly once, or the App Intents compiler drops it.
+    func test_portuguesePhrases_keepTheirKeysTokens() throws {
+        let english = Set(try Self.shippedPhrases().flatMap(\.phrases))
+        for (key, phrases) in try Self.portuguesePhrases() {
+            XCTAssertTrue(english.contains(key), "pt-BR phrases keyed by \"\(key)\", which no longer ships")
+            for phrase in phrases {
+                XCTAssertEqual(phrase.components(separatedBy: Self.appName).count - 1, 1, phrase)
+                XCTAssertEqual(Self.tokens(in: phrase), Self.tokens(in: key), phrase)
+            }
+        }
+    }
+
+    /// The Siri dialogs and the one-utterance shapes from #121 depend on these exact phrases.
+    func test_portuguesePhrases_includeTheOnesTheDialogsAndRoutingRelyOn() throws {
+        let phrases = Set(try Self.portuguesePhrases().values.flatMap { $0 })
+        // Named by the pt-BR "Diga 'Tocar no Abbay'" dialogs.
+        XCTAssertTrue(phrases.contains("Tocar no \(Self.appName)"))
+        // App-name-first: survives Siri ending the utterance after a known title.
+        XCTAssertTrue(phrases.contains("\(Self.appName) tocar ${audiobook}"))
+        XCTAssertTrue(phrases.contains("Tocar ${audiobook} no \(Self.appName)"))
+        XCTAssertTrue(phrases.contains("Tocar ${chapter} no \(Self.appName)"))
     }
 
     // MARK: - Helpers
@@ -73,5 +114,31 @@ final class AppShortcutPhraseTests: XCTestCase {
                 phrases: templates.compactMap { $0["key"] as? String }
             )
         }
+    }
+
+    /// pt-BR phrases by their English key, read from the compiled `AppShortcuts.xcstrings`. A
+    /// string set compiles to one entry per phrase, keyed `#!SET#!_<english key>[<index>]`.
+    private static func portuguesePhrases() throws -> [String: [String]] {
+        let bundle = Bundle(for: MediaListViewModel.self)
+        let url = try XCTUnwrap(
+            bundle.url(forResource: "AppShortcuts", withExtension: "strings", subdirectory: "pt-BR.lproj"),
+            "pt-BR.lproj/AppShortcuts.strings missing; AppShortcuts.xcstrings did not compile"
+        )
+        let table = try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String])
+        let entry = try NSRegularExpression(pattern: #"^#!SET#!_(.+)\[(\d+)\]$"#)
+        var phrases: [String: [(index: Int, phrase: String)]] = [:]
+        for (key, phrase) in table {
+            let range = NSRange(key.startIndex..., in: key)
+            let match = try XCTUnwrap(entry.firstMatch(in: key, range: range), "unexpected key \(key)")
+            let english = try XCTUnwrap(Range(match.range(at: 1), in: key).map { String(key[$0]) })
+            let index = try XCTUnwrap(Range(match.range(at: 2), in: key).flatMap { Int(key[$0]) })
+            phrases[english, default: []].append((index, phrase))
+        }
+        return phrases.mapValues { $0.sorted { $0.index < $1.index }.map(\.phrase) }
+    }
+
+    /// `${…}` tokens in a phrase, sorted: a translation may reorder them but not change them.
+    private static func tokens(in phrase: String) -> [String] {
+        phrase.components(separatedBy: "${").dropFirst().compactMap { $0.components(separatedBy: "}").first }.sorted()
     }
 }
