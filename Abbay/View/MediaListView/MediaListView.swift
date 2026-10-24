@@ -70,10 +70,7 @@ struct MediaListView: View {
         if model.audioList.isEmpty {
             emptyView
         } else {
-            ZStack {
-                listView
-                playerView
-            }
+            listView
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -153,23 +150,6 @@ struct MediaListView: View {
         }
         .listStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.Library.list)
-    }
-
-    // MARK: - Player View
-    /// The floating player, until the docked bar replaces it. Inside the tab's content, so the tab
-    /// bar's inset keeps it above the bar.
-    @ViewBuilder
-    var playerView: some View {
-        if let selectedAudio = model.selectedAudio {
-            FloatingPlayerViewFactory.build(selectedAudio)
-                .accessibilityIdentifier(AccessibilityID.Library.floatingPlayer)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.horizontal, SpaceConstants.sx4.value)
-                .padding(.bottom, SpaceConstants.sx8.value)
-                .onTapGesture {
-                    presentation.open(selectedAudio, animated: true)
-                }
-        }
     }
 }
 

@@ -21,8 +21,12 @@ enum ColorConstants: String, CaseIterable {
 
 extension ColorConstants: ConstantsProtocol {
     var value: Color {
+        Color(uiColor: uiColor)
+    }
+
+    /// For UIKit and Core Graphics work, e.g. the cover tint's fallback.
+    var uiColor: UIColor {
         let hexCode: String = getBaseValue()
-        let uiColor = UIColor(hex: hexCode)
-        return Color(uiColor: uiColor)
+        return UIColor(hex: hexCode)
     }
 }

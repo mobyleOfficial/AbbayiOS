@@ -13,9 +13,9 @@ import Foundation
 /// the hook cannot reach a Release build.
 ///
 /// The seeded models deliberately carry no playable audio. They exist so a driver can reach the
-/// library row and the player screen and assert their accessibility identifiers. Anything that
-/// depends on playback actually starting -- the floating player, tapping a chapter -- still
-/// needs a real file and is out of scope here.
+/// library row and the player screen and assert their accessibility identifiers. Pressing play
+/// still loads the book (the player announces it before any audio is read), so the mini player
+/// appears; anything that needs audio to advance still needs a real file.
 enum UITestSeeder {
     static func run(
         arguments: [String] = ProcessInfo.processInfo.arguments,
@@ -33,8 +33,25 @@ enum UITestSeeder {
         }
 
         guard wantsSeed else { return }
-        for model in seedModels() {
+        var models = seedModels()
+        if arguments.contains(LaunchArgument.seedFillerBooks) {
+            models += fillerModels()
+        }
+        for model in models {
             try? save.execute(model)
+        }
+    }
+
+    /// Plain books that only make the list scroll.
+    static func fillerModels(count: Int = 12) -> [AudioModel] {
+        (1...count).map { number in
+            AudioModel(
+                title: "Filler Book \(number)",
+                albumName: "Seed Album",
+                artist: "Seed Author",
+                duration: 100,
+                url: URL(string: "file:///seed/filler-\(number).mp3")
+            )
         }
     }
 

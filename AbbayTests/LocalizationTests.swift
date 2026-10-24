@@ -50,7 +50,11 @@ final class LocalizationTests: XCTestCase {
         .libraryTab,
         .searchTab,
         .librarySearchPrompt,
-        .closePlayer
+        .closePlayer,
+        .miniPlayerSubtitle,
+        .openPlayer,
+        .nextChapterAction,
+        .restartChapterAction
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -94,7 +98,11 @@ final class LocalizationTests: XCTestCase {
         .libraryTab,
         .searchTab,
         .librarySearchPrompt,
-        .closePlayer
+        .closePlayer,
+        .miniPlayerSubtitle,
+        .openPlayer,
+        .nextChapterAction,
+        .restartChapterAction
     ]
 
     /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship
@@ -177,6 +185,14 @@ final class LocalizationTests: XCTestCase {
     func test_rowDetailFormatsTakeTheirArguments() {
         XCTAssertEqual(Localizable.rowChapter.localized(with: 2, 7), "Ch 2/7")
         XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "3m"), "3m left")
+    }
+
+    func test_miniPlayerSubtitleFormatsItsArguments() {
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Chapter 35 · 12 min left")
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Capítulo 35 · faltam 12 min")
     }
 
     func test_timestampFormatsBothArguments() {

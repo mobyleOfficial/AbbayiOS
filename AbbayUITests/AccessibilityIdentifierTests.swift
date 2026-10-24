@@ -193,11 +193,17 @@ final class AccessibilityIdentifierTests: XCTestCase {
             usleep(100_000)
         }
 
+        // With the system tab bar's bottom accessory attached (iOS 26.1+), the accessibility tree
+        // reports the keyboard just off screen (minY = screen height) although it is visibly up.
+        // Fall back to the top of a portrait iPhone keyboard (always over 35% of the screen).
+        let reportedTop = keyboard.frame.minY
+        let keyboardTop = reportedTop < app.frame.height ? reportedTop : app.frame.height * 0.65
+
         if tab.exists {
             // Not exact positions: the system bar on iOS 26 shrinks under the keyboard.
             XCTAssertGreaterThan(
                 tab.frame.maxY,
-                keyboard.frame.minY,
+                keyboardTop,
                 "the tab bar rides above the keyboard: tab \(tab.frame), keyboard \(keyboard.frame)"
             )
         }
@@ -296,7 +302,7 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertFalse(element(AccessibilityID.Detail.download).exists)
     }
 
-    func test_playFromDetail_opensPlayer_thenLibraryShowsFloatingPlayer() {
+    func test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer() {
         openStubLibriVoxBook()
         element(AccessibilityID.Detail.download).tap()
         assertResolves(AccessibilityID.Detail.play)
@@ -312,8 +318,10 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertTrue(playerTitle.waitForNonExistence(timeout: 15), "the player did not close")
         assertResolves(AccessibilityID.Detail.play)
 
+        // The bar shows on both tabs once a book is loaded.
+        assertResolves(AccessibilityID.MiniPlayer.bar)
         element(AccessibilityID.Root.tabLibrary).tap()
-        assertResolves(AccessibilityID.Library.floatingPlayer)
+        assertResolves(AccessibilityID.MiniPlayer.bar)
         // The added book is in the library behind the details page.
         XCTAssertTrue(app.staticTexts["Stub LibriVox Book"].waitForExistence(timeout: 15))
     }

@@ -25,6 +25,12 @@ final class PlayerPresentation {
     private(set) var presentedBook: AudioModel?
     /// 0 = collapsed into the bar, 1 = fully open.
     var progress: CGFloat = 0
+    /// True once the details screen has settled open, false again as soon as a close starts. The
+    /// bar hides on this, not on `progress`: it changes once per open or close, so the views that
+    /// read it (the root's accessory, the docked bar's container) never re-render during a drag.
+    private(set) var isFullyOpen = false
+    /// The bar's global frame, where the expansion starts. Written by the bar, read by the overlay.
+    private(set) var barFrame: CGRect?
 
     /// Bumped by every `open` and `close`, so a collapse that finishes after a reopen leaves the
     /// new book alone.
@@ -36,12 +42,17 @@ final class PlayerPresentation {
         generation += 1
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
         if presentedBook == nil || presentedBook?.url != book.url { presentedBook = book }
-        set(progress: 1, animated: animated, completion: nil)
+        let current = generation
+        set(progress: 1, animated: animated) { [weak self] in
+            guard let self, generation == current else { return }
+            setFullyOpen(true)
+        }
     }
 
     func close(animated: Bool) {
         generation += 1
         let current = generation
+        setFullyOpen(false)
         guard animated else {
             set(progress: 0, animated: false, completion: nil)
             clearBook()
@@ -53,7 +64,19 @@ final class PlayerPresentation {
         }
     }
 
+    /// The system can host the accessory's content more than once around placement changes, and
+    /// the copy reports a frame near the top (Task 1 spike, gotcha 4): only a frame in the bottom
+    /// half is the bar. Assigned only when it changes.
+    func reportBarFrame(_ frame: CGRect, screenHeight: CGFloat) {
+        guard frame.minY >= screenHeight / 2, frame != barFrame else { return }
+        barFrame = frame
+    }
+
     // MARK: - Private
+
+    private func setFullyOpen(_ value: Bool) {
+        if isFullyOpen != value { isFullyOpen = value }
+    }
 
     private func clearBook() {
         if presentedBook != nil { presentedBook = nil }

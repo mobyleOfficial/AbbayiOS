@@ -6,16 +6,18 @@
 import SwiftUI
 
 /// The hand-built tab bar for iOS 17.0–26.0, standing in for the system `TabView` used on 26.1+.
-/// A `background2` bar with Library and Search, malachite when selected, docked under the content
-/// through a bottom safe-area inset so nothing is covered.
+/// A `background2` bar with Library and Search, malachite when selected, docked
+/// under the content so nothing is covered. The mini player (`accessory`) docks right above the
+/// bar, and the content ends above both.
 ///
 /// Both tabs stay alive once visited, like a system tab view: the hidden one keeps its scroll
 /// position, query and pushed page, and is hidden from hit testing and accessibility.
-struct RootTabs<Library: View, Search: View>: View {
+struct RootTabs<Library: View, Search: View, Accessory: View>: View {
     @Binding
     var selection: RootTab
     private let library: Library
     private let search: Search
+    private let accessory: Accessory
 
     /// The Search tab is built on its first visit, so launch doesn't load Popular on LibriVox.
     @State
@@ -24,21 +26,28 @@ struct RootTabs<Library: View, Search: View>: View {
     init(
         selection: Binding<RootTab>,
         @ViewBuilder library: () -> Library,
-        @ViewBuilder search: () -> Search
+        @ViewBuilder search: () -> Search,
+        @ViewBuilder accessory: () -> Accessory
     ) {
         _selection = selection
         self.library = library()
         self.search = search()
+        self.accessory = accessory()
     }
 
+    /// The pages sit above the mini player and the bar in a stack, not under them through a
+    /// safe-area inset: on iOS 18 a `List` in a tab's `NavigationStack` ignored that inset (with
+    /// the keyboard opt-out below), so its last rows scrolled under the mini player. Laid out
+    /// this way, the pages simply end where the mini player starts.
     var body: some View {
-        ZStack {
-            page(.library) { library }
-            if hasVisitedSearch || selection == .search {
-                page(.search) { search }
+        VStack(spacing: 0) {
+            ZStack {
+                page(.library) { library }
+                if hasVisitedSearch || selection == .search {
+                    page(.search) { search }
+                }
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            accessory
             bar
         }
         // Like a system tab bar, stay put under the keyboard instead of riding above it. Each tab's

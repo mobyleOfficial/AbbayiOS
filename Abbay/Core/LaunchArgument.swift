@@ -13,6 +13,8 @@
 enum LaunchArgument {
     /// Replace the library with deterministic sample books.
     static let seedLibrary = "-seedLibrary"
+    /// With `seedLibrary`: also add filler books, so the list is longer than the screen.
+    static let seedFillerBooks = "-seedFillerBooks"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the

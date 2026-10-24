@@ -10,27 +10,25 @@ import SwiftUI
 /// presentation and the selected tab, and injects the app-wide playback and download sources.
 ///
 /// The body reads only the selected tab. Playback and presentation state are read by small leaf
-/// views (`LoadedBookObserver`, `PlayerOverlay`), so a tick, a book switch or a drag never rebuilds
-/// the tab view.
+/// views (`LoadedBookObserver`, `PlayerOverlay`, the mini player's `MiniPlayerDock` /
+/// `MiniPlayerAccessory`), so a tick, a book switch or a drag never rebuilds the tab view.
+/// The library model is held, not observed: only `MediaListView` observes it, so an import or a
+/// delete re-renders the Library list, not the root.
 struct AppRootView: View {
     private let container: DependencyContainerProtocol
     @StateObject
-    private var model: MediaListViewModel
-    @State
-    private var presentation: PlayerPresentation
+    private var models: RootModels
     @State
     private var selectedTab: RootTab = .library
+
+    private var model: MediaListViewModel { models.library }
+    private var presentation: PlayerPresentation { models.presentation }
 
     /// Builds from `DependencyContainer.shared`, so it must run after `didFinishLaunching`
     /// configured the container (it does: the scene's body is evaluated after launch).
     init(container: DependencyContainerProtocol = DependencyContainer.shared) {
         self.container = container
-        let presentation = PlayerPresentation()
-        _presentation = State(initialValue: presentation)
-        _model = StateObject(wrappedValue: MediaListViewModel(
-            playback: container.playback,
-            presentation: presentation
-        ))
+        _models = StateObject(wrappedValue: RootModels(playback: container.playback))
     }
 
     var body: some View {
@@ -59,6 +57,8 @@ struct AppRootView: View {
                 libraryTab
             } search: {
                 searchTab
+            } accessory: {
+                MiniPlayerDock()
             }
         }
     }
@@ -71,6 +71,23 @@ struct AppRootView: View {
 
     private var searchTab: some View {
         SearchTab(onAdded: { [model] in model.addLibriVoxBook($0) })
+    }
+}
+
+// MARK: - Models
+
+/// The root's long-lived models, created once. An `ObservableObject` with nothing `@Published`, so
+/// it never invalidates the root: `@StateObject` here only keeps them alive (unlike `@State`, it
+/// doesn't rebuild a throwaway library model, which loads from storage, on every init).
+@MainActor
+private final class RootModels: ObservableObject {
+    let presentation: PlayerPresentation
+    let library: MediaListViewModel
+
+    init(playback: PlaybackCenter) {
+        let presentation = PlayerPresentation()
+        self.presentation = presentation
+        library = MediaListViewModel(playback: playback, presentation: presentation)
     }
 }
 
@@ -99,6 +116,7 @@ private struct SystemTabs<Library: View, Search: View>: View {
             }
         }
         .tint(ColorConstants.malachite.value)
+        .modifier(MiniPlayerAccessory())
         .background {
             TabBarIdentifiers(
                 identifiers: [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch],

@@ -49,6 +49,10 @@ enum Localizable: String {
     case searchTab
     case librarySearchPrompt
     case closePlayer
+    case miniPlayerSubtitle
+    case openPlayer
+    case nextChapterAction
+    case restartChapterAction
 }
 
 extension Localizable {

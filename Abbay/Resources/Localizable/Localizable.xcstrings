@@ -726,6 +726,78 @@
           }
         }
       }
+    },
+    "miniPlayerSubtitle" : {
+      "comment" : "Mini player subtitle: chapter number and time left in it, e.g. \"Chapter 35 · 12 min left\"",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter %d · %@ left"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo %d · faltam %@"
+          }
+        }
+      }
+    },
+    "openPlayer" : {
+      "comment" : "Accessibility action on the mini player that opens the details screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open player"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir player"
+          }
+        }
+      }
+    },
+    "nextChapterAction" : {
+      "comment" : "Accessibility action on the mini player (swipe left): next chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo capítulo"
+          }
+        }
+      }
+    },
+    "restartChapterAction" : {
+      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar capítulo"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

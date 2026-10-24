@@ -52,6 +52,21 @@ final class UITestSeederTests: XCTestCase {
         XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count)
     }
 
+    /// The mini player's last-row test needs a list longer than the screen.
+    func test_fillerArgument_addsDistinctFillerBooks() {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedFillerBooks])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 12)
+        XCTAssertEqual(Set(save.savedModels.compactMap(\.url)).count, save.savedModels.count)
+    }
+
+    func test_fillerArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedFillerBooks])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+        XCTAssertTrue(delete.deletedAudios.isEmpty)
+    }
+
     func test_seedModels_coverBothChapterStates() {
         let models = UITestSeeder.seedModels()
 

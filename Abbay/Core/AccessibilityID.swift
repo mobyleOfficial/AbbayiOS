@@ -20,10 +20,9 @@
 /// `library.list` / `library.empty` and a specific player control as the "screen is up" signal.
 /// Verified by `AbbayUITests/AccessibilityIdentifierTests`.
 ///
-/// Scope note: this covers the library, the row and the player -- everything a driver can reach
-/// without working playback. The floating player's internals and the progress labels are not
-/// here yet, because the floating player only appears once audio is actually playing and that
-/// needs the seeded fixture to be playable.
+/// Scope note: this covers the tabs, the library, the row, the mini player and the player. The
+/// mini player appears once a book is loaded, which the seeded and stub books reach without
+/// playable audio.
 enum AccessibilityID {
     /// The root tab bar's items: the system tab bar on iOS 26.1+, the hand-built one before.
     enum Root {
@@ -40,12 +39,20 @@ enum AccessibilityID {
         static let emptyImport = "library.empty.import"
         static let noResults = "library.search.noResults"
         static let toolbarSettings = "library.toolbar.settings"
-        static let floatingPlayer = "library.floatingPlayer"
 
         /// Namespace for one library row. Positional: read a snapshot, then address by index.
         static func row(_ index: Int) -> String {
             "library.row.\(index)"
         }
+    }
+
+    /// The one-row mini player, docked above the tabs.
+    enum MiniPlayer {
+        /// The title and subtitle: one element that taps open the details screen and carries the
+        /// open / next chapter / restart chapter actions. A leaf, not the bar's container.
+        static let bar = "miniPlayer.bar"
+        static let playPause = "miniPlayer.playPause"
+        static let progress = "miniPlayer.progress"
     }
 
     enum Search {
