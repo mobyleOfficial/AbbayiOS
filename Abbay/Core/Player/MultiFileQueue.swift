@@ -29,16 +29,33 @@ final class MultiFileQueue {
     /// The book time last asked for, until its seek completes. Seeks are async and an item that
     /// isn't ready yet reports zero, so without this `saveTime()` right after a seek would store the
     /// chapter's start (or zero) instead of where the listener actually is.
-    private var pendingBookTime: Double?
-    private var seekGeneration = 0
+    private(set) var pendingBookTime: Double?
+    /// The item `pendingBookTime` was asked of. Once the player has moved off it the pending time
+    /// is stale, whether or not its seek completed.
+    private var pendingItem: AVPlayerItem?
+    private(set) var seekGeneration = 0
+    /// The last book time computed, for when the player holds no item of ours (nothing loaded yet,
+    /// or the queue emptied), rather than falling back to a chapter's start or zero.
+    private var lastBookTime: Double = 0
     private var endObserver: NSObjectProtocol?
 
     /// Book-wide time: the chapter's start plus the offset into its file.
+    ///
+    /// The chapter is the one whose item is current, not `currentIndex`: the queue player moves on
+    /// to the next file before the `.main`-queue end-of-item handler updates `currentIndex`, and in
+    /// that window the old chapter's start plus the new item's ~0 would jump back a chapter (#118).
     var bookTime: Double {
-        if let pendingBookTime { return pendingBookTime }
-        guard chapters.indices.contains(currentIndex) else { return 0 }
+        let item = player.currentItem
+        if let pendingBookTime, let item, item === pendingItem {
+            lastBookTime = pendingBookTime
+            return pendingBookTime
+        }
+        guard let item, let index = items.first(where: { $0.value === item })?.key,
+              chapters.indices.contains(index)
+        else { return lastBookTime }
         let offset = player.currentTime().seconds
-        return chapters[currentIndex].startTime + (offset.isFinite ? offset : 0)
+        lastBookTime = chapters[index].startTime + (offset.isFinite ? offset : 0)
+        return lastBookTime
     }
 
     // MARK: - Init
@@ -106,14 +123,29 @@ final class MultiFileQueue {
         seekGeneration += 1
         let generation = seekGeneration
         pendingBookTime = timeline.bookTime(chapterIndex: position.chapterIndex, offset: position.offset)
+        pendingItem = player.currentItem
         player.seek(to: CMTime(seconds: position.offset, preferredTimescale: 600)) { [weak self] finished in
             DispatchQueue.main.async {
-                // Only the latest seek may clear the pending time: an earlier one completing
-                // (or being cancelled) must not expose the stale position in between.
-                guard let self, finished, generation == self.seekGeneration else { return }
-                self.pendingBookTime = nil
+                self?.finishSeek(generation: generation, finished: finished)
             }
         }
+    }
+
+    /// A seek's completion, on main. Internal for tests: a real seek on an item that never loads
+    /// doesn't complete.
+    func finishSeek(generation: Int, finished: Bool) {
+        // Only the latest seek may clear the pending time: an earlier one completing
+        // (or being cancelled) must not expose the stale position in between.
+        guard generation == seekGeneration else { return }
+        // Cleared even when `finished` is false (#130): the latest seek is interrupted only by
+        // something other than a seek, so no later completion would clear it and the displayed time
+        // would freeze. The item's own time is where the listener really is.
+        clearPendingSeek()
+    }
+
+    private func clearPendingSeek() {
+        pendingBookTime = nil
+        pendingItem = nil
     }
 
     private func enqueue(chapterIndex index: Int, after previous: AVPlayerItem) {
@@ -146,7 +178,7 @@ final class MultiFileQueue {
         // and queue the file after it.
         items[currentIndex] = nil
         currentIndex = next
-        pendingBookTime = nil
+        clearPendingSeek()
         enqueue(chapterIndex: next + 1, after: nextItem)
         updateActionAtItemEnd()
         prioritizer.prioritize(chapterIndex: next, ofBookID: bookID)

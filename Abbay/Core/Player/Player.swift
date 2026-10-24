@@ -50,6 +50,12 @@ final class Player: PlayerProtocol {
     private let bookmarkProvider: BookmarkProviderProtocol
     private let chapterPrioritizer: ChapterPrioritizing
     private let downloadsRoot: URL
+    private let notificationCenter: NotificationCenter
+    private let now: () -> Date
+    /// When the position was last written, so a playing book saves at most every
+    /// `positionSaveInterval`. Restarts on every save and on loading a book.
+    private var lastPositionSave: Date?
+    private var notificationObservers: [NSObjectProtocol] = []
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -99,7 +105,9 @@ final class Player: PlayerProtocol {
         audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
         bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider(),
         chapterPrioritizer: ChapterPrioritizing = NoopChapterPrioritizer(),
-        downloadsRoot: URL = LibriVoxIdentity.defaultRoot
+        downloadsRoot: URL = LibriVoxIdentity.defaultRoot,
+        notificationCenter: NotificationCenter = .default,
+        now: @escaping () -> Date = Date.init
     ) {
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
@@ -108,7 +116,10 @@ final class Player: PlayerProtocol {
         self.bookmarkProvider = bookmarkProvider
         self.chapterPrioritizer = chapterPrioritizer
         self.downloadsRoot = downloadsRoot
+        self.notificationCenter = notificationCenter
+        self.now = now
         setupTimeObserver()
+        setupSaveObservers()
 
         // Initialize Now Playing and set player reference
         NowPlayingManager.shared.setPlayer(self, currentAudio: nil)
@@ -117,6 +128,7 @@ final class Player: PlayerProtocol {
     // MARK: - Deinit
     deinit {
         cleanup()
+        notificationObservers.forEach(notificationCenter.removeObserver)
     }
 
     // MARK: - Cleanup
@@ -236,13 +248,16 @@ final class Player: PlayerProtocol {
             multiFileQueue.seek(toBookTime: seconds)
             return
         }
-        let time = CMTime(seconds: seconds, preferredTimescale: 1)
-        seek(time)
+        guard seconds.isFinite else { return }
+        // Exact and rounded up, never before the target: chapter lookup has no lead-in (#101), so
+        // landing even a millisecond before a chapter's start would read as the previous chapter,
+        // and the next skip would aim at the same chapter again.
+        let time = CMTime(value: CMTimeValue((seconds * 600).rounded(.up)), timescale: 600)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
     func skipToNextChapter() {
-        guard let model = model else { return }
-        let currentChapterIndex = model.currentChapter(for: currentTime)
+        guard let model, let currentChapterIndex = model.currentChapter(for: currentTime) else { return }
         let nextChapterIndex = currentChapterIndex + 1
         guard nextChapterIndex < model.chapters.count else { return }
         seek(model.chapters[nextChapterIndex].startTime)
@@ -250,12 +265,11 @@ final class Player: PlayerProtocol {
 
     func skipToPreviousChapter() {
         guard let model = model else { return }
-        let currentChapterIndex = model.currentChapter(for: currentTime)
-        // `currentChapter(for:)` falls back to index 0 even when `chapters` is empty (#101),
-        // so this subscript traps on a book with no chapter metadata -- a plain MP3, which is
-        // the common case rather than an edge case (#102). Reachable from PreviousChapterIntent
-        // and from the lock-screen / CarPlay previous-track handler.
-        guard model.chapters.indices.contains(currentChapterIndex) else {
+        // A book with no chapter metadata -- a plain MP3, the common case rather than an edge
+        // case (#102) -- has no current chapter: go to the start. Reachable from
+        // PreviousChapterIntent and from the lock-screen / CarPlay previous-track handler.
+        guard let currentChapterIndex = model.currentChapter(for: currentTime),
+              model.chapters.indices.contains(currentChapterIndex) else {
             seek(0)
             return
         }
@@ -286,10 +300,6 @@ final class Player: PlayerProtocol {
     }
 
     // MARK: - Helpers
-    private func seek(_ time: CMTime) {
-        player.seek(to: time)
-    }
-
     private func updatePlayItem(_ item: AudioModel) {
         // TODO: Add logging for player item updates using logging library
         guard let url = item.url else {
@@ -310,6 +320,7 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
+        lastPositionSave = now()
 
         let playerItem = AVPlayerItem(url: url)
 
@@ -356,6 +367,7 @@ final class Player: PlayerProtocol {
     /// `seek(model.currentTime)`, which loads the chapter that holds the saved position.
     private func loadMultiFileBook(_ item: AudioModel) {
         model = item
+        lastPositionSave = now()
         player.removeAllItems()
         if let bookID = item.librivoxID {
             multiFileQueue = MultiFileQueue(
@@ -383,10 +395,12 @@ final class Player: PlayerProtocol {
         }
     }
 
+    /// Update-only (`SavePlaybackPositionUseCase`), so no caller can re-insert a deleted book.
     private func saveTime() {
         let currentTime = self.currentTime
         if !currentTime.isNaN, let model = model {
             savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
+            lastPositionSave = now()
         }
     }
 
@@ -411,6 +425,46 @@ final class Player: PlayerProtocol {
                 currentTime: currentTime,
                 isPlaying: isPlaying
             )
+            self.savePositionIfDue(isPlaying: isPlaying)
         }
+    }
+}
+
+// MARK: - Saving the position while playing
+extension Player {
+    /// How often a playing book's position is written (#117). Pausing, switching books and
+    /// jumping to a chapter save at once; this bounds what a crash, jetsam or power loss can lose.
+    static let positionSaveInterval: TimeInterval = 10
+
+    /// Called on every periodic-observer tick. Saves while playing, at most once per
+    /// `positionSaveInterval`. Internal for tests: the observer only fires while an item plays.
+    func savePositionIfDue(isPlaying: Bool) {
+        guard isPlaying else { return }
+        if let lastPositionSave, now().timeIntervalSince(lastPositionSave) < Self.positionSaveInterval { return }
+        saveTime()
+    }
+
+    /// Saves when the app may not get another chance (#117): an interruption (a call, Siri,
+    /// another app's audio) can stop playback without `pause()`, and a backgrounded app can be
+    /// killed by the system without `applicationWillTerminate`.
+    private func setupSaveObservers() {
+        let interruption = notificationCenter.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: rawType) == .began
+            else { return }
+            self?.saveTime()
+        }
+        let background = notificationCenter.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveTime()
+        }
+        notificationObservers = [interruption, background]
     }
 }

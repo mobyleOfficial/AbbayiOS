@@ -66,7 +66,7 @@ final class PlayerViewModel {
 
     /// Reads `PlaybackClock.currentChapter` only, so the caller re-renders per chapter, not per tick.
     func currentChapter(in clock: PlaybackClock) -> Int {
-        isLoaded ? clock.currentChapter : book.currentChapter(for: book.currentTime)
+        isLoaded ? clock.currentChapter : book.currentChapter(for: book.currentTime) ?? 0
     }
 
     // MARK: - Transport

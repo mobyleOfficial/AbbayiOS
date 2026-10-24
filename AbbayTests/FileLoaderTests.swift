@@ -118,6 +118,27 @@ final class FileLoaderTests: XCTestCase {
         XCTAssertEqual(model.currentChapter(for: 600), 3)
     }
 
+    /// The last chapter ends at 831.623 s. The old `time + 1` lookup found no chapter in the final
+    /// second and fell back to chapter 0 (#101).
+    func test_currentChapter_lastSecondOfTheBook_isTheLastChapter() async throws {
+        let model = try await XCTUnwrapAsync(await makeLoader().load(url: try fixtureURL()))
+        let end = try XCTUnwrap(model.chapters.last).endTime
+
+        XCTAssertEqual(model.currentChapter(for: end - 0.9), 3)
+        XCTAssertEqual(model.currentChapter(for: end), 3)
+        XCTAssertEqual(model.currentChapter(for: model.duration + 5), 3)
+    }
+
+    func test_currentChapter_switchesExactlyAtTheRealBoundaries() async throws {
+        let model = try await XCTUnwrapAsync(await makeLoader().load(url: try fixtureURL()))
+
+        for index in 1..<model.chapters.count {
+            let start = model.chapters[index].startTime
+            XCTAssertEqual(model.currentChapter(for: start - 0.5), index - 1, "half a second before chapter \(index)")
+            XCTAssertEqual(model.currentChapter(for: start), index, "at chapter \(index)'s start")
+        }
+    }
+
     // MARK: - load(urls:)
 
     func test_loadUrls_prefersCachedModelAndDoesNotSaveAgain() async throws {

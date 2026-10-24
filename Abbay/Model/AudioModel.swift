@@ -28,9 +28,15 @@ struct AudioModel {
         librivoxID != nil
     }
 
-    func currentChapter(for time: Double) -> Int {
-        chapters.firstIndex { chapter in
-            chapter.startTime..<chapter.endTime ~= time + 1
-        } ?? 0
+    /// The index of the chapter that holds `time`: the last one starting at or before it. Clamped,
+    /// so a time before the first chapter reads as the first and one at or past the end as the
+    /// last (#101). `nil` when there is no chapter to report (the book has none, or `time` isn't a
+    /// number), which callers must not mistake for chapter 0.
+    ///
+    /// No lead-in: `Player` seeks never land before their target, so a skip to a chapter's start
+    /// reads as that chapter.
+    func currentChapter(for time: Double) -> Int? {
+        guard !chapters.isEmpty, time.isFinite else { return nil }
+        return chapters.lastIndex { $0.startTime <= time } ?? 0
     }
 }
