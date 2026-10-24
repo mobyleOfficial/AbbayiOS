@@ -36,6 +36,26 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(sut.progress, 1)
     }
 
+    /// The details screen opens in the same hierarchy as the Library search field, so a keyboard
+    /// left up would cover its timeline and chapters with no way to dismiss it: a presentation
+    /// that starts (an open, or a drag up from the bar) resigns the first responder first.
+    func test_startingAPresentation_dismissesTheKeyboard() {
+        var dismissals = 0
+        let sut = PlayerPresentation(dismissKeyboard: { dismissals += 1 })
+        let book = ViewModelSupport.chaptered()
+
+        sut.open(book, animated: false)
+        XCTAssertEqual(dismissals, 1, "an open from closed")
+        sut.open(other, animated: false)
+        XCTAssertEqual(dismissals, 1, "already presented: nothing to dismiss")
+        sut.close(animated: false)
+
+        XCTAssertNotNil(sut.beginInteractive(book))
+        XCTAssertEqual(dismissals, 2, "a drag up from the bar")
+        XCTAssertNotNil(sut.beginInteractive())
+        XCTAssertEqual(dismissals, 2, "a drag of the presented screen")
+    }
+
     func test_open_anotherBook_replacesThePresentedBook() {
         let sut = PlayerPresentation()
         sut.open(ViewModelSupport.chaptered(), animated: false)

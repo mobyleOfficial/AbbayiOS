@@ -83,8 +83,17 @@ final class PlayerPresentation {
     /// The settle, for taps and releases alike (spec values).
     static let animation: Animation = .spring(response: 0.35, dampingFraction: 0.86)
 
-    init(playback: PlaybackState? = nil) {
+    /// Resigns the first responder when a presentation starts: the details screen opens in the
+    /// same hierarchy as the Library search field, so a keyboard left up would cover it.
+    @ObservationIgnored private let dismissKeyboard: @MainActor () -> Void
+
+    init(playback: PlaybackState? = nil, dismissKeyboard: @escaping @MainActor () -> Void = PlayerPresentation.resignFirstResponder) {
         self.playback = playback
+        self.dismissKeyboard = dismissKeyboard
+    }
+
+    static func resignFirstResponder() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     func open(_ book: AudioModel, animated: Bool) {
@@ -93,6 +102,7 @@ final class PlayerPresentation {
         awaitingRestingBar = false
         if presentedBook == nil {
             presentationID += 1
+            dismissKeyboard()
             snapshotExpansionStart()
         }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
@@ -126,6 +136,7 @@ final class PlayerPresentation {
         if presentedBook == nil {
             guard let book else { return nil }
             presentationID += 1
+            dismissKeyboard()
             snapshotExpansionStart()
             presentedBook = book
             renderedProgress = 0
