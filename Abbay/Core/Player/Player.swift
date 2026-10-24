@@ -89,6 +89,12 @@ final class Player: PlayerProtocol {
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
     private var timeObserverToken: Any?
+    /// A single-file book's seek target, until that seek completes (#151). While a book plays,
+    /// `AVPlayer` keeps reporting the old time until a seek lands, so a second Next chapter
+    /// pressed in between would aim at the same chapter. `MultiFileQueue` does the same for
+    /// multi-file books with `pendingBookTime`.
+    private var pendingSeek: PendingSeek?
+    private var seekGeneration = 0
 
     var url: URL? {
         model?.url
@@ -116,9 +122,12 @@ final class Player: PlayerProtocol {
     }
 
     /// Book time. For a single file that is the item's time; a multi-file book adds the current
-    /// chapter's start to the offset into its file.
+    /// chapter's start to the offset into its file. While a seek is in flight, it is where that
+    /// seek is going (#151), so chapter skips, skips by seconds and saves aim from there.
     var currentTime: Double {
-        multiFileQueue?.bookTime ?? player.currentTime().seconds
+        if let multiFileQueue { return multiFileQueue.bookTime }
+        if let pendingSeek, pendingSeek.item === player.currentItem { return pendingSeek.time }
+        return player.currentTime().seconds
     }
 
     internal var currentItemURL: URL? { (player.currentItem?.asset as? AVURLAsset)?.url }
@@ -289,19 +298,6 @@ final class Player: PlayerProtocol {
         return Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay)
     }
 
-    func seek(_ seconds: Double) {
-        if let multiFileQueue {
-            multiFileQueue.seek(toBookTime: seconds)
-            return
-        }
-        guard seconds.isFinite else { return }
-        // Exact and rounded up, never before the target: chapter lookup has no lead-in (#101), so
-        // landing even a millisecond before a chapter's start would read as the previous chapter,
-        // and the next skip would aim at the same chapter again.
-        let time = CMTime(value: CMTimeValue((seconds * 600).rounded(.up)), timescale: 600)
-        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-
     func skipToNextChapter() {
         guard let model, let currentChapterIndex = model.currentChapter(for: currentTime) else { return }
         let nextChapterIndex = currentChapterIndex + 1
@@ -447,6 +443,44 @@ final class Player: PlayerProtocol {
             )
             self.savePositionIfDue(isPlaying: isPlaying)
             self.noteChapter(atBookTime: currentTime, isPlaying: isPlaying)
+        }
+    }
+}
+
+// MARK: - Seeking
+/// A single-file seek in flight: where it goes, the item it was asked of (once the player has moved
+/// off that item the target is stale) and which seek it was.
+private struct PendingSeek {
+    let time: Double
+    let item: AVPlayerItem?
+    let generation: Int
+}
+
+extension Player {
+    func seek(_ seconds: Double) {
+        if let multiFileQueue {
+            multiFileQueue.seek(toBookTime: seconds)
+            return
+        }
+        seekSingleFile(to: seconds)
+    }
+
+    private func seekSingleFile(to seconds: Double) {
+        guard seconds.isFinite else { return }
+        // Exact and rounded up, never before the target: chapter lookup has no lead-in (#101), so
+        // landing even a millisecond before a chapter's start would read as the previous chapter,
+        // and the next skip would aim at the same chapter again.
+        let time = CMTime(value: CMTimeValue((seconds * 600).rounded(.up)), timescale: 600)
+        seekGeneration += 1
+        let generation = seekGeneration
+        pendingSeek = PendingSeek(time: time.seconds, item: player.currentItem, generation: generation)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            DispatchQueue.main.async {
+                // Only the latest seek clears it, finished or not (as in `MultiFileQueue`, #130):
+                // an earlier one completing must not expose the old time in between.
+                guard let self, self.pendingSeek?.generation == generation else { return }
+                self.pendingSeek = nil
+            }
         }
     }
 }

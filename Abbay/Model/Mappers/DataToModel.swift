@@ -7,8 +7,31 @@
 
 import Foundation
 
+/// A mapped book, and the copy to save when its bookmark was stale (#146).
+struct MappedAudio {
+    let model: AudioModel
+    /// The row's own fields with the fresh bookmark, under the row's stored URL (the save use
+    /// case finds the row by URL, and the resolved one can differ). Nil when nothing changed.
+    let refreshedBookmark: AudioModel?
+}
+
 extension AudioDataModel {
-    var model: AudioModel {
+    /// Call on the context's queue: it faults the chapters. A stale bookmark comes back with
+    /// `refreshedBookmark` set; hand that to `StaleBookmarkSaver`, or the refresh is lost.
+    func mapped(resolveBookmark: (Data?) -> ResolvedBookmark?) -> MappedAudio {
+        var model = mappedFields()
+        let resolved = resolveBookmark(bookmarkData)
+        model.url = resolved?.url ?? url
+        guard let refreshed = resolved?.refreshedData else {
+            return MappedAudio(model: model, refreshedBookmark: nil)
+        }
+        model.bookmarkData = refreshed
+        var toSave = model
+        toSave.url = url
+        return MappedAudio(model: model, refreshedBookmark: toSave)
+    }
+
+    private func mappedFields() -> AudioModel {
         var model = AudioModel()
         model.title = title ?? String()
         model.albumName = albumName ?? String()
@@ -21,7 +44,7 @@ extension AudioDataModel {
         model.allowsCellularDownload = allowsCellularDownload
         model.isDownloadPaused = isDownloadPaused
         model.totalBytes = totalBytes
-        model.url = URL.resolveBookmark(from: bookmarkData) ?? url
+        model.url = url
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []
         return model
     }

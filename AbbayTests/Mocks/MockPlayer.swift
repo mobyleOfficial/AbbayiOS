@@ -57,9 +57,14 @@ final class MockPlayer: PlayerProtocol {
         isPlayingSubject.send(isPlaying)
     }
 
+    /// `false` stands for a book `Player.play` refuses (it reports a notice and loads nothing).
+    var loadsOnPlay = true
+
     func play(_ model: inout AudioModel) {
         playCalls.append(model)
-        url = model.url
+        if loadsOnPlay {
+            url = model.url
+        }
     }
     func pause() { pauseCallCount += 1 }
     func forward(withSeconds seconds: Double) { forwardSeconds.append(seconds) }

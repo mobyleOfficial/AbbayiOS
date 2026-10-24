@@ -13,15 +13,28 @@ protocol LoadAudioUseCaseProtocol {
 
 final class LoadAudioUseCase: LoadAudioUseCaseProtocol {
     private let repository: LoadAudioRepositoryProtocol
+    private let resolveBookmark: (Data?) -> ResolvedBookmark?
+    private let staleBookmarks: StaleBookmarkSaver
 
-    init(repository: LoadAudioRepositoryProtocol = LoadAudioRepository()) {
+    init(
+        repository: LoadAudioRepositoryProtocol = LoadAudioRepository(),
+        resolveBookmark: @escaping (Data?) -> ResolvedBookmark? = URL.resolveBookmarkRefreshing,
+        staleBookmarks: StaleBookmarkSaver = .shared
+    ) {
         self.repository = repository
+        self.resolveBookmark = resolveBookmark
+        self.staleBookmarks = staleBookmarks
     }
 
+    /// A book whose bookmark resolved as stale is saved with the fresh one (#146).
     func execute(url: URL?) -> AudioModel? {
         guard let url = url else { return nil }
-        return LocalStorage.persistent.performAndWait { _ in
-            repository.execute(url: url)?.model
+        let mapped = LocalStorage.persistent.performAndWait { _ in
+            repository.execute(url: url)?.mapped(resolveBookmark: resolveBookmark)
         }
+        if let refreshed = mapped?.refreshedBookmark {
+            staleBookmarks.save([refreshed])
+        }
+        return mapped?.model
     }
 }

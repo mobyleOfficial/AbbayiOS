@@ -117,6 +117,21 @@ final class PlayerMultiFileTests: XCTestCase {
         XCTAssertEqual(player.currentItemURL?.lastPathComponent, "c2.mp3")
     }
 
+    /// #151: the second press aims from the first one's destination, not from the time the player
+    /// reports before that seek lands.
+    func test_skipToNextChapter_twiceBeforeTheSeekCompletes_loadsTheChapterTwoAhead() throws {
+        let player = try makePlayer()
+        var model = libriVoxBook()
+        player.play(&model)
+        player.pause()
+
+        player.skipToNextChapter()
+        player.skipToNextChapter()
+
+        XCTAssertEqual(player.currentItemURL?.lastPathComponent, "c2.mp3")
+        XCTAssertEqual(player.currentTime, 200)
+    }
+
     func test_playChapter_prioritizesThatChapter() throws {
         let player = try makePlayer()
         let prioritizer = try XCTUnwrap(prioritizer)

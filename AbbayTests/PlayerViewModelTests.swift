@@ -256,21 +256,6 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(player.seekSeconds, [120])
     }
 
-    /// As before: a chapter row seeks to its start, and only while the book is playing.
-    func test_selectChapter_seeksToItsStart_onlyWhilePlaying() {
-        let book = ViewModelSupport.chaptered()
-        let state = loadedState(book, isPlaying: false)
-        let player = MockPlayer()
-        let sut = PlayerViewModel(book, state: state, player: player, downloads: nil)
-
-        sut.selectChapter(2)
-        state.setIsPlaying(true)
-        sut.selectChapter(2)
-        sut.selectChapter(9)
-
-        XCTAssertEqual(player.seekSeconds, [200])
-    }
-
     // MARK: - Download state
 
     func test_downloadEntry_nilForImportedBook() {

@@ -37,7 +37,8 @@ LibriVox page's Play all open it.
   - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
     `PlaybackState`, time and chapter from `PlaybackClock`.
   - **Another book** (a row tap on a book that isn't loaded) shows its saved position. Its
-    transport does nothing until Play loads it, so it can't move the loaded book.
+    transport does nothing until Play (or a chapter tap, see *chapter-list-gating*) loads it, so
+    it can't move the loaded book.
   - **Following the loaded book:** opened on the loaded book, the screen follows it. If Siri or
     CarPlay switches books while it is open, it shows the new one. Each presentation gets a fresh
     `PlayerViewModel` (`PlayerDetailsModels`), so reopening book A never shows the previously
@@ -48,14 +49,22 @@ LibriVox page's Play all open it.
   [LibriVox details page](librivox-details.md)): a rounded card with a *"Chapter selection"* header
   (`player.chapters.title`), then one row per chapter (`player.chapter.<n>`) with a scrolling title
   and its duration. The current chapter renders in the "playing" style (green). Tapping a chapter
-  seeks to its `startTime`. On iOS 18+, a downward drag from the list's top collapses the screen.
+  plays it from its `startTime`. On iOS 18+, a downward drag from the list's top collapses the screen.
 - **no-chapters:** a book with no chapter markers (a plain MP3) shows, under the header, a
   `list.bullet` glyph, *No chapters* and *This book has no chapter markers, so it plays from start
   to finish.* (`player.chapters.empty`, one combined element), filling the space the list would
-  have. It is styled like the library's empty state, not `ContentUnavailableView`, and is never
-  dimmed.
-- **chapter-list-gating:** the rows are dimmed to 50% while not playing, and the tap handler returns
-  early unless `model.isPlaying`.
+  have. It is styled like the library's empty state, not `ContentUnavailableView`.
+- **chapter-list-gating:** none any more (owner decision, #166). **Tapping a chapter always plays
+  that chapter of the book the screen shows**, playing or paused, and the rows are never dimmed
+  (they were dimmed to 50% while not playing, and the tap did nothing then).
+  `PlayerViewModel.selectChapter`:
+  - the shown book is loaded: `Player.playChapter(at:)` seeks to the chapter's start and plays;
+  - another book (or none) is loaded: the shown book is loaded first with `Player.play`, at the
+    chapter's start rather than its saved position, then `playChapter(at:)`. The screen then
+    follows it as the loaded book;
+  - the shown book doesn't load (no file, offline and not downloaded, no audio session):
+    `Player.play` reports why, as Play does, and nothing seeks the loaded book on its behalf.
+    (Before the gate, a tap seeked the *loaded* book: the wrong chapter of the wrong book.)
 - **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
   `N%`, *Waiting* or *Failed · Retry*, and a thin overall progress bar (`player.download.progress`)
   sits under the header, with *"Waiting: Low Data Mode is on"* under it (`player.download.lowDataMode`)
@@ -67,6 +76,12 @@ LibriVox page's Play all open it.
   `MultiFileQueue` maps book time to a chapter file and an offset. It keeps the next file queued for
   gapless playback, prefers the downloaded file over streaming, and pauses at the end of the last
   chapter. Seeking into a different chapter loads that file and prioritizes its download.
+- **chapter-skips:** `Player.skipToNextChapter` / `skipToPreviousChapter`, shared by the
+  [mini player](mini-player.md)'s swipe, the lock screen and CarPlay ([now-playing](now-playing.md))
+  and the Siri intents. While a seek is in flight, `Player.currentTime` is that seek's target
+  (single file: `Player`'s pending seek; multi-file: `MultiFileQueue.pendingBookTime`), so two
+  quick presses go two chapters (#151). Before, a playing `AVPlayer` reported the old time until
+  the first seek landed, and both presses aimed at the same chapter.
 - **failures:** Play with no URL, an audio session that won't activate, a moved or unreadable file,
   or a LibriVox chapter that fails (offline and not downloaded, or otherwise) each report a notice
   (see [notices](notices.md)). A failed item also pauses the player, so the transport, the bar and
@@ -94,7 +109,7 @@ $B tap library.row.0.title && $B wait player.close       # grows up from the bot
 $B tap player.transport.play                              # a seeded book loads; no audio plays
 $B tap player.transport.forward && $B snapshot
 $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed value "1.5×"
-$B tap player.chapter.2                                   # needs real playback: gated on isPlaying
+$B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed)
 $B tap player.close && $B wait library.list
 $B drag player.close down                                 # planned: collapse under the finger (the grabber is not addressable)
 ```
@@ -106,6 +121,12 @@ $B drag player.close down                                 # planned: collapse un
   (`SettingsUITests.test_speedSheet_*`), and the forward button's label following Settings
   (`test_changingSkipForward_updatesThePlayersButton`)
 - `player.chapters.title` and `player.chapter.<n>`
+- a chapter tap on a book that isn't loaded, with nothing playing, loads that book: the bar
+  appears (`MiniPlayerUITests.test_tappingAChapter_ofABookNotLoaded_loadsIt`, seeded long book,
+  no audio), and with real audio it plays from the tapped chapter, not the saved position
+  (`test_chapterTap_bookNotLoaded_playsThatChapter`, `-seedPlayableBook`: the transport flips to
+  *Pause* and the bar reads *Chapter 4*). The three cases are unit-tested in
+  `PlayerViewModelChapterTapTests`.
 - `player.chapters.empty` on "Seeded Plain Book", and its absence on "Seeded Chaptered Book"
   (`EmptyStateUITests`)
 - `player.close` (`test_player_closeButton_dismisses`)
@@ -134,10 +155,12 @@ identifiers threaded through the component, not applied from the call site.
 
 ## Gotchas
 
-- **You can't tap a chapter while paused.** The `onSelect` closure passed to `ChapterListView` is
-  guarded by `model.isPlaying`. The list is visibly dimmed but still looks tappable, so this reads
-  as a broken control rather than a deliberate gate. Any chapter-seek proof must start real
-  playback first, and seeded books have no audio.
+- **A chapter tap starts playback, even from pause, and can switch books.** Since #166's owner
+  decision there is no `isPlaying` gate and no dimming: tapping a row of a book that isn't loaded
+  loads it (the previous book stops) at that chapter. A UI test that taps a chapter therefore
+  changes the loaded book; open the book you mean first. Only *Seeded Playable Book*
+  (`-seedPlayableBook`) actually plays from the chapter; on the other seeds the tap loads the
+  book and the moved-file banner shows (#147). It makes sound: pause it afterwards.
 - **The overlay stays hit-testable only while a book is presented** (`allowsHitTesting`). After a
   close, taps reach the tabs once the collapse finishes.
 - `PlayerProgressView.swift:44` still uses the deprecated `onChange(of:perform:)` (deprecated as of

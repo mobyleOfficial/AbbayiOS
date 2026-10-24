@@ -78,7 +78,7 @@ Tapping **Chapters** morphs the pill into a **glass panel** that grows up from t
   - **finished** chapters (before the current one) are dimmed, with a ✓ instead of a duration
   - the **current** chapter is malachite, with a ▶︎ marker, a thin progress bar under the title and "28m left"
 - **Opening:** opens scrolled so the current chapter is visible.
-- **Tapping a chapter** seeks to it and closes the panel. Whether that works while paused is decided under "Owner decisions" below.
+- **Tapping a chapter** plays it, paused or not, and closes the panel (see "Owner decisions" below).
 - **Closing:** tapping outside, tapping the pill (shown as ✕ while open), Escape / the accessibility escape gesture, or dragging down on the panel while its list is scrolled to the top.
 - **Collapse gesture:** the "drag down from the top of the chapter list collapses the player" path (`ExpansionListCollapse` / `ListCollapseModifier`) goes away, because the list no longer lives on the player. The player still collapses from its header and grabber exactly as today.
   - Delete the dead modifier and its iOS 18 gate.
@@ -220,7 +220,11 @@ StatCounter, September 2026, page-view based:
   - Size formatting by app language.
 
 ## Owner decisions
-- **Tapping a chapter while paused, or while the player shows a book that isn't loaded:** _still open, tracked in #166._ The recommendation is that a tap always seeks to the chapter and starts playback. It must be settled before the G1 + G2 PR.
+- **Tapping a chapter (decided 2026-10-24, #166):** a tap always starts playing that chapter, of the book the player is showing, even if playback was paused or another book was loaded. The `isPlaying` guard in `PlayerViewModel.selectChapter` was a workaround, not the intended behaviour: without a check on which book was loaded, a tap seeked the *loaded* book, so it played the wrong chapter of the wrong book.
+  - If the shown book isn't the loaded one, it is loaded first, then seeked to the chapter's `startTime` and played. The loaded book is never seeked on behalf of another.
+  - A shown book that can't play (not downloaded and offline, or its file is gone) behaves as Play does: the player reports why.
+  - The 50% "paused" dimming of the chapter rows goes.
+  - **Shipped ahead of G1 + G2** in the player-bugs PR, on today's chapter list; the dropdown inherits it.
 
 ## Calls made in writing this (not confirmed by the owner)
 - Library order stays as it is today. The Continue card uses `LastPlayedStore`, which already exists, and no new "recently played" data.

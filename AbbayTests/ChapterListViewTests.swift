@@ -54,15 +54,6 @@ final class ChapterListViewTests: XCTestCase {
         XCTAssertFalse(ChapterListView.showsEmptyState([.init(title: "One", duration: 1)]))
     }
 
-    /// The player dims its rows while paused; the message that there are no rows isn't dimmed.
-    func test_dims_onlyWithRowsToDim() {
-        let rows: [ChapterListView.Item] = [.init(title: "One", duration: 1)]
-
-        XCTAssertTrue(ChapterListView.dims(rows, isDimmed: true))
-        XCTAssertFalse(ChapterListView.dims(rows, isDimmed: false))
-        XCTAssertFalse(ChapterListView.dims([], isDimmed: true))
-    }
-
     // MARK: - Row status
 
     func test_status_readsTheRowsChapterState() {
