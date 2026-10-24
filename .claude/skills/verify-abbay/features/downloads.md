@@ -25,13 +25,29 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   counts as a failure too. When the network path becomes satisfied again, every chapter waiting out a
   backoff or failed restarts at once. Jumping to a chapter in the player (prioritize) also resets its
   backoff. A task the system cancels (for example a force quit) is requeued rather than counted as a
-  failure. Failure counts are in memory only: a relaunch starts every chapter fresh.
+  failure. Failure counts are **persisted** (`ChapterFailureStore`, in `LocalStorage.preferences`
+  under `downloads.chapterFailures`, keyed `<archive id>/<chapter file name>`): after a relaunch a
+  chapter that had failed 1-3 times starts at once but its next failure waits the *next* delay, and a
+  *Failed · Retry* chapter stays failed (not started) until tapped or the network comes back. A
+  success, a tap, the network coming back, a file found on disk or deleting the book clears the count.
 - **metered networks:** the >99 MB warning shows on any metered path: cellular, Personal Hotspot
   (`NWPath.isExpensive`) and Low Data Mode (`isConstrained`). A book without cellular (*Wait for
   Wi-Fi*, or a large book started on unmetered Wi-Fi) starts its tasks with `allowsCellularAccess`,
   `allowsExpensiveNetworkAccess` and `allowsConstrainedNetworkAccess` all off, so the system holds them
   on a hotspot or in Low Data Mode as well as on cellular. A resumed task keeps the settings of the
-  request it was first started with.
+  request it was first started with, so tasks from before #134 (cellular off, hotspot and Low Data
+  Mode still on) are re-created for such a book: `DownloadProvider.resume` refuses resume data whose
+  archived request allows any metered network (`ResumeDataInspector`; unreadable resume data is
+  kept) and the chapter starts afresh, and `restore()` cancels a still-running task whose request
+  allows one (`runningIDsAllowingMeteredNetworks`, `cancel(ids:)`) and starts it again. Either way
+  the chapter's progress so far is lost.
+- **low-data-mode-hint:** while a *Wait for Wi-Fi* book (cellular not allowed) is incomplete and not
+  paused, and the path is Wi-Fi in Low Data Mode (`NetworkPathSnapshot.isLowDataModeWiFi`: satisfied,
+  constrained, not expensive, not cellular-only), the details screen and the LibriVox page show
+  *"Waiting: Low Data Mode is on"* / *"Aguardando: Modo Dados Reduzidos ativado"* under the progress
+  bar (`player.download.lowDataMode`, `detail.lowDataMode`). On cellular or a hotspot there is no
+  hint: the book waits as asked. Read through `DownloadStateStore.lowDataMode` /
+  `isHeldByLowDataMode(bookID:allowsCellular:)`.
 - **restore:** on every launch (after any `-seedLibrary`/`-resetLibrary` seeding) `restore()`
   re-attaches to tasks the system kept running and restarts the missing chapters of every
   LibriVox book in the Library. The system can also relaunch the app in the background to deliver
@@ -41,7 +57,8 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   player is not re-inserted.
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
   the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
-  ✓ / `N%` / *Waiting* / *Failed · Retry* through the shared `ChapterListView`. The failed status is
+  ✓ / `N%` / *Waiting* / *Failed · Retry* (pt-BR *Falhou · Repetir*; statuses are one line at full
+  width, the title scrolls) through the shared `ChapterListView`. The failed status is
   a button (`player.chapter.<n>.retry`, `detail.chapter.<n>.retry`); a row showing it is an
   accessibility container rather than one combined element, so the button stays reachable. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.
@@ -76,11 +93,16 @@ $B terminate && $B launch                     # restore: ring and statuses come 
 
 **Implemented but unverified** (attached in the views, never resolved by a UI test):
 `library.row.<n>.downloadRing`,
-`detail.progress`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`, `player.download.progress`,
+`detail.progress`, `detail.lowDataMode`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`,
+`player.download.progress`, `player.download.lowDataMode`,
 `player.chapter.<n>.retry`. A failed chapter can't be produced under `-stubLibriVox` at all.
 
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, backoff and
-cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove),
+cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove,
+failures kept across a relaunch, metered pre-#134 tasks restarted on restore),
+`ChapterFailureStoreTests`, `ResumeDataInspectorTests` and `DownloadProviderTests` (resume data
+allowing metered networks refused, `runningIDsAllowingMeteredNetworks`, `cancel(ids:)`),
+`DownloadStateStoreTests` (Low Data Mode hold), `LocalizationTests` (statuses stay short),
 `CellularDownloadPolicyTests` and `NetworkPathSnapshotTests` (hotspot and Low Data Mode are metered),
 `DownloadProviderTests` (no cellular also means no expensive or constrained network),
 `MediaViewModelTests` (ring state, pause toggle), `ChapterListViewTests` (when statuses, progress and
@@ -91,8 +113,13 @@ manager), `PlayerMultiFileTests` (prefers local file, prioritizes the chapter),
 **Not verified at all in this repo:** background transfer while the app is suspended or the phone is
 locked, relaunch-by-the-system delivery, resume across a force quit, and cellular, Personal Hotspot
 and Low Data Mode behaviour on a real network (including whether a background session honours the
-request's expensive/constrained flags). These need a device (#128); only the manager's logic against
-a mock provider is covered.
+request's expensive/constrained flags), and the Low Data Mode hint on a real constrained Wi-Fi. These
+need a device (#128); only the manager's logic against a mock provider is covered.
+`ResumeDataInspector` was checked against real resume data from a macOS URLSession download (its
+format: a keyed archive under `NSKeyedArchiveRootObjectKey` whose request entries are archived
+`NSMutableURLRequest`s); iOS resume data from the background session is a device check (#128).
+The hint and the shorter pt-BR status were driven live on iPhone 17 and iPhone SE (3rd gen)
+simulators with a temporary stub (see #148's PR).
 
 ## Gotchas
 
@@ -103,7 +130,9 @@ a mock provider is covered.
   `!isComplete`.
 - **Wait for Wi-Fi still enqueues.** The book is added and its chapters show *Waiting*; cellular,
   hotspots and Low Data Mode are simply not allowed for its tasks. With Low Data Mode on for the
-  home Wi-Fi, such a book waits until it is turned off.
+  home Wi-Fi, such a book waits until it is turned off, and says so (*low-data-mode-hint*).
+- **Failure counts outlive a relaunch, not a reinstall.** They live in the app's
+  `UserDefaults`; deleting the app clears them with the files.
 - **Pause is a toggle on a tiny target.** The ring is 22 pt; its accessibility label is
   *"Downloading, N%"* or *"Paused"*, which is the evidence for its state when no state id exists.
 - A restored book is held in a restoring state until the manager knows which tasks are still running,
