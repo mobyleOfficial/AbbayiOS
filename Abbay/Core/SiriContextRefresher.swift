@@ -9,6 +9,11 @@ import Foundation
 enum SiriRefreshReason: String {
     case foreground
     case pause
+    /// A call, Siri or another app's audio stopped playback without `pause()` (#160).
+    case interruption
+    /// The CarPlay scene connected or became active: a car session doesn't move the phone's
+    /// window scene (#160).
+    case carPlay
     case backgroundTask
 }
 
@@ -17,7 +22,8 @@ enum SiriRefreshReason: String {
 ///
 /// Siri's media-app selection appears to weigh how fresh an app's signals are: plain "play <book>"
 /// went straight to Abbay only when it had run recently (see
-/// `docs/superpowers/research/2026-10-23-siri-app-selection.md`). Foreground and pause go through
+/// `docs/superpowers/research/2026-10-23-siri-app-selection.md`). Foreground, pause, interruption
+/// and CarPlay go through
 /// `refreshIfDue`, at most once per `minimumInterval`, so a busy session doesn't spam the system.
 /// The daily background task uses `refreshNow`. An experiment, judged on a device, not by tests.
 protocol SiriContextRefreshing: AnyObject {

@@ -30,6 +30,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     lazy var loadAudioUseCase: LoadAudioUseCaseProtocol = DependencyContainer.shared.loadAudio
     // The one remaining `PlayerObserver` consumer: the rest of the app reads `PlaybackCenter`.
     lazy var playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
+    /// The app's one throttled Siri refresher, shared with the phone's foreground hook (#160).
+    lazy var siriContext: SiriContextRefreshing = DependencyContainer.shared.siriContext
     /// Fires when the library changes on the phone (import, delete, LibriVox addition), so the
     /// list can be rebuilt while connected (#95). Delivered on main: writes can come from any
     /// thread, and templates must only be touched from main.
@@ -78,6 +80,20 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         if let playerUrl = playerObserver.player.url {
             currentAudio = audioItems.first { $0.url == playerUrl }
         }
+
+        carPlayBecameActive()
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        carPlayBecameActive()
+    }
+
+    /// A CarPlay-only session (phone locked) never makes the window scene active, so the phone's
+    /// foreground refresh misses it: ask for the same throttled refresh here (#160). Connecting and
+    /// becoming active both call it; the throttle drops the second. Internal for tests, since
+    /// neither callback can be driven from one.
+    func carPlayBecameActive() {
+        siriContext.refreshIfDue(.carPlay)
     }
 
     func templateApplicationScene(

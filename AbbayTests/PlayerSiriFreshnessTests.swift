@@ -4,6 +4,7 @@
 //
 
 @testable import Abbay
+import AVFoundation
 import XCTest
 
 /// The player keeps Siri's signals fresh beyond play start (#127): a pause donates the book and
@@ -15,6 +16,8 @@ import XCTest
 final class PlayerSiriFreshnessTests: XCTestCase {
     private let donor = MockIntentDonor()
     private let siriContext = MockSiriContextRefresher()
+    /// Private, so the interruption posts reach only this test's players.
+    private let notificationCenter = NotificationCenter()
     private var players: [Player] = []
 
     override func tearDownWithError() throws {
@@ -30,6 +33,7 @@ final class PlayerSiriFreshnessTests: XCTestCase {
             librarySnapshotWriter: MockLibrarySnapshotWriter(),
             audioSessionActivator: MockAudioSessionActivator(),
             bookmarkProvider: MockBookmarkProvider(),
+            notificationCenter: notificationCenter,
             lastPlayed: .inMemory(),
             launchState: .inMemory(),
             siriContext: siriContext
@@ -136,5 +140,67 @@ final class PlayerSiriFreshnessTests: XCTestCase {
         player.noteChapter(atBookTime: 0, isPlaying: true)
 
         XCTAssertEqual(donor.donateCallCount, 2, "two play starts; the new book's first tick isn't a boundary")
+    }
+
+    // MARK: - Interruptions (#160)
+
+    private func postInterruption(_ type: AVAudioSession.InterruptionType) {
+        notificationCenter.post(
+            name: AVAudioSession.interruptionNotification,
+            object: nil,
+            userInfo: [AVAudioSessionInterruptionTypeKey: type.rawValue]
+        )
+    }
+
+    /// A call or Siri stops playback without `pause()`: it counts as one for Siri's signals.
+    func test_interruptionBegan_whilePlaying_donates_andAsksForAThrottledRefresh() {
+        _ = playing(chaptered())
+
+        postInterruption(.began)
+
+        XCTAssertEqual(donor.donateCallCount, 2, "play start, then the interruption")
+        XCTAssertEqual(donor.lastDonatedModel?.title, "Chaptered")
+        XCTAssertEqual(siriContext.dueReasons, [.interruption])
+        XCTAssertTrue(siriContext.nowReasons.isEmpty, "an interruption never bypasses the throttle")
+    }
+
+    /// Already paused: the pause sent the signals, and nothing was playing to interrupt.
+    func test_interruptionBegan_afterAPause_sendsNothingMore() {
+        let player = playing(chaptered())
+        player.pause()
+
+        postInterruption(.began)
+
+        XCTAssertEqual(donor.donateCallCount, 2, "play start and the pause only")
+        XCTAssertEqual(siriContext.dueReasons, [.pause])
+    }
+
+    func test_interruptionEnded_sendsNothing() {
+        _ = playing(chaptered())
+
+        postInterruption(.ended)
+
+        XCTAssertEqual(donor.donateCallCount, 1)
+        XCTAssertTrue(siriContext.dueReasons.isEmpty)
+    }
+
+    func test_interruptionBegan_withNothingLoaded_sendsNothing() {
+        _ = makePlayer()
+
+        postInterruption(.began)
+
+        XCTAssertEqual(donor.donateCallCount, 0)
+        XCTAssertTrue(siriContext.dueReasons.isEmpty)
+    }
+
+    func test_interruptionBegan_afterPlayingAgain_signalsAgain() {
+        let player = playing(chaptered())
+        player.pause()
+        var model = chaptered()
+        player.play(&model)
+
+        postInterruption(.began)
+
+        XCTAssertEqual(siriContext.dueReasons, [.pause, .interruption])
     }
 }

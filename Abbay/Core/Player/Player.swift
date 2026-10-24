@@ -75,8 +75,13 @@ final class Player: PlayerProtocol {
     private let speeds: PlaybackSpeedStoring
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
-    /// Donations on pause and at chapter boundaries, and the context refresh on pause (#127).
+    /// Donations on pause, on an interruption and at chapter boundaries, and the context refresh
+    /// on pause and interruption (#127, #160).
     private let siriSignals: PlayerSiriSignals
+    /// Whether the user's last request was to play: set by `play`, cleared by `pause` and `unload`.
+    /// By the time an interruption is posted the system has already paused the queue player, so
+    /// its status can't say whether the interruption stopped playback; this can (#160).
+    private var isPlayRequested = false
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -181,6 +186,7 @@ final class Player: PlayerProtocol {
     }
 
     func unload() {
+        isPlayRequested = false
         player.pause()
         cancellables.removeAll()
         stopAccessingCurrentURL()
@@ -247,27 +253,17 @@ final class Player: PlayerProtocol {
         // stale or nil while audio is actually playing.
         NowPlayingManager.shared.setPlayer(self, currentAudio: model)
         player.play()
+        isPlayRequested = true
         Log.player.debug("play: started, timeControlStatus=\(self.player.timeControlStatus.rawValue, privacy: .public)")
         lastPlayed.save(url: url)
         intentDonor.donatePlayMedia(model: model)
     }
 
     func pause() {
+        isPlayRequested = false
         saveTime()
         player.pause()
         siriSignals.paused(model)
-    }
-
-    func forward(withSeconds seconds: Double) {
-        let currentSeconds = currentTime
-        let newSeconds = currentSeconds.advanced(by: seconds)
-        seek(newSeconds)
-    }
-
-    func backward(withSeconds seconds: Double) {
-        let currentSeconds = currentTime
-        let newSeconds = currentSeconds.advanced(by: -seconds)
-        seek(newSeconds)
     }
 
 
@@ -480,7 +476,8 @@ extension Player {
 
     /// Saves when the app may not get another chance (#117): an interruption (a call, Siri,
     /// another app's audio) can stop playback without `pause()`, and a backgrounded app can be
-    /// killed by the system without `applicationWillTerminate`.
+    /// killed by the system without `applicationWillTerminate`. An interruption that stopped
+    /// playback also sends Siri the signals a pause would (#160).
     private func setupSaveObservers() {
         let interruption = notificationCenter.addObserver(
             forName: AVAudioSession.interruptionNotification,
@@ -490,7 +487,9 @@ extension Player {
             guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   AVAudioSession.InterruptionType(rawValue: rawType) == .began
             else { return }
-            self?.saveTime()
+            guard let self else { return }
+            saveTime()
+            siriSignals.interrupted(model, wasPlaying: isPlayRequested)
         }
         let background = notificationCenter.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
@@ -611,5 +610,20 @@ extension Player {
         if player.rate != 0 {
             player.rate = Float(speed)
         }
+    }
+}
+
+// MARK: - Relative skips
+extension Player {
+    func forward(withSeconds seconds: Double) {
+        let currentSeconds = currentTime
+        let newSeconds = currentSeconds.advanced(by: seconds)
+        seek(newSeconds)
+    }
+
+    func backward(withSeconds seconds: Double) {
+        let currentSeconds = currentTime
+        let newSeconds = currentSeconds.advanced(by: -seconds)
+        seek(newSeconds)
     }
 }
