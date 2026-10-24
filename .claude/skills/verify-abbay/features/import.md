@@ -17,6 +17,13 @@ security-scoped bookmark that makes the file playable again after relaunch.
   not at import (`Player.play`), writes it back through the update-only
   `SavePlaybackPositionUseCase`, and refreshes the snapshot. LibriVox `librivox://` books are never
   bookmarked: they are not files.
+- **stale-bookmark-refresh:** loading a book (`LoadAudioUseCase`, `LoadAllAudiosUseCase`) resolves
+  its bookmark with `URL.resolveBookmarkRefreshing(from:)`. When iOS reports it **stale**, a new
+  bookmark is made and `StaleBookmarkSaver` saves it to the book's row through `SaveAudioUseCase`
+  (under the row's stored URL, so no second row appears), once per book per launch; a library load
+  saves all its stale books in one call (#146). Before, the new bookmark was made and dropped on
+  every play. Unit-tested with a stubbed resolver (`StaleBookmarkTests`): a stale bookmark can't be
+  made on demand, so this hasn't been seen on a device.
 - **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
 - **failures:** `load(urls:)` returns a `FileImportResult` (`loaded`, `failed`). A file fails when it
   can't be opened or isn't playable audio (`AVURLAsset.isPlayable`), so a renamed text file is no
@@ -58,8 +65,8 @@ picker's own contents are system-owned and carry no identifiers of ours).
   app's own container is not browsable either.
 - **`asCopy: false` is the whole risk surface.** The file stays where the user put it, so playback
   depends entirely on the security-scoped bookmark resolving later. `URL+SecurityScoped.swift`
-  handles the stale case by recreating the bookmark, but all five branches there are `print`-only
-  (5 `// TODO: Add logging` markers). A bookmark that no longer resolves now surfaces at Play: the
+  handles the stale case by recreating the bookmark, which is now saved (see
+  *stale-bookmark-refresh*), and logs through `Log.bookmarks`. A bookmark that no longer resolves now surfaces at Play: the
   item fails and the user sees *"Title" was moved or renamed. Import it again…* (see
   [notices](notices.md)).
 - The bookmark is created on first **play**, not on import. A book imported and never played has
