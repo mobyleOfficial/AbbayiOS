@@ -104,7 +104,7 @@ final class IntentDonorLoggingTests: XCTestCase {
             NSError(domain: "IntentsErrorDomain", code: 1901)
         )
 
-        let messages = try LoggedMessages.messages(category: "Siri", since: since)
+        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "donation failed")
         let failure = try XCTUnwrap(messages.first { $0.contains("donation failed") }, "\(messages)")
         XCTAssertTrue(failure.contains("IntentsErrorDomain"), failure)
         XCTAssertTrue(failure.contains("1901"), failure)

@@ -92,7 +92,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
             audio(title: "HiddenThree157", url: "file:///third")
         ])
 
-        let messages = try LoggedMessages.messages(category: "Siri", since: since)
+        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "publish: 3 books")
         XCTAssertTrue(messages.contains { $0.contains("publish: 3 books") }, "\(messages)")
         XCTAssertFalse(messages.contains { $0.contains("Hidden") }, "\(messages)")
     }
@@ -135,7 +135,9 @@ final class SiriLibraryPublisherTests: XCTestCase {
         indexer.index(audios: [audio(title: "SpotlightSecret159", url: "file:///s")]) { completed = true }
 
         XCTAssertTrue(completed)
-        let messages = try LoggedMessages.messages(category: "Siri", since: since)
+        let messages = try LoggedMessages.messages(
+            category: "Siri", since: since, awaiting: "spotlight indexing failed"
+        )
         let failure = try XCTUnwrap(messages.first { $0.contains("spotlight indexing failed") }, "\(messages)")
         XCTAssertTrue(failure.contains("CSIndexErrorDomain") && failure.contains("-1003"), failure)
         XCTAssertFalse(messages.contains { $0.contains("SpotlightSecret159") })
