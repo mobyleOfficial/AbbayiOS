@@ -18,8 +18,9 @@ security-scoped bookmark that makes the file playable again after relaunch.
   `SavePlaybackPositionUseCase`, and refreshes the snapshot. LibriVox `librivox://` books are never
   bookmarked: they are not files.
 - **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
-- **post-import publish:** writes `abbay.librarySnapshot.v1` and calls
-  `AbbayAppShortcuts.updateAppShortcutParameters()` so Siri's entity suggestions pick the book up.
+- **post-import publish:** writes `abbay.librarySnapshot.v1`; the write publishes to Siri
+  (`SiriLibraryPublisher`), which refreshes the App Shortcut parameters once so Siri's entity
+  suggestions pick the book up. The view model makes no direct refresh call of its own (#84).
 
 ## How to get to it (user POV)
 

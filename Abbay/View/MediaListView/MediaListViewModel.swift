@@ -5,7 +5,6 @@
 //  Created by Edson Yudi Toma on 27/06/23.
 //
 
-import AppIntents
 import Foundation
 
 /// The library: its books, import, delete and adding LibriVox books. Owned by the root, above the
@@ -93,7 +92,6 @@ final class MediaListViewModel: ObservableObject {
             audioList.append(file)
         }
         LibrarySnapshotWriter.shared.write(audios: audioList)
-        AbbayAppShortcuts.updateAppShortcutParameters()
     }
 
     /// A LibriVox book the details page just saved. Refreshed like an import.
@@ -101,6 +99,5 @@ final class MediaListViewModel: ObservableObject {
         guard !audioList.contains(where: { $0.url == book.url }) else { return }
         audioList.append(book)
         LibrarySnapshotWriter.shared.write(audios: audioList)
-        AbbayAppShortcuts.updateAppShortcutParameters()
     }
 }
