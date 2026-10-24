@@ -87,6 +87,18 @@ final class ExpansionMathTests: XCTestCase {
         XCTAssertEqual(ExpansionMath.releaseVelocity(reported: 5, samples: samples), 5)
     }
 
+    /// N1: a real held finger sends no samples. Fast samples, then 500 ms of nothing, then the
+    /// lift: the window must end at the release, so it's a slow release, not a flick.
+    func test_releaseVelocity_heldFingerWithNoSamples_isSlow() {
+        let samples: [(time: TimeInterval, translationY: CGFloat)] = [
+            (0.000, 0), (0.016, 40), (0.033, 90), (0.050, 150)
+        ]
+
+        let velocity = ExpansionMath.releaseVelocity(reported: 3, samples: samples, releaseTime: 0.550)
+
+        XCTAssertEqual(velocity, 3, "held for 500 ms before lifting")
+    }
+
     func test_releaseVelocity_keepsTheReportedOneWhenFaster() {
         XCTAssertEqual(ExpansionMath.releaseVelocity(reported: -2000, samples: [(0, 0), (0.05, -20)]), -2000)
         XCTAssertEqual(ExpansionMath.releaseVelocity(reported: 300, samples: []), 300)

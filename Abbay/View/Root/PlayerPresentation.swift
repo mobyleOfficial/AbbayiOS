@@ -61,6 +61,19 @@ final class PlayerPresentation {
     /// Bumped by every `open`, `close` and drag, so a settle that finishes after a newer one
     /// leaves it alone.
     @ObservationIgnored private var generation = 0
+    /// Bumped each time a presentation starts from closed (an open, or a drag up from the bar).
+    /// Per-presentation state (the details screen's view model) is keyed by it.
+    @ObservationIgnored private(set) var presentationID = 0
+    /// Whether `barFrame` was reported with the tab bar showing. While the screen is settled open
+    /// the tab bar is hidden and the accessory slides down with it (about 70 pt), so a frame
+    /// reported then isn't where the bar rests.
+    @ObservationIgnored private var barFrameIsResting = false
+    /// A collapse started with no bar to land on (opened from the bottom strip) while a book is
+    /// loaded: the bar is coming back with the tab bar, and the start is taken once it rests.
+    @ObservationIgnored private var awaitingRestingBar = false
+    @ObservationIgnored private var restingCheck = 0
+    /// How long the bar's frame must stay unchanged to count as resting.
+    static let barRestDelay: Duration = .milliseconds(150)
     /// The drag in flight, if any, and the progress it started from (for `cancelInteractive`).
     @ObservationIgnored private var interaction: (id: Int, startProgress: CGFloat)?
     /// Tells whether the bar is visible (a book is loaded) when an open starts. Optional so
@@ -77,7 +90,11 @@ final class PlayerPresentation {
     func open(_ book: AudioModel, animated: Bool) {
         generation += 1
         interaction = nil
-        if presentedBook == nil { snapshotExpansionStart() }
+        awaitingRestingBar = false
+        if presentedBook == nil {
+            presentationID += 1
+            snapshotExpansionStart()
+        }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
         if presentedBook == nil || presentedBook?.url != book.url { presentedBook = book }
         settleOpen(animated: animated)
@@ -108,13 +125,20 @@ final class PlayerPresentation {
         generation += 1
         if presentedBook == nil {
             guard let book else { return nil }
+            presentationID += 1
             snapshotExpansionStart()
             presentedBook = book
             renderedProgress = 0
-        } else if expansionStart == nil {
-            // Opened with no bar (the bottom strip); if a book was loaded meanwhile (Play pressed
-            // while open), the collapse lands on the real bar. A snapshot that exists is kept.
-            snapshotExpansionStart()
+        } else if expansionStart == nil, playback?.loadedBook != nil {
+            // Opened with no bar (the bottom strip), and a book was loaded meanwhile (Play pressed
+            // while open): the collapse lands on the real bar. Its last frame counts only if it
+            // was reported at rest; otherwise wait for the bar to come back with the tab bar and
+            // settle (`reportBarFrame`). A snapshot that exists is kept.
+            if barFrameIsResting, barFrame != nil {
+                snapshotExpansionStart()
+            } else {
+                awaitingRestingBar = true
+            }
         }
         setFullyOpen(false)
         let current = ExpansionMath.clamp(renderedProgress)
@@ -172,6 +196,8 @@ final class PlayerPresentation {
     func reportBarFrame(_ frame: CGRect, screenHeight: CGFloat) {
         guard frame.minY >= screenHeight / 2, frame != barFrame else { return }
         barFrame = frame
+        barFrameIsResting = !isFullyOpen
+        if awaitingRestingBar, !isFullyOpen { scheduleRestingSnapshot() }
     }
 
     func reportScreenSize(_ size: CGSize) {
@@ -191,8 +217,24 @@ final class PlayerPresentation {
     /// The bar is visible while a book is loaded (the screen isn't settled open when an open
     /// starts). Without it, the expansion grows from the bottom strip.
     private func snapshotExpansionStart() {
-        let start = playback?.loadedBook != nil ? barFrame : nil
+        let start = playback?.loadedBook != nil && barFrameIsResting ? barFrame : nil
         if expansionStart != start { expansionStart = start }
+    }
+
+    /// Takes the bar's frame as the start once it stops changing (its insertion and the tab bar's
+    /// return animate it), easing the panel's target there instead of jumping.
+    private func scheduleRestingSnapshot() {
+        restingCheck += 1
+        let check = restingCheck
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.barRestDelay)
+            guard let self, awaitingRestingBar, restingCheck == check, presentedBook != nil,
+                  !isFullyOpen, let frame = barFrame else { return }
+            awaitingRestingBar = false
+            withAnimation(.easeOut(duration: 0.25)) {
+                expansionStart = frame
+            }
+        }
     }
 
     /// Replaces an animation in flight with the value on screen, without animating.
@@ -212,6 +254,7 @@ final class PlayerPresentation {
     }
 
     private func clearBook() {
+        awaitingRestingBar = false
         if presentedBook != nil { presentedBook = nil }
     }
 

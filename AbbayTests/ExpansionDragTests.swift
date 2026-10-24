@@ -136,6 +136,29 @@ final class ExpansionDragTests: XCTestCase {
         XCTAssertNil(presentation.presentedBook)
     }
 
+    /// N1: a fast 20% collapse drag, a 500 ms hold with no events, then the lift: slow, so it
+    /// settles back open (20% < 30%), not closed as a flick.
+    func test_fastDragThenHold_settlesByDistance() async {
+        let presentation = openPresentation()
+        let drag = ExpansionDrag()
+        let travel = barFrame.minY
+        for (time, share) in [(0.000, 0.0), (0.016, 0.07), (0.033, 0.14), (0.050, 0.2)] {
+            drag.changed(
+                translationY: 10 + share * travel,
+                startLocation: first,
+                presentation: presentation,
+                book: nil,
+                time: 1000 + time
+            )
+        }
+
+        drag.ended(velocityY: 3, presentation: presentation, time: 1000.550)
+
+        XCTAssertEqual(presentation.progress, 1, "a held finger is a slow release")
+        await waitUntil { presentation.isFullyOpen }
+        XCTAssertTrue(presentation.isFullyOpen)
+    }
+
     // MARK: - The bar's axis
 
     /// The bar's axis is decided once per gesture; a new start location is a new gesture, so a

@@ -262,21 +262,23 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(sut.expansionStart, barFrame)
     }
 
-    /// Ruling 14: opened with no bar (the bottom strip), then Play loads the book while it's open.
-    /// The collapse lands on the real bar, re-snapshotted when it starts.
-    func test_collapse_afterOpeningWithoutABar_landsOnTheBar() throws {
+    /// Ruling 14 (2): while open the tab bar is hidden, so a bar frame reported then is the
+    /// slid-down one (about 70 pt low). The collapse waits for the bar's resting frame, reported
+    /// once the tab bar is back, and lands there.
+    func test_collapse_afterOpeningWithoutABar_waitsForTheRestingBarFrame() async throws {
         let state = PlaybackState()
         let sut = PlayerPresentation(playback: state)
         sut.reportScreenSize(screen)
         sut.open(other, animated: false)
-        XCTAssertNil(sut.expansionStart)
         state.setLoadedBook(other)
+        sut.reportBarFrame(barFrame.offsetBy(dx: 0, dy: 70), screenHeight: screen.height)
+
+        _ = try XCTUnwrap(sut.beginInteractive())
+        sut.reportBarFrame(barFrame.offsetBy(dx: 0, dy: 30), screenHeight: screen.height)
         sut.reportBarFrame(barFrame, screenHeight: screen.height)
+        await waitUntil { sut.expansionStart == barFrame }
 
-        let start = try XCTUnwrap(sut.beginInteractive())
-
-        XCTAssertEqual(sut.expansionStart, barFrame)
-        XCTAssertEqual(start.travel, barFrame.minY)
+        XCTAssertEqual(sut.expansionStart, barFrame, "the resting frame, not the slid-down one")
     }
 
     /// Interruptible: grabbing mid-spring continues from what is on screen, not from the target,

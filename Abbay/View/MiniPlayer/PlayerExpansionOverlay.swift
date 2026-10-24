@@ -64,6 +64,7 @@ struct PlayerExpansionOverlay: View {
             if let book = presentation.presentedBook {
                 let model = models.model(
                     for: book,
+                    presentationID: presentation.presentationID,
                     state: playback,
                     player: center?.player,
                     downloads: downloads
@@ -131,25 +132,30 @@ final class ExpansionGeometry {
 
 // MARK: - Models
 
-/// One `PlayerViewModel` per presented book, shared by the details screen and the expansion's
-/// cover and tint, so all of them follow the loaded book after a switch (Siri, CarPlay). Built in
-/// the overlay's body; the view model reads no state in `init`, so that body doesn't start
-/// depending on `loadedBook`.
+/// One `PlayerViewModel` per presentation, shared by the details screen and the expansion's
+/// cover and tint, so all of them follow the loaded book after a switch (Siri, CarPlay). Keyed by
+/// the presentation and the book: a new presentation (even of the same book) gets a fresh model,
+/// because a model that followed the loaded book once keeps following it. Built in the overlay's
+/// body; the view model reads no state in `init`, so that body doesn't start depending on
+/// `loadedBook`.
 @MainActor
 final class PlayerDetailsModels {
     private var current: PlayerViewModel?
     private var currentURL: URL?
+    private var currentPresentation: Int?
 
     func model(
         for book: AudioModel,
+        presentationID: Int,
         state: PlaybackState,
         player: PlayerProtocol?,
         downloads: DownloadStateStore?
     ) -> PlayerViewModel {
-        if let current, currentURL == book.url { return current }
+        if let current, currentURL == book.url, currentPresentation == presentationID { return current }
         let model = PlayerViewModel(book, state: state, player: player, downloads: downloads)
         current = model
         currentURL = book.url
+        currentPresentation = presentationID
         return model
     }
 }
@@ -217,9 +223,14 @@ final class ExpansionDrag {
     }
 
     /// Settles by the spec thresholds, read in the direction the finger moved: up from where it
-    /// landed is opening, down is closing.
-    func ended(velocityY: CGFloat, presentation: PlayerPresentation) {
-        let velocity = ExpansionMath.releaseVelocity(reported: velocityY, samples: samples)
+    /// landed is opening, down is closing. `time` is the lift (`DragGesture.Value.time`), so a
+    /// finger held still before lifting reads as slow.
+    func ended(
+        velocityY: CGFloat,
+        presentation: PlayerPresentation,
+        time: TimeInterval? = nil
+    ) {
+        let velocity = ExpansionMath.releaseVelocity(reported: velocityY, samples: samples, releaseTime: time)
         guard let start = finish(presentation) else { return }
         let open = ExpansionMath.shouldOpen(
             progress: latest,
@@ -294,8 +305,8 @@ final class ExpansionListCollapse {
         )
     }
 
-    func ended(velocityY: CGFloat) {
-        if isEngaged { drag.ended(velocityY: velocityY, presentation: presentation) }
+    func ended(velocityY: CGFloat, time: TimeInterval? = nil) {
+        if isEngaged { drag.ended(velocityY: velocityY, presentation: presentation, time: time) }
         reset()
     }
 
@@ -343,7 +354,10 @@ struct ListCollapseModifier: ViewModifier {
                             )
                         }
                         .onEnded { value in
-                            handler.ended(velocityY: value.velocity.height)
+                            handler.ended(
+                                velocityY: value.velocity.height,
+                                time: value.time.timeIntervalSinceReferenceDate
+                            )
                         }
                 )
                 .onChange(of: isDragging) { _, dragging in
@@ -397,7 +411,8 @@ private struct ExpansionStage<Details: View>: View {
             model: model,
             screen: screen,
             insets: insets,
-            start: presentation.expansionStart,
+            startFrame: ExpansionMath.startFrame(bar: presentation.expansionStart, screen: screen),
+            startsFromBar: presentation.expansionStart != nil,
             isFullyOpen: presentation.isFullyOpen,
             geometry: geometry,
             presentation: presentation,
@@ -421,7 +436,9 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     let model: PlayerViewModel
     let screen: CGSize
     let insets: EdgeInsets
-    let start: CGRect?
+    /// Animatable too: a start taken late (the bar coming back to rest) eases in.
+    var startFrame: CGRect
+    let startsFromBar: Bool
     let isFullyOpen: Bool
     let geometry: ExpansionGeometry
     let presentation: PlayerPresentation
@@ -435,22 +452,24 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     @GestureState
     private var isPanelDragging = false
 
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
+    var animatableData: AnimatablePair<CGFloat, CGRect.AnimatableData> {
+        get { AnimatablePair(progress, startFrame.animatableData) }
+        set {
+            progress = newValue.first
+            startFrame.animatableData = newValue.second
+        }
     }
 
 
     /// The system tab bar's accessory (iOS 26.1+) is a capsule; the hand-built dock is rounded.
     private var startsInAccessory: Bool {
-        guard start != nil else { return false }
+        guard startsFromBar else { return false }
         if #available(iOS 26.1, *) { return true }
         return false
     }
 
     var body: some View {
         let fraction = reportRendered(progress)
-        let startFrame = ExpansionMath.startFrame(bar: start, screen: screen)
         let full = CGRect(origin: .zero, size: screen)
         let frame = reduceMotion ? full : ExpansionMath.interpolate(startFrame, full, fraction)
         let startRadius = startsInAccessory ? startFrame.height / 2 : ExpansionMetrics.dockCornerRadius
@@ -602,7 +621,11 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
                 )
             }
             .onEnded { [drag, presentation] value in
-                drag.ended(velocityY: value.velocity.height, presentation: presentation)
+                drag.ended(
+                    velocityY: value.velocity.height,
+                    presentation: presentation,
+                    time: value.time.timeIntervalSinceReferenceDate
+                )
             }
     }
 }

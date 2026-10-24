@@ -123,7 +123,11 @@ struct MiniPlayerView: View {
                 let axis = drag.axis(for: value.translation, startLocation: value.startLocation)
                 drag.reset()
                 if axis == .vertical {
-                    drag.expansion.ended(velocityY: value.velocity.height, presentation: presentation)
+                    drag.expansion.ended(
+                        velocityY: value.velocity.height,
+                        presentation: presentation,
+                        time: value.time.timeIntervalSinceReferenceDate
+                    )
                 } else if let swipe = MiniPlayerActions.swipe(for: value.translation) {
                     perform(swipe)
                 }

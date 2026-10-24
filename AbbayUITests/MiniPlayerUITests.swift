@@ -209,6 +209,29 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertFalse(bar.exists, "settled open again: the bar stays hidden")
     }
 
+    /// Ruling 14: opened from a row with nothing loaded (grows from the bottom strip), Play loads
+    /// the book while open, then a slow collapse lands on the bar that came back meanwhile.
+    /// Also the recorded landing scenario.
+    func test_collapseAfterPlayingInDetails_landsOnTheBar() throws {
+        launch([LaunchArgument.seedLibrary])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
+        element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
+        waitForPlayerToArrive()
+        XCTAssertTrue(transportPlay.waitForExistence(timeout: 5))
+        sleep(1)
+        transportPlay.tap()
+        let grabber = element(AccessibilityID.Player.grabber)
+        let start = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+
+        start.press(forDuration: 0.2, thenDragTo: end, withVelocity: 250, thenHoldForDuration: 0.5)
+
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar did not come back")
+        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+    }
+
     /// A short, slow drag stays under 30% of the travel: released, it settles back into the bar.
     func test_shortSlowDragUp_settlesClosed() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")

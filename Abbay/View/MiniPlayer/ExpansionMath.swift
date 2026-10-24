@@ -48,18 +48,23 @@ enum ExpansionMath {
     /// How far back `releaseVelocity` looks.
     static let releaseWindow: TimeInterval = 0.06
 
-    /// The release speed: the gesture's reported velocity, or the speed over the last 60 ms of
-    /// samples when that is faster. A stationary sample right before the lift (a synthesized drag,
+    /// The release speed: the gesture's reported velocity, or the speed over the 60 ms before the
+    /// release when that is faster. A stationary sample right before the lift (a synthesized drag,
     /// or a finger that hesitates for one frame) can drop the reported velocity of a flick to near
-    /// 0; a finger that really stopped has slow samples too, so it stays slow.
+    /// 0. The window ends at `releaseTime` (the lift), not at the last sample: a finger held still
+    /// sends no samples, so a hold after a fast move leaves the window without the fast part and
+    /// the release stays slow. Without `releaseTime` the window ends at the last sample.
     static func releaseVelocity(
         reported: CGFloat,
-        samples: [(time: TimeInterval, translationY: CGFloat)]
+        samples: [(time: TimeInterval, translationY: CGFloat)],
+        releaseTime: TimeInterval? = nil
     ) -> CGFloat {
-        guard let last = samples.last,
-              let first = samples.first(where: { last.time - $0.time <= releaseWindow }),
-              last.time > first.time else { return reported }
-        let windowed = (last.translationY - first.translationY) / CGFloat(last.time - first.time)
+        guard let last = samples.last else { return reported }
+        // The finger stays at its last translation until the lift.
+        let end = max(last.time, releaseTime ?? last.time)
+        guard let first = samples.first(where: { end - $0.time <= releaseWindow }),
+              end > first.time else { return reported }
+        let windowed = (last.translationY - first.translationY) / CGFloat(end - first.time)
         return abs(windowed) > abs(reported) ? windowed : reported
     }
 

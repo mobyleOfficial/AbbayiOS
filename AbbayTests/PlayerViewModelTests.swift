@@ -122,18 +122,57 @@ final class PlayerViewModelTests: XCTestCase {
         let state = loadedState(book)
         let models = PlayerDetailsModels()
 
-        let model = models.model(for: book, state: state, player: nil, downloads: nil)
+        let model = models.model(for: book, presentationID: 1, state: state, player: nil, downloads: nil)
         XCTAssertEqual(model.book.url, book.url)
         var switched = otherBook()
         switched.imageData = Data([1, 2, 3])
         state.setLoadedBook(switched)
 
-        let again = models.model(for: book, state: state, player: nil, downloads: nil)
+        let again = models.model(for: book, presentationID: 1, state: state, player: nil, downloads: nil)
         XCTAssertTrue(again === model, "the same model for the same presented book")
         XCTAssertEqual(ExpansionArt.book(for: again).url, otherURL)
         XCTAssertEqual(ExpansionArt.book(for: again).imageData, Data([1, 2, 3]))
-        let next = models.model(for: otherBook(), state: state, player: nil, downloads: nil)
+        let next = models.model(for: otherBook(), presentationID: 1, state: state, player: nil, downloads: nil)
         XCTAssertFalse(next === model, "another presented book gets its own model")
+    }
+
+    /// N2: the model lives for one presentation. Present A while A is loaded (the follow latch
+    /// sets), close, B gets loaded, present A again: A's saved fields, and Play loads A.
+    func test_detailsModels_doNotCarryAcrossPresentations() {
+        let bookA = ViewModelSupport.chaptered(currentTime: 30)
+        let state = loadedState(bookA)
+        let player = MockPlayer()
+        let presentation = PlayerPresentation(playback: state)
+        let models = PlayerDetailsModels()
+        let clock = PlaybackClock()
+        clock.update(bookTime: 150, currentChapter: 1)
+
+        presentation.open(bookA, animated: false)
+        let first = models.model(
+            for: bookA,
+            presentationID: presentation.presentationID,
+            state: state,
+            player: player,
+            downloads: nil
+        )
+        XCTAssertTrue(first.isLoaded)
+        presentation.close(animated: false)
+        state.setLoadedBook(otherBook())
+        presentation.open(bookA, animated: false)
+
+        let second = models.model(
+            for: bookA,
+            presentationID: presentation.presentationID,
+            state: state,
+            player: player,
+            downloads: nil
+        )
+
+        XCTAssertEqual(second.book.url, bookA.url, "A's screen, not the loaded B")
+        XCTAssertFalse(second.isLoaded)
+        XCTAssertEqual(second.bookTime(in: clock), 30, "A's saved position")
+        second.play()
+        XCTAssertEqual(player.playCalls.last?.url, bookA.url, "Play loads A, it doesn't resume B")
     }
 
     // MARK: - The hard rule
