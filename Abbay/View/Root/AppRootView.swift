@@ -8,6 +8,7 @@ import SwiftUI
 /// The app's root: the Library and Search tabs, each with its own `NavigationStack`, and above
 /// them the one overlay that presents the details screen, growing out of the mini player. It owns the library model, the player
 /// presentation and the selected tab, and injects the app-wide playback and download sources.
+/// Over everything sits the error banner (`NoticeBannerView`), the only reader of `NoticeCenter`.
 ///
 /// The body reads only the selected tab. Playback and presentation state are read by small leaf
 /// views (`LoadedBookObserver`, `PlayerExpansionOverlay`, the mini player's `MiniPlayerDock` /
@@ -17,6 +18,7 @@ import SwiftUI
 /// delete re-renders the Library list, not the root.
 struct AppRootView: View {
     private let container: DependencyContainerProtocol
+    private let notices: NoticeCenter
     @StateObject
     private var models: RootModels
     @State
@@ -27,8 +29,9 @@ struct AppRootView: View {
 
     /// Builds from `DependencyContainer.shared`, so it must run after `didFinishLaunching`
     /// configured the container (it does: the scene's body is evaluated after launch).
-    init(container: DependencyContainerProtocol = DependencyContainer.shared) {
+    init(container: DependencyContainerProtocol = DependencyContainer.shared, notices: NoticeCenter = .shared) {
         self.container = container
+        self.notices = notices
         _models = StateObject(wrappedValue: RootModels(playback: container.playback))
     }
 
@@ -37,6 +40,11 @@ struct AppRootView: View {
             tabs
             PlayerExpansionOverlay()
         }
+        // Above the details screen too, and at the top, clear of the mini player and the tab bar.
+        .overlay(alignment: .top) {
+            NoticeBannerView()
+        }
+        .environment(notices)
         .background {
             LoadedBookObserver(model: model)
         }

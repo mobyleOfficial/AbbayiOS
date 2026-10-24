@@ -53,7 +53,17 @@ final class LocalizationTests: XCTestCase {
         .nextChapterAction,
         .restartChapterAction,
         .carPlayEmptyLibraryTitle,
-        .carPlayEmptyLibrarySubtitle
+        .carPlayEmptyLibrarySubtitle,
+        .noticeImportFailedOne,
+        .noticeImportFailedMany,
+        .noticeImportFailedMore,
+        .noticeFileMissing,
+        .noticePlaybackFailed,
+        .noticeAudioUnavailable,
+        .noticeStreamingOffline,
+        .noticeChapterFailed,
+        .noticeSaveFailed,
+        .noticeDismiss
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -101,7 +111,17 @@ final class LocalizationTests: XCTestCase {
         .nextChapterAction,
         .restartChapterAction,
         .carPlayEmptyLibraryTitle,
-        .carPlayEmptyLibrarySubtitle
+        .carPlayEmptyLibrarySubtitle,
+        .noticeImportFailedOne,
+        .noticeImportFailedMany,
+        .noticeImportFailedMore,
+        .noticeFileMissing,
+        .noticePlaybackFailed,
+        .noticeAudioUnavailable,
+        .noticeStreamingOffline,
+        .noticeChapterFailed,
+        .noticeSaveFailed,
+        .noticeDismiss
     ]
 
     /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
