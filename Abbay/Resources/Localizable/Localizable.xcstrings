@@ -750,6 +750,42 @@
           }
         }
       }
+    },
+    "carPlayEmptyLibraryTitle" : {
+      "comment" : "CarPlay library empty state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No audiobooks yet"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum audiolivro ainda"
+          }
+        }
+      }
+    },
+    "carPlayEmptyLibrarySubtitle" : {
+      "comment" : "CarPlay library empty state subtitle: books can only be added on the phone",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a book on your iPhone to listen to it here."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione um livro no seu iPhone para ouvi-lo aqui."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

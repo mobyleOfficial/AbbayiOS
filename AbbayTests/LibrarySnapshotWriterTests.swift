@@ -100,4 +100,14 @@ final class LibrarySnapshotWriterTests: XCTestCase {
         XCTAssertEqual(snapshot.audios.count, 1)
         XCTAssertEqual(snapshot.audios.first?.title, "A")
     }
+
+    /// CarPlay rebuilds its list off this (#95). Every library mutation funnels through `write`,
+    /// so it is the one place the signal has to come from.
+    func test_write_postsLibraryDidChange() throws {
+        let posted = expectation(forNotification: .libraryDidChange, object: nil)
+
+        try makeWriter().write(audios: [])
+
+        wait(for: [posted], timeout: 1)
+    }
 }

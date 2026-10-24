@@ -5,6 +5,7 @@
 
 @testable import Abbay
 import CarPlay
+import Combine
 import XCTest
 
 /// CarPlay was the least-tested surface in the app and the only one with a user-reported total
@@ -20,6 +21,7 @@ final class CarPlaySceneDelegateTests: XCTestCase {
     private var loadAudio = MockLoadAudioUseCase()
     private var loadAll = MockLoadAllAudiosUseCase()
     private var observer = MockPlayerObserver()
+    private var libraryChanges = PassthroughSubject<Void, Never>()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -28,6 +30,7 @@ final class CarPlaySceneDelegateTests: XCTestCase {
         loadAll = MockLoadAllAudiosUseCase()
         observer = MockPlayerObserver()
         observer.player = player
+        libraryChanges = PassthroughSubject<Void, Never>()
         DependencyContainer.configure(
             with: MockDependencyContainer(player: player, loadAudio: loadAudio, loadAllAudios: loadAll)
         )
@@ -44,6 +47,7 @@ final class CarPlaySceneDelegateTests: XCTestCase {
         delegate.loadAllAudiosUseCase = loadAll
         delegate.loadAudioUseCase = loadAudio
         delegate.playerObserver = observer
+        delegate.libraryChanges = libraryChanges.eraseToAnyPublisher()
         return delegate
     }
 
@@ -186,13 +190,63 @@ final class CarPlaySceneDelegateTests: XCTestCase {
         XCTAssertEqual(player.playCalls.first?.currentTime, 250, "must play the stored position")
     }
 
-    func test_handleAudioSelection_fallsBackToTheListedModelOnAStoreMiss() {
+    /// #95: a store miss means the book was deleted on the phone after the list was built.
+    /// Playing the listed copy hands `Player.play` a dead URL whose bookmark no longer resolves.
+    func test_handleAudioSelection_doesNotPlayABookThatIsNoLongerStored() {
         let delegate = makeDelegate()
 
-        delegate.handleAudioSelection(book(title: "Listed", currentTime: 10))
+        delegate.handleAudioSelection(book(title: "Deleted On Phone", currentTime: 10))
 
-        XCTAssertEqual(player.playCalls.count, 1)
-        XCTAssertEqual(player.playCalls.first?.title, "Listed")
+        XCTAssertTrue(player.playCalls.isEmpty, "must not fall back to the stale listed model")
+    }
+
+    /// The tapped row is stale, so the list is rebuilt to drop it.
+    func test_handleAudioSelection_storeMissRefreshesTheList() {
+        let kept = book(title: "Kept", url: "file:///kept.m4b")
+        let deleted = book(title: "Deleted", url: "file:///deleted.m4b")
+        loadAll.stub = [kept, deleted]
+        let delegate = makeDelegate()
+        let template = delegate.buildLibraryTemplate()
+        loadAll.stub = [kept]
+
+        delegate.handleAudioSelection(deleted)
+
+        XCTAssertEqual(items(of: template).map(\.text), ["Kept"])
+    }
+
+    /// Tapping a vanished row must not claim it as the live-progress row, nor release the row of
+    /// the book that is still playing.
+    func test_rowHandler_vanishedBookLeavesTheTrackedRowAlone() throws {
+        let playing = book(title: "Playing", duration: 400, url: "file:///playing.m4b")
+        let deleted = book(title: "Deleted", url: "file:///deleted.m4b")
+        loadAll.stub = [playing, deleted]
+        loadAudio.stubs["file:///playing.m4b"] = playing
+        player.url = playing.url
+        let delegate = makeDelegate()
+        let rows = items(of: delegate.buildLibraryTemplate())
+        loadAll.stub = [playing]
+
+        let handler = try XCTUnwrap(rows[1].handler)
+        let done = expectation(description: "handler completes")
+        handler(rows[1]) { done.fulfill() }
+        wait(for: [done], timeout: 1)
+
+        XCTAssertEqual(delegate.currentPlayingURL, playing.url)
+        XCTAssertTrue(player.playCalls.isEmpty)
+    }
+
+    func test_rowHandler_playsAndTracksAStoredBook() throws {
+        let stored = book(title: "Stored", currentTime: 40, url: "file:///stored.m4b")
+        loadAll.stub = [stored]
+        loadAudio.stubs["file:///stored.m4b"] = stored
+        let delegate = makeDelegate()
+        let rows = items(of: delegate.buildLibraryTemplate())
+
+        let handler = try XCTUnwrap(rows[0].handler)
+        handler(rows[0]) {}
+
+        XCTAssertEqual(player.playCalls.map(\.title), ["Stored"])
+        XCTAssertTrue(delegate.currentPlayingItem === rows[0])
     }
 
     // MARK: - Chapter list

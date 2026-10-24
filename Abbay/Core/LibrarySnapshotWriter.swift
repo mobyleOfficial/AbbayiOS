@@ -20,6 +20,13 @@ struct LibrarySnapshot: Codable, Equatable {
     let audios: [LibrarySnapshotEntry]
 }
 
+extension Notification.Name {
+    /// Posted after every library snapshot write, which every library mutation funnels through
+    /// (import, delete, LibriVox additions, bookmark refreshes). Carries no payload: observers
+    /// re-read the store. CarPlay rebuilds its list off this (#95).
+    static let libraryDidChange = Notification.Name("abbay.libraryDidChange")
+}
+
 protocol LibrarySnapshotWriterProtocol {
     func write(audios: [AudioModel])
     func refresh()
@@ -80,6 +87,7 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         // with the real library. None of those APIs exist in an app extension,
         // hence the guard.
         SiriLibraryPublisher.shared.publish(audios: audios)
+        NotificationCenter.default.post(name: .libraryDidChange, object: nil)
         #endif
     }
 

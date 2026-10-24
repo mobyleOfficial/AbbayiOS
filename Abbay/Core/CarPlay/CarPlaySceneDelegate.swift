@@ -4,6 +4,7 @@
 //
 
 import CarPlay
+import Combine
 import UIKit
 
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
@@ -29,6 +30,14 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     lazy var loadAudioUseCase: LoadAudioUseCaseProtocol = DependencyContainer.shared.loadAudio
     // The one remaining `PlayerObserver` consumer: the rest of the app reads `PlaybackCenter`.
     lazy var playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
+    /// Fires when the library changes on the phone (import, delete, LibriVox addition), so the
+    /// list can be rebuilt while connected (#95). Delivered on main: writes can come from any
+    /// thread, and templates must only be touched from main.
+    var libraryChanges: AnyPublisher<Void, Never> = NotificationCenter.default
+        .publisher(for: .libraryDidChange)
+        .map { _ in () }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
 
     // MARK: - State
     //
@@ -43,6 +52,10 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// to a different book from outside CarPlay (#92).
     private var listItemsByURL: [URL: CPListItem] = [:]
     private(set) var currentPlayingURL: URL?
+
+    /// The root list, kept so a library change can update it in place.
+    private(set) var libraryTemplate: CPListTemplate?
+    private var libraryChangesCancellable: AnyCancellable?
 
     // MARK: - CPTemplateApplicationSceneDelegate
 
@@ -71,10 +84,18 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         _ templateApplicationScene: CPTemplateApplicationScene,
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
+        tearDownConnection()
+    }
+
+    /// Everything `didDisconnect` does, split out because `CPInterfaceController` cannot be
+    /// constructed in a test.
+    func tearDownConnection() {
         CPNowPlayingTemplate.shared.remove(self)
         playerObserver.cancelTimeSubscription()
         playerObserver.cancelUrlSubscription()
+        libraryChangesCancellable = nil
         self.interfaceController = nil
+        self.libraryTemplate = nil
         self.audioItems = []
         self.currentAudio = nil
         self.currentPlayingItem = nil
@@ -103,22 +124,46 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             let progress = CGFloat(time.seconds / audio.duration)
             self.currentPlayingItem?.playbackProgress = progress
         }
+
+        libraryChangesCancellable = libraryChanges.sink { [weak self] in
+            self?.refreshLibrary()
+        }
     }
 
     // MARK: - Template Builders
 
     func buildLibraryTemplate() -> CPListTemplate {
+        let template = CPListTemplate(title: Localizable.libraryTitle.localized, sections: buildLibrarySections())
+        // Shown by CarPlay only while the list has no rows. Books can only be added on the phone,
+        // so say so rather than leave a blank list (#95).
+        template.emptyViewTitleVariants = [Localizable.carPlayEmptyLibraryTitle.localized]
+        template.emptyViewSubtitleVariants = [Localizable.carPlayEmptyLibrarySubtitle.localized]
+        libraryTemplate = template
+        return template
+    }
+
+    /// Re-reads the store and swaps the rows in place. No-op until the list has been built.
+    func refreshLibrary() {
+        guard let libraryTemplate else { return }
+        libraryTemplate.updateSections(buildLibrarySections())
+    }
+
+    /// Reloads `audioItems` and rebuilds every row. The rows are new objects, so the
+    /// live-progress row is re-resolved to the playing book's new row.
+    private func buildLibrarySections() -> [CPListSection] {
         audioItems = loadAllAudiosUseCase.execute()
         listItemsByURL = [:]
+        currentPlayingItem = nil
 
         let listItems = audioItems.map { audio in
             buildListItem(for: audio)
         }
 
-        let section = CPListSection(items: listItems)
-        let template = CPListTemplate(title: Localizable.libraryTitle.localized, sections: [section])
+        if currentPlayingItem == nil {
+            currentPlayingItem = currentPlayingURL.flatMap { listItemsByURL[$0] }
+        }
 
-        return template
+        return [CPListSection(items: listItems)]
     }
 
     func buildListItem(for audio: AudioModel) -> CPListItem {
@@ -150,9 +195,6 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         item.handler = { [weak self] _, completion in
-            // Track before playing: replaying the already-loaded book does not publish a URL,
-            // so the subscription would not fire and the row would never be claimed.
-            self?.trackRow(for: audio)
             self?.handleAudioSelection(audio)
             completion()
         }
@@ -211,8 +253,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     func handleAudioSelection(_ audio: AudioModel) {
-        // Fetch fresh model from CoreData to get the latest saved currentTime
-        var freshAudio = loadAudioUseCase.execute(url: audio.url) ?? audio
+        // Fetch fresh model from CoreData to get the latest saved currentTime. A miss means the
+        // book was deleted on the phone after this row was built: the listed copy's URL is dead,
+        // so drop the stale row instead of handing it to the player (#95).
+        guard var freshAudio = loadAudioUseCase.execute(url: audio.url) else {
+            refreshLibrary()
+            return
+        }
+        // Track before playing: replaying the already-loaded book does not publish a URL,
+        // so the subscription would not fire and the row would never be claimed.
+        trackRow(for: freshAudio)
         playerObserver.player.play(&freshAudio)
 
         showNowPlayingIfNeeded()
