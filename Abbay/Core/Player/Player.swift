@@ -50,6 +50,12 @@ final class Player: PlayerProtocol {
     private let bookmarkProvider: BookmarkProviderProtocol
     private let chapterPrioritizer: ChapterPrioritizing
     private let downloadsRoot: URL
+    private let notificationCenter: NotificationCenter
+    private let now: () -> Date
+    /// When the position was last written, so a playing book saves at most every
+    /// `positionSaveInterval`. Restarts on every save and on loading a book.
+    private var lastPositionSave: Date?
+    private var notificationObservers: [NSObjectProtocol] = []
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -99,7 +105,9 @@ final class Player: PlayerProtocol {
         audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
         bookmarkProvider: BookmarkProviderProtocol = BookmarkProvider(),
         chapterPrioritizer: ChapterPrioritizing = NoopChapterPrioritizer(),
-        downloadsRoot: URL = LibriVoxIdentity.defaultRoot
+        downloadsRoot: URL = LibriVoxIdentity.defaultRoot,
+        notificationCenter: NotificationCenter = .default,
+        now: @escaping () -> Date = Date.init
     ) {
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
@@ -108,7 +116,10 @@ final class Player: PlayerProtocol {
         self.bookmarkProvider = bookmarkProvider
         self.chapterPrioritizer = chapterPrioritizer
         self.downloadsRoot = downloadsRoot
+        self.notificationCenter = notificationCenter
+        self.now = now
         setupTimeObserver()
+        setupSaveObservers()
 
         // Initialize Now Playing and set player reference
         NowPlayingManager.shared.setPlayer(self, currentAudio: nil)
@@ -117,6 +128,7 @@ final class Player: PlayerProtocol {
     // MARK: - Deinit
     deinit {
         cleanup()
+        notificationObservers.forEach(notificationCenter.removeObserver)
     }
 
     // MARK: - Cleanup
@@ -308,6 +320,7 @@ final class Player: PlayerProtocol {
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
         print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
         model = item
+        lastPositionSave = now()
 
         let playerItem = AVPlayerItem(url: url)
 
@@ -354,6 +367,7 @@ final class Player: PlayerProtocol {
     /// `seek(model.currentTime)`, which loads the chapter that holds the saved position.
     private func loadMultiFileBook(_ item: AudioModel) {
         model = item
+        lastPositionSave = now()
         player.removeAllItems()
         if let bookID = item.librivoxID {
             multiFileQueue = MultiFileQueue(
@@ -381,10 +395,12 @@ final class Player: PlayerProtocol {
         }
     }
 
+    /// Update-only (`SavePlaybackPositionUseCase`), so no caller can re-insert a deleted book.
     private func saveTime() {
         let currentTime = self.currentTime
         if !currentTime.isNaN, let model = model {
             savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
+            lastPositionSave = now()
         }
     }
 
@@ -409,6 +425,46 @@ final class Player: PlayerProtocol {
                 currentTime: currentTime,
                 isPlaying: isPlaying
             )
+            self.savePositionIfDue(isPlaying: isPlaying)
         }
+    }
+}
+
+// MARK: - Saving the position while playing
+extension Player {
+    /// How often a playing book's position is written (#117). Pausing, switching books and
+    /// jumping to a chapter save at once; this bounds what a crash, jetsam or power loss can lose.
+    static let positionSaveInterval: TimeInterval = 10
+
+    /// Called on every periodic-observer tick. Saves while playing, at most once per
+    /// `positionSaveInterval`. Internal for tests: the observer only fires while an item plays.
+    func savePositionIfDue(isPlaying: Bool) {
+        guard isPlaying else { return }
+        if let lastPositionSave, now().timeIntervalSince(lastPositionSave) < Self.positionSaveInterval { return }
+        saveTime()
+    }
+
+    /// Saves when the app may not get another chance (#117): an interruption (a call, Siri,
+    /// another app's audio) can stop playback without `pause()`, and a backgrounded app can be
+    /// killed by the system without `applicationWillTerminate`.
+    private func setupSaveObservers() {
+        let interruption = notificationCenter.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: rawType) == .began
+            else { return }
+            self?.saveTime()
+        }
+        let background = notificationCenter.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveTime()
+        }
+        notificationObservers = [interruption, background]
     }
 }
