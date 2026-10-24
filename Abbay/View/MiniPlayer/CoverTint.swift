@@ -137,7 +137,11 @@ enum CoverTint {
 /// looks like the bar. The body only looks the tint up; the first time for a book it is computed
 /// off the main thread, and until then (a frame or two) the background is `onyx`, the no-artwork
 /// tint. A book seen before gets its tint on the first frame.
-struct CoverTintBackground: View {
+///
+/// A modifier, not a view, so the background stays a plain `Color`: in the system tab bar's
+/// accessory (iOS 26.1+) a `Color` background blends with the glass, while a `Color` wrapped in a
+/// view carrying `.task` drew visibly darker (#141's screenshots).
+struct CoverTintBackground: ViewModifier {
     let book: AudioModel
 
     @State
@@ -153,12 +157,13 @@ struct CoverTintBackground: View {
         }
     }
 
-    var body: some View {
+    func body(content: Content) -> some View {
         let identity = Identity(book)
         let color = resolved.flatMap { $0.identity == identity ? $0.color : nil }
             ?? CoverTint.cachedTint(for: book)
             ?? ColorConstants.onyx.uiColor
-        Color(uiColor: color)
+        content
+            .background(Color(uiColor: color))
             .task(id: identity) {
                 let tint = await CoverTint.tint(for: book)
                 resolved = (identity, tint)

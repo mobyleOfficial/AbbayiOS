@@ -510,7 +510,8 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         let isCollapsingFromList = listCollapse?.isEngaged ?? false
         return ZStack(alignment: .topLeading) {
             ColorConstants.onyx.value
-            CoverTintBackground(book: art)
+            Color.clear
+                .modifier(CoverTintBackground(book: art))
                 .opacity(barOpacity)
             // The panel's left edge moves; the details screen stays where it will land.
             details
