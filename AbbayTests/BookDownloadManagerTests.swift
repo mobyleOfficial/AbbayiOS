@@ -9,15 +9,16 @@ import NetworkProvider
 import XCTest
 
 /// Events go through `MockDownloadProvider`, and every wait is on an expectation fulfilled by a
-/// state emission or a recorded call. Nothing sleeps: the 30 s retry is captured and fired by hand.
+/// state emission or a recorded call. Nothing sleeps: the backoff retries are captured and fired by hand.
 @MainActor
 final class BookDownloadManagerTests: XCTestCase {
     private let provider = MockDownloadProvider()
     private let flags = MockUpdateDownloadFlagsUseCase()
     private let loadAll = MockLoadAllAudiosUseCase()
+    private let path = FakeNetworkPath()
     private let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("BookDownloadManagerTests-\(UUID().uuidString)", isDirectory: true)
-    private var pendingRetries: [() -> Void] = []
+    private var pendingRetries: [(delay: TimeInterval, run: () -> Void)] = []
     private var cancellables = Set<AnyCancellable>()
     private var latestStates: [String: BookDownloadState] = [:]
     private var observers: [() -> Void] = []
@@ -28,7 +29,8 @@ final class BookDownloadManagerTests: XCTestCase {
             root: root,
             updateFlags: flags,
             loadAll: loadAll,
-            scheduleRetry: { [weak self] retry in self?.pendingRetries.append(retry) }
+            path: path,
+            scheduleRetry: { [weak self] delay, retry in self?.pendingRetries.append((delay, retry)) }
         )
         manager.statesPublisher
             .sink { [weak self] states in
@@ -102,24 +104,6 @@ final class BookDownloadManagerTests: XCTestCase {
 
         await waitUntil { self.latestStates["1"]?.isComplete == true }
         XCTAssertEqual(latestStates["1"]?.fraction, 1)
-    }
-
-    func test_failed_retriesOnceAfterDelay() async throws {
-        sut.enqueue(makeBook(chapterCount: 1))
-
-        provider.send(.failed(id: "1#0", error: .connection))
-        await waitUntil { self.pendingRetries.count == 1 }
-        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
-        XCTAssertEqual(provider.startedIDs, ["1#0"])
-
-        pendingRetries.removeFirst()()
-        XCTAssertEqual(provider.startedIDs, ["1#0", "1#0"])
-
-        provider.send(.failed(id: "1#0", error: .connection))
-        await drainEvents()
-        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
-        XCTAssertTrue(pendingRetries.isEmpty)
-        XCTAssertEqual(startedIDs(ofBook: "1"), ["1#0", "1#0"])
     }
 
     func test_failed_cancelledRequest_isNotAFailure() async {
@@ -373,6 +357,122 @@ final class BookDownloadManagerTests: XCTestCase {
     }
 }
 
+// MARK: - Retry and backoff
+extension BookDownloadManagerTests {
+    func test_failed_requeuesWithCappedBackoff() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+        var delays: [TimeInterval] = []
+
+        for attempt in 1...3 {
+            provider.send(.failed(id: "1#0", error: .connection))
+            await waitUntil { self.pendingRetries.count == 1 }
+            XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
+            XCTAssertEqual(provider.startedIDs.count, attempt, "Not restarted before its delay")
+            let retry = pendingRetries.removeFirst()
+            delays.append(retry.delay)
+            retry.run()
+            XCTAssertEqual(provider.startedIDs.count, attempt + 1)
+        }
+
+        XCTAssertEqual(delays, [30, 120, 600])
+    }
+
+    func test_failed_afterTheCap_marksChapterFailed() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+
+        await failUntilCapped("1#0")
+
+        XCTAssertEqual(latestStates["1"]?.chapters, [.failed])
+        XCTAssertTrue(pendingRetries.isEmpty)
+        XCTAssertEqual(startedIDs(ofBook: "1").count, 4)
+    }
+
+    func test_failed_otherChaptersKeepDownloading() async {
+        sut.enqueue(makeBook(chapterCount: 3))
+
+        provider.send(.failed(id: "1#0", error: .connection))
+
+        await waitUntil { self.provider.startedIDs.contains("1#2") }
+        XCTAssertEqual(provider.startedIDs, ["1#0", "1#1", "1#2"])
+    }
+
+    func test_retry_failedChapter_restartsItWithAFreshBackoff() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+        await failUntilCapped("1#0")
+
+        sut.retry(chapterIndex: 0, ofBookID: "1")
+
+        XCTAssertEqual(startedIDs(ofBook: "1").count, 5)
+        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+        XCTAssertEqual(pendingRetries.first?.delay, 30)
+        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
+    }
+
+    func test_beginThrowing_isRetriedWithBackoff() {
+        provider.startError = .invalidUrl
+
+        sut.enqueue(makeBook(chapterCount: 1))
+
+        XCTAssertEqual(pendingRetries.map(\.delay), [30])
+        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
+        provider.startError = nil
+        pendingRetries.removeFirst().run()
+        XCTAssertEqual(provider.startedIDs, ["1#0", "1#0"])
+        XCTAssertTrue(pendingRetries.isEmpty)
+    }
+
+    func test_beginThrowing_afterTheCap_marksChapterFailed() {
+        provider.startError = .invalidUrl
+        sut.enqueue(makeBook(chapterCount: 1))
+
+        while !pendingRetries.isEmpty {
+            pendingRetries.removeFirst().run()
+        }
+
+        XCTAssertEqual(latestStates["1"]?.chapters, [.failed])
+        XCTAssertEqual(provider.startedIDs.count, 4)
+    }
+
+    func test_pathSatisfiedAgain_restartsAChapterWaitingToRetry() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+
+        path.isOnline = false
+        XCTAssertEqual(provider.startedIDs.count, 1, "Going offline starts nothing")
+        path.isOnline = true
+
+        XCTAssertEqual(provider.startedIDs, ["1#0", "1#0"])
+        pendingRetries.removeFirst().run()
+        XCTAssertEqual(provider.startedIDs.count, 2, "The superseded retry does nothing")
+    }
+
+    func test_pathSatisfiedAgain_restartsFailedChapters() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+        await failUntilCapped("1#0")
+
+        path.isOnline = false
+        path.isOnline = true
+
+        XCTAssertEqual(startedIDs(ofBook: "1").count, 5)
+        XCTAssertEqual(latestStates["1"]?.chapters, [.waiting])
+    }
+
+    func test_pathSatisfiedAgain_pausedBook_startsNothing() async {
+        sut.enqueue(makeBook(chapterCount: 1))
+        provider.send(.failed(id: "1#0", error: .connection))
+        await waitUntil { self.pendingRetries.count == 1 }
+        sut.pause(bookID: "1")
+
+        path.isOnline = false
+        path.isOnline = true
+
+        XCTAssertEqual(provider.startedIDs, ["1#0"])
+    }
+}
+
 // MARK: - Helpers
 private extension BookDownloadManagerTests {
     func makeBook(
@@ -440,6 +540,17 @@ private extension BookDownloadManagerTests {
         check()
         await fulfillment(of: [met], timeout: timeout)
         observers.removeAll()
+    }
+
+    /// Fails the chapter's task, then every retry the backoff allows, until it is marked failed.
+    func failUntilCapped(_ id: String) async {
+        for _ in 1...3 {
+            provider.send(.failed(id: id, error: .connection))
+            await waitUntil { self.pendingRetries.count == 1 }
+            pendingRetries.removeFirst().run()
+        }
+        provider.send(.failed(id: id, error: .connection))
+        await drainEvents()
     }
 
     func startedIDs(ofBook id: String) -> [String] {

@@ -15,6 +15,7 @@ final class MockBookDownloadManager: BookDownloadManagerProtocol {
     private(set) var removed: [String] = []
     private(set) var restoreCallCount = 0
     private(set) var prioritized: [(chapterIndex: Int, bookID: String)] = []
+    private(set) var retried: [(chapterIndex: Int, bookID: String)] = []
 
     var statesPublisher: AnyPublisher<[String: BookDownloadState], Never> {
         statesSubject.eraseToAnyPublisher()
@@ -27,6 +28,7 @@ final class MockBookDownloadManager: BookDownloadManagerProtocol {
     func restore() { restoreCallCount += 1 }
     func handleBackgroundEvents(completion: @escaping () -> Void) { completion() }
     func prioritize(chapterIndex: Int, ofBookID id: String) { prioritized.append((chapterIndex, id)) }
+    func retry(chapterIndex: Int, ofBookID id: String) { retried.append((chapterIndex, id)) }
 }
 
 /// Counts subscriptions to `statesPublisher`, so tests can pin "one subscription, whatever the
@@ -48,4 +50,5 @@ final class CountingMockBookDownloadManager: BookDownloadManagerProtocol {
     func restore() { mock.restore() }
     func handleBackgroundEvents(completion: @escaping () -> Void) { mock.handleBackgroundEvents(completion: completion) }
     func prioritize(chapterIndex: Int, ofBookID id: String) { mock.prioritize(chapterIndex: chapterIndex, ofBookID: id) }
+    func retry(chapterIndex: Int, ofBookID id: String) { mock.retry(chapterIndex: chapterIndex, ofBookID: id) }
 }

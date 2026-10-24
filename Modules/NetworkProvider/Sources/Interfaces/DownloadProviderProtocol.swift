@@ -16,6 +16,10 @@ public protocol DownloadProviderProtocol: AnyObject {
     var events: AsyncStream<DownloadEvent> { get }
 
     /// Starts downloading the request's URL. Discards any resume data previously saved for `id`.
+    ///
+    /// `allowsCellularAccess: false` keeps the download off every metered network: cellular,
+    /// expensive paths (Personal Hotspot) and constrained ones (Low Data Mode). The system holds
+    /// the task until an unmetered path is available.
     /// - Throws: `NetworkError` when the request can't be turned into a URL.
     func start(_ request: NetworkRequestProtocol, id: String, allowsCellularAccess: Bool) throws
 

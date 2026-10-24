@@ -302,4 +302,25 @@ final class PlayerViewModelTests: XCTestCase {
         ])
         XCTAssertNil(sut.downloadEntry?.state, "complete: no per-chapter status, as before")
     }
+
+    func test_retryChapter_forwardsToTheDownloadManager() {
+        let manager = MockBookDownloadManager()
+        let store = DownloadStateStore(downloads: manager)
+        let sut = PlayerViewModel(libriVoxBook(), state: PlaybackState(), player: nil, downloads: store)
+
+        sut.retryChapter(2)
+
+        XCTAssertEqual(manager.retried.map(\.chapterIndex), [2])
+        XCTAssertEqual(manager.retried.map(\.bookID), ["42"])
+    }
+
+    func test_retryChapter_importedBook_doesNothing() {
+        let manager = MockBookDownloadManager()
+        let store = DownloadStateStore(downloads: manager)
+        let sut = PlayerViewModel(ViewModelSupport.chaptered(), state: PlaybackState(), player: nil, downloads: store)
+
+        sut.retryChapter(0)
+
+        XCTAssertTrue(manager.retried.isEmpty)
+    }
 }

@@ -51,7 +51,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
     private func makeSUT(totalBytes: Int64, cellular: Bool) async -> LibriVoxDetailViewModel {
         client.detailsResult = .success(LibriVoxBookDetails(book: book, sectionBytes: [totalBytes, 0]))
-        path.isCellular = cellular
+        path.isMetered = cellular
         let sut = LibriVoxDetailViewModel(
             book: book,
             client: client,
@@ -143,6 +143,15 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertFalse(sut.isShowingCellularAlert)
         XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [false])
+    }
+
+    func test_retryChapter_forwardsToTheDownloadManager() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+
+        sut.retryChapter(1)
+
+        XCTAssertEqual(downloads.retried.map(\.chapterIndex), [1])
+        XCTAssertEqual(downloads.retried.map(\.bookID), ["moby_dick_librivox"])
     }
 
     func test_download_savesBookAndCallsOnAdded() async {

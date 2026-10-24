@@ -70,6 +70,22 @@ final class DownloadProviderTests: XCTestCase {
         }
     }
 
+    /// Cellular off also holds the download on Personal Hotspot (expensive) and Low Data Mode
+    /// (constrained), which `allowsCellularAccess` alone doesn't.
+    func test_start_withoutCellular_alsoDisallowsExpensiveAndConstrainedNetworks() async throws {
+        let request = NetworkRequest(endpoint: "https://example.com/a.mp3")
+
+        for allowsCellularAccess in [true, false] {
+            let id = "metered-\(allowsCellularAccess)"
+            try sut.start(request, id: id, allowsCellularAccess: allowsCellularAccess)
+            let location = try await awaitFinished(id: id)
+            try? FileManager.default.removeItem(at: location)
+
+            XCTAssertEqual(URLProtocolMock.request?.allowsExpensiveNetworkAccess, allowsCellularAccess)
+            XCTAssertEqual(URLProtocolMock.request?.allowsConstrainedNetworkAccess, allowsCellularAccess)
+        }
+    }
+
     func test_start_non2xx_emitsFailedHttpStatus() async throws {
         URLProtocolMock.response = response(statusCode: 404)
 

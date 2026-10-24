@@ -21,5 +21,6 @@ final class UITestDownloadManager: BookDownloadManagerProtocol {
     func restore() {}
     func handleBackgroundEvents(completion: @escaping () -> Void) { completion() }
     func prioritize(chapterIndex: Int, ofBookID id: String) {}
+    func retry(chapterIndex: Int, ofBookID id: String) {}
 }
 #endif

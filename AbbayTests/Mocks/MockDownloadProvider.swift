@@ -25,6 +25,8 @@ final class MockDownloadProvider: DownloadProviderProtocol {
     /// Ids that have resume data; `resume` throws `.invalidParams` for any other id.
     var resumableIDs: Set<String> = []
     var running: Set<String> = []
+    /// When set, `start` records the call and then throws it.
+    var startError: NetworkError?
     /// Called after every recorded call, so tests can wait on calls the manager makes asynchronously.
     var onCall: (() -> Void)?
     /// When true, `runningIDs()` doesn't return until `releaseRunningIDs()`.
@@ -49,6 +51,7 @@ final class MockDownloadProvider: DownloadProviderProtocol {
     func start(_ request: NetworkRequestProtocol, id: String, allowsCellularAccess: Bool) throws {
         startCalls.append(StartCall(id: id, url: request.endpoint, allowsCellularAccess: allowsCellularAccess))
         onCall?()
+        if let startError { throw startError }
     }
 
     func pause(id: String) async {

@@ -4,6 +4,7 @@
 //
 
 @testable import Abbay
+import Combine
 import Foundation
 
 final class MockLibriVoxClient: LibriVoxClientProtocol {
@@ -35,7 +36,16 @@ final class MockLibriVoxClient: LibriVoxClientProtocol {
     }
 }
 
+/// Setting `isOnline` publishes it synchronously, like a path update arriving.
 final class FakeNetworkPath: NetworkPathProviding {
-    var isCellular = false
-    var isOnline = true
+    var isMetered = false
+    var isOnline = true {
+        didSet { onlineSubject.send(isOnline) }
+    }
+
+    private let onlineSubject = CurrentValueSubject<Bool, Never>(true)
+
+    var onlinePublisher: AnyPublisher<Bool, Never> {
+        onlineSubject.eraseToAnyPublisher()
+    }
 }

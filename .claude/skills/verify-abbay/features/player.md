@@ -42,8 +42,9 @@ LibriVox page's Play all open it.
 - **chapter-list-gating:** the list is dimmed to 50% while not playing, and the tap handler returns
   early unless `model.isPlaying`.
 - **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
-  `N%` or *Waiting*, and a thin overall progress bar (`player.download.progress`) sits under the
-  header. Both vanish when the download completes. Imported books never show them. See
+  `N%`, *Waiting* or *Failed · Retry*, and a thin overall progress bar (`player.download.progress`)
+  sits under the header. The failed status is a button (`player.chapter.<n>.retry`, unverified by UI
+  test) that restarts the chapter's download, playing or not; the rest of the row keeps its seek tap. Both vanish when the download completes. Imported books never show them. See
   [downloads](downloads.md).
 - **multi-file-books:** a LibriVox book is one book made of many files. Time, the scrubber, the
   skips and chapter seeks all use **book time** (chapter `startTime`s are cumulative).

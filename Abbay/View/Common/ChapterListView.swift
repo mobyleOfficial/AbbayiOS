@@ -35,6 +35,8 @@ struct ChapterListView: View {
     let rowIdentifier: (Int) -> String
     /// Rows are tappable only when set.
     var onSelect: ((Int) -> Void)?
+    /// A failed chapter's status becomes a retry button, with this identifier, only when set.
+    var retry: (identifier: (Int) -> String, action: (Int) -> Void)?
     /// The details screen's collapse from the list's top (iOS 18+, `.list` layout only).
     var listCollapse: ExpansionListCollapse?
 
@@ -49,6 +51,11 @@ struct ChapterListView: View {
     static func status(at index: Int, in state: BookDownloadState?) -> ChapterDownloadState? {
         guard let state, state.chapters.indices.contains(index) else { return nil }
         return state.chapters[index]
+    }
+
+    /// The row shows a retry button: its chapter failed and the screen can retry it.
+    static func canRetry(at index: Int, in state: BookDownloadState?, hasRetryAction: Bool) -> Bool {
+        hasRetryAction && status(at: index, in: state) == .failed
     }
 
     // MARK: - Body
@@ -111,10 +118,14 @@ struct ChapterListView: View {
     }
 
     private func row(_ index: Int, _ chapter: Item) -> some View {
-        HStack {
+        let canRetry = Self.canRetry(at: index, in: downloadState, hasRetryAction: retry != nil)
+        return HStack {
             PlayerTitleView(isPlaying: .constant(currentIndex == index), text: chapter.title)
             if let status = Self.status(at: index, in: downloadState) {
-                ChapterDownloadStatusView(state: status)
+                ChapterDownloadStatusView(
+                    state: status,
+                    retry: retry.map { retry in (retry.identifier(index), { retry.action(index) }) }
+                )
             }
             Text(chapter.duration.timestamp)
                 .font(.caption)
@@ -122,7 +133,8 @@ struct ChapterListView: View {
         }
         .font(.system(size: SpaceConstants.sx16.value))
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        // A retry button stays its own element, so VoiceOver and UI tests can reach it.
+        .accessibilityElement(children: canRetry ? .contain : .combine)
         .accessibilityIdentifier(rowIdentifier(index))
         .selectable(onSelect.map { onSelect in { onSelect(index) } })
     }

@@ -203,6 +203,7 @@ private struct PlayerChapters: View {
             progressIdentifier: AccessibilityID.Player.downloadProgress,
             rowIdentifier: AccessibilityID.Player.chapter,
             onSelect: { model.selectChapter($0) },
+            retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) }),
             listCollapse: listCollapse
         )
     }

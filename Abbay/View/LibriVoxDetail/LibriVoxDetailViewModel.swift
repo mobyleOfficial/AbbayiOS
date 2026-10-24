@@ -71,7 +71,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
 
     func downloadTapped() {
         guard let details, addedBook == nil, !isStarting else { return }
-        switch CellularDownloadPolicy.decide(totalBytes: details.totalBytes, isCellular: path.isCellular) {
+        switch CellularDownloadPolicy.decide(totalBytes: details.totalBytes, isMetered: path.isMetered) {
         case let .proceed(allowsCellular):
             start(details, allowsCellular: allowsCellular)
         case .askUser:
@@ -84,6 +84,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
         isShowingCellularAlert = false
         guard let details, addedBook == nil, !isStarting else { return }
         start(details, allowsCellular: shouldContinue)
+    }
+
+    /// A chapter's "Failed · Retry" status: restarts its download now.
+    func retryChapter(_ index: Int) {
+        downloads.retry(chapterIndex: index, ofBookID: book.id)
     }
 
     /// Starts the book and opens the details screen, where pause, seek and chapters live.

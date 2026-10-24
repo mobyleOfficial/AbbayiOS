@@ -49,6 +49,24 @@
         }
       }
     },
+    "chapterDownloadFailed" : {
+      "comment" : "Chapter list status of a chapter whose download failed every retry; tapping it retries",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed · Retry"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falhou · Tentar de novo"
+          }
+        }
+      }
+    },
     "chapterSelectionTitle" : {
       "comment" : "Chapter selection title",
       "extractionState" : "manual",

@@ -99,6 +99,13 @@ final class PlayerViewModel {
     }
 
     /// A chapter row seeks to its start, only while playing, as before.
+    /// A chapter's "Failed · Retry" status: restarts its download now. Works whether or not the
+    /// book is loaded, since it touches only the download.
+    func retryChapter(_ index: Int) {
+        guard let id = book.librivoxID else { return }
+        downloads?.retry(chapterIndex: index, bookID: id)
+    }
+
     func selectChapter(_ index: Int) {
         let chapters = book.chapters
         guard isPlaying, chapters.indices.contains(index) else { return }

@@ -36,6 +36,7 @@ enum Localizable: String {
     case continueDownload
     case waitForWiFi
     case waiting
+    case chapterDownloadFailed
     case detailsFailed
     case retry
     case rowChapter
