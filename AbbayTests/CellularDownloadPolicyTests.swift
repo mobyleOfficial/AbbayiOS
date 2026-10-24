@@ -26,6 +26,47 @@ final class CellularDownloadPolicyTests: XCTestCase {
         let decision = CellularDownloadPolicy.decide(totalBytes: 0, isMetered: true)
         XCTAssertEqual(decision, .proceed(allowsCellular: true))
     }
+
+    // MARK: - The Settings preference (large books only)
+
+    func testAskIsTheDefault_andKeepsThePrompt() {
+        let decision = CellularDownloadPolicy.decide(totalBytes: 99_000_001, isMetered: true, preference: .ask)
+        XCTAssertEqual(decision, .askUser)
+    }
+
+    func testAlways_startsALargeBookOnCellularWithoutAsking() {
+        XCTAssertEqual(
+            CellularDownloadPolicy.decide(totalBytes: 99_000_001, isMetered: true, preference: .always),
+            .proceed(allowsCellular: true)
+        )
+        XCTAssertEqual(
+            CellularDownloadPolicy.decide(totalBytes: 99_000_001, isMetered: false, preference: .always),
+            .proceed(allowsCellular: true),
+            "started on Wi-Fi, it carries on if the phone moves to cellular"
+        )
+    }
+
+    func testWifiOnly_startsALargeBookWithoutCellularWithoutAsking() {
+        XCTAssertEqual(
+            CellularDownloadPolicy.decide(totalBytes: 99_000_001, isMetered: true, preference: .wifiOnly),
+            .proceed(allowsCellular: false)
+        )
+        XCTAssertEqual(
+            CellularDownloadPolicy.decide(totalBytes: 99_000_001, isMetered: false, preference: .wifiOnly),
+            .proceed(allowsCellular: false)
+        )
+    }
+
+    /// The preference is about large downloads: a small book downloads on any network whatever it says.
+    func testSmallBooks_ignoreThePreference() {
+        for preference in CellularDownloadPreference.allCases {
+            XCTAssertEqual(
+                CellularDownloadPolicy.decide(totalBytes: 10_000_000, isMetered: true, preference: preference),
+                .proceed(allowsCellular: true),
+                "\(preference)"
+            )
+        }
+    }
 }
 
 /// What `NetworkPathMonitor` reports for a path, without a real `NWPath`.

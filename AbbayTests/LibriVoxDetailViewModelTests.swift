@@ -49,7 +49,11 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         )
     }
 
-    private func makeSUT(totalBytes: Int64, cellular: Bool) async -> LibriVoxDetailViewModel {
+    private func makeSUT(
+        totalBytes: Int64,
+        cellular: Bool,
+        preference: CellularDownloadPreference = .ask
+    ) async -> LibriVoxDetailViewModel {
         client.detailsResult = .success(LibriVoxBookDetails(book: book, sectionBytes: [totalBytes, 0]))
         path.isMetered = cellular
         let sut = LibriVoxDetailViewModel(
@@ -60,6 +64,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             saveAudio: save,
             path: path,
             loadAudio: MockLoadAudioUseCase(),
+            cellularPreference: { preference },
             onAdded: { [unowned self] in added.append($0) },
             openPlayer: { [unowned self] in opened.append($0) }
         )
@@ -132,6 +137,28 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         sut.confirmCellular(continue: false)
         await waitUntil { !downloads.enqueued.isEmpty }
 
+        XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [false])
+    }
+
+    // MARK: - The Settings preference
+
+    func test_download_largeOnCellular_withAlways_startsOnCellularWithoutAsking() async {
+        let sut = await makeSUT(totalBytes: 200_000_000, cellular: true, preference: .always)
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+
+        XCTAssertFalse(sut.isShowingCellularAlert)
+        XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [true])
+    }
+
+    func test_download_largeOnCellular_withWifiOnly_waitsForWiFiWithoutAsking() async {
+        let sut = await makeSUT(totalBytes: 200_000_000, cellular: true, preference: .wifiOnly)
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+
+        XCTAssertFalse(sut.isShowingCellularAlert)
         XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [false])
     }
 

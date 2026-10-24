@@ -23,6 +23,7 @@ struct LibriVoxDetailView: View {
             downloadStates: DependencyContainer.shared.downloadStates,
             saveAudio: SaveAudioUseCase(),
             path: NetworkPathMonitor.shared,
+            cellularPreference: { DependencyContainer.shared.settings.cellularPreference },
             onAdded: onAdded,
             openPlayer: openPlayer
         ))
