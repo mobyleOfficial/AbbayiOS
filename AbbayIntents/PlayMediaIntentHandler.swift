@@ -4,9 +4,7 @@
 //
 
 import Intents
-import os.log
-
-private let log = OSLog(subsystem: "com.edyuto.Abbay.AbbayIntents", category: "PlayMediaIntent")
+import os
 
 /// Result of `PlayMediaIntentHandler.decide(for:)` — the testable inner decision
 /// that the public `resolveMediaItems` method then maps to opaque
@@ -46,26 +44,27 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     func decide(for intent: INPlayMediaIntent) -> ResolveOutcome {
         let mediaName = intent.mediaSearch?.mediaName ?? ""
         let flagValue = launchState.isUnavailable()
-        os_log(
-            // The spoken title is user speech, so it stays private in the log.
-            // Xcode shows it anyway while a debugger is attached.
-            "decide entered: mediaName=%{private}@ flag=%{public}@ suite=%{public}@",
-            log: log, type: .info,
-            mediaName, String(describing: flagValue), AppGroup.suiteName
+        // The spoken title is user speech, so it stays private in the log.
+        // Xcode shows it anyway while a debugger is attached.
+        Log.playMediaIntent.info(
+            """
+            decide entered: mediaName=\(mediaName, privacy: .private) \
+            flag=\(flagValue, privacy: .public) suite=\(AppGroup.suiteName, privacy: .public)
+            """
         )
 
         diagnostics.record("ext decide entered titleless=\(mediaName.isEmpty)")
 
         if flagValue {
-            os_log("decide → unavailable (flag set)", log: log, type: .info)
+            Log.playMediaIntent.info("decide → unavailable (flag set)")
             diagnostics.record("ext outcome=unavailable")
             return .unavailable
         }
 
         let entries = librarySnapshot.read()
-        os_log("decide read snapshot: %{public}d entries", log: log, type: .info, entries.count)
+        Log.playMediaIntent.info("decide read snapshot: \(entries.count, privacy: .public) entries")
         guard !entries.isEmpty else {
-            os_log("decide → emptyLibrary", log: log, type: .info)
+            Log.playMediaIntent.info("decide → emptyLibrary")
             diagnostics.record("ext outcome=emptyLibrary")
             return .emptyLibrary
         }
@@ -73,11 +72,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         // Go through LastPlayedStore rather than reading the App Group suite
         // directly: the store also consults the phase-1 `.standard` fallback.
         let lastPlayedURL = lastPlayed.lastPlayedURL()
-        os_log(
-            "decide lastPlayed=%{private}@",
-            log: log, type: .info,
-            lastPlayedURL?.absoluteString ?? "<nil>"
-        )
+        Log.playMediaIntent.info("decide lastPlayed=\(lastPlayedURL?.absoluteString ?? "<nil>", privacy: .private)")
 
         let audios = MediaSearchResolver.audios(from: entries)
 
@@ -87,7 +82,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             lastPlayedURL: lastPlayedURL
         )
         if candidates.isEmpty {
-            os_log("decide → noMatch", log: log, type: .info)
+            Log.playMediaIntent.info("decide → noMatch")
             diagnostics.record("ext outcome=noMatch")
             return .noMatch
         }
@@ -125,7 +120,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             audios: audios,
             lastPlayedURL: lastPlayedURL
         )
-        os_log("decide candidates=%{public}d", log: log, type: .info, candidates.count)
+        Log.playMediaIntent.info("decide candidates=\(candidates.count, privacy: .public)")
         return candidates
     }
 

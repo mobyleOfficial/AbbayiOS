@@ -4,9 +4,7 @@
 //
 
 import Foundation
-import os.log
-
-private let appGroupLog = OSLog(subsystem: "com.edyuto.Abbay", category: "AppGroup")
+import os
 
 enum AppGroup {
     static let suiteName: String = "group.com.edyuto.abbay"
@@ -25,11 +23,8 @@ enum AppGroup {
         if let defaults = UserDefaults(suiteName: suiteName) {
             return defaults
         }
-        os_log(
-            "App Group %{public}@ unavailable, using a process-local store: check the suite name",
-            log: appGroupLog,
-            type: .fault,
-            suiteName
+        Log.appGroup.fault(
+            "App Group \(suiteName, privacy: .public) unavailable, using a process-local store: check the suite name"
         )
         return InMemoryKeyValueStore()
     }
