@@ -41,6 +41,18 @@ enum DebugOverrides {
         return nil
     }
 
+    /// Files *Import file* imports instead of presenting the picker, for `-stubFailingImport`: two
+    /// that don't exist, so the real `FileLoader` fails on both.
+    static func importURLs(arguments: [String] = ProcessInfo.processInfo.arguments) -> [URL]? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.stubFailingImport) {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("missing", isDirectory: true)
+            return ["Missing Book.mp3", "Broken Book.m4b"].map { directory.appendingPathComponent($0) }
+        }
+        #endif
+        return nil
+    }
+
     /// A short search debounce, so UI tests against the stub catalog don't wait.
     static func searchDebounce(arguments: [String] = ProcessInfo.processInfo.arguments) -> Duration? {
         #if DEBUG

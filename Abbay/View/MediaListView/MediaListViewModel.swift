@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 /// The library: its books, import, delete and adding LibriVox books. Owned by the root, above the
 /// tabs, so the Search tab adds books through it.
@@ -19,6 +20,10 @@ final class MediaListViewModel: ObservableObject {
     private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
     private let deleteAudioUseCase: DeleteAudioUseCaseProtocol
     private let loadAudioUseCase: LoadAudioUseCaseProtocol
+    private let noticeReporter: NoticeReporting
+    /// Imported instead of presenting the picker (`-stubFailingImport`), since UI tests can't drive
+    /// the system picker. `nil` outside UI tests.
+    private let debugImportURLs: [URL]?
     /// The book loaded at the last switch, so the next one knows which book it left.
     private var loadedURL: URL?
 
@@ -35,7 +40,9 @@ final class MediaListViewModel: ObservableObject {
         loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         deleteAudioUseCase: DeleteAudioUseCaseProtocol = DeleteAudioUseCase(),
         fileLoader: FileLoaderProtocol = FileLoader(),
-        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase()
+        loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
+        noticeReporter: NoticeReporting = NoticeCenter.shared,
+        debugImportURLs: [URL]? = DebugOverrides.importURLs()
     ) {
         self.playback = playback
         self.presentation = presentation
@@ -43,6 +50,8 @@ final class MediaListViewModel: ObservableObject {
         self.deleteAudioUseCase = deleteAudioUseCase
         self.fileLoader = fileLoader
         self.loadAudioUseCase = loadAudioUseCase
+        self.noticeReporter = noticeReporter
+        self.debugImportURLs = debugImportURLs
         self.loadedURL = playback.state.loadedBook?.url
         defer {
             audioList = loadAllAudiosUseCase.execute()
@@ -86,12 +95,28 @@ final class MediaListViewModel: ObservableObject {
         LibrarySnapshotWriter.shared.write(audios: audioList)
     }
 
+    /// *Import file*: presents the document picker, or under `-stubFailingImport` imports the
+    /// debug files straight away.
+    func startImport() {
+        guard let debugImportURLs else {
+            isShowingFilePicker = true
+            return
+        }
+        Task { await importAudio(from: debugImportURLs) }
+    }
+
+    /// Files that fail to load are named in a notice, so a missing row is never a mystery (#115).
     func importAudio(from urls: [URL]) async {
-        let newFiles = await fileLoader.load(urls: urls)
-        for file in newFiles where !audioList.contains(where: { $0.url == file.url }) {
+        let result = await fileLoader.load(urls: urls)
+        for file in result.loaded where !audioList.contains(where: { $0.url == file.url }) {
             audioList.append(file)
         }
         LibrarySnapshotWriter.shared.write(audios: audioList)
+        guard !result.failed.isEmpty else { return }
+        Log.importing.error(
+            "import: \(result.failed.count, privacy: .public) of \(urls.count, privacy: .public) files failed"
+        )
+        noticeReporter.report(.importFailed(fileNames: result.failed.map(\.lastPathComponent)))
     }
 
     /// A LibriVox book the details page just saved. Refreshed like an import.

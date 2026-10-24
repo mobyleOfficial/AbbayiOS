@@ -9,12 +9,16 @@ import Foundation
 
 final class MockFileLoader: FileLoaderProtocol {
     var modelsToReturn: [AudioModel] = []
+    /// What `load(urls:)` reports as failed, alongside `modelsToReturn`.
+    var failedURLsToReturn: [URL] = []
     var loadURLsCallCount = 0
+    private(set) var loadedURLs: [[URL]] = []
 
     func load(url: URL) async -> AudioModel? { modelsToReturn.first }
-    func load(urls: [URL]) async -> [AudioModel] {
+    func load(urls: [URL]) async -> FileImportResult {
         loadURLsCallCount += 1
-        return modelsToReturn
+        loadedURLs.append(urls)
+        return FileImportResult(loaded: modelsToReturn, failed: failedURLsToReturn)
     }
 }
 

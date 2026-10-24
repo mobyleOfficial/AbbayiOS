@@ -23,4 +23,7 @@ enum LaunchArgument {
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
     /// network.
     static let stubLibriVox = "-stubLibriVox"
+    /// Make *Import file* skip the system picker and import two files that don't exist, so the
+    /// failed-import banner shows.
+    static let stubFailingImport = "-stubFailingImport"
 }

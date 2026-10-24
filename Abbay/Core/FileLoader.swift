@@ -6,10 +6,17 @@
 //
 
 import AVFoundation
+import os
+
+/// What an import of several files produced: the books that loaded, and the files that didn't.
+struct FileImportResult {
+    var loaded: [AudioModel] = []
+    var failed: [URL] = []
+}
 
 protocol FileLoaderProtocol {
     func load(url: URL) async -> AudioModel?
-    func load(urls: [URL]) async -> [AudioModel]
+    func load(urls: [URL]) async -> FileImportResult
 }
 
 final class FileLoader: FileLoaderProtocol {
@@ -24,24 +31,36 @@ final class FileLoader: FileLoaderProtocol {
         self.saveAudioUseCase = saveAudioUseCase
     }
 
-    func load(urls: [URL]) async -> [AudioModel] {
-        var files = [AudioModel]()
+    /// Files that fail to load are returned in `failed`, so the library can say which (#115).
+    func load(urls: [URL]) async -> FileImportResult {
+        var result = FileImportResult()
         for url in urls {
             if let file = loadAudioUseCase.execute(url: url) {
-                files.append(file)
+                result.loaded.append(file)
             } else if let file = await load(url: url) {
-                files.append(file)
+                result.loaded.append(file)
                 try? saveAudioUseCase.execute(file)
+            } else {
+                result.failed.append(url)
             }
         }
-        return files
+        return result
     }
 
+    /// `nil` when the file can't be opened, or opens but isn't playable audio (a renamed text file,
+    /// a damaged download), which would otherwise import as an empty row that never plays.
     func load(url: URL) async -> AudioModel? {
-        guard url.startAccessingSecurityScopedResource() else { return nil }
+        guard url.startAccessingSecurityScopedResource() else {
+            Log.importing.error("import: no access to \(url.lastPathComponent, privacy: .private)")
+            return nil
+        }
         defer { url.stopAccessingSecurityScopedResource() }
 
         let asset = AVURLAsset(url: url)
+        guard (try? await asset.load(.isPlayable)) == true else {
+            Log.importing.error("import: not playable audio: \(url.lastPathComponent, privacy: .private)")
+            return nil
+        }
         var file = AudioModel(url: url)
         await loadDuration(file: &file, asset: asset)
         await loadMetadata(file: &file, asset: asset)
