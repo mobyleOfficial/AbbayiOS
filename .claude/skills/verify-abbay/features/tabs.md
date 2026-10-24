@@ -37,6 +37,11 @@ above the tab bar on both tabs.
   - **No matches:** *No results* (`search.noResults`).
   - **Offline or failed:** a message (`search.message`): *You are offline…* or *Could not reach
     LibriVox…*.
+  - Covers on cards and results shimmer while they load, then fade in; a failed one is an `onyx`
+    tile with a book glyph. Loaded covers are cached in memory, so scrolling back or switching
+    tabs doesn't shimmer them again. Same view as the details page (see its *cover-loading*).
+    Cards and results keep their own ids (`search.card.<n>` still resolves); `cover.*` is only
+    verified on the details page.
   - Tapping a card or a result pushes the [details page](librivox-details.md).
   - Clearing the query goes back to Popular without a spinner. Popular is refreshed in place.
 - **browse-from-library:** *Browse free audiobooks* on the empty library (`library.empty.browse`)

@@ -115,13 +115,7 @@ private struct LibriVoxBookCard: View {
         VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
             Color.clear
                 .aspectRatio(1, contentMode: .fit)
-                .overlay {
-                    AsyncImage(url: book.coverURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        ColorConstants.onyx.value
-                    }
-                }
+                .overlay { AsyncImageView(url: book.coverURL) }
                 .clipShape(RoundedRectangle(cornerRadius: SpaceConstants.sx8.value))
             Text(book.title)
                 .font(.subheadline)
@@ -138,13 +132,9 @@ struct LibriVoxBookRow: View {
 
     var body: some View {
         HStack(spacing: SpaceConstants.sx12.value) {
-            AsyncImage(url: book.coverURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ColorConstants.onyx.value
-            }
-            .frame(side: SpaceConstants.sx48.value)
-            .cornerRadius(SpaceConstants.sx8.value)
+            AsyncImageView(url: book.coverURL)
+                .frame(side: SpaceConstants.sx48.value)
+                .cornerRadius(SpaceConstants.sx8.value)
             VStack(alignment: .leading) {
                 Text(book.title)
                     .lineLimit(2)
