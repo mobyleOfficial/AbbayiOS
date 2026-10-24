@@ -138,4 +138,148 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(fired, 0)
         XCTAssertEqual(sut.barFrame, frame)
     }
+    // MARK: - Interactive expansion (Task 8)
+
+    private let barFrame = CGRect(x: 21, y: 743, width: 360, height: 48)
+    private let screen = CGSize(width: 402, height: 874)
+
+    private func loadedPresentation(_ book: AudioModel = ViewModelSupport.chaptered()) -> PlayerPresentation {
+        let state = PlaybackState()
+        state.setLoadedBook(book)
+        let sut = PlayerPresentation(playback: state)
+        sut.reportScreenSize(screen)
+        sut.reportBarFrame(barFrame, screenHeight: screen.height)
+        return sut
+    }
+
+    /// A drag up from the bar presents the loaded book and starts from the bar's frame, taken once:
+    /// the bar moving afterwards (the accessory slides with the tab bar) doesn't move the start.
+    func test_beginInteractive_fromTheBar_snapshotsTheBarFrame() throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+
+        let start = try XCTUnwrap(sut.beginInteractive(book))
+        sut.reportBarFrame(barFrame.offsetBy(dx: 0, dy: 70), screenHeight: screen.height)
+
+        XCTAssertEqual(sut.presentedBook?.url, book.url)
+        XCTAssertEqual(start.progress, 0)
+        XCTAssertEqual(start.travel, barFrame.minY, "the bar's top travels to the screen's top")
+        XCTAssertEqual(sut.expansionStart, barFrame)
+        XCTAssertFalse(sut.isFullyOpen)
+    }
+
+    func test_open_withoutALoadedBook_startsFromTheBottomEdge() {
+        let sut = PlayerPresentation(playback: PlaybackState())
+        sut.reportScreenSize(screen)
+        sut.reportBarFrame(barFrame, screenHeight: screen.height)
+
+        sut.open(other, animated: false)
+
+        XCTAssertNil(sut.expansionStart, "no bar is visible: the 56 pt strip at the bottom edge")
+    }
+
+    func test_beginInteractive_withNothingToPresent_returnsNil() {
+        let sut = PlayerPresentation()
+
+        XCTAssertNil(sut.beginInteractive())
+        XCTAssertNil(sut.presentedBook)
+    }
+
+    /// Dragging writes progress with no animation, and only when it changes.
+    func test_updateInteractive_assignsOnlyOnChange() throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        _ = try XCTUnwrap(sut.beginInteractive(book))
+        sut.updateInteractive(0.4)
+        var fired = 0
+
+        withObservationTracking({ _ = sut.progress }, onChange: { fired += 1 })
+        sut.updateInteractive(0.4)
+
+        XCTAssertEqual(fired, 0)
+        XCTAssertEqual(sut.progress, 0.4)
+        sut.updateInteractive(1.4)
+        XCTAssertEqual(sut.progress, 1, "clamped")
+    }
+
+    func test_endInteractive_open_settlesFullyOpen() async throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        _ = try XCTUnwrap(sut.beginInteractive(book))
+        sut.updateInteractive(0.45)
+
+        sut.endInteractive(open: true)
+
+        XCTAssertEqual(sut.progress, 1)
+        await waitUntil { sut.isFullyOpen }
+        XCTAssertTrue(sut.isFullyOpen)
+    }
+
+    /// The Task 7 carry: an interactive collapse goes through the close path, so the bar comes back
+    /// as the collapse starts and the book is released once it lands.
+    func test_interactiveCollapse_goesThroughTheClosePath() async throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        sut.open(book, animated: false)
+        XCTAssertTrue(sut.isFullyOpen)
+
+        let start = try XCTUnwrap(sut.beginInteractive())
+        XCTAssertEqual(start.progress, 1)
+        XCTAssertFalse(sut.isFullyOpen, "the bar and the tab bar come back as the collapse starts")
+        sut.updateInteractive(0.5)
+        sut.endInteractive(open: false)
+
+        XCTAssertEqual(sut.progress, 0)
+        await waitUntil { sut.presentedBook == nil }
+        XCTAssertNil(sut.presentedBook)
+        XCTAssertFalse(sut.isFullyOpen)
+    }
+
+    /// A collapse released short of 30% settles back open, and the bar hides again.
+    func test_cancelledCollapse_settlesOpenAgain() async throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        sut.open(book, animated: false)
+
+        _ = try XCTUnwrap(sut.beginInteractive())
+        sut.updateInteractive(0.8)
+        sut.endInteractive(open: true)
+
+        await waitUntil { sut.isFullyOpen }
+        XCTAssertTrue(sut.isFullyOpen)
+        XCTAssertEqual(sut.presentedBook?.url, book.url)
+    }
+
+    /// The collapse lands where the expansion started: the bar's frame from before it hid.
+    func test_collapse_keepsTheStartFromTheOpen() throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        sut.open(book, animated: false)
+        sut.reportBarFrame(barFrame.offsetBy(dx: 0, dy: 70), screenHeight: screen.height)
+
+        _ = try XCTUnwrap(sut.beginInteractive())
+
+        XCTAssertEqual(sut.expansionStart, barFrame)
+    }
+
+    /// Interruptible: grabbing mid-spring continues from what is on screen, not from the target,
+    /// and the interrupted settle no longer completes.
+    func test_grabMidSpring_continuesFromTheRenderedProgress() async throws {
+        let book = ViewModelSupport.chaptered()
+        let sut = loadedPresentation(book)
+        sut.open(book, animated: true)
+        XCTAssertEqual(sut.progress, 1, "the target")
+        sut.renderedProgress = 0.6
+
+        let start = try XCTUnwrap(sut.beginInteractive())
+        try await Task.sleep(for: .milliseconds(800))
+
+        XCTAssertEqual(start.progress, 0.6, accuracy: 0.0001)
+        XCTAssertEqual(sut.progress, 0.6, accuracy: 0.0001)
+        XCTAssertFalse(sut.isFullyOpen, "the interrupted open must not settle by itself")
+    }
+
+    func test_settle_usesTheSpecSpring() {
+        XCTAssertEqual(PlayerPresentation.animation, .spring(response: 0.35, dampingFraction: 0.86))
+    }
 }

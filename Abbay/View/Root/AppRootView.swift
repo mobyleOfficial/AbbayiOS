@@ -6,12 +6,13 @@
 import SwiftUI
 
 /// The app's root: the Library and Search tabs, each with its own `NavigationStack`, and above
-/// them the one overlay that presents the details screen. It owns the library model, the player
+/// them the one overlay that presents the details screen, growing out of the mini player. It owns the library model, the player
 /// presentation and the selected tab, and injects the app-wide playback and download sources.
 ///
 /// The body reads only the selected tab. Playback and presentation state are read by small leaf
-/// views (`LoadedBookObserver`, `PlayerOverlay`, the mini player's `MiniPlayerDock` /
-/// `MiniPlayerAccessory`), so a tick, a book switch or a drag never rebuilds the tab view.
+/// views (`LoadedBookObserver`, `PlayerExpansionOverlay`, the mini player's `MiniPlayerDock` /
+/// `MiniPlayerAccessory`, the tab bars' `TabBarHiddenWhilePlayerIsOpen` /
+/// `HiddenWhilePlayerIsOpen`), so a tick, a book switch or a drag never rebuilds the tab view.
 /// The library model is held, not observed: only `MediaListView` observes it, so an import or a
 /// delete re-renders the Library list, not the root.
 struct AppRootView: View {
@@ -34,7 +35,7 @@ struct AppRootView: View {
     var body: some View {
         ZStack {
             tabs
-            PlayerOverlay()
+            PlayerExpansionOverlay()
         }
         .background {
             LoadedBookObserver(model: model)
@@ -66,6 +67,7 @@ struct AppRootView: View {
     private var libraryTab: some View {
         NavigationStack {
             MediaListView(model: model, onBrowse: { selectedTab = .search })
+                .modifier(TabBarHiddenWhilePlayerIsOpen())
         }
     }
 
@@ -85,7 +87,7 @@ private final class RootModels: ObservableObject {
     let library: MediaListViewModel
 
     init(playback: PlaybackCenter) {
-        let presentation = PlayerPresentation()
+        let presentation = PlayerPresentation(playback: playback.state)
         self.presentation = presentation
         library = MediaListViewModel(playback: playback, presentation: presentation)
     }
@@ -211,12 +213,14 @@ private struct SearchTab: View {
     var body: some View {
         NavigationStack {
             LibriVoxSearchView(onOpen: { openedBook = $0 })
+                .modifier(TabBarHiddenWhilePlayerIsOpen())
                 .navigationDestination(item: $openedBook) { book in
                     LibriVoxDetailView(
                         book: book,
                         onAdded: onAdded,
                         openPlayer: { [presentation] in presentation.open($0, animated: true) }
                     )
+                    .modifier(TabBarHiddenWhilePlayerIsOpen())
                 }
         }
     }

@@ -48,7 +48,8 @@ struct RootTabs<Library: View, Search: View, Accessory: View>: View {
                 }
             }
             accessory
-            bar
+            // Gone while the details screen is settled open, back as a close or drag starts.
+            bar.modifier(HiddenWhilePlayerIsOpen())
         }
         // Like a system tab bar, stay put under the keyboard instead of riding above it. Each tab's
         // `NavigationStack` hosts its pages in their own controllers, which still avoid the keyboard.

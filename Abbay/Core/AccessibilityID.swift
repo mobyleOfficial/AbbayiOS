@@ -86,6 +86,8 @@ enum AccessibilityID {
     enum Player {
         /// Closes the details screen (the chevron in its header; the header also drags down).
         static let close = "player.close"
+        /// The grabber at the top of the details screen: drag it down to collapse into the bar.
+        static let grabber = "player.grabber"
         static let title = "player.title"
         static let chaptersTitle = "player.chapters.title"
         static let downloadProgress = "player.download.progress"

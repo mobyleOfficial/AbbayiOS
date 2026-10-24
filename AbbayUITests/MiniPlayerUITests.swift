@@ -131,4 +131,78 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertLessThanOrEqual(title.frame.maxY, barTop, "last title \(title.frame) vs bar top \(barTop)")
         XCTAssertLessThanOrEqual(detail.frame.maxY, barTop, "last detail \(detail.frame) vs bar top \(barTop)")
     }
+
+    // MARK: - Interactive expansion
+
+    private var transportPlay: XCUIElement {
+        element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
+    }
+
+    /// Drags the bar up to near the top of the screen: the details screen follows and settles open.
+    func test_draggingMiniPlayerUp_opensDetails() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        let start = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        XCTAssertTrue(transportPlay.waitForExistence(timeout: 10), "the details screen did not open")
+        XCTAssertEqual(element(AccessibilityID.Player.title).label, "Seeded Chaptered Book")
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5), "the bar is still there under the open details screen")
+    }
+
+    /// Drags the open details screen down by its grabber: it collapses back into the bar.
+    func test_draggingDetailsDown_collapses() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        element(AccessibilityID.MiniPlayer.bar).tap()
+        waitForPlayerToArrive()
+        let grabber = element(AccessibilityID.Player.grabber)
+        XCTAssertTrue(grabber.waitForExistence(timeout: 5), "the details screen has no grabber")
+        let start = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
+
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        XCTAssertTrue(element(AccessibilityID.MiniPlayer.bar).waitForExistence(timeout: 10), "the bar did not come back")
+        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10), "the details screen is still open")
+    }
+
+    /// A short, slow drag stays under 30% of the travel: released, it settles back into the bar.
+    func test_shortSlowDragUp_settlesClosed() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        let start = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: -120))
+
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: 150, thenHoldForDuration: 0.5)
+
+        XCTAssertTrue(bar.waitForExistence(timeout: 5))
+        // Give the settle time to land and release the screen.
+        sleep(1)
+        XCTAssertFalse(transportPlay.exists, "a 120 pt drag must not open the details screen")
+        XCTAssertTrue(bar.isHittable, "the bar must take touches again once the expansion settled closed")
+    }
+
+    /// Slow drags both ways, finger held at the end, as the spec's "a slow drag animates slowly".
+    /// Also the scenario recorded for review (`simctl io recordVideo` while it runs).
+    func test_slowDrags_openAndCollapse() throws {
+        try loadSeededBook(titled: "Seeded Chaptered Book")
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        let barCenter = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+
+        barCenter.press(forDuration: 0.2, thenDragTo: top, withVelocity: 180, thenHoldForDuration: 1)
+
+        XCTAssertTrue(transportPlay.waitForExistence(timeout: 10), "the slow drag did not open the details screen")
+        XCTAssertTrue(bar.waitForNonExistence(timeout: 5))
+        let grabber = element(AccessibilityID.Player.grabber)
+        let grabberCenter = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+
+        grabberCenter.press(forDuration: 0.2, thenDragTo: bottom, withVelocity: 180, thenHoldForDuration: 1)
+
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the slow drag did not collapse the details screen")
+        XCTAssertTrue(transportPlay.waitForNonExistence(timeout: 10))
+    }
 }

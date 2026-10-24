@@ -11,14 +11,16 @@ import UIKit
 /// the progress within the chapter, on a background tinted from the cover. It always shows the
 /// book loaded in the player.
 ///
-/// - Tap opens the details screen; a horizontal swipe goes to the next chapter (left) or back to
-///   the chapter's start (right). The vertical drag that expands it is added by the interactive
-///   presentation, on `barGesture`; `PlayerPresentation.barFrame` is where it starts.
+/// - Tap opens the details screen; a vertical drag expands it under the finger
+///   (`PlayerExpansionOverlay`), starting from `PlayerPresentation.barFrame`; a horizontal swipe
+///   goes to the next chapter (left) or back to the chapter's start (right). One `DragGesture`
+///   decides the axis on its first event.
 /// - Body split, so a clock tick re-renders only two leaves: this body reads `PlaybackState` alone
 ///   (play, pause, switch). `MiniPlayerSubtitle` and `MiniPlayerProgressLine` read `PlaybackClock`.
-/// - Gesture feedback lives in `MiniPlayerSwipe`, read only by `MiniPlayerText`: a gesture that
-///   re-renders the view carrying it can stop receiving touches (Task 1 spike), so this body never
-///   reads anything a gesture writes. It doesn't read `PlayerPresentation.progress` either.
+/// - Gesture feedback lives in `MiniPlayerSwipe`, read only by `MiniPlayerText`, and the drag's
+///   own bookkeeping in `BarDrag`, a plain class: a gesture that re-renders the view carrying it can
+///   stop receiving touches (Task 1 spike), so this body never reads anything a gesture writes.
+///   The expansion's `progress` is read only by the overlay.
 struct MiniPlayerView: View {
     @Environment(PlaybackState.self)
     private var playback
@@ -31,6 +33,8 @@ struct MiniPlayerView: View {
     private var presentation
     @State
     private var swipe = MiniPlayerSwipe()
+    @State
+    private var drag = BarDrag()
 
     /// In the system tab bar's accessory (iOS 26.1+), which sets the height (about 48 pt) and a
     /// capsule shape; docked above the hand-built tab bar otherwise (56 pt, rounded corners).
@@ -100,14 +104,30 @@ struct MiniPlayerView: View {
 
     // MARK: - Gestures
 
-    /// Horizontal swipes only, decided on release: nothing is written while the finger moves.
-    /// The vertical drag that expands the bar joins here; `MiniPlayerActions.swipe` already
-    /// leaves a mostly vertical drag alone.
+    /// The axis is decided on the first event. Vertical drives the expansion live (through
+    /// `PlayerPresentation`, which only the overlay reads); horizontal is a chapter swipe, decided
+    /// on release. Global coordinates: the accessory can move while the finger is down.
     private var barGesture: some Gesture {
-        DragGesture(minimumDistance: SpaceConstants.sx12.value)
-            .onEnded { value in
-                guard let swipe = MiniPlayerActions.swipe(for: value.translation) else { return }
-                perform(swipe)
+        DragGesture(minimumDistance: SpaceConstants.sx12.value, coordinateSpace: .global)
+            .onChanged { [drag, presentation, playback] value in
+                if drag.axis == nil {
+                    drag.axis = ExpansionMath.isVerticalDrag(value.translation) ? .vertical : .horizontal
+                }
+                guard drag.axis == .vertical else { return }
+                drag.expansion.changed(
+                    translationY: value.translation.height,
+                    presentation: presentation,
+                    book: playback.loadedBook
+                )
+            }
+            .onEnded { [drag, presentation] value in
+                let axis = drag.axis
+                drag.axis = nil
+                if axis == .vertical {
+                    drag.expansion.ended(velocityY: value.velocity.height, presentation: presentation)
+                } else if let swipe = MiniPlayerActions.swipe(for: value.translation) {
+                    perform(swipe)
+                }
             }
     }
 
@@ -141,6 +161,21 @@ struct MiniPlayerView: View {
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         return scene?.screen.bounds.height ?? 0
     }
+}
+
+// MARK: - Drag bookkeeping
+
+/// Which way the bar's current drag goes, and its expansion state. Not observed: the gesture
+/// writes it on every event, and nothing renders from it.
+@MainActor
+final class BarDrag {
+    enum Axis {
+        case vertical
+        case horizontal
+    }
+
+    var axis: Axis?
+    let expansion = ExpansionDrag()
 }
 
 // MARK: - Swipe feedback
@@ -198,8 +233,8 @@ private struct MiniPlayerText: View {
     }
 }
 
-/// "Chapter N · X min left". Reads `PlaybackClock`.
-private struct MiniPlayerSubtitle: View {
+/// "Chapter N · X min left". Reads `PlaybackClock`. Also drawn by the expansion's bar face.
+struct MiniPlayerSubtitle: View {
     let book: AudioModel
 
     @Environment(PlaybackClock.self)
@@ -211,8 +246,9 @@ private struct MiniPlayerSubtitle: View {
 }
 
 /// The 2 pt line along the bar's bottom edge: progress within the current chapter (or the book,
-/// without chapters), white on 25% white. Reads `PlaybackClock`.
-private struct MiniPlayerProgressLine: View {
+/// without chapters), white on 25% white. Reads `PlaybackClock`. Also drawn by the expansion's
+/// bar face (hidden from accessibility there).
+struct MiniPlayerProgressLine: View {
     let book: AudioModel
 
     @Environment(PlaybackClock.self)

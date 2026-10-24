@@ -4,181 +4,242 @@
 //
 
 @testable import Abbay
+import Observation
 import XCTest
 
-/// `PlayerViewModel` backs the full-screen player and had no tests.
+/// `PlayerViewModel` adapts the app-wide stores for the details screen. It holds no player
+/// subscriptions: for the loaded book it reads `PlaybackState` and (in the screen's leaves only)
+/// `PlaybackClock`; for any other book, the book's saved fields. Downloads come from the book's
+/// `BookDownloadEntry`.
+@MainActor
 final class PlayerViewModelTests: XCTestCase {
-    private struct Harness {
-        let viewModel: PlayerViewModel
-        let observer: MockPlayerObserver
-        let player: MockPlayer
+    private let otherURL = URL(string: "file:///vm/other.m4b")
+
+    private func otherBook(currentTime: Double = 250) -> AudioModel {
+        var book = ViewModelSupport.chaptered(currentTime: currentTime)
+        book.title = "Other"
+        book.url = otherURL
+        return book
     }
 
-    private func makeHarness(currentTime: Double = 0, isPlaying: Bool = true) -> Harness {
-        let model = ViewModelSupport.chaptered(currentTime: currentTime)
+    private func libriVoxBook() -> AudioModel {
+        var book = ViewModelSupport.chaptered()
+        book.librivoxID = "42"
+        book.url = LibriVoxIdentity.bookURL(id: "42")
+        return book
+    }
+
+    private func loadedState(_ book: AudioModel, isPlaying: Bool = true) -> PlaybackState {
+        let state = PlaybackState()
+        state.setLoadedBook(book)
+        state.setIsPlaying(isPlaying)
+        return state
+    }
+
+    // MARK: - Which book, which time
+
+    func test_presentedLoadedBook_readsPlaybackStores() {
+        let book = ViewModelSupport.chaptered(currentTime: 10)
+        let state = loadedState(book)
+        let clock = PlaybackClock()
+        clock.update(bookTime: 150, currentChapter: 1)
+
+        let sut = PlayerViewModel(book, state: state, player: MockPlayer(), downloads: nil)
+
+        XCTAssertTrue(sut.isLoaded)
+        XCTAssertTrue(sut.isPlaying)
+        XCTAssertEqual(sut.bookTime(in: clock), 150, "the clock, not the saved 10 s")
+        XCTAssertEqual(sut.currentChapter(in: clock), 1)
+        state.setIsPlaying(false)
+        XCTAssertFalse(sut.isPlaying, "pause shows at once, from PlaybackState")
+    }
+
+    func test_presentedOtherBook_showsSavedPosition_andPlayLoadsIt() {
+        let state = loadedState(ViewModelSupport.chaptered())
+        let clock = PlaybackClock()
+        clock.update(bookTime: 150, currentChapter: 1)
         let player = MockPlayer()
-        player.url = model.url
-        player.isPlayingResult = isPlaying
-        let observer = MockPlayerObserver()
-        observer.player = player
-        return Harness(
-            viewModel: PlayerViewModel(model, playerObserver: observer),
-            observer: observer,
-            player: player
-        )
+        let other = otherBook(currentTime: 250)
+
+        let sut = PlayerViewModel(other, state: state, player: player, downloads: nil)
+
+        XCTAssertFalse(sut.isLoaded)
+        XCTAssertFalse(sut.isPlaying, "another book playing doesn't make this one playing")
+        XCTAssertEqual(sut.book.url, otherURL)
+        XCTAssertEqual(sut.bookTime(in: clock), 250, "the book's saved position")
+        XCTAssertEqual(sut.currentChapter(in: clock), 2)
+        // The transport must not move the loaded book while another one is shown.
+        sut.forward(withSeconds: 15)
+        sut.backward(withSeconds: 15)
+        sut.seek(10)
+        sut.pause()
+        XCTAssertEqual(player.forwardSeconds, [])
+        XCTAssertEqual(player.backwardSeconds, [])
+        XCTAssertEqual(player.seekSeconds, [])
+        XCTAssertEqual(player.pauseCallCount, 0)
+
+        sut.play()
+
+        XCTAssertEqual(player.playCalls.map(\.url), [otherURL])
     }
 
-    // MARK: - Chapter resolution
+    /// Siri or CarPlay can switch books while the details screen of the loaded book is open (even
+    /// mid-drag): the screen follows the loaded book, and its time comes from the clock.
+    func test_loadedBookChangesMidDrag_overlayShowsNewBook() {
+        let book = ViewModelSupport.chaptered()
+        let state = loadedState(book)
+        let clock = PlaybackClock()
+        let sut = PlayerViewModel(book, state: state, player: MockPlayer(), downloads: nil)
+        XCTAssertEqual(sut.book.url, book.url)
 
-    func test_init_reportsChapterZeroIndexed() {
-        let harness = makeHarness(currentTime: 250)
-        let viewModel = harness.viewModel
+        state.setLoadedBook(otherBook(currentTime: 0))
+        clock.update(bookTime: 77, currentChapter: 0)
 
-        XCTAssertEqual(viewModel.currentChapter, 2, "250s falls in the third chapter, index 2")
+        XCTAssertEqual(sut.book.url, otherURL)
+        XCTAssertEqual(sut.book.title, "Other")
+        XCTAssertTrue(sut.isLoaded)
+        XCTAssertEqual(sut.bookTime(in: clock), 77)
     }
 
-    /// The `time` parameter is never read -- the body resolves against `self.currentTime`. It
-    /// happens to agree today because the only caller fires from an `onChange` on `currentTime`,
-    /// but the signature is a lie and any other caller would be silently ignored.
-    func test_setCurrentChapter_ignoresItsArgument() {
-        let harness = makeHarness(currentTime: 10)
-        let viewModel = harness.viewModel
-        XCTAssertEqual(viewModel.currentChapter, 0)
-
-        viewModel.setCurrentChapter(for: 350)
-
-        XCTAssertEqual(
-            viewModel.currentChapter,
-            0,
-            "350s is chapter 2, but the argument is discarded in favour of currentTime"
-        )
-    }
-
-    // MARK: - Observation
-
-    func test_init_doesNotTrackTimeWhenADifferentBookIsLoaded() {
-        let model = ViewModelSupport.chaptered()
+    /// Pressing Play on another book's screen loads it, and from then on the screen follows it.
+    func test_playingThePresentedBook_followsItAsTheLoadedBook() {
+        let state = loadedState(ViewModelSupport.chaptered())
         let player = MockPlayer()
-        player.url = URL(string: "file:///vm/other.m4b")
-        let observer = MockPlayerObserver()
-        observer.player = player
+        let sut = PlayerViewModel(otherBook(), state: state, player: player, downloads: nil)
 
-        _ = PlayerViewModel(model, playerObserver: observer)
+        sut.play()
+        state.setLoadedBook(otherBook())
 
-        XCTAssertTrue(
-            observer.timeSubscriptions.isEmpty,
-            "the player screen must not track time for a book that is not loaded"
-        )
+        XCTAssertTrue(sut.isLoaded)
+        sut.forward(withSeconds: 15)
+        XCTAssertEqual(player.forwardSeconds, [15])
     }
 
-    func test_init_tracksTimeWhenItsOwnBookIsLoaded() {
-        let harness = makeHarness()
-        let observer = harness.observer
+    // MARK: - The hard rule
 
-        XCTAssertFalse(observer.timeSubscriptions.isEmpty)
+    func test_playerViewModel_makesNoPlayerSubscriptions() {
+        let player = CountingMockPlayer()
+        let book = ViewModelSupport.chaptered()
+        let state = loadedState(book)
+        let clock = PlaybackClock()
+        let store = DownloadStateStore(downloads: MockBookDownloadManager())
+
+        let models = (0..<20).map { index -> PlayerViewModel in
+            var presented = book
+            if index.isMultiple(of: 2) { presented.url = URL(string: "file:///vm/book\(index).m4b") }
+            let model = PlayerViewModel(presented, state: state, player: player, downloads: store)
+            _ = model.book
+            _ = model.bookTime(in: clock)
+            _ = model.downloadEntry
+            model.play()
+            model.pause()
+            return model
+        }
+
+        XCTAssertEqual(player.urlSubscriptionCount, 0)
+        XCTAssertEqual(player.timeSubscriptionCount, 0)
+        XCTAssertEqual(player.playingSubscriptionCount, 0)
+        withExtendedLifetime(models) {}
     }
 
-    func test_willSeek_releasesTheTimeSubscription() {
-        let harness = makeHarness()
-        let viewModel = harness.viewModel
-        let observer = harness.observer
+    /// What the details screen's chrome reads (book, playing state, download entry) never touches
+    /// the clock: only its timeline and chapter list leaves do.
+    func test_detailsChrome_readsNoClockProperty() {
+        let book = ViewModelSupport.chaptered()
+        let state = loadedState(book)
+        let clock = PlaybackClock()
+        let sut = PlayerViewModel(book, state: state, player: MockPlayer(), downloads: nil)
+        var fired = false
 
-        viewModel.willSeek()
+        withObservationTracking({
+            _ = sut.book
+            _ = sut.isLoaded
+            _ = sut.isPlaying
+            _ = sut.downloadEntry
+        }, onChange: { fired = true })
+        for tick in 1...5 { clock.update(bookTime: Double(tick * 90), currentChapter: tick % 3) }
 
-        XCTAssertEqual(observer.cancelTimeCallCount, 1)
-        XCTAssertTrue(observer.timeSubscriptions.isEmpty)
+        XCTAssertFalse(fired)
     }
 
-    func test_seek_reinstatesTrackingAndDelegates() {
-        let harness = makeHarness()
-        let viewModel = harness.viewModel
-        let observer = harness.observer
-        let player = harness.player
-        viewModel.willSeek()
+    /// The chapter list leaf depends on the chapter, not on every tick.
+    func test_currentChapter_doesNotDependOnBookTime() {
+        let book = ViewModelSupport.chaptered()
+        let sut = PlayerViewModel(book, state: loadedState(book), player: MockPlayer(), downloads: nil)
+        let clock = PlaybackClock()
+        var fired = false
 
-        viewModel.seek(120)
+        withObservationTracking({ _ = sut.currentChapter(in: clock) }, onChange: { fired = true })
+        clock.update(bookTime: 20, currentChapter: 0)
+        clock.update(bookTime: 30, currentChapter: 0)
 
-        XCTAssertEqual(player.seekSeconds, [120])
-        XCTAssertFalse(observer.timeSubscriptions.isEmpty, "tracking resumes after a seek")
+        XCTAssertFalse(fired)
     }
 
-    func test_anotherBookStartsPlaying_clearsPlayingState() {
-        let harness = makeHarness()
-        let viewModel = harness.viewModel
-        let observer = harness.observer
-        observer.emitTime(10)
-        XCTAssertTrue(viewModel.isPlaying)
+    // MARK: - Transport
 
-        observer.emitPlayUrl(AudioModel(title: "Other", url: URL(string: "file:///vm/other.m4b")))
+    func test_transport_delegatesForTheLoadedBook() {
+        let book = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
 
-        XCTAssertFalse(viewModel.isPlaying)
-    }
+        sut.play()
+        sut.pause()
+        sut.forward(withSeconds: 15)
+        sut.backward(withSeconds: 30)
+        sut.seek(120)
 
-    // MARK: - Delegation
-
-    func test_transportMethodsDelegateToThePlayer() {
-        let harness = makeHarness()
-        let viewModel = harness.viewModel
-        let player = harness.player
-
-        viewModel.play()
-        viewModel.pause()
-        viewModel.forward(withSeconds: 15)
-        viewModel.backward(withSeconds: 30)
-        viewModel.skipToNextChapter()
-        viewModel.skipToPreviousChapter()
-
-        XCTAssertEqual(player.playCalls.count, 1)
+        XCTAssertEqual(player.playCalls.map(\.url), [book.url])
         XCTAssertEqual(player.pauseCallCount, 1)
         XCTAssertEqual(player.forwardSeconds, [15])
         XCTAssertEqual(player.backwardSeconds, [30])
-        XCTAssertEqual(player.skipNextCallCount, 1)
-        XCTAssertEqual(player.skipPreviousCallCount, 1)
+        XCTAssertEqual(player.seekSeconds, [120])
+    }
+
+    /// As before: a chapter row seeks to its start, and only while the book is playing.
+    func test_selectChapter_seeksToItsStart_onlyWhilePlaying() {
+        let book = ViewModelSupport.chaptered()
+        let state = loadedState(book, isPlaying: false)
+        let player = MockPlayer()
+        let sut = PlayerViewModel(book, state: state, player: player, downloads: nil)
+
+        sut.selectChapter(2)
+        state.setIsPlaying(true)
+        sut.selectChapter(2)
+        sut.selectChapter(9)
+
+        XCTAssertEqual(player.seekSeconds, [200])
     }
 
     // MARK: - Download state
 
-    private func makeDownloadHarness(
-        librivox: Bool
-    ) -> (viewModel: PlayerViewModel, downloads: MockBookDownloadManager) {
-        var model = ViewModelSupport.chaptered()
-        if librivox {
-            model.librivoxID = "42"
-            model.url = LibriVoxIdentity.bookURL(id: "42")
-        }
-        let downloads = MockBookDownloadManager()
-        let observer = ViewModelSupport.observer(loaded: model)
-        return (PlayerViewModel(model, playerObserver: observer, downloads: downloads), downloads)
+    func test_downloadEntry_nilForImportedBook() {
+        let store = DownloadStateStore(downloads: MockBookDownloadManager())
+        let book = ViewModelSupport.chaptered()
+
+        let sut = PlayerViewModel(book, state: PlaybackState(), player: nil, downloads: store)
+
+        XCTAssertNil(sut.downloadEntry)
     }
 
-    func test_downloadState_nilForImportedBook() {
-        let harness = makeDownloadHarness(librivox: false)
-        let state = BookDownloadState(chapters: [.waiting], expectedBytes: [], isPaused: false)
-        harness.downloads.statesSubject.send(["42": state])
-
-        XCTAssertNil(harness.viewModel.downloadState)
-    }
-
-    func test_downloadState_followsManagerForLibriVoxBook() {
-        let harness = makeDownloadHarness(librivox: true)
+    func test_downloadEntry_isTheBooksStoreEntry() {
+        let manager = MockBookDownloadManager()
+        let store = DownloadStateStore(downloads: manager)
+        let book = libriVoxBook()
         let running = BookDownloadState(
             chapters: [.downloaded, .downloading(fraction: 0.5), .waiting],
             expectedBytes: [],
             isPaused: false
         )
 
-        harness.downloads.statesSubject.send(["42": running])
+        let sut = PlayerViewModel(book, state: PlaybackState(), player: nil, downloads: store)
+        manager.statesSubject.send(["42": running])
 
-        XCTAssertEqual(harness.viewModel.downloadState, running)
-    }
-
-    func test_downloadState_nilWhenComplete() {
-        let harness = makeDownloadHarness(librivox: true)
-
-        harness.downloads.statesSubject.send([
+        XCTAssertTrue(sut.downloadEntry === store.entry(for: "42"))
+        XCTAssertEqual(sut.downloadEntry?.state, running)
+        manager.statesSubject.send([
             "42": BookDownloadState(chapters: [.downloaded, .downloaded], expectedBytes: [], isPaused: false)
         ])
-
-        XCTAssertNil(harness.viewModel.downloadState)
+        XCTAssertNil(sut.downloadEntry?.state, "complete: no per-chapter status, as before")
     }
 }
