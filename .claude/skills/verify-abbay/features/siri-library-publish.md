@@ -19,8 +19,11 @@ user-facing, but every title-matching Siri phrase depends on it.
 - **entity-queries:** `AudiobookEntityQuery` (40 suggestions) and `ChapterEntityQuery` (50) back the
   entity parameters. Both implement `EntityStringQuery` so Siri can match a spoken string.
   `ChapterEntity.currentBook()` resolves chapters against whatever is playing.
-- **shortcut-parameter refresh:** `AbbayAppShortcuts.updateAppShortcutParameters()` after import, and
-  after a LibriVox book is added (`MediaListViewModel.addLibriVoxBook`) or deleted.
+- **shortcut-parameter refresh:** `AbbayAppShortcuts.updateAppShortcutParameters()`, called only by
+  `SiriLibraryPublisher.publish`, so once per snapshot write: import, LibriVox add
+  (`MediaListViewModel.addLibriVoxBook`), delete and cold launch. Nothing else calls it directly
+  (#84 removed the view model's second call;
+  `test_importAndAddLibriVoxBook_publishToSiriOnceEach`).
 - **media-affinity:** `MediaUserContextDonor` and `IntentDonor.donatePlayMedia` donate interactions
   so the system learns to prefer Abbay for audiobook requests.
 

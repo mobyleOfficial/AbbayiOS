@@ -53,7 +53,9 @@ $B tap root.tab.search                       # → Search tab
 `library.row.<n>.{artwork,title,detail,play}` (see [media-row](media-row.md)).
 
 **Not addressable:** `library.row.<n>` on its own (leaf-only rule). The search field has no
-identifier: find it by placeholder (*Search your library*). There is no `library.root`; use
+identifier: `.searchable` exposes no way to set one, so find it by placeholder (*Search your library*).
+Typing a title hides the other rows (`test_search_filtersLocalRows`); no matches shows
+`library.search.noResults`, never `library.empty` (`test_search_withoutMatches_showsNoResultsState`). There is no `library.root`; use
 `library.list` or `library.empty` as the "screen is up" signal depending on the state you expect.
 
 **Not implemented:** `library.row.<n>.delete` — the delete is a swipe action, not a persistent
@@ -69,7 +71,8 @@ of a chapter — needs a genuinely playable import.
 ## Gotchas
 
 - **Settings is a dead button.** `gearshape` is a `Button` with an empty action (issue #58); it
-  renders as tappable but does nothing.
+  renders as tappable but does nothing. Deliberately kept: the settings screen lands with #58, not
+  with the search work (#112).
 - **Search and stub tests need `-stubLibriVox`.** The Library's own search is local, but the Search
   tab, the *Browse free audiobooks* button's destination and the stub-book flows all talk to
   archive.org and librivox.org without it. With it, LibriVox answers from memory

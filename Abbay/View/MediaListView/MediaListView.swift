@@ -145,6 +145,8 @@ struct MediaListView: View {
                     .foregroundColor(ColorConstants.lightSilver.value)
                     .frame(maxWidth: .infinity)
                     .listRowBackground(ColorConstants.background.value)
+                    // A message, not a book: no row separators hanging off the centered text.
+                    .listRowSeparator(.hidden)
                     .accessibilityIdentifier(AccessibilityID.Library.noResults)
             }
         }

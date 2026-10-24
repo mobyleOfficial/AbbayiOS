@@ -12,6 +12,7 @@ final class MediaListViewModelTests: XCTestCase {
     private var mockFileLoader: MockFileLoader?
     private var mockLoadAll: MockLoadAllAudiosUseCase?
     private var sharedWriterOriginal: LibrarySnapshotWriterProtocol?
+    private var sharedPublisherOriginal: SiriLibraryPublisherProtocol?
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -28,6 +29,7 @@ final class MediaListViewModelTests: XCTestCase {
 
         sharedWriterOriginal = LibrarySnapshotWriter.shared
         LibrarySnapshotWriter.shared = LibrarySnapshotWriter(loadAllAudios: loadAll)
+        sharedPublisherOriginal = SiriLibraryPublisher.shared
     }
 
     override func tearDownWithError() throws {
@@ -37,6 +39,9 @@ final class MediaListViewModelTests: XCTestCase {
         LibrarySnapshotWriter.defaults = AppGroup.defaults
         if let original = sharedWriterOriginal {
             LibrarySnapshotWriter.shared = original
+        }
+        if let original = sharedPublisherOriginal {
+            SiriLibraryPublisher.shared = original
         }
         try super.tearDownWithError()
     }
@@ -89,6 +94,32 @@ final class MediaListViewModelTests: XCTestCase {
         let data = try XCTUnwrap(suite.data(forKey: LibrarySnapshotWriter.key))
         let snapshot = try JSONDecoder().decode(LibrarySnapshot.self, from: data)
         XCTAssertEqual(snapshot.audios.first?.title, "Remote")
+    }
+
+    /// The snapshot write is the one path to Siri: it publishes, and publishing refreshes the App
+    /// Shortcut parameters. Import and LibriVox-add reach it once each, with no direct refresh of
+    /// their own (#84).
+    @MainActor
+    func test_importAndAddLibriVoxBook_publishToSiriOnceEach() async throws {
+        let spy = PublishCountingSpy()
+        let loader = try XCTUnwrap(mockFileLoader)
+        let viewModel = MediaListViewModel(
+            playback: PlaybackCenter(player: MockPlayer()),
+            loadAllAudiosUseCase: try XCTUnwrap(mockLoadAll),
+            deleteAudioUseCase: MockDeleteAudioUseCase(),
+            fileLoader: loader
+        )
+        SiriLibraryPublisher.shared = spy
+        var imported = AudioModel(url: URL(string: "file:///a.m4a"))
+        imported.title = "A"
+        loader.modelsToReturn = [imported]
+        var remote = AudioModel(url: URL(string: "librivox://book/7"))
+        remote.title = "Remote"
+
+        await viewModel.importAudio(from: [try XCTUnwrap(imported.url)])
+        viewModel.addLibriVoxBook(remote)
+
+        XCTAssertEqual(spy.publishedTitles, [["A"], ["A", "Remote"]])
     }
 
     @MainActor
@@ -295,5 +326,13 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertNil(presentation.presentedBook)
         XCTAssertEqual(player.unloadCallCount, 0)
         XCTAssertEqual(center.state.loadedBook?.url, urlA)
+    }
+}
+
+private final class PublishCountingSpy: SiriLibraryPublisherProtocol {
+    private(set) var publishedTitles: [[String]] = []
+
+    func publish(audios: [AudioModel]) {
+        publishedTitles.append(audios.map(\.title))
     }
 }
