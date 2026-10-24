@@ -30,6 +30,13 @@ enum LaunchArgument {
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
     /// network.
     static let stubLibriVox = "-stubLibriVox"
+    /// With `stubLibriVox`: give the stub book an archive.org cover that an in-memory network
+    /// answers after a few seconds, so the cover's loading and loaded states can be seen. The
+    /// covers' disk cache is a separate one, emptied at launch.
+    static let stubCovers = "-stubCovers"
+    /// With `stubCovers`: every cover request fails and the stub covers' disk cache is kept, so a
+    /// cover can only come from disk (what an earlier `stubCovers` launch stored).
+    static let stubCoversOffline = "-stubCoversOffline"
     /// Make *Import file* skip the system picker and import two files that don't exist, so the
     /// failed-import banner shows.
     static let stubFailingImport = "-stubFailingImport"

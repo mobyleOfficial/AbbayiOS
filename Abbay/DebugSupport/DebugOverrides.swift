@@ -35,7 +35,22 @@ enum DebugOverrides {
     static func libriVoxClient(arguments: [String] = ProcessInfo.processInfo.arguments) -> LibriVoxClientProtocol? {
         #if DEBUG
         if arguments.contains(LaunchArgument.stubLibriVox) {
-            return UITestLibriVoxClient()
+            let stubsCovers = arguments.contains(LaunchArgument.stubCovers)
+            return UITestLibriVoxClient(coverURL: stubsCovers ? UITestCoverNetwork.coverURL : nil)
+        }
+        #endif
+        return nil
+    }
+
+    /// A cover loader over an in-memory network and its own disk cache, for `-stubCovers`. Emptied
+    /// at launch unless `-stubCoversOffline`, whose network fails every request.
+    static func coverLoader(arguments: [String] = ProcessInfo.processInfo.arguments) -> AsyncImageLoader? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.stubCovers) {
+            let offline = arguments.contains(LaunchArgument.stubCoversOffline)
+            let disk = CoverDiskCache(directory: UITestCoverNetwork.diskDirectory)
+            if !offline { disk.removeAll() }
+            return AsyncImageLoader(network: UITestCoverNetwork(isOffline: offline), diskCache: disk)
         }
         #endif
         return nil
