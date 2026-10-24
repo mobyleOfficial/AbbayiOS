@@ -69,8 +69,11 @@ bundle exec fastlane open_project
 # Run tests
 bundle exec fastlane test_project
 
-# Generate a release build
+# Generate a simulator release build (.xcarchive, no IPA)
 bundle exec fastlane generate_app
+
+# Archive, check, export an App Store IPA and upload to TestFlight (see "Releasing")
+bundle exec fastlane release
 
 # Run SwiftLint
 bundle exec fastlane lint_project
@@ -83,6 +86,59 @@ bundle exec fastlane clean_project
 ```
 
 Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to skip opening the result.
+
+## Releasing
+
+`bundle exec fastlane release` produces and uploads a TestFlight build:
+
+1. Generates the project and stamps the version and build number from the `version` file.
+   **Bump the build number (second line) before every upload**: App Store Connect rejects a
+   build number it has already seen.
+2. Archives Release for `generic/platform=iOS` to `build/Abbay.xcarchive`.
+3. Runs `Scripts/check-app-binary` on the archived app (see below).
+4. Exports `build/export/Abbay.ipa` with `fastlane/ExportOptions-AppStore.plist`
+   (`app-store-connect`, automatic signing, symbols uploaded) and checks it again with
+   `--require-distribution`.
+5. Uploads the IPA with `upload_to_testflight`, authenticated with an App Store Connect API key.
+   Without the key the lane stops after the IPA and says so, so it runs locally without one.
+
+| Env var / secret | Value |
+|---|---|
+| `APP_STORE_CONNECT_API_KEY_ID` | Key ID from App Store Connect › Users and Access › Integrations |
+| `APP_STORE_CONNECT_API_KEY_ISSUER_ID` | Issuer ID shown on the same page |
+| `APP_STORE_CONNECT_API_KEY_KEY` | Contents of the `.p8` file (or set `APP_STORE_CONNECT_API_KEY_PATH` to its path) |
+
+When the key is set the lane also passes it to `xcodebuild` (`-allowProvisioningUpdates`), so
+Xcode can create the distribution certificate and App Store profiles without a signed-in
+account. Without it, the export uses the account signed in to Xcode › Settings › Accounts.
+`fastlane/Appfile` holds the bundle id and team; an Apple ID is never committed (set
+`FASTLANE_APPLE_ID` if an action needs one).
+
+`Scripts/check-app-binary <.app | .xcarchive | .ipa>` works on any build, including the OTA test
+builds (pass `--allow-debug-resources` for Debug builds, which carry the UI-test audio fixture).
+It fails when:
+
+- any Mach-O in the app links a path other than `@rpath`, `@executable_path`, `@loader_path`,
+  `/usr/lib` or `/System` (the launch crash fixed in #142);
+- the signed app lacks CarPlay audio, Siri or the App Group `group.com.edyuto.abbay`, or an app
+  extension lacks the App Group (also checked in the embedded profile);
+- a Debug-only resource such as `Christmastide.m4b` ships;
+- with `--require-distribution`, the build is development-signed or its profile lists devices.
+
+**Owner steps before the first upload** (#111):
+
+1. Sign in again under Xcode › Settings › Accounts (the stored token has expired), or rely on
+   the API key below.
+2. Create an App Store Connect API key (App Manager or Admin role; Admin is needed for Xcode to
+   create the distribution certificate itself), keep the `.p8`, and add the three values above
+   as repository secrets.
+3. Run `bundle exec fastlane release` once locally and confirm the `.ipa` check passes: it is the
+   first distribution-signed build, and the App Group must reach the profiles of both the app
+   and `AbbayIntents` (`AppGroup.swift` crashes at launch without it).
+
+`release-app.yml` runs the lane on every push to `main`. With the secrets it uploads to
+TestFlight and attaches the IPA and dSYMs to a GitHub Release tagged from the `version` file;
+without them it builds the simulator archive instead and warns.
 
 ## Features
 
@@ -149,7 +205,7 @@ That runs SwiftLint `--strict`, the unit suite and the UI suite off a single bui
 the first problem -- about six minutes total.
 
 Validate-branch runs on PRs into `main` or `develop`. Release-app runs on push to `main`
-(simulator archive attached to a GitHub Release tagged from the `version` file). Both macOS jobs
+(see "Releasing": TestFlight upload when the secrets are set, simulator archive otherwise). Both macOS jobs
 run on `macos-26` with Xcode `26.4.1`.
 
 Actions used:
