@@ -7,6 +7,7 @@
 
 import AVFoundation
 import Combine
+import os
 import UIKit
 
 protocol PlayerProtocol {
@@ -52,6 +53,9 @@ final class Player: PlayerProtocol {
     private let downloadsRoot: URL
     private let notificationCenter: NotificationCenter
     private let now: () -> Date
+    private let noticeReporter: NoticeReporting
+    /// Tells "can't stream this chapter while offline" from any other chapter failure.
+    private let networkPath: NetworkPathProviding
     /// When the position was last written, so a playing book saves at most every
     /// `positionSaveInterval`. Restarts on every save and on loading a book.
     private var lastPositionSave: Date?
@@ -107,7 +111,9 @@ final class Player: PlayerProtocol {
         chapterPrioritizer: ChapterPrioritizing = NoopChapterPrioritizer(),
         downloadsRoot: URL = LibriVoxIdentity.defaultRoot,
         notificationCenter: NotificationCenter = .default,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        noticeReporter: NoticeReporting = NoticeCenter.shared,
+        networkPath: NetworkPathProviding = NetworkPathMonitor.shared
     ) {
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
@@ -118,6 +124,8 @@ final class Player: PlayerProtocol {
         self.downloadsRoot = downloadsRoot
         self.notificationCenter = notificationCenter
         self.now = now
+        self.noticeReporter = noticeReporter
+        self.networkPath = networkPath
         setupTimeObserver()
         setupSaveObservers()
 
@@ -152,10 +160,11 @@ final class Player: PlayerProtocol {
     }
 
     // MARK: - PlayerProtocol
+    /// Every early return reports a `Notice` (#115), so a press that can't play says why.
     func play(_ model: inout AudioModel) {
-        // TODO: Add logging for playback attempts using logging library
         guard let url = model.url else {
-            print("⚠️ Player.play: URL is nil")
+            Log.player.error("play: the book has no URL")
+            noticeReporter.report(.playbackFailed)
             return
         }
 
@@ -165,6 +174,11 @@ final class Player: PlayerProtocol {
             LaunchStateFlag.clear()
         } catch {
             LaunchStateFlag.markUnavailable()
+            let error = error as NSError
+            Log.player.error(
+                "play: audio session activation failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
+            )
+            noticeReporter.report(.audioUnavailable)
             return
         }
 
@@ -186,11 +200,15 @@ final class Player: PlayerProtocol {
             librarySnapshotWriter.refresh()
         }
 
-        print("▶️ Player.play: Attempting to play \(url.lastPathComponent)")
+        Log.player.info("play: \(url.lastPathComponent, privacy: .private)")
         if url != self.url {
             saveTime()
             updatePlayItem(model)
             seek(model.currentTime)
+        } else if hasFailedItem {
+            // Play again after a failure retries with a fresh item, so a file put back (or a
+            // connection back) plays, and a failure that persists is reported again.
+            retryFailedItem(model)
         }
         // Sync the Now Playing gate on EVERY play, not only when the item changes.
         // `updatePlayItem` is skipped when the URL is unchanged, and `cleanup()` may have
@@ -198,7 +216,7 @@ final class Player: PlayerProtocol {
         // stale or nil while audio is actually playing.
         NowPlayingManager.shared.setPlayer(self, currentAudio: model)
         player.play()
-        print("▶️ Player.play: player.play() called, status: \(player.timeControlStatus.rawValue)")
+        Log.player.debug("play: started, timeControlStatus=\(self.player.timeControlStatus.rawValue, privacy: .public)")
         LastPlayedStore.save(url: url)
         intentDonor.donatePlayMedia(model: model)
     }
@@ -301,9 +319,8 @@ final class Player: PlayerProtocol {
 
     // MARK: - Helpers
     private func updatePlayItem(_ item: AudioModel) {
-        // TODO: Add logging for player item updates using logging library
         guard let url = item.url else {
-            print("⚠️ updatePlayItem: URL is nil")
+            Log.player.error("updatePlayItem: the book has no URL")
             return
         }
 
@@ -318,42 +335,14 @@ final class Player: PlayerProtocol {
         }
 
         hasSecurityAccess = url.startAccessingSecurityScopedResource()
-        print("🔐 updatePlayItem: Security scoped access: \(hasSecurityAccess) for \(url.lastPathComponent)")
+        Log.player.debug(
+            "updatePlayItem: security scope \(self.hasSecurityAccess, privacy: .public) for \(url.lastPathComponent, privacy: .private)"
+        )
         model = item
         lastPositionSave = now()
 
         let playerItem = AVPlayerItem(url: url)
-
-        // TODO: Add logging for player item failures using logging library
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemFailedToPlayToEndTime,
-            object: playerItem,
-            queue: .main
-        ) { notification in
-            // TODO: Log AVPlayerItem failure
-            if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
-                print("❌ AVPlayerItem failed: \(error.localizedDescription)")
-            }
-        }
-
-        // TODO: Add logging for player item status changes using logging library
-        playerItem.publisher(for: \.status)
-            .sink { status in
-                // TODO: Log status changes (readyToPlay, failed, unknown)
-                switch status {
-                case .readyToPlay:
-                    print("✅ AVPlayerItem ready to play")
-                case .failed:
-                    if let error = playerItem.error {
-                        print("❌ AVPlayerItem failed with error: \(error.localizedDescription)")
-                    }
-                case .unknown:
-                    print("⚠️ AVPlayerItem status unknown")
-                @unknown default:
-                    print("⚠️ AVPlayerItem unknown status")
-                }
-            }
-            .store(in: &cancellables)
+        observeFailure(of: playerItem, book: item)
 
         // A queue player advances (dropping the item) at its end by default; a single file must
         // stay put at the end the way the plain `AVPlayer` did, or the saved position resets.
@@ -376,7 +365,8 @@ final class Player: PlayerProtocol {
                 bookID: bookID,
                 downloadsRoot: downloadsRoot,
                 prioritizer: chapterPrioritizer,
-                onBookEnd: { [weak self] in self?.pause() }
+                onBookEnd: { [weak self] in self?.pause() },
+                onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) }
             )
         }
         playUrlSubject.send(item)
@@ -387,10 +377,9 @@ final class Player: PlayerProtocol {
     }
 
     private func stopAccessingCurrentURL() {
-        // TODO: Add logging for security scope access using logging library
         if hasSecurityAccess, let url = url {
             url.stopAccessingSecurityScopedResource()
-            print("🔒 Stopped accessing: \(url.lastPathComponent)")
+            Log.player.debug("stopped accessing \(url.lastPathComponent, privacy: .private)")
             hasSecurityAccess = false
         }
     }
@@ -466,5 +455,68 @@ extension Player {
             self?.saveTime()
         }
         notificationObservers = [interruption, background]
+    }
+}
+
+// MARK: - Failures
+extension Player {
+    /// The loaded book's item failed. A queue player drops a failed item, so a single file with no
+    /// item left has failed too.
+    private var hasFailedItem: Bool {
+        if let multiFileQueue { return multiFileQueue.currentItemFailed }
+        return player.currentItem.map { $0.status == .failed } ?? true
+    }
+
+    /// No `saveTime()`: a failed item has no position worth keeping.
+    private func retryFailedItem(_ model: AudioModel) {
+        Log.player.info("play: retrying a failed item")
+        if let multiFileQueue {
+            multiFileQueue.reload(atBookTime: currentTime)
+        } else {
+            updatePlayItem(model)
+            seek(model.currentTime)
+        }
+    }
+
+    /// An imported file's item failed to load, or failed mid-play. Stored in `cancellables`, so it
+    /// goes with the item.
+    private func observeFailure(of playerItem: AVPlayerItem, book: AudioModel) {
+        playerItem.publisher(for: \.status)
+            .filter { $0 == .failed }
+            .sink { [weak self, weak playerItem] _ in
+                self?.fileFailed(book, error: playerItem?.error)
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime, object: playerItem)
+            .sink { [weak self] notification in
+                let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                self?.fileFailed(book, error: error)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// A file that is no longer there was moved, renamed or deleted, so its bookmark can't find it:
+    /// importing it again fixes that. A file that is there but won't play can't be fixed that way.
+    private func fileFailed(_ book: AudioModel, error: Error?) {
+        let error = error as NSError?
+        let isReachable = (try? book.url?.checkResourceIsReachable()) == true
+        Log.player.error(
+            """
+            item failed: \(book.url?.lastPathComponent ?? "", privacy: .private), \
+            reachable=\(isReachable, privacy: .public), \
+            \(error?.domain ?? "", privacy: .public) \(error?.code ?? 0, privacy: .public)
+            """
+        )
+        noticeReporter.report(isReachable ? .playbackFailed : .fileMissing(title: Notice.title(of: book)))
+    }
+
+    /// The LibriVox chapter being played failed. Streaming one while offline is the common case
+    /// (#130): Play on a chapter that isn't downloaded, without a connection.
+    private func chapterFailed(isStreaming: Bool) {
+        let isOnline = networkPath.isOnline
+        Log.player.error(
+            "chapter failed: streaming=\(isStreaming, privacy: .public), online=\(isOnline, privacy: .public)"
+        )
+        noticeReporter.report(isStreaming && !isOnline ? .streamingOffline : .chapterFailed)
     }
 }

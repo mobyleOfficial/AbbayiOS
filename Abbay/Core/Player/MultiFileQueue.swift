@@ -5,6 +5,7 @@
 
 import AVFoundation
 import Foundation
+import os
 
 /// Plays a book made of one file per chapter (LibriVox) on the `Player`'s `AVQueuePlayer`.
 ///
@@ -21,6 +22,9 @@ final class MultiFileQueue {
     private let downloadsRoot: URL
     private let prioritizer: ChapterPrioritizing
     private let onBookEnd: () -> Void
+    /// The chapter being played failed to load or play; `isStreaming` when it isn't downloaded.
+    /// On main. A queued chapter failing ahead of time is reported only once it becomes current.
+    private let onItemFailed: (_ isStreaming: Bool) -> Void
 
     private(set) var currentIndex = 0
     /// Items this queue put on the player, by chapter index. Lets the end-of-item notification be
@@ -38,6 +42,8 @@ final class MultiFileQueue {
     /// or the queue emptied), rather than falling back to a chapter's start or zero.
     private var lastBookTime: Double = 0
     private var endObserver: NSObjectProtocol?
+    /// One status observation per item in `items`.
+    private var failureObservations: [ObjectIdentifier: NSKeyValueObservation] = [:]
 
     /// Book-wide time: the chapter's start plus the offset into its file.
     ///
@@ -65,7 +71,8 @@ final class MultiFileQueue {
         bookID: String,
         downloadsRoot: URL,
         prioritizer: ChapterPrioritizing,
-        onBookEnd: @escaping () -> Void
+        onBookEnd: @escaping () -> Void,
+        onItemFailed: @escaping (_ isStreaming: Bool) -> Void = { _ in }
     ) {
         self.player = player
         self.chapters = chapters
@@ -74,6 +81,7 @@ final class MultiFileQueue {
         self.downloadsRoot = downloadsRoot
         self.prioritizer = prioritizer
         self.onBookEnd = onBookEnd
+        self.onItemFailed = onItemFailed
 
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
@@ -104,8 +112,22 @@ final class MultiFileQueue {
         }
     }
 
+    // MARK: - Failures
+    /// Whether the chapter being played failed, e.g. an undownloaded chapter played offline.
+    var currentItemFailed: Bool {
+        items[currentIndex]?.status == .failed
+    }
+
+    /// Loads the chapter that holds `bookTime` again with a fresh item: a retry after a failure.
+    func reload(atBookTime bookTime: Double) {
+        guard !chapters.isEmpty else { return }
+        let position = timeline.position(at: bookTime)
+        load(chapterIndex: position.chapterIndex, offset: position.offset)
+    }
+
     // MARK: - Helpers
     private func load(chapterIndex index: Int, offset: Double) {
+        failureObservations = [:]
         guard let item = makeItem(for: index) else { return }
         currentIndex = index
         items = [index: item]
@@ -158,7 +180,34 @@ final class MultiFileQueue {
         guard chapters.indices.contains(index),
               let url = LibriVoxIdentity.playableURL(for: chapters[index], bookID: bookID, root: downloadsRoot)
         else { return nil }
-        return AVPlayerItem(url: url)
+        let item = AVPlayerItem(url: url)
+        failureObservations[ObjectIdentifier(item)] = item.observe(\.status) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            DispatchQueue.main.async { self?.itemFailed(item) }
+        }
+        return item
+    }
+
+    private func isStreaming(chapterIndex index: Int) -> Bool {
+        !LibriVoxIdentity.isDownloaded(chapters[index], bookID: bookID, root: downloadsRoot)
+    }
+
+    /// Only the chapter being played is the listener's problem.
+    private func itemFailed(_ item: AVPlayerItem) {
+        guard items[currentIndex] === item else { return }
+        reportFailure(of: item, chapterIndex: currentIndex)
+    }
+
+    private func reportFailure(of item: AVPlayerItem, chapterIndex index: Int) {
+        let error = item.error as NSError?
+        let isStreaming = isStreaming(chapterIndex: index)
+        Log.player.error(
+            """
+            chapter \(index, privacy: .public) failed: streaming=\(isStreaming, privacy: .public), \
+            \(error?.domain ?? "", privacy: .public) \(error?.code ?? 0, privacy: .public)
+            """
+        )
+        onItemFailed(isStreaming)
     }
 
     /// At the last chapter there is nothing to advance to: pausing keeps the finished item current,
@@ -176,11 +225,16 @@ final class MultiFileQueue {
         }
         // The queue player has already moved on to `nextItem`; just keep our bookkeeping in step
         // and queue the file after it.
+        failureObservations[ObjectIdentifier(item)] = nil
         items[currentIndex] = nil
         currentIndex = next
         clearPendingSeek()
         enqueue(chapterIndex: next + 1, after: nextItem)
         updateActionAtItemEnd()
         prioritizer.prioritize(chapterIndex: next, ofBookID: bookID)
+        // It failed while queued, when it wasn't the listener's problem yet; now it is.
+        if nextItem.status == .failed {
+            reportFailure(of: nextItem, chapterIndex: next)
+        }
     }
 }
