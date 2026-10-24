@@ -35,6 +35,21 @@ final class NowPlayingManagerTests: XCTestCase {
         )
     }
 
+    /// The lock screen's and CarPlay's toggle asks `Player.isPlaying(_:)`, which counts waiting to
+    /// play while buffering as playing (the same mapping as the bar's play/pause). So a toggle
+    /// pressed while the audio buffers pauses it, as the pause icon on screen promises.
+    func test_togglePlayPause_whileBuffering_pauses() {
+        let player = MockPlayer()
+        player.isPlayingResult = Player.isPlaying(status: .waitingToPlayAtSpecifiedRate, reason: .toMinimizeStalls)
+        NowPlayingManager.shared.setPlayer(player, currentAudio: model)
+
+        let status = NowPlayingManager.shared.togglePlayPause()
+
+        XCTAssertEqual(status, .success)
+        XCTAssertEqual(player.pauseCallCount, 1)
+        XCTAssertTrue(player.playCalls.isEmpty, "a buffering player is playing: the toggle must not play again")
+    }
+
     func test_clearNowPlaying_isIdempotent() {
         NowPlayingManager.shared.setPlayer(MockPlayer(), currentAudio: model)
 

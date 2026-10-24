@@ -110,16 +110,20 @@ final class NowPlayingManager {
 
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self = self, let player = self.player, var model = self.model else {
-                return .commandFailed
-            }
-            if player.isPlaying(model.url) {
-                player.pause()
-            } else {
-                player.play(&model)
-            }
-            return .success
+            self?.togglePlayPause() ?? .commandFailed
         }
+    }
+
+    /// The lock screen's and CarPlay's toggle. `Player.isPlaying(_:)` counts waiting to play while
+    /// buffering as playing (as the in-app play/pause does), so a toggle while buffering pauses.
+    func togglePlayPause() -> MPRemoteCommandHandlerStatus {
+        guard let player, var model else { return .commandFailed }
+        if player.isPlaying(model.url) {
+            player.pause()
+        } else {
+            player.play(&model)
+        }
+        return .success
     }
 
     private func setupSkipCommands(_ commandCenter: MPRemoteCommandCenter) {

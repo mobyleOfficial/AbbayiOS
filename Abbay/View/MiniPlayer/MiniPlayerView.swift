@@ -64,11 +64,14 @@ struct MiniPlayerView: View {
                 onNext: { perform(.next) },
                 onRestart: { perform(.restart) }
             )
-            PlayButtonView(isPlaying: .constant(playback.isPlaying)) {
-                play()
-            } onPause: {
-                center?.player.pause()
-            }
+            // White both ways: the spec keeps the bar's foreground white on any cover tint, where
+            // the accent's contrast isn't guaranteed.
+            PlayButtonView(
+                isPlaying: .constant(playback.isPlaying),
+                onPlay: { play() },
+                onPause: { center?.player.pause() },
+                pauseColor: ColorConstants.white.value
+            )
             .frame(side: SpaceConstants.sx20.value)
             .padding(SpaceConstants.sx12.value)
             .contentShape(Rectangle())
@@ -116,6 +119,7 @@ struct MiniPlayerView: View {
                     startLocation: value.startLocation,
                     presentation: presentation,
                     book: playback.loadedBook,
+                    beginsOnlyUpward: true,
                     time: value.time.timeIntervalSinceReferenceDate
                 )
             }
@@ -287,6 +291,7 @@ struct MiniPlayerProgressLine: View {
         }
         .frame(height: SpaceConstants.sx2.value)
         .accessibilityElement()
+        .accessibilityLabel(Localizable.chapterProgress.localized)
         .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
         .accessibilityAddTraits(.updatesFrequently)
         .accessibilityIdentifier(AccessibilityID.MiniPlayer.progress)

@@ -12,8 +12,8 @@ LibriVox page's Play all open it.
 - **header:** the grabber, a collapse handle that replaces the old sheet grabber, and a
   `chevron.down` close button (`player.close`, label *Close player*). Tapping the chevron collapses
   the screen into the bar, animated. Dragging the grabber, the chevron or the cover down collapses
-  it under the finger. The grabber is also a VoiceOver button that closes, and the panel answers
-  the escape gesture (two-finger Z). Collapse rules are in [mini-player](mini-player.md#sub-features).
+  it under the finger. The grabber is hidden from VoiceOver (a drag handle only), so the chevron
+  is the one *Close player* element; the panel also answers the escape gesture (two-finger Z). Collapse rules are in [mini-player](mini-player.md#sub-features).
 - **cover:** artwork at 288 pt with rounded corners. While the panel grows, the overlay draws a
   growing copy of the cover that lands exactly here, and the real cover is hidden until then.
   Below it is the title as a `PlayerTitleView` (`player.title`, sliding while playing).
@@ -81,8 +81,10 @@ $B drag player.grabber down                               # planned: collapse un
 - `player.transport.{back30,back15,play,forward15,forward30}`
 - `player.chapters.title` and `player.chapter.<n>`
 - `player.close` (`test_player_closeButton_dismisses`)
-- `player.grabber` (`test_draggingDetailsDown_collapses`; a downward swipe also dismisses,
-  `test_player_swipeDown_dismisses`)
+- `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI
+  tests drag from its position, found from `player.close` (`grabberCenter()` in
+  `MiniPlayerUITests`, `test_draggingDetailsDown_collapses`; a downward swipe from the chevron also
+  dismisses, `test_player_swipeDown_dismisses`)
 
 The screen is reached by a row tap, the bar (tap and drag) and Play on the stub LibriVox book's
 details page.

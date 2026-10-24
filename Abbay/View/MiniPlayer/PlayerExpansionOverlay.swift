@@ -160,14 +160,6 @@ final class PlayerDetailsModels {
     }
 }
 
-/// Which book the expansion's growing cover and tint show: the one the details screen shows.
-enum ExpansionArt {
-    @MainActor
-    static func book(for model: PlayerViewModel) -> AudioModel {
-        model.book
-    }
-}
-
 // MARK: - Drag
 
 /// One drag of the expansion, from the bar, the panel or the chapter list: maps the vertical
@@ -192,11 +184,15 @@ final class ExpansionDrag {
     var isActive: Bool { start != nil }
 
     /// `book` is the loaded book for a drag from the bar, nil for a drag on the open screen.
+    /// `beginsOnlyUpward` (the bar): begin only once the finger is above where it landed, so a
+    /// downward drag on the bar presents nothing (no details screen built, no overlay taking
+    /// touches for a settle, no invisible full-screen panel under Reduce Motion).
     func changed(
         translationY: CGFloat,
         startLocation: CGPoint,
         presentation: PlayerPresentation,
         book: AudioModel?,
+        beginsOnlyUpward: Bool = false,
         time: TimeInterval = Date.timeIntervalSinceReferenceDate
     ) {
         if let current = start,
@@ -204,6 +200,7 @@ final class ExpansionDrag {
             start = nil
         }
         if start == nil {
+            if beginsOnlyUpward, translationY >= 0 { return }
             guard let begun = presentation.beginInteractive(book) else { return }
             start = begun
             self.startLocation = startLocation
@@ -509,7 +506,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         let barOpacity = reduceMotion ? 0 : ExpansionMath.barContentOpacity(fraction)
         let detailsOpacity = reduceMotion ? 1 : ExpansionMath.detailsOpacity(fraction)
         // The book the details screen shows: after a switch while open, the loaded one.
-        let art = ExpansionArt.book(for: model)
+        let art = model.book
         let isCollapsingFromList = listCollapse?.isEngaged ?? false
         return ZStack(alignment: .topLeading) {
             ColorConstants.onyx.value
@@ -563,7 +560,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     /// a transparent handle over it.
     private func cover(frame: CGRect, startFrame: CGRect, fraction: CGFloat) -> some View {
         let target = geometry.coverFrame ?? defaultCoverFrame
-        let art = ExpansionArt.book(for: model)
+        let art = model.book
         let side = ExpansionMetrics.barCoverSide
         let leading = startsInAccessory ? SpaceConstants.sx12.value : SpaceConstants.sx8.value
         // Interpolated in the panel's own coordinates, so the cover rides with the panel's top edge
@@ -646,11 +643,10 @@ private struct ExpansionHeader<Drag: Gesture>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .gesture(drag)
-                .accessibilityElement()
-                .accessibilityLabel(Localizable.closePlayer.localized)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { onClose() }
+                // The chevron is VoiceOver's one "Close player" (with the escape action); the
+                // grabber is a drag handle only. The identifier stays for the UI tests' drags.
                 .accessibilityIdentifier(AccessibilityID.Player.grabber)
+                .accessibilityHidden(true)
             HStack {
                 Button {
                     onClose()
@@ -700,7 +696,7 @@ private struct MiniPlayerFace: View {
                         .opacity(0.8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                PlayButtonView(isPlaying: .constant(playback.isPlaying))
+                PlayButtonView(isPlaying: .constant(playback.isPlaying), pauseColor: ColorConstants.white.value)
                     .frame(side: SpaceConstants.sx20.value)
                     .padding(SpaceConstants.sx12.value)
             }

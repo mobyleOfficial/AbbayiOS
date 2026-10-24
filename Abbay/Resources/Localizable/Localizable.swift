@@ -45,6 +45,7 @@ enum Localizable: String {
     case librarySearchPrompt
     case closePlayer
     case miniPlayerSubtitle
+    case chapterProgress
     case openPlayer
     case nextChapterAction
     case restartChapterAction

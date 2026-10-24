@@ -130,8 +130,8 @@ final class PlayerViewModelTests: XCTestCase {
 
         let again = models.model(for: book, presentationID: 1, state: state, player: nil, downloads: nil)
         XCTAssertTrue(again === model, "the same model for the same presented book")
-        XCTAssertEqual(ExpansionArt.book(for: again).url, otherURL)
-        XCTAssertEqual(ExpansionArt.book(for: again).imageData, Data([1, 2, 3]))
+        XCTAssertEqual(again.book.url, otherURL)
+        XCTAssertEqual(again.book.imageData, Data([1, 2, 3]))
         let next = models.model(for: otherBook(), presentationID: 1, state: state, player: nil, downloads: nil)
         XCTAssertFalse(next === model, "another presented book gets its own model")
     }

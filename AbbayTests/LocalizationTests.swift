@@ -47,6 +47,7 @@ final class LocalizationTests: XCTestCase {
         .librarySearchPrompt,
         .closePlayer,
         .miniPlayerSubtitle,
+        .chapterProgress,
         .openPlayer,
         .nextChapterAction,
         .restartChapterAction
@@ -91,6 +92,7 @@ final class LocalizationTests: XCTestCase {
         .librarySearchPrompt,
         .closePlayer,
         .miniPlayerSubtitle,
+        .chapterProgress,
         .openPlayer,
         .nextChapterAction,
         .restartChapterAction
@@ -181,6 +183,15 @@ final class LocalizationTests: XCTestCase {
 
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
 
-        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Capítulo 35 · faltam 12 min")
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Capítulo 35 · 12 min restantes")
+    }
+
+    /// pt-BR reads "%@ restantes", not "faltam %@", which is wrong at one minute ("faltam 1 min").
+    func test_timeLeftStrings_inPortuguese_readAsRemaining() {
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "1 min"), "1 min restantes")
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 2, "1 min"), "Capítulo 2 · 1 min restantes")
+        XCTAssertEqual(Localizable.chapterProgress.localized, "Progresso do capítulo")
     }
 }

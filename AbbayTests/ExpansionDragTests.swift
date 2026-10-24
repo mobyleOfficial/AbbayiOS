@@ -171,6 +171,42 @@ final class ExpansionDragTests: XCTestCase {
         XCTAssertEqual(drag.axis(for: CGSize(width: -14, height: 2), startLocation: second), .horizontal)
     }
 
+    /// Item 7: a downward drag on the bar must not begin a presentation (it would build the
+    /// details screen and make the overlay take touches for a settle). The bar's drag begins only
+    /// once the finger is above where it landed; from there it maps as usual.
+    func test_barDrag_beginsOnlyOnceItMovesUp() {
+        let book = ViewModelSupport.chaptered()
+        let state = PlaybackState()
+        state.setLoadedBook(book)
+        let presentation = PlayerPresentation(playback: state)
+        presentation.reportScreenSize(screen)
+        presentation.reportBarFrame(barFrame, screenHeight: screen.height)
+        let drag = ExpansionDrag()
+        func bar(_ translationY: CGFloat) {
+            drag.changed(
+                translationY: translationY,
+                startLocation: first,
+                presentation: presentation,
+                book: book,
+                beginsOnlyUpward: true
+            )
+        }
+
+        bar(14)
+        bar(40)
+        XCTAssertNil(presentation.presentedBook, "a downward drag on the bar presents nothing")
+        XCTAssertFalse(drag.isActive)
+        drag.ended(velocityY: 300, presentation: presentation)
+        XCTAssertNil(presentation.presentedBook)
+
+        bar(20)
+        bar(-2)
+        XCTAssertEqual(presentation.presentedBook?.url, book.url, "the same finger, now above where it landed")
+        XCTAssertEqual(presentation.progress, 0, accuracy: 0.001, "measured from where it began, no jump")
+        bar(-2 - 0.25 * barFrame.minY)
+        XCTAssertEqual(presentation.progress, 0.25, accuracy: 0.001)
+    }
+
     // MARK: - Collapse from the chapter list (iOS 18+)
 
     func test_listCollapse_engagesOnlyAtTheTop_andDownward() {

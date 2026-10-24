@@ -29,12 +29,6 @@ final class MediaListViewModel: ObservableObject {
     @Published
     var isShowingFilePicker = false
 
-    /// The book loaded in the player, from the app-wide `PlaybackState` (which is observable, so a
-    /// view reading this re-renders on a switch).
-    var selectedAudio: AudioModel? {
-        playback.state.loadedBook
-    }
-
     // MARK: - Init
     init(
         playback: PlaybackCenter,

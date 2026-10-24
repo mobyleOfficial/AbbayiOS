@@ -25,7 +25,7 @@ search and the [details page](librivox-details.md) live in the Search tab.
 - **mini-player:** when a book is loaded (`PlaybackState.loadedBook`), the
   [mini player](mini-player.md) docks above the tab bar on both tabs, and the list's last row ends
   above it (`test_lastRow_isNotCoveredByMiniPlayer`).
-- **live-selection:** `selectedAudio` is `PlaybackState.loadedBook`, so playback started anywhere
+- **live-selection:** the loaded book is `PlaybackState.loadedBook`, so playback started anywhere
   (Siri, CarPlay) shows the mini player and the row's playing state. On each book switch the root hands the new book to
   `loadedBookChanged(to:)`, which re-reads the outgoing and incoming books from storage.
 

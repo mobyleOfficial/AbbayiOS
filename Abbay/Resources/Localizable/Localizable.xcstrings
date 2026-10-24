@@ -566,7 +566,7 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Faltam %@"
+            "value" : "%@ restantes"
           }
         }
       }
@@ -656,7 +656,25 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Capítulo %d · faltam %@"
+            "value" : "Capítulo %d · %@ restantes"
+          }
+        }
+      }
+    },
+    "chapterProgress" : {
+      "comment" : "Accessibility label of the mini player's thin progress line: progress within the current chapter",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapter progress"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progresso do capítulo"
           }
         }
       }

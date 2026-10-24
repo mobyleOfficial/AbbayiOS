@@ -235,17 +235,6 @@ final class MediaListViewModelTests: XCTestCase {
     // MARK: - Loaded book and delete
 
     @MainActor
-    func test_selectedAudio_isTheLoadedBook() throws {
-        let player = MockPlayer()
-        let (viewModel, _) = try makeViewModel(player: player, loadAudio: MockLoadAudioUseCase())
-        XCTAssertNil(viewModel.selectedAudio)
-
-        player.emitPlayUrl(book("A", url: urlA))
-
-        XCTAssertEqual(viewModel.selectedAudio?.url, urlA)
-    }
-
-    @MainActor
     func test_deletingTheLoadedBook_hidesTheBarAndClosesDetails() throws {
         let loaded = book("A", url: urlA)
         try XCTUnwrap(mockLoadAll).stub = [loaded, book("B", url: urlB)]
@@ -263,7 +252,6 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertEqual(player.unloadCallCount, 1)
         XCTAssertNil(presentation.presentedBook)
         XCTAssertNil(center.state.loadedBook)
-        XCTAssertNil(viewModel.selectedAudio)
         XCTAssertEqual(viewModel.audioList.map(\.url), [urlB])
     }
 

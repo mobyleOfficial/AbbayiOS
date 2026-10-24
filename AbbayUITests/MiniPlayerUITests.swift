@@ -138,6 +138,15 @@ final class MiniPlayerUITests: XCTestCase {
         element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
     }
 
+    /// The grabber's center: hidden from accessibility (the chevron is VoiceOver's close), so it
+    /// is found from the chevron beside it, at the header's horizontal center.
+    private func grabberCenter(file: StaticString = #filePath, line: UInt = #line) -> XCUICoordinate {
+        let close = element(AccessibilityID.Player.close)
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "the details screen has no header", file: file, line: line)
+        return app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.midX, dy: close.frame.midY))
+    }
+
     /// Drags the bar up to near the top of the screen: the details screen follows and settles open.
     func test_draggingMiniPlayerUp_opensDetails() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")
@@ -157,9 +166,7 @@ final class MiniPlayerUITests: XCTestCase {
         try loadSeededBook(titled: "Seeded Chaptered Book")
         element(AccessibilityID.MiniPlayer.bar).tap()
         waitForPlayerToArrive()
-        let grabber = element(AccessibilityID.Player.grabber)
-        XCTAssertTrue(grabber.waitForExistence(timeout: 5), "the details screen has no grabber")
-        let start = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let start = grabberCenter()
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
 
         start.press(forDuration: 0.1, thenDragTo: end)
@@ -221,8 +228,7 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertTrue(transportPlay.waitForExistence(timeout: 5))
         sleep(1)
         transportPlay.tap()
-        let grabber = element(AccessibilityID.Player.grabber)
-        let start = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let start = grabberCenter()
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
 
         start.press(forDuration: 0.2, thenDragTo: end, withVelocity: 250, thenHoldForDuration: 0.5)
@@ -260,8 +266,7 @@ final class MiniPlayerUITests: XCTestCase {
 
         XCTAssertTrue(transportPlay.waitForExistence(timeout: 10), "the slow drag did not open the details screen")
         XCTAssertTrue(bar.waitForNonExistence(timeout: 5))
-        let grabber = element(AccessibilityID.Player.grabber)
-        let grabberCenter = grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let grabberCenter = grabberCenter()
         let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
 
         grabberCenter.press(forDuration: 0.2, thenDragTo: bottom, withVelocity: 180, thenHoldForDuration: 1)
