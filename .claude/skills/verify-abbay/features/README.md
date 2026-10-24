@@ -82,6 +82,14 @@ added. Resolve a row by matching its title label rather than assuming an index.
     it shows a decimal separator) and swaps in a download manager
     that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
     debounce. Combine it with the others; without it search and downloads use the real network.
+    The stub book's cover is a `/dev/null` file URL, which the cover host allowlist refuses, so it
+    shows `cover.failed`.
+  - `-stubCovers` — with `-stubLibriVox`, the stub book's cover is an archive.org URL that
+    `UITestCoverNetwork` answers after 4 s with a generated image, so `cover.loading` and
+    `cover.loaded` can be seen. Covers use their own disk cache (`Caches/UITestCovers`), emptied at
+    launch (see [librivox-details](librivox-details.md) *cover-loading*).
+  - `-stubCoversOffline` — with `-stubCovers`, every cover request fails and that disk cache is
+    kept, so a cover can only come from what an earlier `-stubCovers` launch stored.
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
     exist, so the failed-import banner shows (see [notices](notices.md)).
   - `-resetSettings` — start from default settings kept in memory for that launch only, so a test

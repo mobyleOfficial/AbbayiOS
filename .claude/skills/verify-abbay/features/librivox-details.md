@@ -22,8 +22,15 @@ once the book is in the library. The only way to add a LibriVox book.
   tile with a `book.closed` glyph (`cover.failed`). Covers load through `NetworkProvider`
   (`AsyncImageLoader`) and are kept in memory per URL (`NSCache`, 100 covers), so a cover that
   already loaded, on this page or a Search card, shows at once with no shimmer and no fade.
-  Reduce Motion: a plain `onyx` tile instead of the sweep, and no fade. Leaving the screen
-  cancels the load; a failure is retried on the next appearance.
+  Their bytes are also kept on disk (`CoverDiskCache`, `Caches/LibriVoxCovers`, 30 MB, least
+  recently used dropped first, file names a SHA-256 of the URL), so after a relaunch a cover
+  comes from disk, not the network: a brief `cover.loading`, then `cover.loaded`. Concurrent
+  loads of one URL (a Popular card and the page it opens) share one download, so this page can
+  open mid-load and finish with the card. Only HTTPS on `librivox.org`, `archive.org` and their
+  subdomains is fetched (`CoverHostPolicy`); any other URL fails at once without a request and is
+  logged (`Log.covers`, URL private). Reduce Motion: a plain `onyx` tile instead of the sweep,
+  and no fade. Leaving the screen stops the view waiting, but the shared download finishes and is
+  cached; a failure is retried on the next appearance.
 - **description:** three lines, with a **More** button (`detail.more`) that expands it in place. The
   button shows whenever the description is non-empty and collapsed — not only when the text is
   actually truncated.
@@ -96,10 +103,32 @@ the chapter retry never appear (see [downloads](downloads.md)).
 The decisions behind them are unit-tested: `CellularDownloadPolicyTests`, `NetworkPathSnapshotTests`,
 `LibriVoxDetailViewModelTests`, `ChapterListViewTests`.
 
-`cover.failed` is verified by `CoverUITests` (the stub's cover is a `/dev/null` file URL, so it
-always fails). `cover.loading` and `cover.loaded` are **implemented but unverified**: the stub has
-no cover that loads, and loading is too brief to catch. Load, cache hit and failure are unit-tested
-in `AsyncImageLoaderTests`.
+All three cover states are verified by `CoverUITests`:
+
+- `cover.failed`: the stub's cover is a `/dev/null` file URL, which the host allowlist refuses
+  (`test_detailCover_thatFailsToLoad_showsTheFallback`).
+- `cover.loading` then `cover.loaded`: with `-stubCovers` the stub's cover is
+  `https://archive.org/services/img/ui-test-stub`, answered after 4 s by `UITestCoverNetwork`, so
+  the page opens mid-load (`test_detailCover_showsLoading_thenLoaded`).
+- disk cache across a relaunch: a `-stubCovers` launch stores the cover, then a
+  `-stubCovers -stubCoversOffline` launch, whose cover requests all fail, still shows `cover.loaded`
+  (`test_detailCover_afterARelaunch_isServedFromDisk`).
+- Reduce Motion: two frames of the loading cover 0.5 s apart differ normally
+  (`test_loadingCover_shimmers`) and are identical with `-forceReduceMotion`
+  (`test_loadingCover_withReduceMotion_isStatic`).
+
+```bash
+$B launch -seedLibrary -stubLibriVox -stubCovers   # cover loads for 4 s, then a green square
+$B tap root.tab.search && $B tap search.card.0
+$B wait cover.loading && $B wait cover.loaded
+$B launch -seedLibrary -stubLibriVox -stubCovers -stubCoversOffline   # only disk can answer
+$B tap root.tab.search && $B tap search.card.0 && $B wait cover.loaded
+```
+
+Shared downloads, the disk cache's size bound and the allowlist's host matching are unit-tested in
+`AsyncImageLoaderTests` and `CoverDiskCacheTests`. The Popular card's and search row's covers have
+no id of their own (the card/row button's id covers them), so the details page is where cover
+states are read.
 
 **Not addressable:** there is no identifier on the title, author, size or credit text.
 
@@ -109,6 +138,8 @@ in `AsyncImageLoaderTests`.
   `/dev/null/...` URLs are not real files) and `UITestDownloadManager` downloads nothing. Playing it
   therefore opens the details screen and the mini player appears, but no audio plays. Everything about
   real search results, real sizes, real covers and real downloads is **unreachable by UI automation**.
+  `-stubCovers` gives the stub a cover that loads (a generated green square), from its own disk
+  cache (`Caches/UITestCovers`, emptied at each `-stubCovers` launch unless `-stubCoversOffline`).
 - **The page is state-held by the Search tab, not by the result row.** `SearchTab` (in
   `AppRootView.swift`) keeps the opened book in `openedBook` and pushes it with
   `navigationDestination(item:)`, so a result row changing under it can't pop the page before

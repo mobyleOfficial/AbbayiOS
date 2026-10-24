@@ -26,15 +26,18 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_stubBook_withoutStubCovers_hasACoverTheAllowlistRefuses() async throws {
         let client = try XCTUnwrap(DebugOverrides.libriVoxClient(arguments: [LaunchArgument.stubLibriVox]))
-        let book = try XCTUnwrap(try await client.popular().first)
+        let books = try await client.popular()
+        let book = try XCTUnwrap(books.first)
 
         XCTAssertFalse(CoverHostPolicy.libriVox.allows(book.coverURL))
     }
 
     func test_stubBook_withStubCovers_hasAnAllowedCover_thatTheStubLoaderLoads() async throws {
+        addTeardownBlock { CoverDiskCache(directory: UITestCoverNetwork.diskDirectory).removeAll() }
         let arguments = [LaunchArgument.stubLibriVox, LaunchArgument.stubCovers]
         let client = try XCTUnwrap(DebugOverrides.libriVoxClient(arguments: arguments))
-        let book = try XCTUnwrap(try await client.popular().first)
+        let books = try await client.popular()
+        let book = try XCTUnwrap(books.first)
         let loader = try XCTUnwrap(DebugOverrides.coverLoader(arguments: arguments))
 
         XCTAssertTrue(CoverHostPolicy.libriVox.allows(book.coverURL))
