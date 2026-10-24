@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
     lazy var playMediaHandler = InAppPlayMediaHandler()
     lazy var launchState: LaunchStateFlag = .shared
+    lazy var siriContext: SiriContextRefreshing = DependencyContainer.shared.siriContext
+    lazy var backgroundRefresh = SiriBackgroundRefresh(refresher: siriContext)
 
     func application(
         _ application: UIApplication,
@@ -65,8 +67,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // only writes when the snapshot is missing — so launch cannot rely on a
         // mutation having run. The library list used to do this write (#85).
         librarySnapshotWriter.refresh()
+        // That write published to Siri: the scene becoming active next needn't publish again.
+        siriContext.markPublished()
+
+        // Before launch ends, or `BGTaskScheduler` refuses it. A background launch for the task
+        // runs this whole method too, publish included.
+        backgroundRefresh.register()
 
         return true
+    }
+
+    /// Siri's context goes stale while the app isn't used (#127): refresh it, throttled, when the
+    /// app comes to the foreground, and queue the daily background refresh when it leaves.
+    func scenePhaseChanged(to phase: ScenePhase) {
+        switch phase {
+        case .active:
+            siriContext.refreshIfDue(.foreground)
+        case .background:
+            backgroundRefresh.schedule()
+        default:
+            break
+        }
     }
 
     func application(
@@ -134,12 +155,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct AbbayApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self)
     var appDelegate
+    @Environment(\.scenePhase)
+    private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             // Built in the body, after `didFinishLaunching` configured the container. The root
             // injects the playback and download sources and the player presentation.
             AppRootView()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            appDelegate.scenePhaseChanged(to: phase)
         }
     }
 }

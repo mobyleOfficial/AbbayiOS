@@ -81,6 +81,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<!-- The daily Siri context refresh, a BGAppRefreshTask (#127, SiriBackgroundRefresh). -->
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.edyuto.Abbay.siriRefresh</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>
