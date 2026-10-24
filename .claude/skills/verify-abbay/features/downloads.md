@@ -3,7 +3,7 @@
 `BookDownloadManager` and the views that show it — how a LibriVox book gets onto the device chapter
 by chapter, keeps going in the background, can be streamed meanwhile, and is paused, resumed and
 deleted. Not a screen of its own: it surfaces on the Library row, the
-[LibriVox details page](librivox-details.md) and the [player](player.md) sheet.
+[LibriVox details page](librivox-details.md) and the [player](player.md) details screen.
 
 ## Sub-features
 
@@ -29,9 +29,12 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   directory. The player's position saves are update-only, so a deleted book that was loaded in the
   player is not re-inserted.
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
-  the ring; the player sheet and the details page show the overall progress bar and per-chapter
+  the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
   ✓ / `N%` / *Waiting* through the shared `ChapterListView`. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.
+  Every view reads the state through `DownloadStateStore`, the manager's one `statesPublisher`
+  subscriber, which fans it out into one observable entry per book, so one book's progress only
+  re-renders the views showing that book (`DownloadStateStoreTests`, `SubscriptionBudgetTests`).
 
 ## How to get to it (user POV)
 

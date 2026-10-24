@@ -23,8 +23,8 @@ root), and sends actions through `MediaViewModel` straight to `PlaybackCenter.pl
   resumes a paused one (a paused ring shows a play glyph); its accessibility label is *"Downloading,
   N%"* or *"Paused"*. It disappears when the book is complete and never exists for imported books.
   See [downloads](downloads.md).
-- **created-while-loaded:** a row built after its book was already loaded (the list is rebuilt when
-  search closes, or playback began from Siri, CarPlay or another screen) shows it playing with no
+- **created-while-loaded:** a row built after its book was already loaded (the list is filtered or
+  scrolled back into view, or playback began from Siri, CarPlay or another tab) shows it playing with no
   play event to catch, because it compares its URL with `PlaybackState.loadedBook` (#116;
   unit-tested in `MediaViewModelTests`).
 
@@ -35,13 +35,20 @@ when this row's book is the loaded one — `PlaybackState.isPlaying`, plus the b
 entry. Nothing in it reads `PlaybackClock`. `RowProgressView`, the one row view that reads the
 clock, is inserted only for the loaded book; for a chaptered book it reads only `currentChapter`,
 so ticks within a chapter cost it nothing. Pinned by `MediaViewModelTests`
-(`test_idleRow_readsNoClockProperty`, `test_rowModel_makesNoPlayerSubscriptions`).
+(`test_idleRow_readsNoClockProperty`, `test_rowModel_makesNoPlayerSubscriptions`) and, app-wide, by
+`SubscriptionBudgetTests` (25 rows, three open/close cycles, 30 ticks: still three player
+subscriptions and one `statesPublisher` subscription in total).
+
+**Once per book switch, every row re-renders.** Each row's `DetailModel` reads
+`PlaybackState.loadedBook` to tell whether it is the loaded one, so a switch (not a tick, not a
+pause) invalidates every visible row once. That is the accepted cost of rows holding no
+subscriptions; it is constant per switch and independent of the clock.
 
 ## How to get to it (user POV)
 
-Every row in the library list, and the *In your library* rows in search results (namespace
-`library.search.local.<n>` instead of `library.row.<n>`). The play button acts without leaving the
-list; tapping anywhere else opens the full player.
+Every row in the Library tab's list, including while its local search filters it (rows keep the
+`library.row.<n>` namespace, positional within the filtered list). The play button acts without
+leaving the list; tapping anywhere else opens the details screen ([player](player.md)).
 
 ## Driving it with abbay-ctl
 
@@ -53,15 +60,15 @@ $B tap library.row.1.play                    # row 0 must stop reporting playing
 ```
 
 **Verified** (`AccessibilityIdentifierTests`): `library.row.<n>.artwork`,
-`library.row.<n>.title`, `library.row.<n>.detail` (its label: "Ch 1/3" for the chaptered seed, the
-time left for the plain one), `library.row.<n>.play`. The same leaves exist under
-`library.search.local.<n>`; of those only `.title` is verified.
+`library.row.<n>.title`, `library.row.<n>.detail` (`AccessibilityID.Element.detail`; its label:
+"Ch 1/3" for the chaptered seed, the time left for the plain one), `library.row.<n>.play`
+(also used by `MiniPlayerUITests` to load a seeded book).
 
 **Implemented but unverified:** `library.row.<n>.downloadRing` — the stub download manager reports no
 state, so no UI test can make a ring appear.
 
 `library.row.<n>.title` doubles as the row handle: the tap gesture sits on the whole row, so
-tapping the title opens the player. There is deliberately no identifier on the row container —
+tapping the title opens the details screen. There is deliberately no identifier on the row container —
 it would overwrite all the leaves above.
 
 Remember row order is not insertion order (`LoadAllAudiosUseCase` applies no sort), so resolve

@@ -31,7 +31,9 @@ Consequences baked into the current design:
 - There is **no `library.root` and no `player.root`** — both clobbered everything beneath them.
   Use `library.list` / `library.empty` and a specific player control as the "screen is up" signal.
 - `library.row.<n>` is **not** addressable on its own. Address a row through one of its leaves
-  (`library.row.<n>.title` is the usual handle, and tapping it opens the player).
+  (`library.row.<n>.title` is the usual handle, and tapping it opens the details screen).
+- The mini player's id (`miniPlayer.bar`) is on its title/subtitle element, not the bar container,
+  so `miniPlayer.playPause` and `miniPlayer.progress` stay addressable beside it.
 
 Convention remains `<screen>.<element>[.<qualifier>]`. Constants live in
 `Abbay/Core/AccessibilityID.swift`, compiled into both the app and the UI test target because a
@@ -53,17 +55,20 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-seedLibrary` — replaces the library with two deterministic books, one chaptered (three
     chapters) and one without chapters.
   - `-resetLibrary` — empties the library, for the empty state.
-  - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: empty Popular,
-    one book found by any query containing "stub") and swaps in a download manager that downloads
-    nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search debounce. Combine
-    it with the other two; without it search and downloads use the real network.
+  - `-seedFillerBooks` — with `-seedLibrary`, also adds filler books so the list is longer than
+    the screen (the mini player's last-row inset test).
+  - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
+    one stub book, which any query containing "stub" also finds) and swaps in a download manager
+    that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
+    debounce. Combine it with the others; without it search and downloads use the real network.
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
-  cumulative. All three are DEBUG-only: the `UITest*` files are excluded from Release and
-  `DebugOverrides` returns `nil` there. The seeded models carry **no playable audio**, so anything
-  requiring playback to actually start — the floating player from a seeded book, tapping a chapter —
-  is still unreachable this way. The stub LibriVox book can be "played" only in the sense that the
-  player sheet and floating player appear; its chapter URL is `/dev/null`.
+  cumulative. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
+  `DebugOverrides` returns `nil` there. The seeded models carry **no playable audio**: pressing a
+  seeded row's play button loads the book (the mini player and the row's loaded state appear), but
+  nothing plays and the clock doesn't move, so anything needing real playback — time advancing,
+  tapping a chapter — is unreachable this way. The stub LibriVox book is the same: Play opens the
+  details screen and the mini player appears; its chapter URL is `/dev/null`.
 
   Not reachable by any launch configuration: real search results, real downloads and their
   progress/ring/statuses (the stub manager's state stream is empty), the cellular alert (the stub
@@ -75,6 +80,10 @@ added. Resolve a row by matching its title label rather than assuming an index.
   why the UI seed path uses synthetic models instead.
 - UI tests run from their own scheme via `bundle exec fastlane ui_test_project`, kept out of
   `test_project` so the unit suite stays fast. `run_ui_tests` in `.actions.yml` gates CI.
+  `bundle exec fastlane verify` runs lint, unit and UI suites on the `.actions.yml` device
+  (iOS 26.4). The tab bar and mini player have two code paths (system accessory on 26.1+,
+  hand-built dock below), so also run the UI scheme once on an iOS 18.5 simulator
+  (`xcodebuild test -scheme AbbayUITests -destination 'platform=iOS Simulator,name=…,OS=18.5'`).
 - Out-of-band state lives in the App Group `group.com.edyuto.abbay`, readable with
   `xcrun simctl get_app_container booted com.edyuto.Abbay group`. Assert side effects there
   (`abbay.lastPlayedAudioURL`, `abbay.librarySnapshot.v1`, `abbay.diagnostics.v1`,
@@ -102,20 +111,21 @@ substitute: it records every intent firing across processes and survives app dea
 
 ### Shell and library
 
-- [app-shell](app-shell.md): launch ordering, audio-session activation, scene routing, Siri authorisation.
-- [library](library.md): the audiobook list, empty state, delete, toolbar, combined library/LibriVox search.
+- [app-shell](app-shell.md): launch ordering, audio-session activation, scene routing, the root and its one playback source, Siri authorisation.
+- [tabs](tabs.md): the Library and Search tabs, both searches, the system vs hand-built tab bar, the keyboard.
+- [library](library.md): the audiobook list, empty state, delete, toolbar, local-only search.
 - [import](import.md): the document picker, metadata and chapter extraction, security-scoped bookmarks.
 - [media-row](media-row.md): the per-book row component, including the download ring.
 
 ### LibriVox
 
-- [librivox-details](librivox-details.md): the details page — Download, cellular warning, Play, chapter list.
+- [librivox-details](librivox-details.md): the details page in the Search tab — Download, cellular warning, Play, chapter list.
 - [downloads](downloads.md): background chapter-by-chapter downloads, streaming, pause/resume, restore, delete.
 
 ### Playback
 
-- [player](player.md): the full-screen player sheet, scrubbing, chapter list.
-- [floating-player](floating-player.md): the mini player docked over the library.
+- [mini-player](mini-player.md): the one-row bar above the tabs, its tap, drag and swipes, and the expansion into the details screen.
+- [player](player.md): the details screen (no longer a sheet), its grabber and close, scrubbing, chapter list.
 - [now-playing](now-playing.md): lock screen, Control Center and remote commands.
 
 ### Siri and system integration

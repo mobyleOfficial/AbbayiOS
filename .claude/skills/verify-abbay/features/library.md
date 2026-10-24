@@ -19,43 +19,67 @@ search and the [details page](librivox-details.md) live in the Search tab.
 - **row-tap:** `presentation.open(book)` — the one player presentation (see [player](player.md)).
 - **delete:** trailing swipe. Removes from Core Data, drops it from `audioList`, rewrites the
   snapshot. Deleting the loaded book unloads it from the player (`PlaybackCenter.unload()`), so the
-  floating player disappears; deleting the book the details screen shows closes it.
+  mini player disappears; deleting the book the details screen shows closes it.
 - **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with only **Import file**
   (`library.menu.import`), plus the dead `gearshape` button (`library.toolbar.settings`).
-- **floating-player:** when a book is loaded (`PlaybackState.loadedBook`),
-  [floating-player](floating-player.md) sits at the bottom of the Library tab, above the tab bar;
-  tapping it calls `presentation.open`. Interim: the docked bar replaces it.
+- **mini-player:** when a book is loaded (`PlaybackState.loadedBook`), the
+  [mini player](mini-player.md) docks above the tab bar on both tabs, and the list's last row ends
+  above it (`test_lastRow_isNotCoveredByMiniPlayer`).
 - **live-selection:** `selectedAudio` is `PlaybackState.loadedBook`, so playback started anywhere
-  (Siri, CarPlay) shows the floating player. On each book switch the root hands the new book to
+  (Siri, CarPlay) shows the mini player and the row's playing state. On each book switch the root hands the new book to
   `loadedBookChanged(to:)`, which re-reads the outgoing and incoming books from storage.
 
 ## How to get to it (user POV)
 
-The first tab on launch (`root.tab.library`).
+The first tab on launch (`root.tab.library`). See [tabs](tabs.md) for the tab bar and the Search tab.
 
 ## Driving it with abbay-ctl
 
 ```bash
 $B launch --seed-library --stub-librivox
 $B wait library.list
-$B tap library.row.0.title                   # → player (slides up); close with player.close
+$B tap library.row.0.title                   # → details screen (grows up); close with player.close
+$B tap library.row.0.play && $B wait miniPlayer.bar        # loads the seeded book (no audio)
 $B tap library.toolbar.add && $B tap library.menu.import   # → document picker
+$B swipe library.row.0 left                  # trailing Delete action (no identifier)
+$B wait library.empty                        # after deleting the last book
+$B appgroup get abbay.librarySnapshot.v1     # assert the delete rewrote the snapshot
 $B tap root.tab.search                       # → Search tab
 ```
 
 **Verified** (`AccessibilityIdentifierTests`): `library.list`, `library.empty`,
 `library.empty.browse` (opens the Search tab), `library.empty.import`, `library.toolbar.add`,
 `library.menu.import`, `library.toolbar.settings`, `library.search.noResults`,
-`library.row.<n>.*`, and `library.floatingPlayer` (after Play on the stub book's details page).
+`library.row.<n>.{artwork,title,detail,play}` (see [media-row](media-row.md)).
 
 **Not addressable:** `library.row.<n>` on its own (leaf-only rule). The search field has no
-identifier: find it by placeholder (*Search your library*).
+identifier: find it by placeholder (*Search your library*). There is no `library.root`; use
+`library.list` or `library.empty` as the "screen is up" signal depending on the state you expect.
+
+**Not implemented:** `library.row.<n>.delete` — the delete is a swipe action, not a persistent
+element. `library.floatingPlayer` and `library.menu.browse` are gone (the floating player was
+replaced by the mini player; browsing LibriVox is the Search tab).
+
+**Seeded books can't play audio.** Their models carry no playable file. Pressing a seeded row's
+play button still makes the player announce the book, so the mini player and the row's loaded
+state appear (that is how `MiniPlayerUITests` loads one), but the clock never moves and nothing is
+heard. Anything needing real playback — chapter taps (gated on playing), time advancing, the end
+of a chapter — needs a genuinely playable import.
 
 ## Gotchas
 
-- **Settings is a dead button** (issue #58).
-- **`library.floatingPlayer` sits on a container**, overwriting identifiers inside it.
-- **Row taps use `onTapGesture`.** Rows are keyed by `\.url`.
+- **Settings is a dead button.** `gearshape` is a `Button` with an empty action (issue #58); it
+  renders as tappable but does nothing.
+- **Search and stub tests need `-stubLibriVox`.** The Library's own search is local, but the Search
+  tab, the *Browse free audiobooks* button's destination and the stub-book flows all talk to
+  archive.org and librivox.org without it. With it, LibriVox answers from memory
+  (`UITestLibriVoxClient`: Popular is the one stub book, found by any query containing "stub") and
+  downloads do nothing.
+- **The empty state has no search field** (`test_emptyLibrary_hasNoSearchField`).
+- **The CarPlay library has no empty state at all** (#95, still open; see [carplay](carplay.md)),
+  unlike this one.
+- **Row taps use `onTapGesture`.** Rows are keyed by `\.url`; two imports resolving to the same
+  URL collapse to one row (`importAudio` de-duplicates on `url`).
 - `deleteAudio` mutates `audioList` directly rather than reloading; the delete use case has no error
   path.
 - Row order is whatever `LoadAllAudiosUseCase` returns; there is no explicit sort.

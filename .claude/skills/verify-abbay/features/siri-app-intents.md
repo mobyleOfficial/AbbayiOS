@@ -47,7 +47,7 @@ $B diagnostics --clear
 # ... trigger however possible ...
 $B diagnostics                                # assert "appintent <Name> fired"
 $B appgroup get abbay.lastPlayedAudioURL
-$B wait library.floatingPlayer                # in-app proof that playback actually started
+$B wait miniPlayer.bar                         # in-app proof that a book was loaded (see mini-player.md)
 ```
 
 The durable answer is **`AppIntentsTesting`** (Xcode 27 / iOS 27 SDK): it executes intents through

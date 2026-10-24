@@ -1,87 +1,126 @@
-# Player
+# Player (the details screen)
 
-`PlayerView` — the full-screen player, presented as a sheet. Cover art, transport controls,
-scrubbing, and the chapter list.
+`PlayerView` is the full-screen details screen: cover art, transport controls, scrubbing and the
+chapter list. It is **no longer a sheet**. It is drawn inside `PlayerExpansionOverlay`, one panel
+above the tabs that grows out of the [mini player](mini-player.md) and collapses back into it. The
+panel adds a header on top with a grabber (`player.grabber`) and a close chevron (`player.close`).
+There is one presentation for the whole app (`PlayerPresentation`). Library rows, the bar and a
+LibriVox page's Play all open it.
 
 ## Sub-features
 
-- **cover:** artwork at 288pt rounded, with the title below as a `PlayerTitleView` (sliding while
-  playing), centre-aligned.
-- **transport:** five controls in a row — `gobackward.30`, `gobackward.15`, play/pause,
-  `goforward.15`, `goforward.30`. The skips call `Player.backward/forward(withSeconds:)`, which
-  seek relative to the current position.
-- **scrubbing:** `PlayerProgressView` bound to `currentTime` over `info.duration`. Drag start calls
-  `willSeek()`, release calls `seek(time)`. Current time drives `setCurrentChapter(for:)` through an
-  `onChange`.
+- **header:** the grabber, a collapse handle that replaces the old sheet grabber, and a
+  `chevron.down` close button (`player.close`, label *Close player*). Tapping the chevron collapses
+  the screen into the bar, animated. Dragging the grabber, the chevron or the cover down collapses
+  it under the finger. The grabber is also a VoiceOver button that closes, and the panel answers
+  the escape gesture (two-finger Z). Collapse rules are in [mini-player](mini-player.md#sub-features).
+- **cover:** artwork at 288 pt with rounded corners. While the panel grows, the overlay draws a
+  growing copy of the cover that lands exactly here, and the real cover is hidden until then.
+  Below it is the title as a `PlayerTitleView` (`player.title`, sliding while playing).
+- **transport:** five controls in a row:
+  - `gobackward.30` and `gobackward.15`
+  - play/pause
+  - `goforward.15` and `goforward.30`
+
+  The skips seek relative to the current position.
+- **loaded vs other book:**
+  - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
+    `PlaybackState`, time and chapter from `PlaybackClock`.
+  - **Another book** (a row tap on a book that isn't loaded) shows its saved position. Its
+    transport does nothing until Play loads it, so it can't move the loaded book.
+  - **Following the loaded book:** opened on the loaded book, the screen follows it. If Siri or
+    CarPlay switches books while it is open, it shows the new one. Each presentation gets a fresh
+    `PlayerViewModel` (`PlayerDetailsModels`), so reopening book A never shows the previously
+    followed book B.
+- **scrubbing:** `PlayerProgressView` over book time. While the finger scrubs, and until the clock
+  reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
 - **chapter-list:** the shared `ChapterListView` (also used by the
   [LibriVox details page](librivox-details.md)): a rounded card with a *"Chapter selection"* header
-  bar, then a scrolling `List` with one row per chapter — scrolling title, trailing duration. The
-  chapter matching `model.currentChapter` renders in the "playing" style (green). Tapping a chapter
-  seeks to its `startTime`.
-- **chapter-list-gating:** the whole list is dimmed to 50% opacity when not playing, and the tap
-  handler early-returns unless `model.isPlaying`.
-- **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓ /
-  `N%` / *Waiting* and a thin overall progress bar (`player.download.progress`) sits under the header.
-  Both vanish when the download completes; imported books never show them. See
+  (`player.chapters.title`), then one row per chapter (`player.chapter.<n>`) with a scrolling title
+  and its duration. The current chapter renders in the "playing" style (green). Tapping a chapter
+  seeks to its `startTime`. On iOS 18+, a downward drag from the list's top collapses the screen.
+- **chapter-list-gating:** the list is dimmed to 50% while not playing, and the tap handler returns
+  early unless `model.isPlaying`.
+- **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
+  `N%` or *Waiting*, and a thin overall progress bar (`player.download.progress`) sits under the
+  header. Both vanish when the download completes. Imported books never show them. See
   [downloads](downloads.md).
-- **multi-file-books:** a LibriVox book is one book of many files. Time, the scrubber, the skip
-  buttons and chapter seeks all use **book time** (chapter `startTime`s are cumulative);
-  `MultiFileQueue` maps it to a chapter file and offset, keeps the next file queued for gapless
-  playback, prefers the downloaded file over streaming, and pauses at the end of the last chapter.
-  Seeking into a different chapter loads that file and prioritizes its download.
+- **multi-file-books:** a LibriVox book is one book made of many files. Time, the scrubber, the
+  skips and chapter seeks all use **book time** (chapter `startTime`s are cumulative).
+  `MultiFileQueue` maps book time to a chapter file and an offset. It keeps the next file queued for
+  gapless playback, prefers the downloaded file over streaming, and pauses at the end of the last
+  chapter. Seeking into a different chapter loads that file and prioritizes its download.
+- **what ticks:** the screen's body reads only the slow state. `PlayerTimeline` reads
+  `PlaybackClock.bookTime`, so it re-renders once per tick. `PlayerChapters` reads `currentChapter`,
+  so it re-renders once per chapter. The screen is built once per book and handed down unchanged,
+  so a drag frame doesn't re-run its body.
 
 ## How to get to it (user POV)
 
-Library → tap any row (or an *In your library* search result), tap the floating player, or tap
-**Play** on a LibriVox details page. Dismissed by the sheet's drag indicator or a
-downward swipe — there is no explicit close button.
+- Tap a Library row's title or artwork.
+- Tap or drag up the mini player.
+- Tap **Play** on a LibriVox details page.
+
+To dismiss, tap the chevron, or drag the header, the cover or (iOS 18+) the chapter list from its
+top down into the bar.
 
 ## Driving it with abbay-ctl
 
 ```bash
-$B tap library.row.0 && $B wait player.transport.play
-$B tap player.transport.play
-$B tap player.transport.forward15 && $B snapshot    # assert player.progress.current advanced
-$B scrub player.progress 0.5                        # planned: drag to a fraction of duration
-$B tap player.chapter.2 && $B wait player.chapter.2 --state current
-$B screenshot player-chapter-2
-$B swipe down                                       # dismiss: drag from the sheet's top edge, not a control
+$B launch --seed-library
+$B tap library.row.0.title && $B wait player.close       # grows up from the bottom (nothing loaded)
+$B tap player.transport.play                              # a seeded book loads; no audio plays
+$B tap player.transport.forward15 && $B snapshot
+$B tap player.chapter.2                                   # needs real playback: gated on isPlaying
+$B tap player.close && $B wait library.list
+$B drag player.grabber down                               # planned: collapse under the finger
 ```
 
-**Verified** (`AccessibilityIdentifierTests`): `player.title`,
-`player.transport.{back30,back15,play,forward15,forward30}`, `player.chapters.title`,
-`player.chapter.<n>`. Reached by tapping a Library row, and by Play on the stub LibriVox book's
-details page (`test_search_showsFloatingPlayerAfterPlayingFromDetail`).
+**Verified** (`AccessibilityIdentifierTests`, `MiniPlayerUITests`):
+- `player.title`
+- `player.transport.{back30,back15,play,forward15,forward30}`
+- `player.chapters.title` and `player.chapter.<n>`
+- `player.close` (`test_player_closeButton_dismisses`)
+- `player.grabber` (`test_draggingDetailsDown_collapses`; a downward swipe also dismisses,
+  `test_player_swipeDown_dismisses`)
 
-**Implemented but unverified:** `player.download.progress` — only rendered while a download is
-incomplete, which the stub download manager never reports.
+The screen is reached by a row tap, the bar (tap and drag) and Play on the stub LibriVox book's
+details page.
 
-**Not addressable:** there is no `player.root` — it overwrote the title, all five transport controls and the
-chapter list. Wait on `player.transport.play` instead to know the sheet is up.
+**Implemented but unverified:** `player.download.progress`. It renders only while a download is
+incomplete, and the stub download manager never reports one.
 
-**Not implemented:** `player.cover`, and `player.progress` with its `.current` / `.total`
-labels. The progress view is a composite (a `ProgressView`, a drag handle and two `Text`s) and
-needs identifiers threaded through the component, not applied from the call site.
+**Not addressable:** there is no `player.root`. It overwrote the title, all five transport controls
+and the chapter list. Wait on `player.close` or `player.transport.play` to know the screen is up.
+It slides in, so let it arrive before tapping inside it (the UI tests wait for `player.close` to
+reach the top quarter of the screen).
+
+**Not implemented:** `player.cover`, and `player.progress` with its `.current` / `.total` labels.
+The progress view is a composite (a `ProgressView`, a drag handle and two `Text`s), so it needs
+identifiers threaded through the component, not applied from the call site.
 
 ## Gotchas
 
-- **You cannot tap a chapter while paused.** `chaptersView`'s tap handler is
-  `guard model.isPlaying, …` in the `onSelect` closure passed to `ChapterListView`. The list is
-  visibly dimmed but still looks tappable, so this reads as a broken control rather than a deliberate gate. Any
-  chapter-seek proof must start playback first.
-- `onChange(of:perform:)` is used here (`PlayerView.swift:108`) and is deprecated as of iOS 17,
-  which is the app's own deployment target. Same in `FloatingPlayerView.swift:53` and
-  `PlayerProgressView.swift:44`. This is the most likely cause of issue #54's animation glitch, and
-  it is one of the things Xcode 27 is strictest about.
+- **You can't tap a chapter while paused.** The `onSelect` closure passed to `ChapterListView` is
+  guarded by `model.isPlaying`. The list is visibly dimmed but still looks tappable, so this reads
+  as a broken control rather than a deliberate gate. Any chapter-seek proof must start real
+  playback first, and seeded books have no audio.
+- **The overlay stays hit-testable only while a book is presented** (`allowsHitTesting`). After a
+  close, taps reach the tabs once the collapse finishes.
+- `PlayerProgressView.swift:44` still uses the deprecated `onChange(of:perform:)` (deprecated as of
+  iOS 17, the app's deployment target).
 - The chapter list is keyed by `\.offset` from `enumerated()`, so identifiers are positional. A book
   with duplicate chapter titles is still addressable by index.
-- The sheet is presented from `MediaListView` on `tappedAudio`, which is set by both the row tap and
-  the floating-player tap — same screen, two entry points, and the map's coverage set includes both.
-- **Multi-file playback is covered by unit tests only** (`PlayerMultiFileTests`, `BookTimelineTests`:
-  saved-position chapter load, local-over-remote, cross-file seeks, book-time saves, no bookmark for
-  `librivox://` URLs). No UI test or committed audio fixture plays a multi-file book; the stub
-  LibriVox chapter points at `/dev/null`. Gapless hand-off and streaming of an undownloaded chapter
-  are unproven on a device/simulator.
-- There is no close button. A driver that cannot swipe must relaunch to escape the sheet.
-- Seeking past the final chapter boundary is not specially handled; `currentChapter(for:)` clamps by
+- **Multi-file playback is covered by unit tests only** (`PlayerMultiFileTests` and
+  `BookTimelineTests`):
+  - the saved-position chapter load
+  - local files over remote ones
+  - cross-file seeks
+  - book-time saves
+  - no bookmark for `librivox://` URLs
+
+  No UI test or committed audio fixture plays a multi-file book, and the stub LibriVox chapter
+  points at `/dev/null`. Gapless hand-off and streaming an undownloaded chapter are unproven on a
+  device or simulator.
+- Seeking past the final chapter boundary isn't specially handled. `currentChapter(for:)` clamps by
   scanning chapter ranges.
