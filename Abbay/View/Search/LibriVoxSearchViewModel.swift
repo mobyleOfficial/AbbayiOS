@@ -25,6 +25,9 @@ final class LibriVoxSearchViewModel {
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
+    /// Popular is not discarded by typing: only a newer `loadPopular` supersedes it.
+    @ObservationIgnored private var popularToken = 0
+    @ObservationIgnored private var popularInFlight = false
 
     init(
         client: LibriVoxClientProtocol = LibriVoxClient(),
@@ -50,21 +53,26 @@ final class LibriVoxSearchViewModel {
         guard trimmedQuery.isEmpty else { return }
         searchTask?.cancel()
         generation += 1
-        let current = generation
+        popularToken += 1
+        let token = popularToken
         let isOnline = path.isOnline
-        set(status: .loading)
+        // A refresh keeps showing the list it already has instead of swapping it for a spinner.
+        let hadPopular = !popular.isEmpty
+        if !hadPopular { set(status: .loading) }
+        popularInFlight = true
+        defer { if token == popularToken { popularInFlight = false } }
         do {
             let books = try await client.popular()
-            guard current == generation else { return }
+            guard token == popularToken else { return }
             guard isOnline || !books.isEmpty else {
-                set(status: .offline)
+                if !hadPopular { settlePopular(.offline) }
                 return
             }
             set(popular: books)
-            set(status: .loaded)
+            settlePopular(.loaded)
         } catch {
-            guard current == generation else { return }
-            set(status: isOnline ? .failed : .offline)
+            guard token == popularToken else { return }
+            if !hadPopular { settlePopular(isOnline ? .failed : .offline) }
         }
     }
 
@@ -80,7 +88,11 @@ final class LibriVoxSearchViewModel {
         set(results: [])
         let text = trimmedQuery
         guard !text.isEmpty else {
-            set(status: popular.isEmpty ? .idle : .loaded)
+            if !popular.isEmpty {
+                set(status: .loaded)
+            } else {
+                set(status: popularInFlight ? .loading : .idle)
+            }
             return
         }
         guard path.isOnline else {
@@ -94,6 +106,12 @@ final class LibriVoxSearchViewModel {
             guard !Task.isCancelled else { return }
             await self?.runSearch(text, generation: current)
         }
+    }
+
+    /// The popular outcome becomes the status only while the field is empty; otherwise the search owns it.
+    private func settlePopular(_ value: RemoteStatus) {
+        guard trimmedQuery.isEmpty else { return }
+        set(status: value)
     }
 
     private func runSearch(_ text: String, generation current: Int) async {
