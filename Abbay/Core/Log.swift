@@ -33,4 +33,5 @@ enum Log {
     static let appGroup = Logger(subsystem: subsystem, category: "AppGroup")
     static let librarySnapshot = Logger(subsystem: subsystem, category: "LibrarySnapshot")
     static let playMediaIntent = Logger(subsystem: subsystem, category: "PlayMediaIntent")
+    static let siri = Logger(subsystem: subsystem, category: "Siri")
 }

@@ -21,6 +21,8 @@ protocol DependencyContainerProtocol {
     var lastPlayed: LastPlayedStore { get }
     var launchState: LaunchStateFlag { get }
     var librarySnapshot: LibrarySnapshotReader { get }
+    /// Re-publishes the library to Siri on foreground, pause and the daily background task (#127).
+    var siriContext: SiriContextRefreshing { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -58,6 +60,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     let lastPlayed: LastPlayedStore = .shared
     let launchState: LaunchStateFlag = .shared
     let librarySnapshot: LibrarySnapshotReader = .shared
+    let siriContext: SiriContextRefreshing
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -70,14 +73,18 @@ final class DependencyContainer: DependencyContainerProtocol {
             effects: LiveSettingsEffects()
         )
         self.settings = settings
-        let player = Player(chapterPrioritizer: downloads, speeds: settings)
+        let loadAllAudios = LoadAllAudiosUseCase()
+        self.loadAllAudios = loadAllAudios
+        // Before the player: a pause refreshes Siri's context through it.
+        let siriContext = SiriContextRefresher(loadAllAudios: loadAllAudios)
+        self.siriContext = siriContext
+        let player = Player(chapterPrioritizer: downloads, speeds: settings, siriContext: siriContext)
         let loadAudio = LoadAudioUseCase()
         self.player = player
         self.loadAudio = loadAudio
         // Built here, on main: `configure()` runs from the AppDelegate's launch.
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.downloadStates = DownloadStateStore(downloads: downloads)
-        self.loadAllAudios = LoadAllAudiosUseCase()
     }
 
     /// The App Group stores for code that can run before launch configured the container (entity
