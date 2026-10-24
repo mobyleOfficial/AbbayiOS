@@ -48,8 +48,8 @@ LibriVox book chosen deliberately small:
 
 ```bash
 $B launch --seed-library                      # real catalog; needs network
-$B tap library.toolbar.add && $B tap library.menu.browse
-$B tap library.remote.0 && $B tap detail.download
+$B tap root.tab.search
+$B tap search.card.0 && $B tap detail.download
 $B wait library.row.<n>.downloadRing          # planned: row index by title
 $B tap library.row.<n>.downloadRing           # pause; again to resume
 $B snapshot | jq '.elements[] | select(.id|startswith("detail.chapter"))'
@@ -59,7 +59,7 @@ $B terminate && $B launch                     # restore: ring and statuses come 
 **Verified:** nothing in this file by UI test.
 
 **Implemented but unverified** (attached in the views, never resolved by a UI test):
-`library.row.<n>.downloadRing` (and `library.search.local.<n>.downloadRing`, same component),
+`library.row.<n>.downloadRing`,
 `detail.progress`, `detail.chapter.<n>`, `player.download.progress`.
 
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, retry, restore,

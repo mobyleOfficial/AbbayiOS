@@ -19,8 +19,17 @@ ordering breaks, and most of it is invisible in the UI.
   (`DependencyContainer.shared`). `isConfigured` exists precisely because AppIntents entity
   queries can run outside the launch path; those call sites fall back to the App Group snapshot.
 - **scene-routing:** `configurationForConnecting` returns a CarPlay configuration for
-  `carTemplateApplication`, otherwise the default `WindowGroup` hosting `MediaListView`
+  `carTemplateApplication`, otherwise the default `WindowGroup` hosting `AppRootView`
   (`configurationForConnecting`).
+- **root:** `AppRootView` owns `MediaListViewModel`, `PlayerPresentation` and the selected tab, and
+  injects `PlaybackState`, `PlaybackClock`, `PlaybackCenter`, `DownloadStateStore` and
+  `PlayerPresentation` into the environment. Two tabs, Library and Search, each with its own
+  `NavigationStack` (`root.tab.library`, `root.tab.search`). iOS 26.1+: the system `TabView` with
+  `Tab(role: .search)` (the Search tab's field sits in the tab bar there; identifiers are set on the
+  `UITabBar` items by a small UIKit probe, since SwiftUI can't). iOS 17.0–26.0: the hand-built
+  `RootTabs` bar. Above the tabs, `PlayerOverlay` presents `PlayerView` for
+  `presentation.presentedBook` (interim: slides up; `player.close` or a drag down on its header
+  closes it). Nothing presents the player as a sheet.
 - **siri-authorisation:** requested on every launch. Without an explicit grant iOS refuses to
   dispatch to the extension and Siri answers "Abbay hasn't added support for that with Siri".
 - **background-downloads:** `handleEventsForBackgroundURLSession` accepts only the download session

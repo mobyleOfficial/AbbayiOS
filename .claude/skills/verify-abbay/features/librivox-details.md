@@ -45,17 +45,19 @@ Library appears under *In your library* instead and opens the player, not this p
 
 ```bash
 $B launch --seed-library --stub-librivox      # -stubLibriVox: in-memory catalog, nothing downloads
-$B wait library.list
+$B tap root.tab.search
 $B tap searchfield && $B type "Stub"          # the only query the stub answers (any query containing "stub")
-$B tap library.remote.0 && $B wait detail.download
+$B tap search.result.0 && $B wait detail.download
 $B tap detail.download && $B wait detail.play # page stays open; Download is gone
 $B tap detail.play && $B wait player.transport.play
-$B swipe down                                 # dismiss the sheet (drag from the top edge)
+$B tap player.close                           # or drag its header down
 ```
 
 **Verified** (`AccessibilityIdentifierTests`): `detail.view`, `detail.download`, `detail.play`
 (`test_libriVoxDownload_keepsDetailPageOpenAndShowsPlay`,
-`test_search_showsFloatingPlayerAfterPlayingFromDetail`), reached through `library.remote.0`.
+`test_playFromDetail_opensPlayer_thenLibraryShowsFloatingPlayer`), reached through the Search tab's
+`search.result.0`. Play calls the injected `openPlayer`, i.e. `presentation.open`; the page no
+longer presents its own player sheet.
 
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
 UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`,
