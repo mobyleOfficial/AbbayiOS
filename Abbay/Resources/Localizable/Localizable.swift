@@ -49,6 +49,8 @@ enum Localizable: String {
     case openPlayer
     case nextChapterAction
     case restartChapterAction
+    case carPlayEmptyLibraryTitle
+    case carPlayEmptyLibrarySubtitle
 }
 
 extension Localizable {

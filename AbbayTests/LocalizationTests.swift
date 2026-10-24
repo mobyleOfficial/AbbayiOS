@@ -50,7 +50,9 @@ final class LocalizationTests: XCTestCase {
         .chapterProgress,
         .openPlayer,
         .nextChapterAction,
-        .restartChapterAction
+        .restartChapterAction,
+        .carPlayEmptyLibraryTitle,
+        .carPlayEmptyLibrarySubtitle
     ]
 
     /// User-facing prose, which must be translated. Adding a new string of this kind without a
@@ -95,7 +97,9 @@ final class LocalizationTests: XCTestCase {
         .chapterProgress,
         .openPlayer,
         .nextChapterAction,
-        .restartChapterAction
+        .restartChapterAction,
+        .carPlayEmptyLibraryTitle,
+        .carPlayEmptyLibrarySubtitle
     ]
 
     /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
