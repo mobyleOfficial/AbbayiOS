@@ -11,6 +11,7 @@ import XCTest
 final class LibriVoxDetailViewModelTests: XCTestCase {
     private let client = MockLibriVoxClient()
     private let downloads = MockBookDownloadManager()
+    private lazy var store = DownloadStateStore(downloads: downloads)
     private let save = MockSaveAudioUseCase()
     private let path = FakeNetworkPath()
     private let player = MockPlayer()
@@ -55,6 +56,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             book: book,
             client: client,
             downloads: downloads,
+            downloadStates: store,
             saveAudio: save,
             path: path,
             loadAudio: MockLoadAudioUseCase(),
@@ -77,6 +79,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             book: book,
             client: client,
             downloads: downloads,
+            downloadStates: store,
             saveAudio: save,
             path: path,
             loadAudio: MockLoadAudioUseCase(),
@@ -165,6 +168,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             book: book,
             client: client,
             downloads: downloads,
+            downloadStates: store,
             saveAudio: save,
             path: path,
             loadAudio: loadAudio,

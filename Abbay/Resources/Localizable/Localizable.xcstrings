@@ -37,24 +37,6 @@
         }
       }
     },
-    "browseLibriVox" : {
-      "comment" : "Plus menu item",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Browse LibriVox"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Explorar o LibriVox"
-          }
-        }
-      }
-    },
     "chapterCount" : {
       "comment" : "Current chapter / Total chapters",
       "extractionState" : "manual",
@@ -283,24 +265,6 @@
         }
       }
     },
-    "inYourLibrary" : {
-      "comment" : "Search section header",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In your library"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Na sua biblioteca"
-          }
-        }
-      }
-    },
     "largeDownloadMessage" : {
       "comment" : "LibriVox details page",
       "extractionState" : "manual",
@@ -427,24 +391,6 @@
         }
       }
     },
-    "onLibriVox" : {
-      "comment" : "Search section header",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On LibriVox"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No LibriVox"
-          }
-        }
-      }
-    },
     "play" : {
       "comment" : "LibriVox details page",
       "extractionState" : "manual",
@@ -549,36 +495,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar"
-          }
-        }
-      }
-    },
-    "searchPrompt" : {
-      "comment" : "Search field prompt",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search your library and LibriVox"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buscar na biblioteca e no LibriVox"
-          }
-        }
-      }
-    },
-    "timestamp" : {
-      "comment" : "Current timestamp / total time",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@/%@"
           }
         }
       }

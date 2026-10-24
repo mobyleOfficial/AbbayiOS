@@ -41,6 +41,7 @@ final class PlaybackCenter {
         if let url = player.url {
             let book = loadAudio.execute(url: url) ?? AudioModel(url: url)
             state.setLoadedBook(book)
+            // The same mapping as `isPlayingPublisher` (buffering counts, no item to play doesn't).
             state.setIsPlaying(player.isPlaying(url))
             Self.apply(bookTime: player.currentTime, book: book, to: clock)
         }

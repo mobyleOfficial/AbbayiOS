@@ -20,6 +20,7 @@ struct LibriVoxDetailView: View {
             book: book,
             client: Self.makeClient(),
             downloads: DependencyContainer.shared.downloads,
+            downloadStates: DependencyContainer.shared.downloadStates,
             saveAudio: SaveAudioUseCase(),
             path: NetworkPathMonitor.shared,
             onAdded: onAdded,

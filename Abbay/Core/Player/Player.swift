@@ -14,7 +14,8 @@ protocol PlayerProtocol {
     var currentTime: Double { get }
     var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
-    /// Whether the player is playing (or waiting to), on the main queue, without duplicates.
+    /// Whether the player is playing (or buffering towards it), on the main queue, without
+    /// duplicates. See `Player.isPlaying(status:reason:)`.
     /// Unlike the time publisher it also fires on a pause, which stops the ticks.
     var isPlayingPublisher: AnyPublisher<Bool, Never> { get }
 
@@ -22,6 +23,7 @@ protocol PlayerProtocol {
     func pause()
     func forward(withSeconds seconds: Double)
     func backward(withSeconds seconds: Double)
+    /// Whether `url` is loaded and playing, by the same rule as `isPlayingPublisher`.
     func isPlaying(_ url: URL?) -> Bool
     func seek(_ seconds: Double)
     func cleanup()
@@ -68,13 +70,16 @@ final class Player: PlayerProtocol {
         playUrlSubject.eraseToAnyPublisher()
     }
 
-    /// KVO on `timeControlStatus`, so a pause from anywhere (lock screen, CarPlay, an
-    /// interruption) shows at once. Waiting to play counts as playing: it's the user's intent.
+    /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
+    /// screen, CarPlay, an interruption) shows at once. Either change re-reads both on main, where
+    /// they agree again, and maps them through `isPlaying(status:reason:)`.
     var isPlayingPublisher: AnyPublisher<Bool, Never> {
-        player.publisher(for: \.timeControlStatus)
-            .map { $0 == .playing || $0 == .waitingToPlayAtSpecifiedRate }
-            .removeDuplicates()
+        let status = player.publisher(for: \.timeControlStatus).map { _ in () }
+        let reason = player.publisher(for: \.reasonForWaitingToPlay).map { _ in () }
+        return status.merge(with: reason)
             .receive(on: DispatchQueue.main)
+            .map { [player] in Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay) }
+            .removeDuplicates()
             .eraseToAnyPublisher()
     }
 
@@ -204,9 +209,26 @@ final class Player: PlayerProtocol {
     }
 
 
+    /// What the app shows as playing. Waiting counts only while the player buffers towards
+    /// playback (the user's intent is play); waiting with no item to play (audio that can't load)
+    /// or for any other reason is not playing, so the bar doesn't show "pause" forever.
+    static func isPlaying(status: AVPlayer.TimeControlStatus, reason: AVPlayer.WaitingReason?) -> Bool {
+        switch status {
+        case .playing:
+            return true
+        case .waitingToPlayAtSpecifiedRate:
+            return reason == .toMinimizeStalls || reason == .evaluatingBufferingRate
+        case .paused:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    /// The same mapping as `isPlayingPublisher`, so `PlaybackCenter`'s seed at launch agrees with it.
     func isPlaying(_ url: URL?) -> Bool {
-        guard let url = url else { return false }
-        return self.url == url && player.timeControlStatus == .playing
+        guard let url = url, self.url == url else { return false }
+        return Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay)
     }
 
     func seek(_ seconds: Double) {

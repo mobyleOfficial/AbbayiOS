@@ -14,16 +14,11 @@ final class LocalizationTests: XCTestCase {
         .emptyLibraryTitle,
         .chapterSelectionTitle,
         .chapterCount,
-        .timestamp,
         .delete,
         .addMenu,
-        .browseLibriVox,
         .importFile,
         .browseFreeAudiobooks,
         .importAFile,
-        .searchPrompt,
-        .inYourLibrary,
-        .onLibriVox,
         .popularOnLibriVox,
         .librivoxSearchPrompt,
         .searchTitle,
@@ -65,13 +60,9 @@ final class LocalizationTests: XCTestCase {
         .chapterSelectionTitle,
         .delete,
         .addMenu,
-        .browseLibriVox,
         .importFile,
         .browseFreeAudiobooks,
         .importAFile,
-        .searchPrompt,
-        .inYourLibrary,
-        .onLibriVox,
         .popularOnLibriVox,
         .librivoxSearchPrompt,
         .searchTitle,
@@ -105,9 +96,9 @@ final class LocalizationTests: XCTestCase {
         .restartChapterAction
     ]
 
-    /// Format-only strings (`%d/%d`, `%@/%@`). They carry no language, so they deliberately ship
-    /// a single entry and fall back to the base language rather than being duplicated per locale.
-    private let formatOnlyKeys: [Localizable] = [.chapterCount, .timestamp]
+    /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
+    /// entry and fall back to the base language rather than being duplicated per locale.
+    private let formatOnlyKeys: [Localizable] = [.chapterCount]
 
     override func tearDownWithError() throws {
         AbbayBundle.value.unsetLocalizedLanguage()
@@ -154,11 +145,10 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// Pins the decision that these two are shared rather than translated, so nobody "fixes" the
+    /// Pins the decision that this one is shared rather than translated, so nobody "fixes" the
     /// gap by pasting `%d/%d` into every locale.
     func test_formatOnlyKeysCarryTheirSpecifiersAndAreNotTranslated() {
         XCTAssertEqual(Localizable.chapterCount.localized, "%d/%d")
-        XCTAssertEqual(Localizable.timestamp.localized, "%@/%@")
 
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
 
@@ -173,8 +163,7 @@ final class LocalizationTests: XCTestCase {
 
     // MARK: - Format strings
 
-    /// `localized(with:)` passes a variadic list through to `String(format:)`. These two keys are
-    /// the only format strings in the app and both are rendered in the library row.
+    /// `localized(with:)` passes a variadic list through to `String(format:)`.
     func test_chapterCountFormatsBothArguments() {
         let formatted = Localizable.chapterCount.localized(with: 2, 7)
 
@@ -193,12 +182,5 @@ final class LocalizationTests: XCTestCase {
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
 
         XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 35, "12 min"), "Capítulo 35 · faltam 12 min")
-    }
-
-    func test_timestampFormatsBothArguments() {
-        let formatted = Localizable.timestamp.localized(with: "00:01:00", "00:10:00")
-
-        XCTAssertTrue(formatted.contains("00:01:00"), "current time missing from \"\(formatted)\"")
-        XCTAssertTrue(formatted.contains("00:10:00"), "total time missing from \"\(formatted)\"")
     }
 }

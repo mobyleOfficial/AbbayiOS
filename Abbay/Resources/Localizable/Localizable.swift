@@ -12,16 +12,11 @@ enum Localizable: String {
     case emptyLibraryTitle
     case chapterSelectionTitle
     case chapterCount
-    case timestamp
     case delete
     case addMenu
-    case browseLibriVox
     case importFile
     case browseFreeAudiobooks
     case importAFile
-    case searchPrompt
-    case inYourLibrary
-    case onLibriVox
     case popularOnLibriVox
     case librivoxSearchPrompt
     case searchTitle

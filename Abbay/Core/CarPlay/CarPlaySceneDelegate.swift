@@ -27,6 +27,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     // the one player and the one set of use cases with the rest of the app.
     lazy var loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = DependencyContainer.shared.loadAllAudios
     lazy var loadAudioUseCase: LoadAudioUseCaseProtocol = DependencyContainer.shared.loadAudio
+    // The one remaining `PlayerObserver` consumer: the rest of the app reads `PlaybackCenter`.
     lazy var playerObserver: PlayerObserverProtocol = PlayerObserver(DependencyContainer.shared.player)
 
     // MARK: - State
