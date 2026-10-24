@@ -48,7 +48,9 @@ once the book is in the library. The only way to add a LibriVox book.
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
   sits under the header; once complete both disappear. Rows are not tappable here — Play opens the
   player, which is where chapters are chosen — but a failed chapter's status is a button
-  (`detail.chapter.<n>.retry`) that restarts its download.
+  (`detail.chapter.<n>.retry`) that restarts its download. A book with no sections shows the
+  list's *No chapters* empty state (`detail.chapters.empty`; unverified by UI test, the stub book
+  has a chapter).
 - **credit:** footer *"Public domain recording by LibriVox volunteers"*.
 
 ## How to get to it (user POV)

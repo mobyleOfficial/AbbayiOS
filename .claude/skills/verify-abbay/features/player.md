@@ -48,7 +48,12 @@ LibriVox page's Play all open it.
   (`player.chapters.title`), then one row per chapter (`player.chapter.<n>`) with a scrolling title
   and its duration. The current chapter renders in the "playing" style (green). Tapping a chapter
   seeks to its `startTime`. On iOS 18+, a downward drag from the list's top collapses the screen.
-- **chapter-list-gating:** the list is dimmed to 50% while not playing, and the tap handler returns
+- **no-chapters:** a book with no chapter markers (a plain MP3) shows, under the header, a
+  `list.bullet` glyph, *No chapters* and *This book has no chapter markers, so it plays from start
+  to finish.* (`player.chapters.empty`, one combined element), filling the space the list would
+  have. It is styled like the library's empty state, not `ContentUnavailableView`, and is never
+  dimmed.
+- **chapter-list-gating:** the rows are dimmed to 50% while not playing, and the tap handler returns
   early unless `model.isPlaying`.
 - **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
   `N%`, *Waiting* or *Failed · Retry*, and a thin overall progress bar (`player.download.progress`)
@@ -62,7 +67,9 @@ LibriVox page's Play all open it.
   chapter. Seeking into a different chapter loads that file and prioritizes its download.
 - **failures:** Play with no URL, an audio session that won't activate, a moved or unreadable file,
   or a LibriVox chapter that fails (offline and not downloaded, or otherwise) each report a notice
-  (see [notices](notices.md)). Play again on a failed item retries with a fresh one.
+  (see [notices](notices.md)). A failed item also pauses the player, so the transport, the bar and
+  the row show *Play* again, and one tap on Play retries with a fresh item. (Before, the player
+  kept its rate and kept reporting "playing", so the first tap only paused.)
 - **what ticks:** the screen's body reads only the slow state. `PlayerTimeline` reads
   `PlaybackClock.bookTime`, so it re-renders once per tick. `PlayerChapters` reads `currentChapter`,
   so it re-renders once per chapter. The screen is built once per book and handed down unchanged,
@@ -97,6 +104,8 @@ $B drag player.close down                                 # planned: collapse un
   (`SettingsUITests.test_speedSheet_*`), and the forward button's label following Settings
   (`test_changingSkipForward_updatesThePlayersButton`)
 - `player.chapters.title` and `player.chapter.<n>`
+- `player.chapters.empty` on "Seeded Plain Book", and its absence on "Seeded Chaptered Book"
+  (`EmptyStateUITests`)
 - `player.close` (`test_player_closeButton_dismisses`)
 - `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI
   tests drag from its position, found from `player.close` (`grabberCenter()` in

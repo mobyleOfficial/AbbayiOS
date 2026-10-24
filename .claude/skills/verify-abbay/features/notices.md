@@ -40,6 +40,14 @@ The item failures come from observing the `AVPlayerItem` (status `.failed`, and
 counts: the queued next chapter failing ahead of time is reported once it becomes current. Play
 again after a failure retries with a fresh item, so a persisting failure is reported again.
 
+A failed item also **pauses the player** (`Player.stopAfterFailure`). Without that the
+`AVQueuePlayer` kept its rate, reported itself as playing with no item, and the bar and row
+showed *Pause*, so the first tap only paused. Now they show *Play*, and one tap retries.
+
+| Also reported | Notice | |
+|---|---|---|
+| LibriVox details: *Download* when saving the book throws | `saveFailed` | *Couldn't save your changes…* (before, the button did nothing) |
+
 ## How to get to it (user POV)
 
 - Import a file that isn't audio, or one that has gone from Files before the import finishes.
@@ -60,7 +68,9 @@ the system picker and import two files that don't exist, through the real `FileL
 
 **Verified** (`NoticeUITests`): `notice.banner` after a failed import (label names the files, and
 it goes away by itself) and after pressing Play on a seeded book (the seeded files don't exist,
-so this is the moved-file notice).
+so this is the moved-file notice). After the failure the row and the bar read *Play*, and one
+tap on the bar's Play retries and shows the banner again
+(`test_afterABookFailsToPlay_theButtonsShowPlay_andOneTapRetries`).
 
 **Unit tests only:** `audioUnavailable` (the simulator's session always activates),
 `streamingOffline` / `chapterFailed` (`PlayerNoticeTests`, with a fake network path and chapter
@@ -75,6 +85,11 @@ removed), and the VoiceOver announcement.
 - The banner sits over the navigation bar while shown; it never moves content.
 - `fileMissing` vs `playbackFailed` is decided by `checkResourceIsReachable()` on the book's URL
   at the time of the failure.
-- Out of scope for this pass: empty states (the chapter list), the remaining `try?` sites and the
-  rest of the `print`s (#87), and an in-app explanation of `LaunchStateFlag` (the Settings
-  diagnostics row).
+- Logged only, not reported (pass 2 of #115): bookmark creation and resolution
+  (`Log.bookmarks`; a dead bookmark surfaces as `fileMissing` on Play), Core Data fetches
+  (`Log.data`), the import's save (`Log.importing`; `DataStack` already reports a failed save),
+  chapter download failures and retries (`Log.downloads`; the row shows *Failed · Retry*), launch
+  audio-session activation (`Log.player`; Play reports it, Settings shows the status) and Now
+  Playing updates (`Log.nowPlaying`, debug level). `CatalogCache` still ignores read and write
+  failures by design: it only saves time.
+- Still on `os_log`/`print`: the Siri paths and `LibrarySnapshotWriter` (#87).
