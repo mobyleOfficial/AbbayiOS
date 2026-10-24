@@ -46,7 +46,7 @@
   and *Restart chapter*, so VoiceOver can do everything the gestures do. The progress line is
   labelled *Chapter progress* and carries a whole-percent value ("39%") and `.updatesFrequently`.
   The play/pause button reads *Play* or *Pause* (`PlayButtonView`, shared with the rows and the
-  details screen; until #126 it had no label). On the details screen the chevron is *Close player*
+  details screen; labelled since #144). On the details screen the chevron is *Close player*
   and the panel's escape action (the two-finger scrub) closes it too.
 - **expansion:** `PlayerExpansionOverlay`, one panel above the tabs. Its frame grows from the bar's
   frame to the full screen as `PlayerPresentation.progress` goes from 0 to 1.

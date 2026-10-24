@@ -22,7 +22,7 @@ LibriVox page's Play all open it.
   [Settings](settings.md) amounts (10/15/30/45 s, default 15), seek relative to the current
   position, and draw the number in their SF Symbol (`gobackward.N` / `goforward.N`). VoiceOver
   reads *Skip back N seconds* / *Skip forward N seconds*, and play/pause *Play* / *Pause*
-  (`PlayButtonView`; unlabelled before #126). (Before Settings there were five fixed
+  (`PlayButtonView`, since #144). (Before Settings there were five fixed
   controls, ±15 and ±30.)
 - **speed:** under the timeline, a capsule button (`player.speed`, label *Playback speed*, value
   e.g. *1.5×*, green when not 1.0×) opens the speed sheet (`SpeedSheetView`, ported from the

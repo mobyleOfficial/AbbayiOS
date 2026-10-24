@@ -124,7 +124,7 @@ extension MiniPlayerUITests {
         XCTAssertTrue(bar.label.contains("Chapter 2"), "restart is not previous chapter: \"\(bar.label)\"")
     }
 
-    /// The play/pause buttons say which they are (they had no label at all): the bar's, a row's
+    /// The play/pause buttons say which they are (labelled in #144): the bar's, a row's
     /// and the details screen's, which share `PlayButtonView`. A book without audio can show
     /// either for a moment, so this checks for a label; `loadPlayableBook` checks it flips.
     func test_a11y_playPause_isLabelled() throws {
