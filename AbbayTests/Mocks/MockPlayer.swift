@@ -43,7 +43,9 @@ final class MockPlayer: PlayerProtocol {
     // The subjects are private, so this is the only way to exercise a real `PlayerObserver`
     // sitting on top of a mock player.
 
+    /// Like `Player`, which holds the new book before announcing it.
     func emitPlayUrl(_ model: AudioModel) {
+        url = model.url
         playUrlSubject.send(model)
     }
 

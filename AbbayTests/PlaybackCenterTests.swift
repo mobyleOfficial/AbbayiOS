@@ -137,4 +137,73 @@ final class PlaybackCenterTests: XCTestCase {
         XCTAssertEqual(center.clock.bookTime, 0)
         XCTAssertEqual(center.clock.currentChapter, 0)
     }
+
+    // MARK: - Ticks around a book switch (the bar's time must never flicker or reset)
+
+    /// `play` can run off the main thread (SiriKit): the player switches items, and a tick of the
+    /// new item can land before the announcement hops to main. It must not be read against the
+    /// old book.
+    func test_tickWhileThePlayerHoldsAnotherBook_isDropped() {
+        let player = CountingMockPlayer()
+        let center = PlaybackCenter(player: player)
+        player.emitPlayUrl(ViewModelSupport.chaptered())
+        player.emitTime(50)
+
+        player.url = otherURL
+        player.emitTime(150)
+
+        XCTAssertEqual(center.clock.bookTime, 50)
+        XCTAssertEqual(center.clock.currentChapter, 0)
+    }
+
+    /// The new item reports ~0 until the seek to its saved position lands: keep the seeded time.
+    func test_zeroTickRightAfterASwitch_keepsTheSeededTime() {
+        let player = CountingMockPlayer()
+        let center = PlaybackCenter(player: player)
+
+        player.emitPlayUrl(ViewModelSupport.chaptered(currentTime: 150))
+        XCTAssertEqual(center.clock.bookTime, 150)
+        player.emitTime(0)
+        player.emitTime(0.4)
+
+        XCTAssertEqual(center.clock.bookTime, 150)
+        XCTAssertEqual(center.clock.currentChapter, 1)
+    }
+
+    func test_tickNearTheSeekTarget_isAccepted_andLaterZeroTicksAreToo() {
+        let player = CountingMockPlayer()
+        let center = PlaybackCenter(player: player)
+        player.emitPlayUrl(ViewModelSupport.chaptered(currentTime: 150))
+        player.emitTime(0)
+
+        player.emitTime(151)
+        XCTAssertEqual(center.clock.bookTime, 151)
+        // Once the seek has landed, a real jump to the start (restart chapter one) shows.
+        player.emitTime(0)
+
+        XCTAssertEqual(center.clock.bookTime, 0)
+    }
+
+    /// The guard only drops ~0 ticks: a seek elsewhere right after the switch still shows.
+    func test_nonZeroTickRightAfterASwitch_isAccepted() {
+        let player = CountingMockPlayer()
+        let center = PlaybackCenter(player: player)
+        player.emitPlayUrl(ViewModelSupport.chaptered(currentTime: 150))
+
+        player.emitTime(30)
+
+        XCTAssertEqual(center.clock.bookTime, 30)
+    }
+
+    func test_switchToABookAtItsStart_acceptsZeroTicks() {
+        let player = CountingMockPlayer()
+        let center = PlaybackCenter(player: player)
+        player.emitPlayUrl(ViewModelSupport.chaptered(currentTime: 150))
+        player.emitTime(151)
+
+        player.emitPlayUrl(AudioModel(title: "Other", duration: 100, url: otherURL))
+        player.emitTime(0.5)
+
+        XCTAssertEqual(center.clock.bookTime, 0.5)
+    }
 }

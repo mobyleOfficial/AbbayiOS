@@ -104,7 +104,11 @@ final class CountingMockPlayer: PlayerProtocol {
     }
 
     // MARK: - Test drivers
-    func emitPlayUrl(_ model: AudioModel) { playUrlSubject.send(model) }
+    /// Like `Player`, which holds the new book before announcing it.
+    func emitPlayUrl(_ model: AudioModel) {
+        url = model.url
+        playUrlSubject.send(model)
+    }
     func emitTime(_ seconds: Double) { currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600)) }
     func emitPlaying(_ isPlaying: Bool) { isPlayingSubject.send(isPlaying) }
 

@@ -17,6 +17,12 @@ final class PlaybackCenter {
     let clock: PlaybackClock
     let player: PlayerProtocol
     private var cancellables = Set<AnyCancellable>()
+    /// Set by a switch to a book with a saved position: until the player's seek there lands, the
+    /// new item still reports ~0, which must not overwrite the seeded `bookTime`.
+    private var pendingSeekTarget: Double?
+
+    /// A tick below this, while a seek is pending, is the new item's start, not a real position.
+    private static let startTolerance: Double = 1
 
     /// `nonisolated` so `DependencyContainer` (and the tests' containers) can build it from any
     /// context. Deliveries are moved onto the main actor in `onMain`.
@@ -63,6 +69,7 @@ final class PlaybackCenter {
     /// the row's playing state go away. The player announces no event for this, hence the reset.
     func unload() {
         player.unload()
+        pendingSeekTarget = nil
         state.setLoadedBook(nil)
         state.setIsPlaying(false)
         clock.update(bookTime: 0, currentChapter: 0)
@@ -74,11 +81,27 @@ final class PlaybackCenter {
         state.setLoadedBook(book)
         // A new book starts at its saved position: the player seeks there right after announcing it.
         let bookTime = isNewBook ? book.currentTime : clock.bookTime
+        if isNewBook {
+            pendingSeekTarget = book.currentTime >= Self.startTolerance ? book.currentTime : nil
+        }
         Self.apply(bookTime: bookTime, book: book, to: clock)
     }
 
+    /// Two ticks are dropped, so the bar's time never flickers or resets on a switch:
+    /// - one from an item that isn't the loaded book's: `play` off the main thread (SiriKit)
+    ///   switches the item before its announcement hops here, and the tick would be read
+    ///   against the old book;
+    /// - a ~0 tick right after a switch, before the seek to the saved position lands. The first
+    ///   tick that isn't ~0 ends that window, so a later jump to the start still shows.
     private func receive(time: CMTime) {
-        Self.apply(bookTime: time.seconds, book: state.loadedBook, to: clock)
+        guard player.url == state.loadedBook?.url else { return }
+        let seconds = time.seconds
+        guard seconds.isFinite else { return }
+        if pendingSeekTarget != nil {
+            if seconds < Self.startTolerance { return }
+            pendingSeekTarget = nil
+        }
+        Self.apply(bookTime: seconds, book: state.loadedBook, to: clock)
     }
 
     private nonisolated static func apply(bookTime: Double, book: AudioModel?, to clock: PlaybackClock) {
