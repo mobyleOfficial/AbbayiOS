@@ -277,8 +277,11 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
                 "\(.applicationName) play",
                 "\(.applicationName) resume",
                 "Play in \(.applicationName)",
+                "Play on \(.applicationName)",
+                "Play \(.applicationName)",
                 "Resume \(.applicationName)",
-                "Continue audiobook in \(.applicationName)"
+                "Continue audiobook in \(.applicationName)",
+                "Continue audiobook on \(.applicationName)"
             ],
             shortTitle: "Play",
             systemImageName: "play.fill"
@@ -295,7 +298,9 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
             intent: NextChapterIntent(),
             phrases: [
                 "Next chapter in \(.applicationName)",
-                "Skip chapter in \(.applicationName)"
+                "Next chapter on \(.applicationName)",
+                "Skip chapter in \(.applicationName)",
+                "Skip chapter on \(.applicationName)"
             ],
             shortTitle: "Next chapter",
             systemImageName: "forward.fill"
@@ -303,7 +308,8 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: PreviousChapterIntent(),
             phrases: [
-                "Previous chapter in \(.applicationName)"
+                "Previous chapter in \(.applicationName)",
+                "Previous chapter on \(.applicationName)"
             ],
             shortTitle: "Previous chapter",
             systemImageName: "backward.fill"
@@ -322,14 +328,20 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
             // from our own registered vocabulary and then ends the utterance,
             // dropping anything after it. Leading with the app name means the
             // target app is established before the title, so a truncated tail
-            // costs nothing.
+            // costs nothing. "on" and "using" variants matter too: without them, "Play <book>
+            // on Abbay" matched no Abbay phrase and Siri routed it as a generic media request
+            // to the default music app.
             phrases: [
                 "\(.applicationName) play \(\.$audiobook)",
                 "\(.applicationName) open \(\.$audiobook)",
                 "In \(.applicationName) play \(\.$audiobook)",
                 "Play \(\.$audiobook) in \(.applicationName)",
+                "Play \(\.$audiobook) on \(.applicationName)",
+                "Play \(\.$audiobook) using \(.applicationName)",
                 "Open \(\.$audiobook) in \(.applicationName)",
-                "Listen to \(\.$audiobook) in \(.applicationName)"
+                "Open \(\.$audiobook) on \(.applicationName)",
+                "Listen to \(\.$audiobook) in \(.applicationName)",
+                "Listen to \(\.$audiobook) on \(.applicationName)"
             ],
             shortTitle: "Play audiobook",
             systemImageName: "books.vertical.fill"
@@ -340,7 +352,9 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
                 "\(.applicationName) play \(\.$chapter)",
                 "In \(.applicationName) play \(\.$chapter)",
                 "Play \(\.$chapter) in \(.applicationName)",
-                "Skip to \(\.$chapter) in \(.applicationName)"
+                "Play \(\.$chapter) on \(.applicationName)",
+                "Skip to \(\.$chapter) in \(.applicationName)",
+                "Skip to \(\.$chapter) on \(.applicationName)"
             ],
             shortTitle: "Play chapter",
             systemImageName: "list.number"
@@ -349,7 +363,9 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
             intent: PlayBookByNameIntent(),
             phrases: [
                 "Play audiobook in \(.applicationName)",
-                "Pick audiobook in \(.applicationName)"
+                "Play audiobook on \(.applicationName)",
+                "Pick audiobook in \(.applicationName)",
+                "Pick audiobook on \(.applicationName)"
             ],
             shortTitle: "Play audiobook",
             systemImageName: "book.fill"
