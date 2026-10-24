@@ -63,9 +63,9 @@ Launch: the Library tab is selected. Tap **Search** in the tab bar for LibriVox.
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library --stub-librivox
+$B launch -seedLibrary -stubLibriVox
 $B tap root.tab.search && $B wait search.card.0     # the stub's Popular is its one book
-$B tap searchfield && $B type "Stub" && $B wait search.result.0
+$B tap placeholder:"Search LibriVox" && $B type "Stub" && $B wait search.result.0   # no id: by placeholder
 $B tap search.result.0 && $B wait detail.view
 $B tap root.tab.library && $B wait library.list
 ```

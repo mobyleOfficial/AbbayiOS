@@ -31,7 +31,7 @@ audio files → the picker dismisses and the rows appear.
 
 ```bash
 # Preferred: skip the system picker entirely.
-$B launch --seed-library                     # planned: import the bundled LibriVox fixture
+$B launch -seedLibrary                       # planned: import the bundled LibriVox fixture
 $B snapshot && $B appgroup get abbay.librarySnapshot.v1
 
 # The one deliberately brittle path, run on its own and never as a precondition:

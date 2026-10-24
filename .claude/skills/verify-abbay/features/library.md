@@ -36,12 +36,12 @@ The first tab on launch (`root.tab.library`). See [tabs](tabs.md) for the tab ba
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library --stub-librivox
+$B launch -seedLibrary -stubLibriVox
 $B wait library.list
 $B tap library.row.0.title                   # → details screen (grows up); close with player.close
 $B tap library.row.0.play && $B wait miniPlayer.bar        # loads the seeded book (no audio)
 $B tap library.toolbar.add && $B tap library.menu.import   # → document picker
-$B swipe library.row.0 left                  # trailing Delete action (no identifier)
+$B swipe library.row.0.title left            # trailing Delete action (no identifier; the row itself is not addressable)
 $B wait library.empty                        # after deleting the last book
 $B appgroup get abbay.librarySnapshot.v1     # assert the delete rewrote the snapshot
 $B tap root.tab.search                       # → Search tab

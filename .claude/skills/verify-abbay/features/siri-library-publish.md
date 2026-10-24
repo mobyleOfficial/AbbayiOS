@@ -35,7 +35,7 @@ appears in Spotlight search for a book title.
 ## Driving it with abbay-ctl
 
 ```bash
-$B launch --seed-library
+$B launch -seedLibrary
 $B appgroup get abbay.librarySnapshot.v1 | jq '.audios | length'
 $B appgroup get abbay.librarySnapshot.v1 | jq '[.audios[] | select(.bookmarkData != null)] | length'
 $B spotlight query "<title>"                  # planned: CSSearchQuery against our named index

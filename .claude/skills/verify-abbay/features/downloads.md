@@ -63,7 +63,7 @@ therefore never render under the stub. A real run needs the network, no `-stubLi
 LibriVox book chosen deliberately small:
 
 ```bash
-$B launch --seed-library                      # real catalog; needs network
+$B launch -seedLibrary                        # real catalog; needs network
 $B tap root.tab.search
 $B tap search.card.0 && $B tap detail.download
 $B wait library.row.<n>.downloadRing          # planned: row index by title
