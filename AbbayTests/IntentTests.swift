@@ -11,30 +11,23 @@ final class IntentTests: XCTestCase {
     private var player = MockPlayer()
     private var loader = MockLoadAudioUseCase()
     private var lister = MockLoadAllAudiosUseCase()
-    private let suiteName = "abbay.tests.IntentTests"
+    /// The container's in-memory App Group stores: what the intents read and write.
+    private var lastPlayed = LastPlayedStore(store: InMemoryKeyValueStore(), legacyStore: InMemoryKeyValueStore())
+    private var launchState = LaunchStateFlag(store: InMemoryKeyValueStore())
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = defaults
-
         player = MockPlayer()
         loader = MockLoadAudioUseCase()
         lister = MockLoadAllAudiosUseCase()
-        DependencyContainer.configure(
-            with: MockDependencyContainer(player: player, loadAudio: loader, loadAllAudios: lister)
-        )
+        let container = MockDependencyContainer(player: player, loadAudio: loader, loadAllAudios: lister)
+        lastPlayed = container.lastPlayed
+        launchState = container.launchState
+        DependencyContainer.configure(with: container)
     }
 
     override func tearDownWithError() throws {
         DependencyContainer.reset()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        // Restore to production default (AppGroup) — NOT `.standard` — so a leaked
-        // pointer can't bleed across test suites in the same xctest worker.
-        LastPlayedStore.defaults = AppGroup.defaults
-        LastPlayedStore.standardFallback = .standard
         // NowPlayingManager is a process singleton with stateful currentAudio;
         // reset between tests so case-order independence holds.
         NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
@@ -85,27 +78,27 @@ final class IntentTests: XCTestCase {
 
     func test_resume_lastPlayedSet_butLoaderReturnsNil_clearsStoreAndDoesNotPlay() async throws {
         let url = try XCTUnwrap(URL(string: "file:///gone.m4b"))
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
         // loader has no stub for url → returns nil
 
         _ = try await ResumeAbbayIntent().perform()
 
         XCTAssertEqual(loader.executeCalls.compactMap { $0 }, [url])
         XCTAssertEqual(player.playCalls.count, 0)
-        XCTAssertNil(LastPlayedStore.lastPlayedURL(), "store must be cleared to avoid stuck loop")
+        XCTAssertNil(lastPlayed.lastPlayedURL(), "store must be cleared to avoid stuck loop")
     }
 
     func test_resume_lastPlayedReachable_playsAndKeepsStore() async throws {
         let url = try XCTUnwrap(URL(string: "file:///book.m4b"))
         let book = audio(title: "My Book", url: url.absoluteString)
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
         loader.stubs[url.absoluteString] = book
 
         _ = try await ResumeAbbayIntent().perform()
 
         XCTAssertEqual(player.playCalls.count, 1)
         XCTAssertEqual(player.playCalls.first?.url, url)
-        XCTAssertEqual(LastPlayedStore.lastPlayedURL(), url)
+        XCTAssertEqual(lastPlayed.lastPlayedURL(), url)
     }
 
     // MARK: Pause
@@ -260,7 +253,7 @@ final class IntentTests: XCTestCase {
 
     func test_playByName_noMatch_doesNotPlay_doesNotClearStore() async throws {
         let saved = try XCTUnwrap(URL(string: "file:///saved.m4b"))
-        LastPlayedStore.save(url: saved)
+        lastPlayed.save(url: saved)
         lister.stub = []  // empty library → fuzzyMatch returns nil
 
         var intent = PlayBookByNameIntent()
@@ -268,21 +261,21 @@ final class IntentTests: XCTestCase {
         _ = try await intent.perform()
 
         XCTAssertEqual(player.playCalls.count, 0)
-        XCTAssertEqual(LastPlayedStore.lastPlayedURL(), saved, "no-match must not touch the store")
+        XCTAssertEqual(lastPlayed.lastPlayedURL(), saved, "no-match must not touch the store")
     }
 
     func test_playByName_unreachable_andIsLastPlayed_clearsStore() async throws {
         let url = try XCTUnwrap(URL(string: "file:///gone.m4b"))
         let book = audio(title: "Gone Book", url: url.absoluteString)
         lister.stub = [book]
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
         // loader has no stub for url → returns nil (file unreachable)
 
         var intent = PlayBookByNameIntent()
         intent.bookName = "Gone Book"
         _ = try await intent.perform()
 
-        XCTAssertNil(LastPlayedStore.lastPlayedURL(), "store must be cleared when the dead match was the saved pointer")
+        XCTAssertNil(lastPlayed.lastPlayedURL(), "store must be cleared when the dead match was the saved pointer")
         XCTAssertEqual(player.playCalls.count, 0)
     }
 
@@ -291,7 +284,7 @@ final class IntentTests: XCTestCase {
         let dead = try XCTUnwrap(URL(string: "file:///dead.m4b"))
         let book = audio(title: "Dead Book", url: dead.absoluteString)
         lister.stub = [book]
-        LastPlayedStore.save(url: saved)
+        lastPlayed.save(url: saved)
         // loader has no stub for dead.absoluteString → returns nil
 
         var intent = PlayBookByNameIntent()
@@ -299,7 +292,7 @@ final class IntentTests: XCTestCase {
         _ = try await intent.perform()
 
         XCTAssertEqual(
-            LastPlayedStore.lastPlayedURL(),
+            lastPlayed.lastPlayedURL(),
             saved,
             "store must NOT be cleared when the dead match was a different book"
         )
@@ -323,11 +316,7 @@ final class IntentTests: XCTestCase {
     // MARK: - LaunchStateFlag gate
 
     private func withUnavailableFlag(_ body: () async throws -> Void) async throws {
-        let flagSuiteName = "test.flag.\(UUID().uuidString)"
-        let flagSuite = try XCTUnwrap(UserDefaults(suiteName: flagSuiteName))
-        let originalFlagDefaults = LaunchStateFlag.defaults
-        LaunchStateFlag.defaults = flagSuite
-        LaunchStateFlag.markUnavailable()
+        launchState.markUnavailable()
         // The intents now RETRY activation instead of trusting a stale flag, so the
         // unavailable branch is only reachable when activation itself fails. Stub the
         // activator to throw — the real AVAudioSession always succeeds in the simulator.
@@ -337,8 +326,6 @@ final class IntentTests: XCTestCase {
         AudioSessionActivator.makeActivator = { failing }
         defer {
             AudioSessionActivator.makeActivator = originalActivator
-            flagSuite.removePersistentDomain(forName: flagSuiteName)
-            LaunchStateFlag.defaults = originalFlagDefaults
         }
         try await body()
     }

@@ -20,8 +20,6 @@ final class PlayerMultiFileTests: XCTestCase {
         }
     }
 
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
     private var root: URL?
     private var saveUseCase: MockSavePlaybackPositionUseCase?
     private var bookmarkProvider: MockBookmarkProvider?
@@ -29,13 +27,6 @@ final class PlayerMultiFileTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.multifile.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
-
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlayerMultiFileTests-\(UUID().uuidString)", isDirectory: true)
         saveUseCase = MockSavePlaybackPositionUseCase()
@@ -48,10 +39,6 @@ final class PlayerMultiFileTests: XCTestCase {
         if let root {
             try? FileManager.default.removeItem(at: root)
         }
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
@@ -67,7 +54,9 @@ final class PlayerMultiFileTests: XCTestCase {
             audioSessionActivator: MockAudioSessionActivator(),
             bookmarkProvider: try XCTUnwrap(bookmarkProvider),
             chapterPrioritizer: try XCTUnwrap(prioritizer),
-            downloadsRoot: try XCTUnwrap(root)
+            downloadsRoot: try XCTUnwrap(root),
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
     }
 

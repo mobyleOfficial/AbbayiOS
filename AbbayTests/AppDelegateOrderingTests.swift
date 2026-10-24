@@ -33,6 +33,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         let delegate = AppDelegate()
         delegate.audioSessionActivator = OrderRecorderActivator { sequence.append("session") }
         delegate.seeder = OrderRecorderSeeder { sequence.append("seed") }
+        delegate.launchState = .inMemory()
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 
@@ -43,13 +44,7 @@ final class AppDelegateOrderingTests: XCTestCase {
         var seedCalled = false
         DependencyContainer.reset()
 
-        let suiteName = "test.flag.\(UUID().uuidString)"
-        let flagSuite = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        LaunchStateFlag.defaults = flagSuite
-        defer {
-            flagSuite.removePersistentDomain(forName: suiteName)
-            LaunchStateFlag.defaults = AppGroup.defaults
-        }
+        let flag = LaunchStateFlag.inMemory()
 
         struct ThrowingActivator: AudioSessionActivatorProtocol {
             func activate() throws { throw NSError(domain: "test", code: 1) }
@@ -58,10 +53,11 @@ final class AppDelegateOrderingTests: XCTestCase {
         let delegate = AppDelegate()
         delegate.audioSessionActivator = ThrowingActivator()
         delegate.seeder = OrderRecorderSeeder { seedCalled = true }
+        delegate.launchState = flag
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 
-        XCTAssertTrue(LaunchStateFlag.isUnavailable())
+        XCTAssertTrue(flag.isUnavailable())
         XCTAssertFalse(seedCalled)
     }
 }

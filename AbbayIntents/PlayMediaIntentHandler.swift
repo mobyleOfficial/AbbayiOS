@@ -21,12 +21,31 @@ enum ResolveOutcome: Equatable {
 }
 
 final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
+    private let lastPlayed: LastPlayedStore
+    private let launchState: LaunchStateFlag
+    private let librarySnapshot: LibrarySnapshotReader
+    private let diagnostics: SiriDiagnostics
+
+    /// The App Group stores, injected. `IntentHandler` takes the defaults (the shared App Group);
+    /// tests pass in-memory ones.
+    init(
+        lastPlayed: LastPlayedStore = .shared,
+        launchState: LaunchStateFlag = .shared,
+        librarySnapshot: LibrarySnapshotReader = .shared,
+        diagnostics: SiriDiagnostics = .shared
+    ) {
+        self.lastPlayed = lastPlayed
+        self.launchState = launchState
+        self.librarySnapshot = librarySnapshot
+        self.diagnostics = diagnostics
+    }
+
     /// Internal decision method exposed for unit testing. Returns the semantic
     /// outcome before it's wrapped in opaque `INPlayMediaMediaItemResolutionResult`
     /// values (those expose no public accessors, so the wrap is untestable).
     func decide(for intent: INPlayMediaIntent) -> ResolveOutcome {
         let mediaName = intent.mediaSearch?.mediaName ?? ""
-        let flagValue = LaunchStateFlag.isUnavailable()
+        let flagValue = launchState.isUnavailable()
         os_log(
             // The spoken title is user speech, so it stays private in the log.
             // Xcode shows it anyway while a debugger is attached.
@@ -35,26 +54,25 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             mediaName, String(describing: flagValue), AppGroup.suiteName
         )
 
-        SiriDiagnostics.record("ext decide entered titleless=\(mediaName.isEmpty)")
+        diagnostics.record("ext decide entered titleless=\(mediaName.isEmpty)")
 
         if flagValue {
             os_log("decide → unavailable (flag set)", log: log, type: .info)
-            SiriDiagnostics.record("ext outcome=unavailable")
+            diagnostics.record("ext outcome=unavailable")
             return .unavailable
         }
 
-        let entries = LibrarySnapshotReader.read()
+        let entries = librarySnapshot.read()
         os_log("decide read snapshot: %{public}d entries", log: log, type: .info, entries.count)
         guard !entries.isEmpty else {
             os_log("decide → emptyLibrary", log: log, type: .info)
-            SiriDiagnostics.record("ext outcome=emptyLibrary")
+            diagnostics.record("ext outcome=emptyLibrary")
             return .emptyLibrary
         }
 
         // Go through LastPlayedStore rather than reading the App Group suite
-        // directly: the store also consults the phase-1 `.standard` fallback, and
-        // it is the seam tests rebind.
-        let lastPlayedURL = LastPlayedStore.lastPlayedURL()
+        // directly: the store also consults the phase-1 `.standard` fallback.
+        let lastPlayedURL = lastPlayed.lastPlayedURL()
         os_log(
             "decide lastPlayed=%{private}@",
             log: log, type: .info,
@@ -70,7 +88,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         )
         if candidates.isEmpty {
             os_log("decide → noMatch", log: log, type: .info)
-            SiriDiagnostics.record("ext outcome=noMatch")
+            diagnostics.record("ext outcome=noMatch")
             return .noMatch
         }
 
@@ -83,7 +101,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             )
         }
 
-        SiriDiagnostics.record("ext outcome=matched count=\(items.count)")
+        diagnostics.record("ext outcome=matched count=\(items.count)")
 
         if items.count == 1 {
             return .singleMatch(items[0])
@@ -135,7 +153,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
         // `.failureUnknownMediaType`; no in-app input echo (e.g. "No audiobook
         // matches 'Harry Plotter'") is achievable on this path. Matches Spotify /
         // YouTube Music / Audible behavior.
-        if LaunchStateFlag.isUnavailable() {
+        if launchState.isUnavailable() {
             completion(INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil))
             return
         }

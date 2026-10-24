@@ -33,22 +33,10 @@ private final class SpySiriLibraryPublisher: SiriLibraryPublisherProtocol {
 }
 
 final class SiriLibraryPublisherTests: XCTestCase {
-    private let suiteName = "abbay.tests.SiriLibraryPublisherTests"
-
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = defaults
-        LastPlayedStore.standardFallback = defaults
-    }
+    /// The last-played pointer the publisher orders by, fresh per test.
+    private let lastPlayed = LastPlayedStore.inMemory()
 
     override func tearDownWithError() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = AppGroup.defaults
-        LastPlayedStore.standardFallback = .standard
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         SiriLibraryPublisher.shared = SiriLibraryPublisher()
         try super.tearDownWithError()
     }
@@ -105,8 +93,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
     }
 
     func test_orderedTitles_putsLastPlayedFirst() throws {
-        LastPlayedStore.save(url: try XCTUnwrap(URL(string: "file:///second")))
-        let titles = SiriLibraryPublisher().orderedTitles(for: [
+        lastPlayed.save(url: try XCTUnwrap(URL(string: "file:///second")))
+        let titles = SiriLibraryPublisher(lastPlayed: lastPlayed).orderedTitles(for: [
             audio(title: "First", url: "file:///first"),
             audio(title: "Second", url: "file:///second")
         ])
@@ -114,7 +102,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
     }
 
     func test_orderedTitles_dropsEmptyTitlesAndDuplicates() {
-        let titles = SiriLibraryPublisher().orderedTitles(for: [
+        let titles = SiriLibraryPublisher(lastPlayed: lastPlayed).orderedTitles(for: [
             audio(title: "Dune", url: "file:///a"),
             audio(title: "", url: "file:///b"),
             audio(title: "Dune", url: "file:///c")
@@ -127,7 +115,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
             audio(title: "Book \($0)", url: "file:///book\($0)")
         }
         XCTAssertEqual(
-            SiriLibraryPublisher().orderedTitles(for: audios).count,
+            SiriLibraryPublisher(lastPlayed: lastPlayed).orderedTitles(for: audios).count,
             SiriLibraryPublisher.vocabularyLimit
         )
     }
@@ -135,10 +123,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
     func test_snapshotWrite_publishesLibraryToSiri() throws {
         let spy = SpySiriLibraryPublisher()
         SiriLibraryPublisher.shared = spy
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        LibrarySnapshotWriter.defaults = defaults
 
-        LibrarySnapshotWriter().write(audios: [audio(title: "Dune", url: "file:///dune")])
+        LibrarySnapshotWriter(store: InMemoryKeyValueStore()).write(audios: [audio(title: "Dune", url: "file:///dune")])
 
         XCTAssertEqual(spy.publishedTitles, [["Dune"]])
     }

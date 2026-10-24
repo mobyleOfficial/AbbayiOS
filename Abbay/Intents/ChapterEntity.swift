@@ -36,7 +36,7 @@ enum ChapterContext {
             return playing
         }
         guard DependencyContainer.isConfigured,
-              let url = LastPlayedStore.lastPlayedURL() else {
+              let url = DependencyContainer.shared.lastPlayed.lastPlayedURL() else {
             return nil
         }
         return DependencyContainer.shared.loadAudio.execute(url: url)

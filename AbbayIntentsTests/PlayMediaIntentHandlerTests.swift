@@ -11,31 +11,22 @@ import XCTest
 // app-extension binary cannot be linked into a unit-test bundle.
 
 final class PlayMediaIntentHandlerTests: XCTestCase {
-    private var testSuite: UserDefaults?
-    private var suiteName: String?
+    /// The handler's App Group store, fresh per test (XCTest builds one instance per test).
+    private let appGroup = InMemoryKeyValueStore()
+    private var lastPlayed: LastPlayedStore {
+        LastPlayedStore(store: appGroup, legacyStore: InMemoryKeyValueStore())
+    }
+    private var launchState: LaunchStateFlag { LaunchStateFlag(store: appGroup) }
     private var handler: PlayMediaIntentHandler?
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.handler.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        suiteName = name
-        testSuite = suite
-        LibrarySnapshotReader.defaults = suite
-        LaunchStateFlag.defaults = suite
-        LastPlayedStore.defaults = suite
-        handler = PlayMediaIntentHandler()
-    }
-
-    override func tearDownWithError() throws {
-        if let name = suiteName, let suite = testSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LibrarySnapshotReader.defaults = AppGroup.defaults
-        LaunchStateFlag.defaults = AppGroup.defaults
-        LastPlayedStore.defaults = AppGroup.defaults
-        try super.tearDownWithError()
+        handler = PlayMediaIntentHandler(
+            lastPlayed: lastPlayed,
+            launchState: launchState,
+            librarySnapshot: LibrarySnapshotReader(store: appGroup),
+            diagnostics: SiriDiagnostics(store: appGroup)
+        )
     }
 
     private func makeIntent(mediaName: String, mediaItems: [INMediaItem]? = nil) -> INPlayMediaIntent {
@@ -54,9 +45,8 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
 
     private func writeSnapshot(_ entries: [LibrarySnapshotEntry]) throws {
         let snapshot = LibrarySnapshot(version: 1, updatedAt: Date(), audios: entries)
-        let suite = try XCTUnwrap(testSuite)
         let data = try JSONEncoder().encode(snapshot)
-        suite.set(data, forKey: LibrarySnapshotWriter.key)
+        appGroup.set(data, forKey: LibrarySnapshotWriter.key)
     }
 
     // Tests target the internal `decide(for:)` method because the public
@@ -133,7 +123,7 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
             LibrarySnapshotEntry(title: "Goblet of Fire", urlString: "file:///gof", bookmarkData: nil),
             LibrarySnapshotEntry(title: "Order of the Phoenix", urlString: "file:///ootp", bookmarkData: nil)
         ])
-        LastPlayedStore.save(url: try XCTUnwrap(URL(string: "file:///ootp")))
+        lastPlayed.save(url: try XCTUnwrap(URL(string: "file:///ootp")))
         let handler = try XCTUnwrap(self.handler)
         guard case .singleMatch(let item) = handler.decide(for: makeIntent(mediaName: "")) else {
             return XCTFail("expected singleMatch for title-less request with a last-played book")
@@ -169,7 +159,7 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
     }
 
     func test_decide_audioSessionUnavailableFlag_returnsUnavailableOutcome() throws {
-        LaunchStateFlag.markUnavailable()
+        launchState.markUnavailable()
         let handler = try XCTUnwrap(self.handler)
         XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Anything")), .unavailable)
     }
@@ -203,7 +193,7 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
     }
 
     func test_handle_audioUnavailable_returnsFailure() throws {
-        LaunchStateFlag.markUnavailable()
+        launchState.markUnavailable()
         let item = INMediaItem(identifier: "file:///hp", title: "Harry Potter", type: .audioBook, artwork: nil)
         let intent = makeIntent(mediaName: "X", mediaItems: [item])
 

@@ -16,6 +16,11 @@ protocol DependencyContainerProtocol {
     var downloadStates: DownloadStateStore { get }
     /// The app's settings: skip intervals, speeds, downloads and language.
     var settings: AppSettings { get }
+    /// The App Group values Siri shares with the extension. Here so the code the system builds
+    /// itself (App Intents, entity queries) gets them injected like everything else.
+    var lastPlayed: LastPlayedStore { get }
+    var launchState: LaunchStateFlag { get }
+    var librarySnapshot: LibrarySnapshotReader { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -50,6 +55,9 @@ final class DependencyContainer: DependencyContainerProtocol {
     let playback: PlaybackCenter
     let downloadStates: DownloadStateStore
     let settings: AppSettings
+    let lastPlayed: LastPlayedStore = .shared
+    let launchState: LaunchStateFlag = .shared
+    let librarySnapshot: LibrarySnapshotReader = .shared
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -70,6 +78,20 @@ final class DependencyContainer: DependencyContainerProtocol {
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.downloadStates = DownloadStateStore(downloads: downloads)
         self.loadAllAudios = LoadAllAudiosUseCase()
+    }
+
+    /// The App Group stores for code that can run before launch configured the container (entity
+    /// queries): the container's once it is configured, else the App Group's own.
+    static var lastPlayed: LastPlayedStore {
+        isConfigured ? shared.lastPlayed : .shared
+    }
+
+    static var launchState: LaunchStateFlag {
+        isConfigured ? shared.launchState : .shared
+    }
+
+    static var librarySnapshot: LibrarySnapshotReader {
+        isConfigured ? shared.librarySnapshot : .shared
     }
 
     private static func makeDownloads() -> BookDownloadManagerProtocol {

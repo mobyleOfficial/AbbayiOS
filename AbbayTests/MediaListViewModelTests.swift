@@ -21,14 +21,13 @@ final class MediaListViewModelTests: XCTestCase {
         suite.removePersistentDomain(forName: name)
         suiteName = name
         testSuite = suite
-        LibrarySnapshotWriter.defaults = suite
         let loader = MockFileLoader()
         let loadAll = MockLoadAllAudiosUseCase()
         mockFileLoader = loader
         mockLoadAll = loadAll
 
         sharedWriterOriginal = LibrarySnapshotWriter.shared
-        LibrarySnapshotWriter.shared = LibrarySnapshotWriter(loadAllAudios: loadAll)
+        LibrarySnapshotWriter.shared = LibrarySnapshotWriter(store: suite, loadAllAudios: loadAll)
         sharedPublisherOriginal = SiriLibraryPublisher.shared
     }
 
@@ -36,7 +35,6 @@ final class MediaListViewModelTests: XCTestCase {
         if let name = suiteName, let suite = testSuite {
             suite.removePersistentDomain(forName: name)
         }
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         if let original = sharedWriterOriginal {
             LibrarySnapshotWriter.shared = original
         }

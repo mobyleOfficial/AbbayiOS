@@ -13,28 +13,14 @@ final class IntentRouterTests: XCTestCase {
     private var loadAudio: MockLoadAudioUseCase?
     private var snapshotWriter: MockLibrarySnapshotWriter?
     private var playerMock: MockPlayer?
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
+    /// The router's App Group store, fresh per test.
+    private let appGroup = InMemoryKeyValueStore()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         loadAudio = MockLoadAudioUseCase()
         snapshotWriter = MockLibrarySnapshotWriter()
         playerMock = MockPlayer()
-        let name = "test.flag.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
-    }
-
-    override func tearDownWithError() throws {
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
-        try super.tearDownWithError()
     }
 
     private func makeIntent(identifier: String) -> INPlayMediaIntent {
@@ -89,12 +75,14 @@ final class IntentRouterTests: XCTestCase {
             loadAudio: loader,
             snapshotWriter: writer,
             snapshotReader: { snapshotEntries },
-            player: { mock }
+            player: { mock },
+            lastPlayed: .inMemory(appGroup),
+            launchState: .inMemory(appGroup)
         )
     }
 
     func test_handle_audioUnavailable_returnsFailure_doesNotCallPlayer() throws {
-        LaunchStateFlag.markUnavailable()
+        LaunchStateFlag.inMemory(appGroup).markUnavailable()
         let router = try makeRouter()
         let response = router.handle(makeIntent(identifier: "file:///x"))
         XCTAssertEqual(response.code, .failureUnknownMediaType)
@@ -113,19 +101,11 @@ final class IntentRouterTests: XCTestCase {
     }
 
     func test_handle_loadAudioReturnsNil_matchedLastPlayed_clearsLastPlayed() throws {
-        let storeSuiteName = "test.store.\(UUID().uuidString)"
-        let storeSuite = try XCTUnwrap(UserDefaults(suiteName: storeSuiteName))
-        let originalDefaults = LastPlayedStore.defaults
-        LastPlayedStore.defaults = storeSuite
-        defer {
-            storeSuite.removePersistentDomain(forName: storeSuiteName)
-            LastPlayedStore.defaults = originalDefaults
-        }
-        storeSuite.set("file:///gone", forKey: LastPlayedStore.key)
+        appGroup.set("file:///gone", forKey: LastPlayedStore.key)
 
         let router = try makeRouter()
         _ = router.handle(makeIntent(identifier: "file:///gone"))
-        XCTAssertNil(storeSuite.string(forKey: LastPlayedStore.key))
+        XCTAssertNil(appGroup.object(forKey: LastPlayedStore.key))
     }
 
     func test_handle_snapshotBookmarkPresent_resolvesViaBookmark() throws {

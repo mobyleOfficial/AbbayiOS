@@ -39,6 +39,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     private let spotlightIndexer: LibrarySpotlightIndexerProtocol
     private let vocabulary: (NSOrderedSet) -> Void
     private let refreshShortcutParameters: () -> Void
+    private let lastPlayed: LastPlayedStore
 
     init(
         mediaUserContextDonor: MediaUserContextDonorProtocol = MediaUserContextDonor.shared,
@@ -48,12 +49,14 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         },
         refreshShortcutParameters: @escaping () -> Void = {
             AbbayAppShortcuts.updateAppShortcutParameters()
-        }
+        },
+        lastPlayed: LastPlayedStore = .shared
     ) {
         self.mediaUserContextDonor = mediaUserContextDonor
         self.spotlightIndexer = spotlightIndexer
         self.vocabulary = vocabulary
         self.refreshShortcutParameters = refreshShortcutParameters
+        self.lastPlayed = lastPlayed
     }
 
     func publish(audios: [AudioModel]) {
@@ -67,7 +70,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     /// Exposed for tests: last-played title first, empty titles dropped, capped.
     func orderedTitles(for audios: [AudioModel]) -> [String] {
         var titles = audios.map(\.title).filter { !$0.isEmpty }
-        if let lastPlayed = LastPlayedStore.lastPlayedURL(),
+        if let lastPlayed = lastPlayed.lastPlayedURL(),
            let recent = audios.first(where: { $0.url == lastPlayed }),
            let index = titles.firstIndex(of: recent.title) {
             let title = titles.remove(at: index)

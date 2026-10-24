@@ -10,16 +10,16 @@ protocol AppDelegateSeederProtocol {
 }
 
 final class AppDelegateSeeder: AppDelegateSeederProtocol {
-    private let lastPlayedSuite: UserDefaults
-    private let standard: UserDefaults
+    private let appGroup: KeyValueStoring
+    private let standard: KeyValueStoring
     private let snapshotWriter: LibrarySnapshotWriterProtocol
 
     init(
-        lastPlayedSuite: UserDefaults = AppGroup.defaults,
-        standard: UserDefaults = .standard,
+        appGroup: KeyValueStoring = AppGroup.store,
+        standard: KeyValueStoring = UserDefaults.standard,
         snapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
     ) {
-        self.lastPlayedSuite = lastPlayedSuite
+        self.appGroup = appGroup
         self.standard = standard
         self.snapshotWriter = snapshotWriter
     }
@@ -30,14 +30,14 @@ final class AppDelegateSeeder: AppDelegateSeederProtocol {
     }
 
     private func seedLastPlayedIfNeeded() {
-        if lastPlayedSuite.string(forKey: LastPlayedStore.key) == nil,
-           let standardValue = standard.string(forKey: LastPlayedStore.key) {
-            lastPlayedSuite.set(standardValue, forKey: LastPlayedStore.key)
+        if appGroup.object(forKey: LastPlayedStore.key) as? String == nil,
+           let standardValue = standard.object(forKey: LastPlayedStore.key) as? String {
+            appGroup.set(standardValue, forKey: LastPlayedStore.key)
         }
     }
 
     private func seedLibrarySnapshotIfNeeded() {
-        if lastPlayedSuite.data(forKey: LibrarySnapshotWriter.key) == nil {
+        if appGroup.object(forKey: LibrarySnapshotWriter.key) as? Data == nil {
             snapshotWriter.refresh()
         }
     }

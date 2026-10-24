@@ -18,8 +18,6 @@ final class LibrarySnapshotReaderTests: XCTestCase {
         suite.removePersistentDomain(forName: name)
         suiteName = name
         testSuite = suite
-        LibrarySnapshotReader.defaults = suite
-        LibrarySnapshotWriter.defaults = suite
         mockLoadAllAudios = MockLoadAllAudiosUseCase()
     }
 
@@ -27,19 +25,21 @@ final class LibrarySnapshotReaderTests: XCTestCase {
         if let name = suiteName, let suite = testSuite {
             suite.removePersistentDomain(forName: name)
         }
-        LibrarySnapshotReader.defaults = AppGroup.defaults
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
-    func test_read_missingValue_returnsEmpty() {
-        XCTAssertEqual(LibrarySnapshotReader.read(), [])
+    private func makeReader() throws -> LibrarySnapshotReader {
+        LibrarySnapshotReader(store: try XCTUnwrap(testSuite))
+    }
+
+    func test_read_missingValue_returnsEmpty() throws {
+        XCTAssertEqual(try makeReader().read(), [])
     }
 
     func test_read_malformedJSON_returnsEmpty() throws {
         let suite = try XCTUnwrap(testSuite)
         suite.set(Data("not-json".utf8), forKey: LibrarySnapshotWriter.key)
-        XCTAssertEqual(LibrarySnapshotReader.read(), [])
+        XCTAssertEqual(try makeReader().read(), [])
     }
 
     func test_write_decodableByReader_roundTrip() throws {
@@ -50,8 +50,8 @@ final class LibrarySnapshotReaderTests: XCTestCase {
         modelB.title = "Chamber of Secrets"
 
         let mock = try XCTUnwrap(mockLoadAllAudios)
-        LibrarySnapshotWriter(loadAllAudios: mock).write(audios: [modelA, modelB])
-        let entries = LibrarySnapshotReader.read()
+        LibrarySnapshotWriter(store: try XCTUnwrap(testSuite), loadAllAudios: mock).write(audios: [modelA, modelB])
+        let entries = try makeReader().read()
 
         XCTAssertEqual(entries.count, 2)
         XCTAssertEqual(entries[0].title, "Sorcerer's Stone")

@@ -7,24 +7,8 @@
 import XCTest
 
 final class AppDelegateSeederTests: XCTestCase {
-    private var createdSuites: [(name: String, suite: UserDefaults)] = []
-
-    override func tearDownWithError() throws {
-        for entry in createdSuites {
-            entry.suite.removePersistentDomain(forName: entry.name)
-        }
-        createdSuites.removeAll()
-        try super.tearDownWithError()
-    }
-
-    private func makeSuites() throws -> (UserDefaults, UserDefaults) {
-        let appGroupName = "test.appgroup.\(UUID().uuidString)"
-        let standardName = "test.standard.\(UUID().uuidString)"
-        let appGroup = try XCTUnwrap(UserDefaults(suiteName: appGroupName))
-        let standard = try XCTUnwrap(UserDefaults(suiteName: standardName))
-        createdSuites.append((appGroupName, appGroup))
-        createdSuites.append((standardName, standard))
-        return (appGroup, standard)
+    private func makeSuites() throws -> (InMemoryKeyValueStore, InMemoryKeyValueStore) {
+        (InMemoryKeyValueStore(), InMemoryKeyValueStore())
     }
 
     func test_seed_lastPlayedInStandardOnly_copiesToAppGroup() throws {
@@ -33,10 +17,10 @@ final class AppDelegateSeederTests: XCTestCase {
         appGroup.set(Data(), forKey: LibrarySnapshotWriter.key)  // snapshot present → skip refresh
         let mockWriter = MockLibrarySnapshotWriter()
 
-        AppDelegateSeeder(lastPlayedSuite: appGroup, standard: standard, snapshotWriter: mockWriter)
+        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
             .seedIfNeeded()
 
-        XCTAssertEqual(appGroup.string(forKey: LastPlayedStore.key), "file:///old")
+        XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///old")
         XCTAssertEqual(mockWriter.refreshCallCount, 0)
     }
 
@@ -44,7 +28,7 @@ final class AppDelegateSeederTests: XCTestCase {
         let (appGroup, standard) = try makeSuites()
         let mockWriter = MockLibrarySnapshotWriter()
 
-        AppDelegateSeeder(lastPlayedSuite: appGroup, standard: standard, snapshotWriter: mockWriter)
+        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
             .seedIfNeeded()
 
         XCTAssertEqual(mockWriter.refreshCallCount, 1)
@@ -55,7 +39,7 @@ final class AppDelegateSeederTests: XCTestCase {
         appGroup.set(Data([1, 2]), forKey: LibrarySnapshotWriter.key)
         let mockWriter = MockLibrarySnapshotWriter()
 
-        AppDelegateSeeder(lastPlayedSuite: appGroup, standard: standard, snapshotWriter: mockWriter)
+        AppDelegateSeeder(appGroup: appGroup, standard: standard, snapshotWriter: mockWriter)
             .seedIfNeeded()
 
         XCTAssertEqual(mockWriter.refreshCallCount, 0)
@@ -68,11 +52,11 @@ final class AppDelegateSeederTests: XCTestCase {
         appGroup.set(Data(), forKey: LibrarySnapshotWriter.key)
 
         AppDelegateSeeder(
-            lastPlayedSuite: appGroup,
+            appGroup: appGroup,
             standard: standard,
             snapshotWriter: MockLibrarySnapshotWriter()
         ).seedIfNeeded()
 
-        XCTAssertEqual(appGroup.string(forKey: LastPlayedStore.key), "file:///existing")
+        XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///existing")
     }
 }

@@ -9,25 +9,16 @@ import XCTest
 /// #115: an import that drops files says which ones, instead of leaving the user to guess.
 final class MediaListViewModelImportTests: XCTestCase {
     private var mockFileLoader: MockFileLoader?
-    private var suiteName: String?
     private var sharedWriterOriginal: LibrarySnapshotWriterProtocol?
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.viewmodel-import.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suiteName = name
-        LibrarySnapshotWriter.defaults = suite
         sharedWriterOriginal = LibrarySnapshotWriter.shared
         LibrarySnapshotWriter.shared = MockLibrarySnapshotWriter()
         mockFileLoader = MockFileLoader()
     }
 
     override func tearDownWithError() throws {
-        if let suiteName {
-            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
-        }
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         if let original = sharedWriterOriginal {
             LibrarySnapshotWriter.shared = original
         }

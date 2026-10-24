@@ -115,6 +115,7 @@ targets:
     sources:
       - AbbayIntents
       - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/Data/KeyValueStore.swift
       - path: Abbay/Core/LaunchStateFlag.swift
       - path: Abbay/Core/LastPlayedStore.swift
       - path: Abbay/Core/LibrarySnapshotWriter.swift
@@ -149,6 +150,7 @@ targets:
       - path: AbbayIntents/IntentHandler.swift
       - path: AbbayIntents/PlayMediaIntentHandler.swift
       - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/Data/KeyValueStore.swift
       - path: Abbay/Core/LaunchStateFlag.swift
       - path: Abbay/Core/LastPlayedStore.swift
       - path: Abbay/Core/LibrarySnapshotWriter.swift

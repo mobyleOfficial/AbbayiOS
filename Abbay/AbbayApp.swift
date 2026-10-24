@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var intentRouter: IntentRouterProtocol = IntentRouter()
     lazy var siriLibraryPublisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared
     lazy var playMediaHandler = InAppPlayMediaHandler()
+    lazy var launchState: LaunchStateFlag = .shared
 
     func application(
         _ application: UIApplication,
@@ -37,10 +38,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         do {
             try audioSessionActivator.activate()
-            LaunchStateFlag.clear()
+            launchState.clear()
             seeder.seedIfNeeded()
         } catch {
-            LaunchStateFlag.markUnavailable()
+            launchState.markUnavailable()
         }
 
         // Request Siri authorization for the INPlayMediaIntent extension. Without

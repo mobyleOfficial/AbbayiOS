@@ -12,16 +12,15 @@ import XCTest
 /// and would make these flaky. Everything here is the decision logic around `model.chapters`,
 /// which is what the Siri intents and the remote-command handlers drive.
 final class PlayerChapterNavigationTests: XCTestCase {
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
-
     private func makePlayer() -> Player {
         Player(
             savePlaybackPositionUseCase: MockSavePlaybackPositionUseCase(),
             intentDonor: MockIntentDonor(),
             librarySnapshotWriter: MockLibrarySnapshotWriter(),
             audioSessionActivator: MockAudioSessionActivator(),
-            bookmarkProvider: MockBookmarkProvider()
+            bookmarkProvider: MockBookmarkProvider(),
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
     }
 
@@ -47,22 +46,8 @@ final class PlayerChapterNavigationTests: XCTestCase {
         )
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        let name = "test.chapternav.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
-    }
-
     override func tearDownWithError() throws {
         NowPlayingManager.shared.clearNowPlaying()
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 

@@ -42,17 +42,19 @@ private final class NoopLoadAllAudios: LoadAllAudiosUseCaseProtocol {
 final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
     static let key: String = "abbay.librarySnapshot.v1"
 
-    static var defaults: UserDefaults = AppGroup.defaults
     static var shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()
 
+    private let store: KeyValueStoring
     private let loadAllAudios: LoadAllAudiosUseCaseProtocol
 
     #if ABBAY_INTENTS_EXTENSION
-    init(loadAllAudios: LoadAllAudiosUseCaseProtocol = NoopLoadAllAudios()) {
+    init(store: KeyValueStoring = AppGroup.store, loadAllAudios: LoadAllAudiosUseCaseProtocol = NoopLoadAllAudios()) {
+        self.store = store
         self.loadAllAudios = loadAllAudios
     }
     #else
-    init(loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+    init(store: KeyValueStoring = AppGroup.store, loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+        self.store = store
         self.loadAllAudios = loadAllAudios
     }
     #endif
@@ -67,7 +69,7 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         }
         let snapshot = LibrarySnapshot(version: 1, updatedAt: Date(), audios: entries)
         if let data = try? JSONEncoder().encode(snapshot) {
-            Self.defaults.set(data, forKey: Self.key)
+            store.set(data, forKey: Self.key)
             let bookmarkCount = entries.filter { $0.bookmarkData != nil }.count
             os_log(
                 "snapshot WRITTEN: %{public}d entries (%{public}d with bookmark), suite=%{public}@",

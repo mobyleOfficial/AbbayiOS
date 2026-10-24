@@ -12,8 +12,6 @@ import XCTest
 /// The item failures are real: an `AVPlayerItem` for a file that isn't there fails on its own,
 /// which is exactly what a moved file or an undownloaded chapter played offline looks like.
 final class PlayerNoticeTests: XCTestCase {
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
     private var root: URL?
     private var notices: MockNoticeReporter?
     private var activator: MockAudioSessionActivator?
@@ -21,12 +19,6 @@ final class PlayerNoticeTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.player.notices.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlayerNoticeTests-\(UUID().uuidString)", isDirectory: true)
         notices = MockNoticeReporter()
@@ -39,10 +31,6 @@ final class PlayerNoticeTests: XCTestCase {
         if let root {
             try? FileManager.default.removeItem(at: root)
         }
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
@@ -57,7 +45,9 @@ final class PlayerNoticeTests: XCTestCase {
             bookmarkProvider: MockBookmarkProvider(),
             downloadsRoot: try XCTUnwrap(root),
             noticeReporter: try XCTUnwrap(notices),
-            networkPath: try XCTUnwrap(network)
+            networkPath: try XCTUnwrap(network),
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
     }
 
