@@ -37,7 +37,7 @@ final class SettingsViewModel: ObservableObject {
         measureBytes: @escaping () async -> Int64 = {
             await Task.detached(priority: .utility) { DownloadHousekeeping.bytesUsed() }.value
         },
-        isAudioUnavailable: @escaping () -> Bool = LaunchStateFlag.isUnavailable,
+        isAudioUnavailable: @escaping () -> Bool = { LaunchStateFlag.shared.isUnavailable() },
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:]
     ) {
         self.settings = settings

@@ -73,6 +73,8 @@ final class Player: PlayerProtocol {
     private var lastPositionSave: Date?
     private var notificationObservers: [NSObjectProtocol] = []
     private let speeds: PlaybackSpeedStoring
+    private let lastPlayed: LastPlayedStore
+    private let launchState: LaunchStateFlag
     /// Set while a multi-file book is loaded; `nil` for imported single-file books.
     private var multiFileQueue: MultiFileQueue?
     private var cancellables = Set<AnyCancellable>()
@@ -133,9 +135,13 @@ final class Player: PlayerProtocol {
         now: @escaping () -> Date = Date.init,
         noticeReporter: NoticeReporting = NoticeCenter.shared,
         networkPath: NetworkPathProviding = NetworkPathMonitor.shared,
-        speeds: PlaybackSpeedStoring = NormalPlaybackSpeed()
+        speeds: PlaybackSpeedStoring = NormalPlaybackSpeed(),
+        lastPlayed: LastPlayedStore = .shared,
+        launchState: LaunchStateFlag = .shared
     ) {
         self.speeds = speeds
+        self.lastPlayed = lastPlayed
+        self.launchState = launchState
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
@@ -192,9 +198,9 @@ final class Player: PlayerProtocol {
         // Step 1 — defense-in-depth audio session recovery
         do {
             try audioSessionActivator.activate()
-            LaunchStateFlag.clear()
+            launchState.clear()
         } catch {
-            LaunchStateFlag.markUnavailable()
+            launchState.markUnavailable()
             let error = error as NSError
             Log.player.error(
                 "play: audio session activation failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
@@ -238,7 +244,7 @@ final class Player: PlayerProtocol {
         NowPlayingManager.shared.setPlayer(self, currentAudio: model)
         player.play()
         Log.player.debug("play: started, timeControlStatus=\(self.player.timeControlStatus.rawValue, privacy: .public)")
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
         intentDonor.donatePlayMedia(model: model)
     }
 

@@ -51,9 +51,11 @@ final class MockBookmarkProvider: BookmarkProviderProtocol {
 }
 
 final class MockSaveAudioUseCase: SaveAudioUseCaseProtocol {
-    var savedModels: [AudioModel] = []
+    /// Every call, as passed (an empty one too).
+    private(set) var batches: [[AudioModel]] = []
+    var savedModels: [AudioModel] { batches.flatMap { $0 } }
 
-    func execute(_ model: AudioModel) throws { savedModels.append(model) }
+    func execute(_ models: [AudioModel]) throws { batches.append(models) }
 }
 
 final class MockSavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol {

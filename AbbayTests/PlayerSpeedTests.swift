@@ -11,18 +11,11 @@ import XCTest
 /// books), through the queue player's `defaultRate`, so it holds across pause and resume, seeks and
 /// chapter files. Asserts the requested rates, never waits for audio (the URLs don't resolve).
 final class PlayerSpeedTests: XCTestCase {
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
     private var root: URL?
     private var settings = AppSettings(store: InMemoryKeyValueStore())
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.speed.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlayerSpeedTests-\(UUID().uuidString)", isDirectory: true)
         settings = AppSettings(store: InMemoryKeyValueStore())
@@ -33,10 +26,6 @@ final class PlayerSpeedTests: XCTestCase {
         if let root {
             try? FileManager.default.removeItem(at: root)
         }
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
@@ -50,7 +39,9 @@ final class PlayerSpeedTests: XCTestCase {
             audioSessionActivator: MockAudioSessionActivator(),
             bookmarkProvider: MockBookmarkProvider(),
             downloadsRoot: try XCTUnwrap(root),
-            speeds: settings
+            speeds: settings,
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
     }
 

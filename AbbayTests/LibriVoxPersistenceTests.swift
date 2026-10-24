@@ -23,7 +23,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
     func test_saveThenLoad_roundTripsLibriVoxFields() throws {
         let audio = makeBook()
 
-        try SaveAudioUseCase().execute(audio)
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
 
         XCTAssertEqual(loaded.librivoxID, "alice_in_wonderland_librivox")
@@ -38,13 +38,13 @@ final class LibriVoxPersistenceTests: XCTestCase {
 
     func test_save_existingBook_leavesPauseAndCellularFlagsAlone() throws {
         var audio = makeBook()
-        try SaveAudioUseCase().execute(audio)
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
 
         // A stale copy, like the one `Player.saveTime()` holds, must not undo a pause or a choice.
         audio.allowsCellularDownload = false
         audio.isDownloadPaused = false
         audio.currentTime = 30
-        try SaveAudioUseCase().execute(audio)
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
 
         XCTAssertTrue(loaded.allowsCellularDownload)
@@ -54,7 +54,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
     }
 
     func test_updateDownloadFlags_changesOnlyTheGivenFlags() throws {
-        try SaveAudioUseCase().execute(makeBook())
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(makeBook())
 
         UpdateDownloadFlagsUseCase().execute(url: bookURL, isDownloadPaused: false, allowsCellularDownload: nil)
         var loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
@@ -76,7 +76,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
     }
 
     func test_savePlaybackPosition_updatesOnlyTheExistingBook() throws {
-        try SaveAudioUseCase().execute(makeBook())
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(makeBook())
 
         SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 75, bookmarkData: Data([4, 2]))
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
@@ -91,7 +91,7 @@ final class LibriVoxPersistenceTests: XCTestCase {
     func test_savePlaybackPosition_withoutBookmark_keepsTheSavedBookmark() throws {
         var audio = makeBook()
         audio.bookmarkData = Data([9])
-        try SaveAudioUseCase().execute(audio)
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
 
         SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 12, bookmarkData: nil)
         let loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
@@ -102,8 +102,8 @@ final class LibriVoxPersistenceTests: XCTestCase {
 
     func test_savePlaybackPosition_deletedBook_insertsNothing() throws {
         let audio = makeBook()
-        try SaveAudioUseCase().execute(audio)
-        DeleteAudioUseCase(removeDownloads: { _ in }).execute(audio)
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
+        DeleteAudioUseCase(removeDownloads: { _ in }, snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
 
         SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 30, bookmarkData: nil)
 

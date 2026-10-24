@@ -33,23 +33,37 @@ final class AppDelegateOrderingTests: XCTestCase {
         let delegate = AppDelegate()
         delegate.audioSessionActivator = OrderRecorderActivator { sequence.append("session") }
         delegate.seeder = OrderRecorderSeeder { sequence.append("seed") }
+        delegate.launchState = .inMemory()
+        delegate.librarySnapshotWriter = MockLibrarySnapshotWriter()
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 
         XCTAssertEqual(sequence, ["session", "seed"])
     }
 
+    /// Launch rewrites the library snapshot once, which publishes the library to Siri. The
+    /// library list used to do this write as it loaded (#85).
+    func test_didFinishLaunching_writesTheLibrarySnapshotOnce() {
+        DependencyContainer.reset()
+        let writer = MockLibrarySnapshotWriter()
+
+        let delegate = AppDelegate()
+        delegate.audioSessionActivator = OrderRecorderActivator {}
+        delegate.seeder = OrderRecorderSeeder {}
+        delegate.launchState = .inMemory()
+        delegate.librarySnapshotWriter = writer
+
+        _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
+
+        XCTAssertEqual(writer.refreshCallCount, 1)
+        XCTAssertEqual(writer.writeCallCount, 0)
+    }
+
     func test_didFinishLaunching_audioSessionThrows_setsFlag_skipsSeed() throws {
         var seedCalled = false
         DependencyContainer.reset()
 
-        let suiteName = "test.flag.\(UUID().uuidString)"
-        let flagSuite = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        LaunchStateFlag.defaults = flagSuite
-        defer {
-            flagSuite.removePersistentDomain(forName: suiteName)
-            LaunchStateFlag.defaults = AppGroup.defaults
-        }
+        let flag = LaunchStateFlag.inMemory()
 
         struct ThrowingActivator: AudioSessionActivatorProtocol {
             func activate() throws { throw NSError(domain: "test", code: 1) }
@@ -58,10 +72,12 @@ final class AppDelegateOrderingTests: XCTestCase {
         let delegate = AppDelegate()
         delegate.audioSessionActivator = ThrowingActivator()
         delegate.seeder = OrderRecorderSeeder { seedCalled = true }
+        delegate.launchState = flag
+        delegate.librarySnapshotWriter = MockLibrarySnapshotWriter()
 
         _ = delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: nil)
 
-        XCTAssertTrue(LaunchStateFlag.isUnavailable())
+        XCTAssertTrue(flag.isUnavailable())
         XCTAssertFalse(seedCalled)
     }
 }

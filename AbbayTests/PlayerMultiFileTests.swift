@@ -20,8 +20,6 @@ final class PlayerMultiFileTests: XCTestCase {
         }
     }
 
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
     private var root: URL?
     private var saveUseCase: MockSavePlaybackPositionUseCase?
     private var bookmarkProvider: MockBookmarkProvider?
@@ -29,13 +27,6 @@ final class PlayerMultiFileTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.multifile.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
-
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PlayerMultiFileTests-\(UUID().uuidString)", isDirectory: true)
         saveUseCase = MockSavePlaybackPositionUseCase()
@@ -48,14 +39,15 @@ final class PlayerMultiFileTests: XCTestCase {
         if let root {
             try? FileManager.default.removeItem(at: root)
         }
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
     // MARK: - Helpers
+
+    /// Real Core Data, but no App Group snapshot: that isn't what these tests are about.
+    private func makeDelete() -> DeleteAudioUseCase {
+        DeleteAudioUseCase(removeDownloads: { _ in }, snapshotWriter: MockLibrarySnapshotWriter())
+    }
 
     private func makePlayer(
         savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol? = nil
@@ -67,7 +59,9 @@ final class PlayerMultiFileTests: XCTestCase {
             audioSessionActivator: MockAudioSessionActivator(),
             bookmarkProvider: try XCTUnwrap(bookmarkProvider),
             chapterPrioritizer: try XCTUnwrap(prioritizer),
-            downloadsRoot: try XCTUnwrap(root)
+            downloadsRoot: try XCTUnwrap(root),
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
     }
 
@@ -154,14 +148,14 @@ final class PlayerMultiFileTests: XCTestCase {
 
     func test_saveTime_afterTheBookWasDeleted_insertsNoRow() throws {
         let model = libriVoxBook()
-        try SaveAudioUseCase().execute(model)
-        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(model)
+        defer { makeDelete().execute(model) }
         let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
         var loaded = model
         player.play(&loaded)
 
         // Deleted from the Library while the player still holds it.
-        DeleteAudioUseCase(removeDownloads: { _ in }).execute(model)
+        makeDelete().execute(model)
         player.seek(150)
         player.pause()
 
@@ -170,8 +164,8 @@ final class PlayerMultiFileTests: XCTestCase {
 
     func test_saveTime_existingBook_updatesItsPosition() throws {
         let model = libriVoxBook()
-        try SaveAudioUseCase().execute(model)
-        defer { DeleteAudioUseCase(removeDownloads: { _ in }).execute(model) }
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(model)
+        defer { makeDelete().execute(model) }
         let player = try makePlayer(savePlaybackPositionUseCase: SavePlaybackPositionUseCase())
         var loaded = model
         player.play(&loaded)

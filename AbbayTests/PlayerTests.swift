@@ -13,18 +13,12 @@ final class PlayerTests: XCTestCase {
     private var snapshotWriter: MockLibrarySnapshotWriter?
     private var bookmarkProvider: MockBookmarkProvider?
     private var player: Player?
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
+    /// The player's App Group store, and the launch flag over it.
+    private let appGroup = InMemoryKeyValueStore()
+    private var flag: LaunchStateFlag { .inMemory(appGroup) }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.player.flag.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
-
         let activator = MockAudioSessionActivator()
         let donorMock = MockIntentDonor()
         let writerMock = MockLibrarySnapshotWriter()
@@ -40,22 +34,20 @@ final class PlayerTests: XCTestCase {
             intentDonor: donorMock,
             librarySnapshotWriter: writerMock,
             audioSessionActivator: activator,
-            bookmarkProvider: bookmarkMock
+            bookmarkProvider: bookmarkMock,
+            lastPlayed: .inMemory(appGroup),
+            launchState: .inMemory(appGroup)
         )
     }
 
     override func tearDownWithError() throws {
         NowPlayingManager.shared.clearNowPlaying()
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
     func test_play_setActiveSucceedsWhenFlagWasFalse_keepsFlagFalse() throws {
         var model = AudioModel(url: URL(string: "file:///book.m4a"))
-        XCTAssertFalse(LaunchStateFlag.isUnavailable())
+        XCTAssertFalse(flag.isUnavailable())
 
         let player = try XCTUnwrap(self.player)
         let activator = try XCTUnwrap(sessionActivator)
@@ -63,12 +55,12 @@ final class PlayerTests: XCTestCase {
         player.play(&model)
 
         XCTAssertEqual(activator.activateCallCount, 1)
-        XCTAssertFalse(LaunchStateFlag.isUnavailable())
+        XCTAssertFalse(flag.isUnavailable())
         XCTAssertEqual(donorMock.donateCallCount, 1)
     }
 
     func test_play_setActiveSucceedsWhenFlagWasTrue_clearsFlag_playsAndDonates_recoveryHappyPath() throws {
-        LaunchStateFlag.markUnavailable()
+        flag.markUnavailable()
         var model = AudioModel(url: URL(string: "file:///book.m4a"))
 
         let player = try XCTUnwrap(self.player)
@@ -77,29 +69,20 @@ final class PlayerTests: XCTestCase {
         player.play(&model)
 
         XCTAssertEqual(activator.activateCallCount, 1)
-        XCTAssertFalse(LaunchStateFlag.isUnavailable())
+        XCTAssertFalse(flag.isUnavailable())
         XCTAssertEqual(donorMock.donateCallCount, 1)
     }
 
     func test_play_sameURLReplay_savesLastPlayedEachTime() throws {
-        let storeSuiteName = "test.store.\(UUID().uuidString)"
-        let storeSuite = try XCTUnwrap(UserDefaults(suiteName: storeSuiteName))
-        let originalDefaults = LastPlayedStore.defaults
-        LastPlayedStore.defaults = storeSuite
-        defer {
-            storeSuite.removePersistentDomain(forName: storeSuiteName)
-            LastPlayedStore.defaults = originalDefaults
-        }
-
         var model = AudioModel(url: URL(string: "file:///book.m4a"))
         let player = try XCTUnwrap(self.player)
         player.play(&model)
-        XCTAssertEqual(storeSuite.string(forKey: LastPlayedStore.key), "file:///book.m4a")
+        XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///book.m4a")
 
         // Simulate the store being mutated elsewhere; same-URL play should re-save
-        storeSuite.set("file:///other.m4a", forKey: LastPlayedStore.key)
+        appGroup.set("file:///other.m4a", forKey: LastPlayedStore.key)
         player.play(&model)
-        XCTAssertEqual(storeSuite.string(forKey: LastPlayedStore.key), "file:///book.m4a")
+        XCTAssertEqual(appGroup.object(forKey: LastPlayedStore.key) as? String, "file:///book.m4a")
     }
 
     func test_play_firstPlayOfBookWithoutBookmark_populatesBookmarkDataOnInoutModel_callsSnapshotRefresh() throws {
@@ -140,7 +123,7 @@ final class PlayerTests: XCTestCase {
         let donorMock = try XCTUnwrap(donor)
         player.play(&model)
 
-        XCTAssertTrue(LaunchStateFlag.isUnavailable())
+        XCTAssertTrue(flag.isUnavailable())
         XCTAssertEqual(donorMock.donateCallCount, 0)
     }
 
@@ -174,7 +157,9 @@ final class PlayerTests: XCTestCase {
             intentDonor: MockIntentDonor(),
             librarySnapshotWriter: MockLibrarySnapshotWriter(),
             audioSessionActivator: MockAudioSessionActivator(),
-            bookmarkProvider: bookmarks
+            bookmarkProvider: bookmarks,
+            lastPlayed: .inMemory(appGroup),
+            launchState: .inMemory(appGroup)
         )
     }
 

@@ -14,22 +14,28 @@ final class IntentRouter: IntentRouterProtocol {
     private let snapshotWriter: LibrarySnapshotWriterProtocol
     private let snapshotReader: () -> [LibrarySnapshotEntry]
     private let player: () -> PlayerProtocol
+    private let lastPlayed: LastPlayedStore
+    private let launchState: LaunchStateFlag
 
     init(
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
         snapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
-        snapshotReader: @escaping () -> [LibrarySnapshotEntry] = { LibrarySnapshotReader.read() },
-        player: @escaping () -> PlayerProtocol = { DependencyContainer.shared.player }
+        snapshotReader: @escaping () -> [LibrarySnapshotEntry] = { LibrarySnapshotReader.shared.read() },
+        player: @escaping () -> PlayerProtocol = { DependencyContainer.shared.player },
+        lastPlayed: LastPlayedStore = .shared,
+        launchState: LaunchStateFlag = .shared
     ) {
         self.loadAudio = loadAudio
         self.snapshotWriter = snapshotWriter
         self.snapshotReader = snapshotReader
         self.player = player
+        self.lastPlayed = lastPlayed
+        self.launchState = launchState
     }
 
     func handle(_ intent: INPlayMediaIntent) -> INPlayMediaIntentResponse {
         SiriDiagnostics.record("app handleInApp received")
-        if LaunchStateFlag.isUnavailable() {
+        if launchState.isUnavailable() {
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
         }
         guard let identifier = identifier(for: intent) else {
@@ -45,8 +51,8 @@ final class IntentRouter: IntentRouterProtocol {
         guard var model = loadAudio.execute(url: resolvedURL)
                 ?? loadAudio.execute(url: fallbackURL) else {
             SiriDiagnostics.record("app handleInApp load failed")
-            if let saved = LastPlayedStore.lastPlayedURL(), saved.absoluteString == identifier {
-                LastPlayedStore.save(url: nil)
+            if let saved = lastPlayed.lastPlayedURL(), saved.absoluteString == identifier {
+                lastPlayed.save(url: nil)
             }
             snapshotWriter.refresh()
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
@@ -72,7 +78,7 @@ final class IntentRouter: IntentRouterProtocol {
         let picked = MediaSearchResolver.candidates(
             mediaName: intent.mediaSearch?.mediaName ?? "",
             audios: audios,
-            lastPlayedURL: LastPlayedStore.lastPlayedURL()
+            lastPlayedURL: lastPlayed.lastPlayedURL()
         ).first
         SiriDiagnostics.record(
             "app resolved in-app library=\(audios.count) matched=\(picked != nil)"

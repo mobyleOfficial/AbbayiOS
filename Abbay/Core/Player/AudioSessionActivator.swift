@@ -33,13 +33,15 @@ final class AudioSessionActivator: AudioSessionActivatorProtocol {
     /// `AVAudioSession` succeeds unconditionally in the simulator).
     static var makeActivator: () -> AudioSessionActivatorProtocol = { AudioSessionActivator() }
 
-    static func attemptActivation() -> Bool {
+    /// `flag` defaults to the container's, so App Intents (which the system builds) use the
+    /// store tests inject there.
+    static func attemptActivation(flag: LaunchStateFlag = DependencyContainer.launchState) -> Bool {
         do {
             try makeActivator().activate()
-            LaunchStateFlag.clear()
+            flag.clear()
             return true
         } catch {
-            LaunchStateFlag.markUnavailable()
+            flag.markUnavailable()
             return false
         }
     }

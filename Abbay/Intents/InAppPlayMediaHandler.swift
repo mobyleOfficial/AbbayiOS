@@ -17,13 +17,19 @@ import Intents
 final class InAppPlayMediaHandler: NSObject, INPlayMediaIntentHandling {
     private let router: IntentRouterProtocol
     private let snapshotReader: () -> [LibrarySnapshotEntry]
+    private let lastPlayed: LastPlayedStore
+    private let diagnostics: SiriDiagnostics
 
     init(
         router: IntentRouterProtocol = IntentRouter(),
-        snapshotReader: @escaping () -> [LibrarySnapshotEntry] = { LibrarySnapshotReader.read() }
+        snapshotReader: @escaping () -> [LibrarySnapshotEntry] = { LibrarySnapshotReader.shared.read() },
+        lastPlayed: LastPlayedStore = .shared,
+        diagnostics: SiriDiagnostics = .shared
     ) {
         self.router = router
         self.snapshotReader = snapshotReader
+        self.lastPlayed = lastPlayed
+        self.diagnostics = diagnostics
     }
 
     /// The testable half of `resolveMediaItems`: `INPlayMediaMediaItemResolutionResult`
@@ -33,7 +39,7 @@ final class InAppPlayMediaHandler: NSObject, INPlayMediaIntentHandling {
         let picked = MediaSearchResolver.candidates(
             mediaName: intent.mediaSearch?.mediaName ?? "",
             audios: audios,
-            lastPlayedURL: LastPlayedStore.lastPlayedURL()
+            lastPlayedURL: lastPlayed.lastPlayedURL()
         ).first
         guard let picked, let url = picked.url else { return nil }
         return INMediaItem(
@@ -49,11 +55,11 @@ final class InAppPlayMediaHandler: NSObject, INPlayMediaIntentHandling {
         with completion: @escaping ([INPlayMediaMediaItemResolutionResult]) -> Void
     ) {
         guard let item = pick(for: intent) else {
-            SiriDiagnostics.record("inapp resolve → unsupported")
+            diagnostics.record("inapp resolve → unsupported")
             completion([.unsupported(forReason: .unsupportedMediaType)])
             return
         }
-        SiriDiagnostics.record("inapp resolve → success")
+        diagnostics.record("inapp resolve → success")
         completion([.success(with: item)])
     }
 
@@ -61,7 +67,7 @@ final class InAppPlayMediaHandler: NSObject, INPlayMediaIntentHandling {
         intent: INPlayMediaIntent,
         completion: @escaping (INPlayMediaIntentResponse) -> Void
     ) {
-        SiriDiagnostics.record("inapp confirm → ready")
+        diagnostics.record("inapp confirm → ready")
         completion(INPlayMediaIntentResponse(code: .ready, userActivity: nil))
     }
 
@@ -70,7 +76,7 @@ final class InAppPlayMediaHandler: NSObject, INPlayMediaIntentHandling {
         completion: @escaping (INPlayMediaIntentResponse) -> Void
     ) {
         let response = router.handle(intent)
-        SiriDiagnostics.record("inapp handle → code=\(response.code.rawValue)")
+        diagnostics.record("inapp handle → code=\(response.code.rawValue)")
         completion(response)
     }
 }

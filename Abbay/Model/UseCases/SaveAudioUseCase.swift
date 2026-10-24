@@ -9,24 +9,42 @@ import CoreData
 import Foundation
 
 protocol SaveAudioUseCaseProtocol {
-    func execute(_ audio: AudioModel) throws
+    /// Saves the books in one go: one Core Data save, one library snapshot write.
+    func execute(_ audios: [AudioModel]) throws
 }
 
+extension SaveAudioUseCaseProtocol {
+    func execute(_ audio: AudioModel) throws {
+        try execute([audio])
+    }
+}
+
+/// Adds books to the library (an import, a LibriVox book). Saving is a library change, so it also
+/// rewrites the App Group snapshot Siri and CarPlay read: callers can't forget to (#85).
 final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
     private let repository: LoadAudioRepositoryProtocol
+    private let snapshotWriter: LibrarySnapshotWriterProtocol
 
-    init(repository: LoadAudioRepositoryProtocol = LoadAudioRepository()) {
+    init(
+        repository: LoadAudioRepositoryProtocol = LoadAudioRepository(),
+        snapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
+    ) {
         self.repository = repository
+        self.snapshotWriter = snapshotWriter
     }
 
-    func execute(_ audio: AudioModel) throws {
+    func execute(_ audios: [AudioModel]) throws {
+        guard !audios.isEmpty else { return }
         LocalStorage.persistent.performAndWait { context in
-            let existingAudio = repository.execute(url: audio.url)
+            for audio in audios {
+                let existingAudio = repository.execute(url: audio.url)
 
-            updateAudio(existingAudio, with: audio, in: context)
+                updateAudio(existingAudio, with: audio, in: context)
+            }
 
             LocalStorage.persistent.saveContext()
         }
+        snapshotWriter.refresh()
     }
 
     /// Call on `context`'s queue.

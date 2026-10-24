@@ -18,24 +18,19 @@ private final class StubIntentRouter: IntentRouterProtocol {
 }
 
 final class InAppPlayMediaHandlerTests: XCTestCase {
-    private let suiteName = "abbay.tests.InAppPlayMediaHandlerTests"
+    /// The handler's App Group store, fresh per test.
+    private let appGroup = InMemoryKeyValueStore()
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = defaults
-        LastPlayedStore.standardFallback = defaults
-        SiriDiagnostics.defaults = defaults
-    }
-
-    override func tearDownWithError() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = AppGroup.defaults
-        LastPlayedStore.standardFallback = .standard
-        SiriDiagnostics.defaults = AppGroup.defaults
-        try super.tearDownWithError()
+    private func makeHandler(
+        router: IntentRouterProtocol = StubIntentRouter(),
+        snapshotReader: @escaping () -> [LibrarySnapshotEntry]
+    ) -> InAppPlayMediaHandler {
+        InAppPlayMediaHandler(
+            router: router,
+            snapshotReader: snapshotReader,
+            lastPlayed: .inMemory(appGroup),
+            diagnostics: SiriDiagnostics(store: appGroup)
+        )
     }
 
     private func intent(mediaName: String?) -> INPlayMediaIntent {
@@ -76,30 +71,30 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
     }
 
     func test_pick_matchesSpokenTitle() throws {
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: library)
+        let handler = makeHandler(snapshotReader: library)
         let item = try XCTUnwrap(handler.pick(for: intent(mediaName: "goblet of fire")))
         XCTAssertEqual(item.identifier, "file:///gof")
     }
 
     func test_pick_titlelessRequest_usesLastPlayed() throws {
-        LastPlayedStore.save(url: try XCTUnwrap(URL(string: "file:///hobbit")))
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: library)
+        LastPlayedStore.inMemory(appGroup).save(url: try XCTUnwrap(URL(string: "file:///hobbit")))
+        let handler = makeHandler(snapshotReader: library)
         let item = try XCTUnwrap(handler.pick(for: intent(mediaName: nil)))
         XCTAssertEqual(item.identifier, "file:///hobbit")
     }
 
     func test_pick_unknownTitle_returnsNil() {
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: library)
+        let handler = makeHandler(snapshotReader: library)
         XCTAssertNil(handler.pick(for: intent(mediaName: "Dune")))
     }
 
     func test_pick_emptyLibrary_returnsNil() {
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: { [] })
+        let handler = makeHandler(snapshotReader: { [] })
         XCTAssertNil(handler.pick(for: intent(mediaName: "anything")))
     }
 
     func test_resolveMediaItems_alwaysCompletesWithOneResult() {
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: library)
+        let handler = makeHandler(snapshotReader: library)
         let done = expectation(description: "resolve")
         handler.resolveMediaItems(for: intent(mediaName: "goblet of fire")) { results in
             XCTAssertEqual(results.count, 1)
@@ -109,7 +104,7 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
     }
 
     func test_confirm_reportsReady() {
-        let handler = InAppPlayMediaHandler(router: StubIntentRouter(), snapshotReader: library)
+        let handler = makeHandler(snapshotReader: library)
         let done = expectation(description: "confirm")
         handler.confirm(intent: intent(mediaName: "goblet of fire")) { response in
             XCTAssertEqual(response.code, .ready)
@@ -120,7 +115,7 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
 
     func test_handle_delegatesToRouterAndReturnsItsResponse() {
         let router = StubIntentRouter()
-        let handler = InAppPlayMediaHandler(router: router, snapshotReader: library)
+        let handler = makeHandler(router: router, snapshotReader: library)
         let done = expectation(description: "handle")
         handler.handle(intent: intent(mediaName: "goblet of fire")) { response in
             XCTAssertEqual(response.code, .success)

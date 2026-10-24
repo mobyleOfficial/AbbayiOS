@@ -22,7 +22,7 @@ struct LibrarySnapshot: Codable, Equatable {
 
 extension Notification.Name {
     /// Posted after every library snapshot write, which every library mutation funnels through
-    /// (import, delete, LibriVox additions, bookmark refreshes). Carries no payload: observers
+    /// (`SaveAudioUseCase`, `DeleteAudioUseCase`, the player's bookmark refresh, launch). Carries no payload: observers
     /// re-read the store. CarPlay rebuilds its list off this (#95).
     static let libraryDidChange = Notification.Name("abbay.libraryDidChange")
 }
@@ -42,17 +42,19 @@ private final class NoopLoadAllAudios: LoadAllAudiosUseCaseProtocol {
 final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
     static let key: String = "abbay.librarySnapshot.v1"
 
-    static var defaults: UserDefaults = AppGroup.defaults
-    static var shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()
+    static let shared: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter()
 
+    private let store: KeyValueStoring
     private let loadAllAudios: LoadAllAudiosUseCaseProtocol
 
     #if ABBAY_INTENTS_EXTENSION
-    init(loadAllAudios: LoadAllAudiosUseCaseProtocol = NoopLoadAllAudios()) {
+    init(store: KeyValueStoring = AppGroup.store, loadAllAudios: LoadAllAudiosUseCaseProtocol = NoopLoadAllAudios()) {
+        self.store = store
         self.loadAllAudios = loadAllAudios
     }
     #else
-    init(loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+    init(store: KeyValueStoring = AppGroup.store, loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase()) {
+        self.store = store
         self.loadAllAudios = loadAllAudios
     }
     #endif
@@ -67,7 +69,7 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
         }
         let snapshot = LibrarySnapshot(version: 1, updatedAt: Date(), audios: entries)
         if let data = try? JSONEncoder().encode(snapshot) {
-            Self.defaults.set(data, forKey: Self.key)
+            store.set(data, forKey: Self.key)
             let bookmarkCount = entries.filter { $0.bookmarkData != nil }.count
             os_log(
                 "snapshot WRITTEN: %{public}d entries (%{public}d with bookmark), suite=%{public}@",

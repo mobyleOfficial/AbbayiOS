@@ -13,31 +13,28 @@ final class SiriEntityTests: XCTestCase {
     private var player = MockPlayer()
     private var loader = MockLoadAudioUseCase()
     private var lister = MockLoadAllAudiosUseCase()
-    private let suiteName = "abbay.tests.SiriEntityTests"
+    /// The container's in-memory App Group store, and the last-played store over it.
+    private var appGroup = InMemoryKeyValueStore()
+    private var lastPlayed = LastPlayedStore(store: InMemoryKeyValueStore(), legacyStore: InMemoryKeyValueStore())
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = defaults
-        LastPlayedStore.standardFallback = defaults
-        LibrarySnapshotReader.defaults = defaults
-
         player = MockPlayer()
         loader = MockLoadAudioUseCase()
         lister = MockLoadAllAudiosUseCase()
-        DependencyContainer.configure(
-            with: MockDependencyContainer(player: player, loadAudio: loader, loadAllAudios: lister)
+        appGroup = InMemoryKeyValueStore()
+        let container = MockDependencyContainer(
+            player: player,
+            loadAudio: loader,
+            loadAllAudios: lister,
+            appGroup: appGroup
         )
+        lastPlayed = container.lastPlayed
+        DependencyContainer.configure(with: container)
     }
 
     override func tearDownWithError() throws {
         DependencyContainer.reset()
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        LastPlayedStore.defaults = AppGroup.defaults
-        LastPlayedStore.standardFallback = .standard
-        LibrarySnapshotReader.defaults = AppGroup.defaults
         NowPlayingManager.shared.setPlayer(player, currentAudio: nil)
         try super.tearDownWithError()
     }
@@ -86,7 +83,7 @@ final class SiriEntityTests: XCTestCase {
             audio(title: "First", url: "file:///first"),
             audio(title: "Second", url: "file:///second")
         ]
-        LastPlayedStore.save(url: try XCTUnwrap(URL(string: "file:///second")))
+        lastPlayed.save(url: try XCTUnwrap(URL(string: "file:///second")))
         let results = try await AudiobookEntityQuery().suggestedEntities()
         XCTAssertEqual(results.map(\.id), ["file:///second", "file:///first"])
     }
@@ -110,13 +107,12 @@ final class SiriEntityTests: XCTestCase {
 
     func test_audiobookLibrary_fallsBackToSnapshotWhenCoreDataEmpty() throws {
         lister.stub = []
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         let snapshot = LibrarySnapshot(
             version: 1,
             updatedAt: Date(),
             audios: [LibrarySnapshotEntry(title: "Snapshot Book", urlString: "file:///snap", bookmarkData: nil)]
         )
-        defaults.set(try JSONEncoder().encode(snapshot), forKey: LibrarySnapshotWriter.key)
+        appGroup.set(try JSONEncoder().encode(snapshot), forKey: LibrarySnapshotWriter.key)
         XCTAssertEqual(AudiobookLibrary.all().map(\.title), ["Snapshot Book"])
     }
 
@@ -141,7 +137,7 @@ final class SiriEntityTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "file:///b"))
         let book = audio(title: "Book", url: url.absoluteString, chapters: chapters([0, 100, 200]))
         loader.stubs[url.absoluteString] = book
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
         let results = try await ChapterEntityQuery().suggestedEntities()
         XCTAssertEqual(results.map(\.number), [1, 2, 3])
     }
@@ -175,13 +171,13 @@ final class SiriEntityTests: XCTestCase {
 
     func test_playAudiobookIntent_unreachableAndLastPlayed_clearsStore() async throws {
         let url = try XCTUnwrap(URL(string: "file:///gone"))
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
 
         var intent = PlayAudiobookIntent()
         intent.audiobook = AudiobookEntity(id: url.absoluteString, title: "Gone")
         _ = try await intent.perform()
 
-        XCTAssertNil(LastPlayedStore.lastPlayedURL())
+        XCTAssertNil(lastPlayed.lastPlayedURL())
     }
 
     func test_playAudiobookIntent_dialogConstantsMatchSpec() {
@@ -218,7 +214,7 @@ final class SiriEntityTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "file:///b"))
         let book = audio(title: "Book", url: url.absoluteString, chapters: chapters([0, 100, 200, 300]))
         loader.stubs[url.absoluteString] = book
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
 
         var intent = PlayChapterIntent()
         intent.chapter = ChapterEntity(id: 2)
@@ -233,7 +229,7 @@ final class SiriEntityTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "file:///b"))
         let book = audio(title: "Book", url: url.absoluteString, chapters: chapters([0, 100]))
         loader.stubs[url.absoluteString] = book
-        LastPlayedStore.save(url: url)
+        lastPlayed.save(url: url)
 
         var intent = PlayChapterIntent()
         intent.chapter = ChapterEntity(id: 7)

@@ -50,6 +50,9 @@ final class UITestSeederTests: XCTestCase {
             "seeding must clear first, or repeated runs accumulate books"
         )
         XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count)
+        // One call each, so seeding writes the library snapshot twice, not once a book.
+        XCTAssertEqual(delete.batches.count, 1)
+        XCTAssertEqual(save.batches.count, 1)
     }
 
     /// The mini player's last-row test needs a list longer than the screen.

@@ -13,19 +13,6 @@ import XCTest
 /// subscribes on its own breaks it.
 @MainActor
 final class SubscriptionBudgetTests: XCTestCase {
-    private var originalWriter: LibrarySnapshotWriterProtocol?
-
-    override func setUp() {
-        super.setUp()
-        originalWriter = LibrarySnapshotWriter.shared
-        LibrarySnapshotWriter.shared = MockLibrarySnapshotWriter()
-    }
-
-    override func tearDown() {
-        if let originalWriter { LibrarySnapshotWriter.shared = originalWriter }
-        super.tearDown()
-    }
-
     func test_appWide_playerSubscriptions_stayAtThree() {
         let player = CountingMockPlayer()
         let downloads = CountingMockBookDownloadManager()

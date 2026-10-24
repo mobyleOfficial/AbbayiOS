@@ -131,7 +131,8 @@ final class AppSettingsTests: XCTestCase {
         let sut = DeleteAudioUseCase(
             repository: NoopRepository(),
             removeDownloads: { _ in },
-            forgetSettings: settings.forgetSpeed(for:)
+            forgetSettings: settings.forgetSpeed(for:),
+            snapshotWriter: MockLibrarySnapshotWriter()
         )
 
         sut.execute(AudioModel(url: bookURL))

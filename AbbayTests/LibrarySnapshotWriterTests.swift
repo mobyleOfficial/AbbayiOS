@@ -18,7 +18,6 @@ final class LibrarySnapshotWriterTests: XCTestCase {
         suite.removePersistentDomain(forName: name)
         suiteName = name
         testSuite = suite
-        LibrarySnapshotWriter.defaults = suite
         mockLoadAllAudios = MockLoadAllAudiosUseCase()
     }
 
@@ -26,13 +25,12 @@ final class LibrarySnapshotWriterTests: XCTestCase {
         if let name = suiteName, let suite = testSuite {
             suite.removePersistentDomain(forName: name)
         }
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
     private func makeWriter() throws -> LibrarySnapshotWriter {
         let mock = try XCTUnwrap(mockLoadAllAudios)
-        return LibrarySnapshotWriter(loadAllAudios: mock)
+        return LibrarySnapshotWriter(store: try XCTUnwrap(testSuite), loadAllAudios: mock)
     }
 
     func test_write_emptyList_writesEmptyAudios() throws {

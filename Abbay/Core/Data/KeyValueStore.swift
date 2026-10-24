@@ -5,13 +5,18 @@
 
 import Foundation
 
-/// The small key-value half of the storage layer, for preferences (Core Data holds the library).
-/// Injected wherever it is read, so tests swap in `InMemoryKeyValueStore` instead of reaching into
-/// `UserDefaults`. Values are property-list types.
+/// The small key-value half of the storage layer (Core Data holds the library): the app's
+/// preferences, and the App Group values the Siri extension shares (`AppGroup.store`). Injected
+/// wherever it is read, so tests swap in `InMemoryKeyValueStore` instead of reaching into
+/// `UserDefaults`. Values are property-list types. Foundation only, so the extension compiles it.
 protocol KeyValueStoring: AnyObject {
     func object(forKey key: String) -> Any?
     func set(_ value: Any?, forKey key: String)
     func removeObject(forKey key: String)
+    /// Writes pending changes out now rather than on the store's own schedule. Only the Siri
+    /// diagnostics trail needs it.
+    @discardableResult
+    func synchronize() -> Bool
 }
 
 extension UserDefaults: KeyValueStoring {}
@@ -40,5 +45,10 @@ final class InMemoryKeyValueStore: KeyValueStoring {
 
     func removeObject(forKey key: String) {
         set(nil, forKey: key)
+    }
+
+    /// Nothing to write out: the values never leave the process.
+    func synchronize() -> Bool {
+        true
     }
 }

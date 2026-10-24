@@ -14,8 +14,6 @@ import XCTest
 /// Ticks are driven through `savePositionIfDue(isPlaying:)`, which the periodic time observer
 /// calls, against an injected clock: the observer itself only fires while an item really plays.
 final class PlayerPositionSaveTests: XCTestCase {
-    private var flagSuite: UserDefaults?
-    private var flagSuiteName: String?
     private var save = MockSavePlaybackPositionUseCase()
     private var notificationCenter = NotificationCenter()
     private var now = Date(timeIntervalSinceReferenceDate: 0)
@@ -25,12 +23,6 @@ final class PlayerPositionSaveTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        let name = "test.positionsave.\(UUID().uuidString)"
-        let suite = try XCTUnwrap(UserDefaults(suiteName: name))
-        suite.removePersistentDomain(forName: name)
-        flagSuiteName = name
-        flagSuite = suite
-        LaunchStateFlag.defaults = suite
         save = MockSavePlaybackPositionUseCase()
         notificationCenter = NotificationCenter()
         now = Date(timeIntervalSinceReferenceDate: 0)
@@ -39,10 +31,6 @@ final class PlayerPositionSaveTests: XCTestCase {
     override func tearDownWithError() throws {
         players.removeAll()
         NowPlayingManager.shared.clearNowPlaying()
-        if let name = flagSuiteName, let suite = flagSuite {
-            suite.removePersistentDomain(forName: name)
-        }
-        LaunchStateFlag.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
@@ -56,7 +44,9 @@ final class PlayerPositionSaveTests: XCTestCase {
             audioSessionActivator: MockAudioSessionActivator(),
             bookmarkProvider: MockBookmarkProvider(),
             notificationCenter: notificationCenter,
-            now: { [unowned self] in self.now }
+            now: { [unowned self] in self.now },
+            lastPlayed: .inMemory(),
+            launchState: .inMemory()
         )
         players.append(player)
         return player

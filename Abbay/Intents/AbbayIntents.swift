@@ -59,12 +59,12 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
         guard AudioSessionActivator.attemptActivation() else {
             return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
-        guard let url = LastPlayedStore.lastPlayedURL() else {
+        guard let url = DependencyContainer.lastPlayed.lastPlayedURL() else {
             return .result(dialog: IntentDialog(Self.addBookDialog))
         }
         guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             // Stuck-state guard: don't loop on a dead pointer.
-            LastPlayedStore.save(url: nil)
+            DependencyContainer.lastPlayed.save(url: nil)
             return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
         DependencyContainer.shared.player.play(&model)
@@ -179,15 +179,15 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
             return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         let library = DependencyContainer.shared.loadAllAudios.execute()
-        let lastPlayed = LastPlayedStore.lastPlayedURL()
+        let lastPlayed = DependencyContainer.lastPlayed.lastPlayedURL()
         guard let hit = fuzzyMatch(input: bookName, audios: library, lastPlayedURL: lastPlayed),
               let url = hit.url else {
             return .result(dialog: IntentDialog(Self.noMatchDialog(bookName)))
         }
         guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             // Stuck-state guard: clear pointer only if the dead match is the saved one.
-            if LastPlayedStore.lastPlayedURL() == url {
-                LastPlayedStore.save(url: nil)
+            if DependencyContainer.lastPlayed.lastPlayedURL() == url {
+                DependencyContainer.lastPlayed.save(url: nil)
             }
             return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
@@ -226,8 +226,8 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
         guard let url = audiobook.url,
               var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             // Stuck-state guard: clear the pointer only if the dead book is the saved one.
-            if let url = audiobook.url, LastPlayedStore.lastPlayedURL() == url {
-                LastPlayedStore.save(url: nil)
+            if let url = audiobook.url, DependencyContainer.lastPlayed.lastPlayedURL() == url {
+                DependencyContainer.lastPlayed.save(url: nil)
             }
             return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
@@ -277,7 +277,7 @@ struct PlayChapterIntent: AudioPlaybackIntent {
         // Cold: resume the last-played book, but start it at the requested chapter.
         // Setting `currentTime` before `play` avoids racing the seek against
         // AVPlayerItem loading.
-        guard let url = LastPlayedStore.lastPlayedURL(),
+        guard let url = DependencyContainer.lastPlayed.lastPlayedURL(),
               var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             return .result(dialog: IntentDialog(Self.nothingToPlayDialog))
         }

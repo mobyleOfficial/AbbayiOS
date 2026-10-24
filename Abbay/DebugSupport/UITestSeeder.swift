@@ -28,9 +28,7 @@ enum UITestSeeder {
         guard wantsSeed || wantsReset else { return }
 
         // Always start from empty, so repeated runs are deterministic rather than cumulative.
-        for audio in loadAll.execute() {
-            delete.execute(audio)
-        }
+        delete.execute(loadAll.execute())
 
         guard wantsSeed else { return }
         var models = seedModels()
@@ -40,9 +38,7 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedLongBook) {
             models.append(longBookModel())
         }
-        for model in models {
-            try? save.execute(model)
-        }
+        try? save.execute(models)
     }
 
     /// Plain books that only make the list scroll.

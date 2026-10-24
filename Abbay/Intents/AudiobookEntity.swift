@@ -22,7 +22,7 @@ enum AudiobookLibrary {
                 return audios
             }
         }
-        return LibrarySnapshotReader.read().compactMap { entry in
+        return DependencyContainer.librarySnapshot.read().compactMap { entry in
             guard let url = URL(string: entry.urlString) else { return nil }
             var model = AudioModel(url: url)
             model.title = entry.title
@@ -82,7 +82,7 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
     }
 
     func suggestedEntities() async throws -> [AudiobookEntity] {
-        let lastPlayed = LastPlayedStore.lastPlayedURL()
+        let lastPlayed = DependencyContainer.lastPlayed.lastPlayedURL()
         var ordered = AudiobookLibrary.all().compactMap(AudiobookEntity.init(model:))
         // Last-played first so the most likely spoken title is inside the cap.
         if let lastPlayed, let index = ordered.firstIndex(where: { $0.url == lastPlayed }) {
@@ -102,7 +102,7 @@ struct AudiobookEntityQuery: EntityQuery, EntityStringQuery {
         let matches = matchAll(
             input: string,
             audios: library,
-            lastPlayedURL: LastPlayedStore.lastPlayedURL()
+            lastPlayedURL: DependencyContainer.lastPlayed.lastPlayedURL()
         )
         let entities = matches.compactMap(AudiobookEntity.init(model:))
         SiriDiagnostics.record("query book matching found=\(entities.count) library=\(library.count)")

@@ -20,29 +20,26 @@ final class ExtensionLibrarySnapshotReaderTests: XCTestCase {
         suite.removePersistentDomain(forName: name)
         suiteName = name
         testSuite = suite
-        LibrarySnapshotReader.defaults = suite
-        LibrarySnapshotWriter.defaults = suite
     }
 
     override func tearDownWithError() throws {
         if let name = suiteName, let suite = testSuite {
             suite.removePersistentDomain(forName: name)
         }
-        LibrarySnapshotReader.defaults = AppGroup.defaults
-        LibrarySnapshotWriter.defaults = AppGroup.defaults
         try super.tearDownWithError()
     }
 
-    func test_read_missingValue_returnsEmpty() {
-        XCTAssertEqual(LibrarySnapshotReader.read(), [])
+    func test_read_missingValue_returnsEmpty() throws {
+        XCTAssertEqual(LibrarySnapshotReader(store: try XCTUnwrap(testSuite)).read(), [])
     }
 
     func test_extensionReadsMainAppWrite_roundTrip() throws {
         var modelA = AudioModel(url: URL(string: "file:///a"))
         modelA.title = "Sorcerer's Stone"
 
-        LibrarySnapshotWriter().write(audios: [modelA])
-        let entries = LibrarySnapshotReader.read()
+        let suite = try XCTUnwrap(testSuite)
+        LibrarySnapshotWriter(store: suite).write(audios: [modelA])
+        let entries = LibrarySnapshotReader(store: suite).read()
 
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(entries[0].title, "Sorcerer's Stone")
