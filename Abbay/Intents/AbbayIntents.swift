@@ -8,9 +8,34 @@ import Foundation
 
 // MARK: - Shared dialogs
 
+// Every dialog is a `LocalizedStringResource`, not a `String`. Siri receives the resource and
+// resolves it in the user's Siri language, from `Localizable.xcstrings` in the app bundle (App
+// Intents run in the app process, so `.main` is the right bundle). Keys are explicit so a wording
+// tweak doesn't orphan the translations; `defaultValue` is the English text.
+// Dialog text is spec-locked in both languages, and lifted into constants so a unit test catches
+// regressions on wording / punctuation.
+
 /// Spoken when the audio session is unavailable (e.g. another app holds it during a phone call).
-/// Phase-2 contract: dialog text is locked to enable manual verification + regression tests.
-let abbayAudioUnavailableDialog = "Audio temporarily unavailable. Try again in a moment."
+let abbayAudioUnavailableDialog = LocalizedStringResource(
+    "siriAudioUnavailable",
+    defaultValue: "Audio temporarily unavailable. Try again in a moment."
+)
+
+/// Shared by every intent that loads a book by URL.
+private let abbayCannotFindDialog = LocalizedStringResource(
+    "siriCannotFind",
+    defaultValue: "Cannot find that audiobook. It may have been removed or is not downloaded."
+)
+
+private func abbayPlayingDialog(title: String) -> LocalizedStringResource {
+    LocalizedStringResource("siriPlayingTitle", defaultValue: "Playing \(title).")
+}
+
+/// "Say 'Play in Abbay'" names the Resume phrase; pt-BR names its own registered phrase.
+private let abbayNothingPlayingHintDialog = LocalizedStringResource(
+    "siriNothingPlayingHint",
+    defaultValue: "Nothing is playing. Say 'Play in Abbay' to start."
+)
 
 // MARK: - Resume
 
@@ -18,13 +43,11 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play in Abbay"
     static let description = IntentDescription("Resumes the last audiobook you played in Abbay.")
 
-    // Spec-locked dialog text. v1 English-only (localization is a phase-2 non-goal).
-    // Lifted into constants so a unit test catches regressions on wording / punctuation.
-    static let addBookDialog = "Add a book in Abbay first."
-    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+    static let addBookDialog = LocalizedStringResource("siriAddBookFirst", defaultValue: "Add a book in Abbay first.")
+    static let cannotFindDialog = abbayCannotFindDialog
 
-    static func playingDialog(title: String) -> String {
-        "Playing \(title)."
+    static func playingDialog(title: String) -> LocalizedStringResource {
+        abbayPlayingDialog(title: title)
     }
 
     @MainActor
@@ -34,18 +57,18 @@ struct ResumeAbbayIntent: AudioPlaybackIntent {
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         guard let url = LastPlayedStore.lastPlayedURL() else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.addBookDialog))
+            return .result(dialog: IntentDialog(Self.addBookDialog))
         }
         guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             // Stuck-state guard: don't loop on a dead pointer.
             LastPlayedStore.save(url: nil)
-            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+            return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
         DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+        return .result(dialog: IntentDialog(Self.playingDialog(title: model.title)))
     }
 }
 
@@ -55,8 +78,8 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Pause Abbay"
     static let description = IntentDescription("Pauses the current audiobook in Abbay.")
 
-    static let nothingPlayingDialog = "Nothing is playing."
-    static let pausedDialog = "Paused."
+    static let nothingPlayingDialog = LocalizedStringResource("siriNothingPlaying", defaultValue: "Nothing is playing.")
+    static let pausedDialog = LocalizedStringResource("siriPaused", defaultValue: "Paused.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -65,13 +88,13 @@ struct PauseAbbayIntent: AudioPlaybackIntent {
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         guard NowPlayingManager.shared.currentAudio != nil else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
+            return .result(dialog: IntentDialog(Self.nothingPlayingDialog))
         }
         DependencyContainer.shared.player.pause()
-        return .result(dialog: IntentDialog(stringLiteral: Self.pausedDialog))
+        return .result(dialog: IntentDialog(Self.pausedDialog))
     }
 }
 
@@ -81,8 +104,8 @@ struct NextChapterIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Next chapter in Abbay"
     static let description = IntentDescription("Skips to the next chapter of the audiobook playing in Abbay.")
 
-    static let nothingPlayingDialog = "Nothing is playing. Say 'Play in Abbay' to start."
-    static let nextChapterDialog = "Next chapter."
+    static let nothingPlayingDialog = abbayNothingPlayingHintDialog
+    static let nextChapterDialog = LocalizedStringResource("siriNextChapter", defaultValue: "Next chapter.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -91,13 +114,13 @@ struct NextChapterIntent: AudioPlaybackIntent {
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         guard NowPlayingManager.shared.currentAudio != nil else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
+            return .result(dialog: IntentDialog(Self.nothingPlayingDialog))
         }
         DependencyContainer.shared.player.skipToNextChapter()
-        return .result(dialog: IntentDialog(stringLiteral: Self.nextChapterDialog))
+        return .result(dialog: IntentDialog(Self.nextChapterDialog))
     }
 }
 
@@ -107,8 +130,8 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Previous chapter in Abbay"
     static let description = IntentDescription("Skips to the previous chapter of the audiobook playing in Abbay.")
 
-    static let nothingPlayingDialog = "Nothing is playing. Say 'Play in Abbay' to start."
-    static let previousChapterDialog = "Previous chapter."
+    static let nothingPlayingDialog = abbayNothingPlayingHintDialog
+    static let previousChapterDialog = LocalizedStringResource("siriPreviousChapter", defaultValue: "Previous chapter.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -117,13 +140,13 @@ struct PreviousChapterIntent: AudioPlaybackIntent {
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         guard NowPlayingManager.shared.currentAudio != nil else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.nothingPlayingDialog))
+            return .result(dialog: IntentDialog(Self.nothingPlayingDialog))
         }
         DependencyContainer.shared.player.skipToPreviousChapter()
-        return .result(dialog: IntentDialog(stringLiteral: Self.previousChapterDialog))
+        return .result(dialog: IntentDialog(Self.previousChapterDialog))
     }
 }
 
@@ -136,16 +159,14 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
     @Parameter(title: "Audiobook", requestValueDialog: IntentDialog("Which audiobook?"))
     var bookName: String
 
-    // Spec-locked dialog text. v1 ships English only (non-goal: localization).
-    // Lift into constants so a unit test catches regressions on wording / punctuation.
-    static func noMatchDialog(_ input: String) -> String {
-        "No audiobook matches '\(input)'."
+    static func noMatchDialog(_ input: String) -> LocalizedStringResource {
+        LocalizedStringResource("siriNoMatch", defaultValue: "No audiobook matches '\(input)'.")
     }
 
-    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+    static let cannotFindDialog = abbayCannotFindDialog
 
-    static func playingDialog(title: String) -> String {
-        "Playing \(title)."
+    static func playingDialog(title: String) -> LocalizedStringResource {
+        abbayPlayingDialog(title: title)
     }
 
     @MainActor
@@ -155,23 +176,23 @@ struct PlayBookByNameIntent: AudioPlaybackIntent {
         // stale `true` from a previous cold-launch failure no longer sticks). If
         // it still throws, sets the flag and exits with the unavailable dialog.
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         let library = DependencyContainer.shared.loadAllAudios.execute()
         let lastPlayed = LastPlayedStore.lastPlayedURL()
         guard let hit = fuzzyMatch(input: bookName, audios: library, lastPlayedURL: lastPlayed),
               let url = hit.url else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.noMatchDialog(bookName)))
+            return .result(dialog: IntentDialog(Self.noMatchDialog(bookName)))
         }
         guard var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             // Stuck-state guard: clear pointer only if the dead match is the saved one.
             if LastPlayedStore.lastPlayedURL() == url {
                 LastPlayedStore.save(url: nil)
             }
-            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+            return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
         DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+        return .result(dialog: IntentDialog(Self.playingDialog(title: model.title)))
     }
 }
 
@@ -190,17 +211,17 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
     @Parameter(title: "Audiobook")
     var audiobook: AudiobookEntity
 
-    static let cannotFindDialog = "Cannot find that audiobook. It may have been removed or is not downloaded."
+    static let cannotFindDialog = abbayCannotFindDialog
 
-    static func playingDialog(title: String) -> String {
-        "Playing \(title)."
+    static func playingDialog(title: String) -> LocalizedStringResource {
+        abbayPlayingDialog(title: title)
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SiriDiagnostics.record("appintent PlayAudiobookIntent fired")
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         guard let url = audiobook.url,
               var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
@@ -208,10 +229,10 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
             if let url = audiobook.url, LastPlayedStore.lastPlayedURL() == url {
                 LastPlayedStore.save(url: nil)
             }
-            return .result(dialog: IntentDialog(stringLiteral: Self.cannotFindDialog))
+            return .result(dialog: IntentDialog(Self.cannotFindDialog))
         }
         DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(stringLiteral: Self.playingDialog(title: model.title)))
+        return .result(dialog: IntentDialog(Self.playingDialog(title: model.title)))
     }
 }
 
@@ -226,28 +247,31 @@ struct PlayChapterIntent: AudioPlaybackIntent {
     @Parameter(title: "Chapter")
     var chapter: ChapterEntity
 
-    static let nothingToPlayDialog = "Nothing to play. Say 'Play in Abbay' to start a book."
+    static let nothingToPlayDialog = LocalizedStringResource(
+        "siriNothingToPlay",
+        defaultValue: "Nothing to play. Say 'Play in Abbay' to start a book."
+    )
 
-    static func noChapterDialog(_ number: Int) -> String {
-        "That audiobook doesn't have a chapter \(number)."
+    static func noChapterDialog(_ number: Int) -> LocalizedStringResource {
+        LocalizedStringResource("siriNoChapter", defaultValue: "That audiobook doesn't have a chapter \(number).")
     }
 
-    static func playingChapterDialog(_ number: Int) -> String {
-        "Playing chapter \(number)."
+    static func playingChapterDialog(_ number: Int) -> LocalizedStringResource {
+        LocalizedStringResource("siriPlayingChapter", defaultValue: "Playing chapter \(number).")
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SiriDiagnostics.record("appintent PlayChapterIntent fired")
         guard AudioSessionActivator.attemptActivation() else {
-            return .result(dialog: IntentDialog(stringLiteral: abbayAudioUnavailableDialog))
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
         let index = chapter.id
 
         // Already listening: a seek is enough, and it avoids reloading the item.
         if NowPlayingManager.shared.currentAudio != nil,
            DependencyContainer.shared.player.playChapter(at: index) {
-            return .result(dialog: IntentDialog(stringLiteral: Self.playingChapterDialog(chapter.number)))
+            return .result(dialog: IntentDialog(Self.playingChapterDialog(chapter.number)))
         }
 
         // Cold: resume the last-played book, but start it at the requested chapter.
@@ -255,14 +279,14 @@ struct PlayChapterIntent: AudioPlaybackIntent {
         // AVPlayerItem loading.
         guard let url = LastPlayedStore.lastPlayedURL(),
               var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.nothingToPlayDialog))
+            return .result(dialog: IntentDialog(Self.nothingToPlayDialog))
         }
         guard model.chapters.indices.contains(index) else {
-            return .result(dialog: IntentDialog(stringLiteral: Self.noChapterDialog(chapter.number)))
+            return .result(dialog: IntentDialog(Self.noChapterDialog(chapter.number)))
         }
         model.currentTime = model.chapters[index].startTime
         DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(stringLiteral: Self.playingChapterDialog(chapter.number)))
+        return .result(dialog: IntentDialog(Self.playingChapterDialog(chapter.number)))
     }
 }
 

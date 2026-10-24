@@ -60,12 +60,21 @@ final class IntentTests: XCTestCase {
     // MARK: Resume
 
     func test_resume_dialogConstants_matchSpecVerbatim() {
-        XCTAssertEqual(ResumeAbbayIntent.addBookDialog, "Add a book in Abbay first.")
+        XCTAssertEqual(ResumeAbbayIntent.addBookDialog.resolved(in: "en"), "Add a book in Abbay first.")
         XCTAssertEqual(
-            ResumeAbbayIntent.cannotFindDialog,
+            ResumeAbbayIntent.cannotFindDialog.resolved(in: "en"),
             "Cannot find that audiobook. It may have been removed or is not downloaded."
         )
-        XCTAssertEqual(ResumeAbbayIntent.playingDialog(title: "Foo"), "Playing Foo.")
+        XCTAssertEqual(ResumeAbbayIntent.playingDialog(title: "Foo").resolved(in: "en"), "Playing Foo.")
+    }
+
+    func test_resume_dialogConstants_inPortuguese() {
+        XCTAssertEqual(ResumeAbbayIntent.addBookDialog.resolved(in: "pt-BR"), "Adicione um livro no Abbay primeiro.")
+        XCTAssertEqual(
+            ResumeAbbayIntent.cannotFindDialog.resolved(in: "pt-BR"),
+            "Não encontrei esse audiolivro. Ele pode ter sido removido ou não estar baixado."
+        )
+        XCTAssertEqual(ResumeAbbayIntent.playingDialog(title: "Foo").resolved(in: "pt-BR"), "Tocando Foo.")
     }
 
     func test_resume_noLastPlayed_loaderNotCalledAndPlayerNotCalled() async throws {
@@ -102,8 +111,13 @@ final class IntentTests: XCTestCase {
     // MARK: Pause
 
     func test_pause_dialogConstants_matchSpecVerbatim() {
-        XCTAssertEqual(PauseAbbayIntent.nothingPlayingDialog, "Nothing is playing.")
-        XCTAssertEqual(PauseAbbayIntent.pausedDialog, "Paused.")
+        XCTAssertEqual(PauseAbbayIntent.nothingPlayingDialog.resolved(in: "en"), "Nothing is playing.")
+        XCTAssertEqual(PauseAbbayIntent.pausedDialog.resolved(in: "en"), "Paused.")
+    }
+
+    func test_pause_dialogConstants_inPortuguese() {
+        XCTAssertEqual(PauseAbbayIntent.nothingPlayingDialog.resolved(in: "pt-BR"), "Nada está tocando.")
+        XCTAssertEqual(PauseAbbayIntent.pausedDialog.resolved(in: "pt-BR"), "Pausado.")
     }
 
     func test_pause_noCurrentAudio_doesNotPause() async throws {
@@ -123,10 +137,20 @@ final class IntentTests: XCTestCase {
 
     func test_nextChapter_dialogConstants_matchSpecVerbatim() {
         XCTAssertEqual(
-            NextChapterIntent.nothingPlayingDialog,
+            NextChapterIntent.nothingPlayingDialog.resolved(in: "en"),
             "Nothing is playing. Say 'Play in Abbay' to start."
         )
-        XCTAssertEqual(NextChapterIntent.nextChapterDialog, "Next chapter.")
+        XCTAssertEqual(NextChapterIntent.nextChapterDialog.resolved(in: "en"), "Next chapter.")
+    }
+
+    /// The hint names "Tocar no Abbay", which must stay a registered pt-BR phrase
+    /// (pinned in `AppShortcutPhraseTests`).
+    func test_nextChapter_dialogConstants_inPortuguese() {
+        XCTAssertEqual(
+            NextChapterIntent.nothingPlayingDialog.resolved(in: "pt-BR"),
+            "Nada está tocando. Diga 'Tocar no Abbay' para começar."
+        )
+        XCTAssertEqual(NextChapterIntent.nextChapterDialog.resolved(in: "pt-BR"), "Próximo capítulo.")
     }
 
     func test_nextChapter_noCurrentAudio_doesNotSkip() async throws {
@@ -146,10 +170,20 @@ final class IntentTests: XCTestCase {
 
     func test_previousChapter_dialogConstants_matchSpecVerbatim() {
         XCTAssertEqual(
-            PreviousChapterIntent.nothingPlayingDialog,
+            PreviousChapterIntent.nothingPlayingDialog.resolved(in: "en"),
             "Nothing is playing. Say 'Play in Abbay' to start."
         )
-        XCTAssertEqual(PreviousChapterIntent.previousChapterDialog, "Previous chapter.")
+        XCTAssertEqual(PreviousChapterIntent.previousChapterDialog.resolved(in: "en"), "Previous chapter.")
+    }
+
+    /// The hint names "Tocar no Abbay", which must stay a registered pt-BR phrase
+    /// (pinned in `AppShortcutPhraseTests`).
+    func test_previousChapter_dialogConstants_inPortuguese() {
+        XCTAssertEqual(
+            PreviousChapterIntent.nothingPlayingDialog.resolved(in: "pt-BR"),
+            "Nada está tocando. Diga 'Tocar no Abbay' para começar."
+        )
+        XCTAssertEqual(PreviousChapterIntent.previousChapterDialog.resolved(in: "pt-BR"), "Capítulo anterior.")
     }
 
     func test_previousChapter_noCurrentAudio_doesNotSkip() async throws {
@@ -169,17 +203,59 @@ final class IntentTests: XCTestCase {
 
     func test_playByName_dialogConstants_matchSpecVerbatim() {
         XCTAssertEqual(
-            PlayBookByNameIntent.noMatchDialog("Foo"),
+            PlayBookByNameIntent.noMatchDialog("Foo").resolved(in: "en"),
             "No audiobook matches 'Foo'."
         )
         XCTAssertEqual(
-            PlayBookByNameIntent.cannotFindDialog,
+            PlayBookByNameIntent.cannotFindDialog.resolved(in: "en"),
             "Cannot find that audiobook. It may have been removed or is not downloaded."
         )
         XCTAssertEqual(
-            PlayBookByNameIntent.playingDialog(title: "Foo"),
+            PlayBookByNameIntent.playingDialog(title: "Foo").resolved(in: "en"),
             "Playing Foo."
         )
+    }
+
+    func test_playByName_dialogConstants_inPortuguese() {
+        XCTAssertEqual(
+            PlayBookByNameIntent.noMatchDialog("Foo").resolved(in: "pt-BR"),
+            "Nenhum audiolivro corresponde a 'Foo'."
+        )
+        XCTAssertEqual(
+            PlayBookByNameIntent.cannotFindDialog.resolved(in: "pt-BR"),
+            "Não encontrei esse audiolivro. Ele pode ter sido removido ou não estar baixado."
+        )
+        XCTAssertEqual(PlayBookByNameIntent.playingDialog(title: "Foo").resolved(in: "pt-BR"), "Tocando Foo.")
+    }
+
+    // MARK: Shared
+
+    func test_audioUnavailableDialog_matchesSpecInEnglishAndPortuguese() {
+        XCTAssertEqual(
+            abbayAudioUnavailableDialog.resolved(in: "en"),
+            "Audio temporarily unavailable. Try again in a moment."
+        )
+        XCTAssertEqual(
+            abbayAudioUnavailableDialog.resolved(in: "pt-BR"),
+            "Áudio temporariamente indisponível. Tente de novo em instantes."
+        )
+    }
+
+    /// Titles and the parameter prompt show in Shortcuts and in Siri's UI, so they localize too.
+    func test_intentTitlesAndPrompt_areTranslatedToPortuguese() {
+        let pairs: [(LocalizedStringResource, String)] = [
+            (ResumeAbbayIntent.title, "Tocar no Abbay"),
+            (PauseAbbayIntent.title, "Pausar o Abbay"),
+            (NextChapterIntent.title, "Próximo capítulo no Abbay"),
+            (PreviousChapterIntent.title, "Capítulo anterior no Abbay"),
+            (PlayBookByNameIntent.title, "Tocar audiolivro no Abbay"),
+            (PlayAudiobookIntent.title, "Tocar audiolivro"),
+            (PlayChapterIntent.title, "Tocar capítulo"),
+            ("Which audiobook?", "Qual audiolivro?")
+        ]
+        for (resource, portuguese) in pairs {
+            XCTAssertEqual(resource.resolved(in: "pt-BR"), portuguese)
+        }
     }
 
     func test_playByName_noMatch_doesNotPlay_doesNotClearStore() async throws {

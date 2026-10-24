@@ -24,7 +24,7 @@ struct ChapterEntity: AppEntity, Identifiable {
     }
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "Chapter \(number)")
+        DisplayRepresentation(title: LocalizedStringResource("siriChapterNumber", defaultValue: "Chapter \(number)"))
     }
 }
 
