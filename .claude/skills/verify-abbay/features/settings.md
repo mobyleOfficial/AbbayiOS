@@ -1,0 +1,89 @@
+# Settings
+
+`SettingsView` is a sheet opened by the library toolbar's gear (`library.toolbar.settings`). The root
+(`AppRootView`) presents it, outside the part of the tree a language change rebuilds, so it stays
+open while the language switches. Its model is `SettingsViewModel`; the settings themselves are
+`AppSettings`, injected through `DependencyContainer.settings` and the SwiftUI environment, and
+persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferences`, the app's
+`UserDefaults`; `InMemoryKeyValueStore` in tests and under `-resetSettings`).
+
+## Sub-features
+
+- **playback:**
+  - **Default speed for new books** (`settings.playback.defaultSpeed`): a page with the same
+    `SpeedControlView` as the player's speed sheet. A book takes the default the first time it
+    plays and keeps it as its own speed, so changing the default later only reaches books not yet
+    played.
+  - **Skip back / Skip forward** (`settings.playback.skipBack`, `settings.playback.skipForward`):
+    menu pickers of 10, 15, 30 or 45 seconds (default 15). They drive the player's two skip
+    buttons (icon `gobackward.N` / `goforward.N`, label *Skip back N seconds*), and through
+    `NowPlayingManager.setSkipIntervals` the lock screen's and CarPlay's skip commands
+    (`preferredIntervals`) and their handlers.
+- **downloads:**
+  - **Large downloads on cellular** (`settings.downloads.cellular`): Ask (the per-book prompt, the
+    default) / Always / Wi-Fi only. An input to `CellularDownloadPolicy.decide(...preference:)`;
+    applies only to books over `largeDownloadThreshold` (99 MB). Read when Download is tapped.
+  - **Space used** (`settings.downloads.spaceUsed`): the size of `LibriVoxIdentity.defaultRoot`,
+    measured off the main thread each time the sheet opens (*Calculating…* until then).
+  - **Delete finished downloads** (`settings.downloads.deleteFinished`): LibriVox books that are
+    fully downloaded AND whose saved position is within 30 s of the end
+    (`DownloadHousekeeping`). Disabled when there are none. Asks first (alert: Delete
+    `settings.downloads.deleteConfirm` / Cancel `settings.downloads.deleteCancel`); deleting goes
+    through `MediaListViewModel.deleteAudio`, the swipe-delete path, so the books leave the library
+    with their files (a download-only delete would be re-downloaded by `restore()` at launch).
+- **language:** an inline picker, *Padrão do sistema / English / Português (Brasil)*
+  (`settings.language.{system,english,portuguese}`). `AbbayBundle.languageCode` points
+  `Localizable` at that `.lproj`. Applies at once, no relaunch: the root re-identifies the tabs and
+  the player (`.id(settings.language)`), and this sheet re-reads its strings. System-drawn strings
+  (alert buttons the system owns, the search field's Cancel), Siri phrases and CarPlay keep the
+  device language.
+- **about:**
+  - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
+    in an `SFSafariViewController`.
+  - **Version** (`settings.about.version`): `CFBundleShortVersionString (CFBundleVersion)`.
+  - **LibriVox** (`settings.about.librivox`): librivox.org in Safari; the section footer credits
+    LibriVox volunteers and the public domain.
+  - **Open-source licenses** (`settings.about.licenses` → `settings.about.licenses.body`): Abbay
+    ships no third-party code (no SPM packages; `Modules/NetworkProvider` is first-party; the
+    Gemfile's tools are build-time only).
+  - **Siri & audio** (`settings.about.audioStatus`): *Working* or *Unavailable*, read from
+    `LaunchStateFlag` (#115), with a plain-words explanation that Siri answers "Audio temporarily
+    unavailable" until a book plays again.
+
+## How to get to it (user POV)
+
+Library tab → gear (top right) → Settings. **Done** closes it; so does a swipe down.
+
+## Driving it with abbay-ctl
+
+```bash
+$B launch --seed-library --reset-settings
+$B tap library.toolbar.settings && $B wait settings.done
+$B tap settings.playback.skipForward && $B tap-label "30 seconds"
+$B tap settings.done
+$B tap library.row.0.title && $B wait player.transport.forward   # label "Skip forward 30 seconds"
+$B tap settings.language.portuguese                               # nav title becomes "Ajustes"
+```
+
+**Verified** (`SettingsUITests`): `library.toolbar.settings` opens it; `settings.done`,
+`settings.playback.{defaultSpeed,skipBack,skipForward}`,
+`settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
+`settings.about.{privacyPolicy,version,librivox,licenses,audioStatus}` and
+`settings.about.licenses.body` resolve; changing Skip forward relabels the player's forward
+button; choosing Português switches Settings and the Library without a relaunch.
+
+**Implemented but unverified in UI tests:** the delete confirmation (seeded books are never
+finished downloads, and the stub download manager writes nothing), the Safari pages, and
+*Unavailable* in the audio row (no launch argument fails the audio session). Covered by
+`SettingsViewModelTests`, `DownloadHousekeepingTests`, `AppSettingsTests`.
+
+## Gotchas
+
+- **`-resetSettings`** keeps settings in memory for that launch. Without it a UI test that changes
+  the language or a skip amount leaks it into later launches (and into the unit-test host, which
+  is the real app: `LocalizationTests` resets `AbbayBundle.languageCode` in `setUp` for that reason).
+- **Per-book speeds are not in Core Data.** They live in `AppSettings` (`abbay.settings.bookSpeeds`),
+  keyed by the book URL, and are dropped by `DeleteAudioUseCase`. A book re-added with the same URL
+  (LibriVox identities are stable) starts from the default again.
+- **Skip amounts apply to the lock screen at launch**: `AppSettings.init` pushes them through
+  `LiveSettingsEffects`, so they don't wait for a change in Settings.

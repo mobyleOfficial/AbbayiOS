@@ -18,12 +18,20 @@ LibriVox page's Play all open it.
 - **cover:** artwork at 288 pt with rounded corners. While the panel grows, the overlay draws a
   growing copy of the cover that lands exactly here, and the real cover is hidden until then.
   Below it is the title as a `PlayerTitleView` (`player.title`, sliding while playing).
-- **transport:** five controls in a row:
-  - `gobackward.30` and `gobackward.15`
-  - play/pause
-  - `goforward.15` and `goforward.30`
-
-  The skips seek relative to the current position.
+- **transport:** three controls in a row: back, play/pause, forward. The skips jump by the
+  [Settings](settings.md) amounts (10/15/30/45 s, default 15), seek relative to the current
+  position, and draw the number in their SF Symbol (`gobackward.N` / `goforward.N`). VoiceOver
+  reads *Skip back N seconds* / *Skip forward N seconds*. (Before Settings there were five fixed
+  controls, ±15 and ±30.)
+- **speed:** under the timeline, a capsule button (`player.speed`, label *Playback speed*, value
+  e.g. *1.5×*, green when not 1.0×) opens the speed sheet (`SpeedSheetView`, ported from the
+  Android app): − / the speed / + in 0.05 steps (`speed.decrease`, `speed.value`, `speed.increase`),
+  a 0.5–3.5× slider (`speed.slider`), preset chips 0.8, 1.0, 1.2, 1.5, 1.75, 2.0, 2.5
+  (`speed.preset.<n>`), and *Set as default for new books* (`speed.setDefault`, disabled and
+  relabelled when the speed already is the default). The speed is **per book**: on the loaded book
+  it applies at once (`Player.setPlaybackRate`); on another book it is remembered for when it plays.
+  The player applies it through the one `AVQueuePlayer`'s `defaultRate`, so it holds across pause
+  and resume, seeks and chapter-file advances, and publishes it to Now Playing.
 - **loaded vs other book:**
   - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
     `PlaybackState`, time and chapter from `PlaybackClock`.
@@ -75,7 +83,8 @@ top down into the bar.
 $B launch -seedLibrary
 $B tap library.row.0.title && $B wait player.close       # grows up from the bottom (nothing loaded)
 $B tap player.transport.play                              # a seeded book loads; no audio plays
-$B tap player.transport.forward15 && $B snapshot
+$B tap player.transport.forward && $B snapshot
+$B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed value "1.5×"
 $B tap player.chapter.2                                   # needs real playback: gated on isPlaying
 $B tap player.close && $B wait library.list
 $B drag player.close down                                 # planned: collapse under the finger (the grabber is not addressable)
@@ -83,7 +92,10 @@ $B drag player.close down                                 # planned: collapse un
 
 **Verified** (`AccessibilityIdentifierTests`, `MiniPlayerUITests`):
 - `player.title`
-- `player.transport.{back30,back15,play,forward15,forward30}`
+- `player.transport.{back,play,forward}` and `player.speed`
+- the speed sheet's `speed.{value,increase,decrease,setDefault}` and `speed.preset.<n>`
+  (`SettingsUITests.test_speedSheet_*`), and the forward button's label following Settings
+  (`test_changingSkipForward_updatesThePlayersButton`)
 - `player.chapters.title` and `player.chapter.<n>`
 - `player.close` (`test_player_closeButton_dismisses`)
 - `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI
@@ -97,7 +109,10 @@ details page.
 **Implemented but unverified:** `player.download.progress`. It renders only while a download is
 incomplete, and the stub download manager never reports one.
 
-**Not addressable:** there is no `player.root`. It overwrote the title, all five transport controls
+Speed itself (the requested `rate`/`defaultRate` across pause, seek and files) is unit-tested in
+`PlayerSpeedTests`; seeded books have no audio, so no UI test hears it.
+
+**Not addressable:** there is no `player.root`. It overwrote the title, all the transport controls
 and the chapter list. Wait on `player.close` or `player.transport.play` to know the screen is up.
 It slides in, so let it arrive before tapping inside it (the UI tests wait for `player.close` to
 reach the top quarter of the screen).

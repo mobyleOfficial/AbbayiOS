@@ -21,7 +21,8 @@ search and the [details page](librivox-details.md) live in the Search tab.
   snapshot. Deleting the loaded book unloads it from the player (`PlaybackCenter.unload()`), so the
   mini player disappears; deleting the book the details screen shows closes it.
 - **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with only **Import file**
-  (`library.menu.import`), plus the dead `gearshape` button (`library.toolbar.settings`).
+  (`library.menu.import`), plus the `gearshape` button (`library.toolbar.settings`, label
+  *Settings*), which opens the [Settings](settings.md) sheet.
 - **mini-player:** when a book is loaded (`PlaybackState.loadedBook`), the
   [mini player](mini-player.md) docks above the tab bar on both tabs, and the list's last row ends
   above it (`test_lastRow_isNotCoveredByMiniPlayer`).
@@ -70,9 +71,8 @@ of a chapter — needs a genuinely playable import.
 
 ## Gotchas
 
-- **Settings is a dead button.** `gearshape` is a `Button` with an empty action (issue #58); it
-  renders as tappable but does nothing. Deliberately kept: the settings screen lands with #58, not
-  with the search work (#112).
+- **The gear's sheet is presented by the root**, not by this view (`onSettings`), so a language
+  switch, which rebuilds the tabs, doesn't dismiss it.
 - **Search and stub tests need `-stubLibriVox`.** The Library's own search is local, but the Search
   tab, the *Browse free audiobooks* button's destination and the stub-book flows all talk to
   archive.org and librivox.org without it. With it, LibriVox answers from memory

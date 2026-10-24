@@ -13,6 +13,14 @@ own UI.
   *"Chapter N of M"*, plus `ChapterNumber`, `ChapterCount` and audio media type.
 - **remote-commands:** `setupRemoteCommandCenter()` runs once from `init`, wiring the system's
   play/pause/skip controls back into the player.
+- **skip-intervals:** the skip commands' `preferredIntervals` and the amounts their handlers jump
+  (`skipBackward()` / `skipForward()`) come from [Settings](settings.md) through
+  `setSkipIntervals(backward:forward:)`, applied at launch and on every change (default 15 s).
+- **speed:** `MPNowPlayingInfoPropertyPlaybackRate` is the book's real speed while playing (0 when
+  paused) and `DefaultPlaybackRate` is the book's speed, so the lock screen's clock runs at the right
+  pace. `changePlaybackRateCommand` offers the speed presets and sets the loaded book's speed
+  (`changePlaybackRate(to:)` → `Player.setPlaybackRate`). Changing the speed in the app pushes the
+  info at once rather than waiting for the next tick.
 - **current-audio:** `currentAudio` is the read-only view of the loaded model. Written only by
   `Player.play` on every play (`NowPlayingManager.setPlayer(_, currentAudio:)`) and dropped by
   `clearNowPlaying()`. Consumed by `PauseAbbayIntent`, `NextChapterIntent`,
