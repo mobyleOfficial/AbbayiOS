@@ -87,6 +87,44 @@ final class UITestSeederTests: XCTestCase {
         XCTAssertTrue(delete.deletedAudios.isEmpty)
     }
 
+    /// The chapter actions' UI tests need a book that can seek: the real fixture, mid-chapter.
+    func test_playableBookArgument_addsTheFixtureMidChapterTwo() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedPlayableBook])
+
+        XCTAssertEqual(save.savedModels.count, UITestSeeder.seedModels().count + 1)
+        let playable = try XCTUnwrap(save.savedModels.first { $0.title == UITestSeeder.playableBookTitle })
+        let url = try XCTUnwrap(playable.url)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "the fixture is not in the Debug app: \(url)")
+        XCTAssertEqual(playable.currentChapter(for: playable.currentTime), 1, "the seed starts in chapter 2")
+        XCTAssertGreaterThan(
+            playable.currentTime,
+            playable.chapters[1].startTime + 15,
+            "mid-chapter, so restart moves it"
+        )
+    }
+
+    /// The seeded chapters are typed in by hand: they must match what the file itself says.
+    func test_playableBook_chaptersMatchTheFile() async throws {
+        let playable = try XCTUnwrap(UITestSeeder.playableBookModel())
+        let url = try XCTUnwrap(playable.url)
+        let loader = FileLoader(loadAudioUseCase: MockLoadAudioUseCase(), saveAudioUseCase: MockSaveAudioUseCase())
+        let loaded = await loader.load(url: url)
+        let parsed = try XCTUnwrap(loaded, "the fixture did not load")
+
+        XCTAssertEqual(playable.chapters.count, parsed.chapters.count)
+        for (seeded, real) in zip(playable.chapters, parsed.chapters) {
+            XCTAssertEqual(seeded.startTime, real.startTime, accuracy: 0.05)
+            XCTAssertEqual(seeded.duration, real.duration, accuracy: 0.05)
+        }
+        XCTAssertEqual(playable.duration, parsed.duration, accuracy: 0.5)
+    }
+
+    func test_playableBookArgument_withoutSeed_seedsNothing() {
+        run([LaunchArgument.seedPlayableBook])
+
+        XCTAssertTrue(save.savedModels.isEmpty)
+    }
+
     func test_seedModels_coverBothChapterStates() {
         let models = UITestSeeder.seedModels()
 

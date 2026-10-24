@@ -38,6 +38,9 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedLongBook) {
             models.append(longBookModel())
         }
+        if arguments.contains(LaunchArgument.seedPlayableBook), let playable = playableBookModel() {
+            models.append(playable)
+        }
         try? save.execute(models)
     }
 
@@ -68,6 +71,31 @@ enum UITestSeeder {
             duration: Double(chapterCount) * 60,
             chapters: chapters,
             url: URL(string: "file:///seed/long.m4b")
+        )
+    }
+
+    static let playableBookTitle = "Seeded Playable Book"
+
+    /// The one seeded book with real audio: `Christmastide.m4b` (public domain, see
+    /// `AbbayTests/Fixtures/README.md`), copied into Debug builds only. Its four real chapters,
+    /// 200 s in: 56 s into the second, so *Restart chapter* and *Next chapter* both move it.
+    /// `nil` if the file isn't in the bundle.
+    static func playableBookModel(bundle: Bundle = .main) -> AudioModel? {
+        guard let url = bundle.url(forResource: "Christmastide", withExtension: "m4b") else { return nil }
+        let starts = [0, 144.015, 288.012, 511.021]
+        let duration = 831.623
+        let chapters = starts.indices.map { index in
+            let end = index + 1 < starts.count ? starts[index + 1] : duration
+            return ChapterModel(title: "Poem \(index + 1)", startTime: starts[index], duration: end - starts[index])
+        }
+        return AudioModel(
+            title: playableBookTitle,
+            albumName: "Christmastide",
+            artist: "Various",
+            duration: duration,
+            currentTime: 200,
+            chapters: chapters,
+            url: url
         )
     }
 

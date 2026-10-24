@@ -72,4 +72,14 @@ enum DebugOverrides {
         #endif
         return nil
     }
+
+    /// Reduce Motion forced on, for `-forceReduceMotion`; `nil` follows the system setting.
+    static func reduceMotion(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.forceReduceMotion) {
+            return true
+        }
+        #endif
+        return nil
+    }
 }
