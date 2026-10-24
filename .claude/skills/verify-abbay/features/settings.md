@@ -37,6 +37,13 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   the player (`.id(settings.language)`), and this sheet re-reads its strings. System-drawn strings
   (alert buttons the system owns, the search field's Cancel), Siri phrases and CarPlay keep the
   device language.
+  The choice is stored (`abbay.settings.language` in standard defaults) and applied at the next
+  launch before anything draws. Only strings follow it: colors and spacing load from
+  `AbbayBundle.resources`, the app bundle, because the `.lproj` holds no plists (#155: the next
+  launch after choosing a language used to trap in `ConstantsProtocol`). **Evidence:** set the
+  key, then cold-launch:
+  `xcrun simctl spawn <udid> defaults write com.edyuto.Abbay abbay.settings.language -string pt-BR`;
+  the library opens as *Biblioteca*, no crash report.
 - **about:**
   - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
     in an `SFSafariViewController`.

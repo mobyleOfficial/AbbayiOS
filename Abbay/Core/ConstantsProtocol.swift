@@ -48,7 +48,7 @@ extension ConstantsProtocol {
         if let storage = LocalStorage.data[resource] {
             return storage
         }
-        if let url = AbbayBundle.value.url(
+        if let url = AbbayBundle.resources.url(
             forResource: resource,
             withExtension: resourceExtensions
         ),

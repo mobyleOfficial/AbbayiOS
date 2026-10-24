@@ -12,6 +12,13 @@ final class AbbayBundle {
     /// `AppSettings` at launch and whenever the Settings screen changes it.
     static var languageCode: String?
 
+    /// The app bundle itself, for resources that aren't localized (the color and spacing plists).
+    /// Never the language's `.lproj`, which holds only strings: reading a plist through `value`
+    /// with an in-app language set finds nothing (#155).
+    static var resources: Bundle {
+        Bundle(for: Self.self)
+    }
+
     /// Where `Localizable` reads strings: the override's `.lproj` when there is one, else the app
     /// bundle, which follows the device.
     static var value: Bundle {
