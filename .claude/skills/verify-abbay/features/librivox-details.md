@@ -108,7 +108,7 @@ All three cover states are verified by `CoverUITests`:
 - `cover.failed`: the stub's cover is a `/dev/null` file URL, which the host allowlist refuses
   (`test_detailCover_thatFailsToLoad_showsTheFallback`).
 - `cover.loading` then `cover.loaded`: with `-stubCovers` the stub's cover is
-  `https://archive.org/services/img/ui-test-stub`, answered after 4 s by `UITestCoverNetwork`, so
+  `https://archive.org/services/img/ui-test-stub`, answered after 12 s by `UITestCoverNetwork`, so
   the page opens mid-load (`test_detailCover_showsLoading_thenLoaded`).
 - disk cache across a relaunch: a `-stubCovers` launch stores the cover, then a
   `-stubCovers -stubCoversOffline` launch, whose cover requests all fail, still shows `cover.loaded`
@@ -118,7 +118,7 @@ All three cover states are verified by `CoverUITests`:
   (`test_loadingCover_withReduceMotion_isStatic`).
 
 ```bash
-$B launch -seedLibrary -stubLibriVox -stubCovers   # cover loads for 4 s, then a green square
+$B launch -seedLibrary -stubLibriVox -stubCovers   # cover loads for 12 s, then a green square
 $B tap root.tab.search && $B tap search.card.0
 $B wait cover.loading && $B wait cover.loaded
 $B launch -seedLibrary -stubLibriVox -stubCovers -stubCoversOffline   # only disk can answer

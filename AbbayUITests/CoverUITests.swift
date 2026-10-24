@@ -7,7 +7,7 @@ import XCTest
 
 /// LibriVox covers (`AsyncImageView`) report their load state through `AccessibilityID.Cover`.
 /// The stub book's cover is a `/dev/null` file URL, which the host allowlist refuses (failed);
-/// with `-stubCovers` it is an archive.org URL answered after 4 s (loading, then loaded), and
+/// with `-stubCovers` it is an archive.org URL answered after 12 s (loading, then loaded), and
 /// `-stubCoversOffline` leaves only the disk cache. Load, both caches, shared downloads and the
 /// allowlist are unit-tested in `AsyncImageLoaderTests` and `CoverDiskCacheTests`.
 final class CoverUITests: XCTestCase {
@@ -75,7 +75,7 @@ final class CoverUITests: XCTestCase {
         XCTAssertFalse(element(AccessibilityID.Cover.loading).exists)
     }
 
-    /// `-stubCovers` answers after 4 s, so the details page opens while the card's load is still
+    /// `-stubCovers` answers after 12 s, so the details page opens while the card's load is still
     /// running and shows it loading, then loaded.
     func test_detailCover_showsLoading_thenLoaded() {
         launch([LaunchArgument.stubCovers])

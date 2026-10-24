@@ -85,7 +85,7 @@ added. Resolve a row by matching its title label rather than assuming an index.
     The stub book's cover is a `/dev/null` file URL, which the cover host allowlist refuses, so it
     shows `cover.failed`.
   - `-stubCovers` — with `-stubLibriVox`, the stub book's cover is an archive.org URL that
-    `UITestCoverNetwork` answers after 4 s with a generated image, so `cover.loading` and
+    `UITestCoverNetwork` answers after 12 s with a generated image, so `cover.loading` and
     `cover.loaded` can be seen. Covers use their own disk cache (`Caches/UITestCovers`), emptied at
     launch (see [librivox-details](librivox-details.md) *cover-loading*).
   - `-stubCoversOffline` — with `-stubCovers`, every cover request fails and that disk cache is

@@ -23,10 +23,12 @@ struct UITestCoverNetwork: NetworkProviderProtocol {
         return base.appendingPathComponent("UITestCovers", isDirectory: true)
     }
 
-    /// Long enough for a UI test to open the details page and compare two frames while loading.
-    static let delay = Duration.seconds(4)
+    /// Long enough for a UI test to open the details page and compare two frames while loading: a
+    /// simulator under XCUITest takes 5-6 s from the Search tab appearing to the details page.
+    static let delay = Duration.seconds(12)
 
     let isOffline: Bool
+    var delay: Duration = Self.delay
 
     func makeRequest<T: Decodable>(_ request: NetworkRequestProtocol) async throws -> NetworkResponse<T> {
         throw NetworkError.connection
@@ -34,7 +36,7 @@ struct UITestCoverNetwork: NetworkProviderProtocol {
 
     func makeRequest(_ request: NetworkRequestProtocol) async throws -> NetworkResponse<Data> {
         guard !isOffline else { throw NetworkError.connection }
-        try await Task.sleep(for: Self.delay)
+        try await Task.sleep(for: delay)
         return NetworkResponse(statusCode: 200, headers: [:], content: Self.image())
     }
 
