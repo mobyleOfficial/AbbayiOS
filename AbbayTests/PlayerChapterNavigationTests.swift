@@ -125,6 +125,54 @@ final class PlayerChapterNavigationTests: XCTestCase {
         XCTAssertFalse(player.playChapter(at: -1))
     }
 
+    // MARK: - Pressing twice before the first seek completes (#151)
+
+    /// While a book plays, `AVPlayer` keeps reporting the old time until a seek lands (a paused
+    /// one reports the target at once, which is why a paused test never caught this). The second
+    /// press must aim from where the first one is going, or both target the same chapter.
+    func test_skipToNextChapter_twiceQuicklyWhilePlaying_landsTwoChaptersAhead() async throws {
+        var model = try await fixtureBook()
+        let player = makePlayer()
+        player.play(&model)
+        try await waitUntil("playback starts") { player.currentTime > 0.1 }
+
+        player.skipToNextChapter()
+        player.skipToNextChapter()
+
+        let start = model.chapters[2].startTime
+        try await waitUntil("seek towards chapter 2") { player.currentTime >= start }
+        XCTAssertEqual(model.currentChapter(for: player.currentTime), 2, "two presses, two chapters")
+        player.pause()
+    }
+
+    /// The first press goes to the start of the chapter (more than 15 s in), the second from
+    /// there to the previous chapter.
+    func test_skipToPreviousChapter_twiceQuicklyWhilePlaying_goesBackAChapter() async throws {
+        var model = try await fixtureBook()
+        model.currentTime = model.chapters[2].startTime + 30
+        let player = makePlayer()
+        player.play(&model)
+        try await waitUntil("playback starts") { player.currentTime > model.currentTime + 0.1 }
+
+        player.skipToPreviousChapter()
+        player.skipToPreviousChapter()
+
+        let start = model.chapters[1].startTime
+        try await waitUntil("seek towards chapter 1") { player.currentTime < model.chapters[2].startTime }
+        XCTAssertEqual(model.currentChapter(for: player.currentTime), 1)
+        XCTAssertGreaterThanOrEqual(player.currentTime, start)
+        player.pause()
+    }
+
+    private func fixtureBook() async throws -> AudioModel {
+        let url = try TestFixtures.christmastideURL()
+        let loaded = await FileLoader(
+            loadAudioUseCase: MockLoadAudioUseCase(),
+            saveAudioUseCase: MockSaveAudioUseCase()
+        ).load(url: url)
+        return try XCTUnwrap(loaded)
+    }
+
     // MARK: - Landing on the real fixture's chapter starts (#101)
 
     /// The one test here that waits for `AVPlayer`: chapter lookup is exact now (no `time + 1`), so a

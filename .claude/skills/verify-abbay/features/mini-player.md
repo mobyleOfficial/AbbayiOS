@@ -35,7 +35,8 @@
   closes. A slow drag animates slowly, and grabbing mid-spring
   continues from what is on screen. See `ExpansionMath`.
 - **swipes:** a horizontal drag past 40 pt that is more horizontal than vertical acts on release:
-  - **left:** the next chapter (`skipToNextChapter`)
+  - **left:** the next chapter (`skipToNextChapter`; two quick swipes go two chapters, see
+    [player](player.md#sub-features) *chapter-skips*)
   - **right:** back to the start of the current chapter (a seek, not "previous chapter")
 
   On the last chapter, or in a book without chapters, nothing happens and the bar gives a light

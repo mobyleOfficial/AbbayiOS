@@ -67,6 +67,12 @@ LibriVox page's Play all open it.
   `MultiFileQueue` maps book time to a chapter file and an offset. It keeps the next file queued for
   gapless playback, prefers the downloaded file over streaming, and pauses at the end of the last
   chapter. Seeking into a different chapter loads that file and prioritizes its download.
+- **chapter-skips:** `Player.skipToNextChapter` / `skipToPreviousChapter`, shared by the
+  [mini player](mini-player.md)'s swipe, the lock screen and CarPlay ([now-playing](now-playing.md))
+  and the Siri intents. While a seek is in flight, `Player.currentTime` is that seek's target
+  (single file: `Player`'s pending seek; multi-file: `MultiFileQueue.pendingBookTime`), so two
+  quick presses go two chapters (#151). Before, a playing `AVPlayer` reported the old time until
+  the first seek landed, and both presses aimed at the same chapter.
 - **failures:** Play with no URL, an audio session that won't activate, a moved or unreadable file,
   or a LibriVox chapter that fails (offline and not downloaded, or otherwise) each report a notice
   (see [notices](notices.md)). A failed item also pauses the player, so the transport, the bar and
