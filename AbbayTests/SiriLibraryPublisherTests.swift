@@ -132,6 +132,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
     func test_spotlightIndexer_completes_andLogsAFailure() {
         let log = RecordingSiriLogSink()
         let indexer = LibrarySpotlightIndexer(
+            clearItems: { done in done(nil) },
             indexItems: { _, done in
                 done(NSError(
                     domain: "CSIndexErrorDomain",
@@ -152,7 +153,11 @@ final class SiriLibraryPublisherTests: XCTestCase {
 
     func test_spotlightIndexer_success_logsNothing() {
         let log = RecordingSiriLogSink()
-        let indexer = LibrarySpotlightIndexer(indexItems: { _, done in done(nil) }, log: log)
+        let indexer = LibrarySpotlightIndexer(
+            clearItems: { done in done(nil) },
+            indexItems: { _, done in done(nil) },
+            log: log
+        )
         var completed = false
 
         indexer.index(audios: [audio(title: "Fine", url: "file:///fine")]) { completed = true }
@@ -161,11 +166,18 @@ final class SiriLibraryPublisherTests: XCTestCase {
         XCTAssertEqual(log.events, [])
     }
 
-    func test_spotlightIndexer_emptyLibrary_completesWithoutIndexing() {
-        var calls = 0
+    /// #195: an empty library still clears the index (its last book was just deleted), and indexes
+    /// nothing.
+    func test_spotlightIndexer_emptyLibrary_clearsAndCompletesWithoutIndexing() {
+        var clears = 0
+        var indexCalls = 0
         var completed = false
-        LibrarySpotlightIndexer(indexItems: { _, _ in calls += 1 }).index(audios: []) { completed = true }
-        XCTAssertEqual(calls, 0)
+        LibrarySpotlightIndexer(
+            clearItems: { done in clears += 1; done(nil) },
+            indexItems: { _, _ in indexCalls += 1 }
+        ).index(audios: []) { completed = true }
+        XCTAssertEqual(clears, 1)
+        XCTAssertEqual(indexCalls, 0)
         XCTAssertTrue(completed)
     }
 

@@ -112,10 +112,16 @@ final class MediaListViewModel: ObservableObject {
     }
 
     /// Files that fail to load are named in a notice, so a missing row is never a mystery (#115).
+    /// A file that is a book already in the list (picked again, or found where it moved to) replaces
+    /// that row rather than adding one, so the row opens the file where it is now (#196).
     func importAudio(from urls: [URL]) async {
         let result = await fileLoader.load(urls: urls)
-        for file in result.loaded where !audioList.contains(where: { $0.url == file.url }) {
-            audioList.append(file)
+        for file in result.loaded {
+            if let index = audioList.firstIndex(where: { $0.url == file.url }) {
+                audioList[index] = file
+            } else {
+                audioList.append(file)
+            }
         }
         guard !result.failed.isEmpty else { return }
         Log.importing.error(

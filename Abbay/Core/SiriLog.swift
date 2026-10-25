@@ -19,6 +19,9 @@ enum SiriLogEvent: Equatable {
     case publishFinished
     /// Core Spotlight refused the library's items.
     case spotlightIndexingFailed(domain: String, code: Int)
+    /// Core Spotlight didn't clear the library's previous items before re-indexing (#195): books
+    /// deleted since may still show until the next publish clears them.
+    case spotlightClearingFailed(domain: String, code: Int)
 
     /// The domain and code only: an error's description can carry a title or a file path.
     static func donationFailed(_ error: NSError) -> SiriLogEvent {
@@ -27,6 +30,10 @@ enum SiriLogEvent: Equatable {
 
     static func spotlightIndexingFailed(_ error: NSError) -> SiriLogEvent {
         .spotlightIndexingFailed(domain: error.domain, code: error.code)
+    }
+
+    static func spotlightClearingFailed(_ error: NSError) -> SiriLogEvent {
+        .spotlightClearingFailed(domain: error.domain, code: error.code)
     }
 }
 
@@ -87,6 +94,8 @@ extension SiriLogEvent {
             SiriLogRecord(level: .debug, message: "publish: finished", privacy: .public)
         case let .spotlightIndexingFailed(domain, code):
             SiriLogRecord(level: .error, message: "spotlight indexing failed: \(domain) \(code)", privacy: .public)
+        case let .spotlightClearingFailed(domain, code):
+            SiriLogRecord(level: .error, message: "spotlight clearing failed: \(domain) \(code)", privacy: .public)
         }
     }
 }

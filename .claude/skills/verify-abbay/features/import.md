@@ -24,11 +24,29 @@ security-scoped bookmark that makes the file playable again after relaunch.
   saves all its stale books in one call (#146). Before, the new bookmark was made and dropped on
   every play. Unit-tested with a stubbed resolver (`StaleBookmarkTests`): a stale bookmark can't be
   made on demand, so this hasn't been seen on a device.
-- **de-duplication:** `importAudio` appends only files whose `url` is not already in `audioList`.
+- **de-duplication:** a picked file whose URL is a stored book's row URL loads that book
+  (`LoadAudioUseCase`) and is not saved again. In `audioList`, a loaded book whose `url` is already
+  there replaces that row instead of adding one.
+- **re-import of a moved book (#196):** a picked file at a new URL is checked against the library
+  (`ReimportMatcher`, called by `FileLoader.load(urls:)`, which loads the library once per import and
+  only on a miss). It is a book already there when (1) a stored book's `fileURL` is the same file
+  (same path once symlinks are resolved, or the same file resource identifier, e.g. a hard link),
+  or (2) the book is *lost* (imported, its file not reachable, which is the moved-file banner's
+  case) and has the same duration (±1 s) and the same file name or the same non-empty title, and is
+  the only lost book that fits. Then the book is **relinked**, not added: it keeps its identity
+  (`url`), position, title and speed, gets the picked file's bookmark and `resolvedURL`, and is
+  saved to its own row. UI-tested with `-stubMovedImport` + `-seedMissingFile`
+  (`NoticeUITests.test_importingAMovedBooksFileAgain_relinksTheBook_insteadOfAddingASecond`);
+  unit-tested by `ReimportMatcherTests` and `FileLoaderReimportTests` (real Core Data). No notice
+  is shown: the row simply plays again.
 - **failures:** `load(urls:)` returns a `FileImportResult` (`loaded`, `failed`). A file fails when it
   can't be opened or isn't playable audio (`AVURLAsset.isPlayable`), so a renamed text file is no
   longer an empty row. `importAudio` adds what loaded and reports the rest as one
   `importFailed(fileNames:)` notice (see [notices](notices.md)); UI-tested with `-stubFailingImport`.
+- **debug imports:** UI tests can't drive the picker, so *Import file* imports
+  `DebugOverrides.importURLs()` straight away when set: `-stubFailingImport` (two files that don't
+  exist) or `-stubMovedImport` (*Seeded Missing Book*'s `missing.m4b`, a copy of the fixture at
+  `Application Support/UITestSeedAudio/moved/`).
 - **post-import publish:** writes `abbay.librarySnapshot.v1`; the write publishes to Siri
   (`SiriLibraryPublisher`), which refreshes the App Shortcut parameters once so Siri's entity
   suggestions pick the book up. The view model makes no direct refresh call of its own (#84).
@@ -43,6 +61,8 @@ audio files → the picker dismisses and the rows appear.
 ```bash
 # Preferred: skip the system picker entirely.
 $B launch -seedLibrary                       # planned: import the bundled LibriVox fixture
+$B launch -seedLibrary -seedMissingFile -stubMovedImport
+$B tap library.toolbar.add && $B tap library.menu.import   # relinks Seeded Missing Book: still 3 rows
 $B snapshot && $B appgroup get abbay.librarySnapshot.v1
 
 # The one deliberately brittle path, run on its own and never as a precondition:
@@ -82,7 +102,11 @@ picker's own contents are system-owned and carry no identifiers of ours).
   under the row's URL wins. `IntentRouter` loads an identifier as is, and on a miss looks for the
   snapshot book whose bookmark resolves to it, so a donation from before #186 still plays.
 - A bookmark that no longer resolves surfaces at Play: the item fails and the user sees
-  *"Title" was moved or renamed. Import it again…* (see [notices](notices.md)).
+  *"Title" was moved or renamed. Import it again…* (see [notices](notices.md)). Importing it again
+  relinks the book (*re-import of a moved book*), so its row plays from where it was.
+- The lost-book match is a heuristic: a *different* file with the same duration and file name (or
+  title), imported while the original's file is gone, relinks the old book rather than adding a new
+  one. Two lost books that both fit match neither, and the file is added as a new book.
 - The bookmark is created on first **play**, not on import. A book imported and never played has
   `bookmarkData == nil` in the snapshot; Siri still loads it by its identifier.
 - A file with no embedded chapters silently disables next/previous chapter, the chapter list, and

@@ -86,8 +86,9 @@ player opens the file where its bookmark resolves now (see [import](import.md) *
 - **The CarPlay library has no empty state at all** (#95, still open; see [carplay](carplay.md)),
   unlike this one.
 - **Row taps use `onTapGesture`.** Rows are keyed by `\.url` (the row's URL); two imports of the
-  same URL collapse to one row (`importAudio` de-duplicates on `url`). Importing a moved file again
-  from its new place is a new URL, so it adds a second book (#196).
+  same URL collapse to one row (`importAudio` replaces the row with the same `url`). Importing a
+  moved file again from its new place relinks the book it already is and replaces its row, so no
+  second book appears (#196, see [import](import.md) *re-import of a moved book*).
 - `deleteAudio` mutates `audioList` directly rather than reloading; the delete use case has no error
   path.
 - Row order is whatever `LoadAllAudiosUseCase` returns; there is no explicit sort.

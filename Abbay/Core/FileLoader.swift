@@ -22,32 +22,55 @@ protocol FileLoaderProtocol {
 final class FileLoader: FileLoaderProtocol {
     private let loadAudioUseCase: LoadAudioUseCaseProtocol
     private let saveAudioUseCase: SaveAudioUseCaseProtocol
+    private let loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol
+    private let reimportMatcher: ReimportMatcher
 
     init(
         loadAudioUseCase: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
-        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase()
+        saveAudioUseCase: SaveAudioUseCaseProtocol = SaveAudioUseCase(),
+        loadAllAudiosUseCase: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
+        reimportMatcher: ReimportMatcher = ReimportMatcher()
     ) {
         self.loadAudioUseCase = loadAudioUseCase
         self.saveAudioUseCase = saveAudioUseCase
+        self.loadAllAudiosUseCase = loadAllAudiosUseCase
+        self.reimportMatcher = reimportMatcher
     }
 
     /// Files that fail to load are returned in `failed`, so the library can say which (#115).
     /// New files are saved together at the end: one save, so one snapshot write and one Siri
     /// publish per import, however many files (#84, #85).
+    ///
+    /// A file that is a book already in the library, found where it moved to (`ReimportMatcher`),
+    /// comes back as that book, relinked: its own identity and position with a bookmark to the
+    /// picked file, saved to its row instead of as a second book (#196).
     func load(urls: [URL]) async -> FileImportResult {
         var result = FileImportResult()
-        var newFiles: [AudioModel] = []
+        var toSave: [AudioModel] = []
+        // Loaded once, and only when a picked file isn't a stored book's URL.
+        var library: [AudioModel]?
         for url in urls {
             if let file = loadAudioUseCase.execute(url: url) {
                 result.loaded.append(file)
             } else if let file = await load(url: url) {
-                result.loaded.append(file)
-                newFiles.append(file)
+                let books = library ?? loadAllAudiosUseCase.execute()
+                if let existing = reimportMatcher.existingBook(for: file, in: books) {
+                    let relinked = ReimportMatcher.relink(existing, to: file)
+                    Log.importing.info("import: relinked a moved book to \(url.lastPathComponent, privacy: .private)")
+                    // One picked file per book: a second can't relink it again.
+                    library = books.filter { $0.url != existing.url }
+                    result.loaded.append(relinked)
+                    toSave.append(relinked)
+                } else {
+                    library = books
+                    result.loaded.append(file)
+                    toSave.append(file)
+                }
             } else {
                 result.failed.append(url)
             }
         }
-        save(newFiles)
+        save(toSave)
         return result
     }
 

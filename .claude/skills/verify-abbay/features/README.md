@@ -75,7 +75,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
     tests. It makes sound: pause it.
   - `-seedMissingFile` — with `-seedLibrary`, also adds *Seeded Missing Book*, whose file doesn't
     exist: what a moved or renamed import looks like. Play shows the moved-file banner (#139's
-    `NoticeUITests`).
+    `NoticeUITests`). Its duration is the fixture's (831.6 s), so `-stubMovedImport`'s file is
+    recognisably its own.
   - `-seedTimeLeftEdges` — with `-seedLibrary`, also adds *Seeded Finished Book* (no chapters,
     saved at its end: the row reads "0s left") and *Seeded Hour Book* (a first chapter of exactly
     one hour: once loaded, the mini player reads "Chapter 1 · 1 hr left"), the time-left edge cases
@@ -110,6 +111,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
     Wi-Fi, all online and metered. The player and the real download manager keep the real path.
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
     exist, so the failed-import banner shows (see [notices](notices.md)).
+  - `-stubMovedImport` — *Import file* skips the system picker and imports *Seeded Missing Book*'s
+    file from where it moved to (`UITestSeedAudio/moved/missing.m4b`, a copy of the fixture). With
+    `-seedMissingFile` the book is relinked, not added, and plays (#196, see [import](import.md)).
   - `-resetSettings` — start from default settings kept in memory for that launch only, so a test
     that changes the language, a skip amount or a speed leaves nothing behind (see [settings](settings.md)).
 

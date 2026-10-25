@@ -98,15 +98,37 @@ enum UITestSeeder {
 
     static let missingFileBookTitle = "Seeded Missing Book"
 
+    /// The fixture's length (`Christmastide.m4b`), in seconds.
+    static let fixtureDuration = 831.623
+
     /// A book whose file isn't there, as after a move or rename in Files: Play shows the banner.
+    /// Its duration is the fixture's, so the file `-stubMovedImport` imports is recognisably this
+    /// book's, moved: the same name and length (#196).
     static func missingFileModel() -> AudioModel {
         AudioModel(
             title: missingFileBookTitle,
             albumName: "Seed Album",
             artist: "Seed Author",
-            duration: 200,
+            duration: fixtureDuration,
             url: placeholderAudio("missing.m4b")
         )
+    }
+
+    /// *Seeded Missing Book*'s file where it "moved" to, for `-stubMovedImport`: a copy of the
+    /// fixture under the book's file name, in `UITestSeedAudio/moved/`. A copy, not a link: the
+    /// other seeds are links to the fixture, and one file under two names is one book (#196).
+    static func movedMissingFile(fileManager: FileManager = .default) -> URL {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        guard let directory = support?.appendingPathComponent("UITestSeedAudio/moved", isDirectory: true),
+              let fixture = Bundle.main.url(forResource: "Christmastide", withExtension: "m4b") else {
+            return placeholderAudio("moved/missing.m4b")
+        }
+        let url = directory.appendingPathComponent("missing.m4b")
+        if !fileManager.fileExists(atPath: url.path) {
+            try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? fileManager.copyItem(at: fixture, to: url)
+        }
+        return url
     }
 
     /// Plain books that only make the list scroll.
@@ -181,7 +203,7 @@ enum UITestSeeder {
     static func playableBookModel(bundle: Bundle = .main) -> AudioModel? {
         guard let url = bundle.url(forResource: "Christmastide", withExtension: "m4b") else { return nil }
         let starts = [0, 144.015, 288.012, 511.021]
-        let duration = 831.623
+        let duration = fixtureDuration
         let chapters = starts.indices.map { index in
             let end = index + 1 < starts.count ? starts[index + 1] : duration
             return ChapterModel(title: "Poem \(index + 1)", startTime: starts[index], duration: end - starts[index])
