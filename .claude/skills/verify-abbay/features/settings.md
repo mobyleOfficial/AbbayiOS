@@ -15,7 +15,9 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
     plays and keeps it as its own speed, so changing the default later only reaches books not yet
     played.
   - **Skip back / Skip forward** (`settings.playback.skipBack`, `settings.playback.skipForward`):
-    menu pickers of 10, 15, 30 or 45 seconds (default 15). They drive the player's two skip
+    menu pickers of 10, 15, 30 or 45 seconds (default 15). Each has `.id(language)`: a menu picker
+    built from a `ForEach` otherwise kept its selected value ("15 segundos") in the old language
+    after a switch (#179). They drive the player's two skip
     buttons (icon `gobackward.N` / `goforward.N`, label *Skip back N seconds*), and through
     `NowPlayingManager.setSkipIntervals` the lock screen's and CarPlay's skip commands
     (`preferredIntervals`) and their handlers.
@@ -82,7 +84,9 @@ $B tap settings.language.portuguese                               # nav title be
 `settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
 `settings.about.{privacyPolicy,version,librivox,licenses,audioStatus}` and
 `settings.about.licenses.body` resolve; changing Skip forward relabels the player's forward
-button; choosing Português switches Settings and the Library without a relaunch.
+button; choosing Português switches Settings and the Library without a relaunch; on a pt-BR
+device choosing English relabels both skip pickers to "15 seconds" at once
+(`test_switchingLanguage_relabelsTheSkipPickers`).
 
 **Implemented but unverified in UI tests:** the delete confirmation (seeded books are never
 finished downloads, and the stub download manager writes nothing), the Safari pages, and
