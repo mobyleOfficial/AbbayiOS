@@ -91,7 +91,10 @@ final class SpokenQueryMatchingTests: XCTestCase {
             Case("Emma audiobook", ["Emma"]),
             Case("stand by me", ["Stand by Me"]),
             Case("stand by me by stephen king", ["Stand by Me"]),
-            Case("anne of green gables", ["Anne of Green Gables"])
+            Case("anne of green gables", ["Anne of Green Gables"]),
+            // Words out of order.
+            Case("harry potter fire goblet", ["Harry Potter and the Goblet of Fire"]),
+            Case("prejudice and pride jane austen", ["Pride and Prejudice"])
         ]
         check(cases, in: english)
     }
@@ -130,6 +133,17 @@ final class SpokenQueryMatchingTests: XCTestCase {
             Case("star wars", [])
         ]
         check(cases, in: english)
+    }
+
+    /// The asked-for book isn't in the library: no other book of the series stands in for it.
+    func test_english_aMissingSeriesBook_isNotReplacedByAnother() {
+        let library = english.filter { !$0.title.contains("Goblet") }
+        let cases: [Case] = [
+            Case("harry potter goblet", []),
+            Case("the goblet of fire", []),
+            Case("harry potter and the goblet of fire by rowling", [])
+        ]
+        check(cases, in: library)
     }
 
     func test_portuguese_spokenQueriesWithExtraWords() {

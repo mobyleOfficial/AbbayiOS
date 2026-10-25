@@ -30,8 +30,10 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   Potter and the Goblet of Fire*), "\<title> by/por/de \<author>" tried as a title plus an author
   (the snapshot's `artist` breaks a tie between same-titled books), "audiobook"/"livro" at either
   end ignored, and the query may contain the title or the title the query. Tiers: whole title >
-  same words > title starts with the query > title contains it > query contains the title > most
-  words shared (at least two, two thirds of the query's, half the title's). Short words never
+  same words > title starts with the query > title contains it > query contains the title > the
+  same words out of order (every word said is in the title, or every title word was said). A
+  series book that isn't in the library is never replaced by another one ("harry potter goblet"
+  doesn't play *Chamber of Secrets*). Short words never
   match part of a longer one ("go" isn't *Goblet*); a query of stop words alone matches nothing.
   Books tied at the top go to disambiguation as before. Rules and cases: `SpokenQueryMatchingTests`.
 - **stuck-state guards:** a dead pointer clears `LastPlayedStore` only when the dead URL *is* the

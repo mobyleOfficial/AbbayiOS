@@ -34,7 +34,8 @@ func fuzzyMatch(input: String,
 ///   4 — the title starts with the query's words
 ///   3 — the title contains the query's words in a row
 ///   2 — the query contains the title's words in a row (titles of two words or more)
-///   1 — most words shared: at least two, two thirds of the query's and half the title's
+///   1 — the same words out of order: all the query's (two or more, half the title), or all the
+///       title's (two or more)
 ///
 /// "<title> by <author>" (pt-BR "por" or "de") is also tried as a title plus an author; a book
 /// whose artist shares a word with the author ranks above the same tier without it. "Audiobook",
@@ -200,12 +201,19 @@ struct SpokenQuery {
         return overlap(with: book).map { (1, $0) }
     }
 
-    /// Shared words, when there are enough of them to name the book rather than its series.
+    /// Shared words out of order, when they name the book rather than its series: every word
+    /// said is in the title (two or more, covering half of it: "harry stone"), or every word of the
+    /// title (two or more) was said. "harry potter goblet" therefore never falls back to another
+    /// Harry Potter book: "goblet" is in neither its title nor a filler.
     private func overlap(with book: SpokenBook) -> Int? {
-        let matched = content.filter { spoken in book.content.contains { SpokenText.wordsMatch(spoken, $0) } }.count
-        guard matched >= 2,
-              matched * 3 >= content.count * 2,
-              matched * 2 >= book.content.count else { return nil }
-        return matched
+        let saidInTitle = content.filter { spoken in book.content.contains { SpokenText.wordsMatch(spoken, $0) } }.count
+        let titleSaid = book.content.filter { word in content.contains { SpokenText.wordsMatch(word, $0) } }.count
+        if saidInTitle == content.count, saidInTitle >= 2, titleSaid * 2 >= book.content.count {
+            return saidInTitle
+        }
+        if titleSaid == book.content.count, titleSaid >= 2 {
+            return titleSaid
+        }
+        return nil
     }
 }
