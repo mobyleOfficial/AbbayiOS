@@ -63,11 +63,13 @@ Typing a title hides the other rows (`test_search_filtersLocalRows`); no matches
 element. `library.floatingPlayer` and `library.menu.browse` are gone (the floating player was
 replaced by the mini player; browsing LibriVox is the Search tab).
 
-**Seeded books can't play audio.** Their models carry no playable file. Pressing a seeded row's
-play button still makes the player announce the book, so the mini player and the row's loaded
-state appear (that is how `MiniPlayerUITests` loads one), but the clock never moves and nothing is
-heard. Anything needing real playback — chapter taps (gated on playing), time advancing, the end
-of a chapter — needs a genuinely playable import.
+**Seeded books play real audio** (#147). Each is a hard link to the Debug-only
+`Christmastide.m4b` fixture, so pressing a seeded row's play button plays it: the mini player and
+the row's loaded state appear (that is how `MiniPlayerUITests` loads one) and the clock moves. The
+seeds' chapters and durations are their own, not the file's (14 min). No file behind:
+*Seeded Missing Book* (`-seedMissingFile`, the moved-file banner) and the `-seedTimeLeftEdges`
+books, whose clocks must stay put. Delete and `-resetLibrary` find a book's row by the URL it was
+stored under, so they work after a reinstall moved the bundle (#176).
 
 ## Gotchas
 
