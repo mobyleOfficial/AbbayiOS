@@ -42,12 +42,12 @@ final class AudioDomainIntentTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    private func book(_ title: String, _ url: String, artist: String = "", storedURL: String? = nil) -> AudioModel {
+    private func book(_ title: String, _ url: String, artist: String = "", resolvedURL: String? = nil) -> AudioModel {
         var model = AudioModel()
         model.title = title
         model.artist = artist
         model.url = URL(string: url)
-        model.storedURL = storedURL.flatMap(URL.init(string:))
+        model.resolvedURL = resolvedURL.flatMap(URL.init(string:))
         return model
     }
 
@@ -86,10 +86,10 @@ final class AudioDomainIntentTests: XCTestCase {
         XCTAssertTrue(AudioDomainMatcher.books(for: .query("dune"), library: library, lastPlayedURL: nil).isEmpty)
     }
 
-    func test_urls_matchTheBookURL_orTheURLItsRowIsSavedUnder() throws {
-        let moved = book("Moved", "file:///new-place", storedURL: "file:///old-place")
+    func test_urls_matchTheBookURL_orWhereItsFileIsNow() throws {
+        let moved = book("Moved", "file:///old-place", resolvedURL: "file:///new-place")
         let books = AudioDomainMatcher.books(
-            for: .urls([try XCTUnwrap(URL(string: "file:///gof")), try XCTUnwrap(URL(string: "file:///old-place"))]),
+            for: .urls([try XCTUnwrap(URL(string: "file:///gof")), try XCTUnwrap(URL(string: "file:///new-place"))]),
             library: library + [moved],
             lastPlayedURL: nil
         )

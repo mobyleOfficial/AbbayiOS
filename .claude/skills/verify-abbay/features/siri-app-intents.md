@@ -95,7 +95,7 @@ iOS 27 simulator, while the app itself stays on iOS 17. **Verified** for the aud
 - `test_audioSearch_withNoTitle_offersTheLibrary`: `.unspecified` returns the seeded books.
 
 What it can't cover: Siri's speech recognition and its choice of Abbay over other audio apps. That
-needs an iOS 27 device (#81 and #90 track the device side).
+needs an iOS 27 device: #201.
 
 ## Gotchas
 

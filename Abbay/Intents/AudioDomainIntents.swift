@@ -29,7 +29,8 @@ enum AudioDomainMatcher {
     /// - `unspecified`: the last-played book first, then the rest of the library, like the
     ///   entity suggestions (and capped the same way).
     /// - `query`: the same fuzzy title rules as the other Siri paths (`matchAll`).
-    /// - `urls`: books whose URL, or the URL their row is saved under, is one of `urls`.
+    /// - `urls`: books whose URL (their identity, the row's key) or current file URL is one of
+    ///   `urls` (a moved book is reachable by either, #186).
     static func books(for request: AudioDomainRequest, library: [AudioModel], lastPlayedURL: URL?) -> [AudioModel] {
         switch request {
         case .unspecified:
@@ -43,7 +44,7 @@ enum AudioDomainMatcher {
         case .urls(let urls):
             let wanted = Set(urls.map(\.absoluteString))
             return library.filter { book in
-                [book.url, book.storedURL].contains { $0.map { wanted.contains($0.absoluteString) } ?? false }
+                [book.url, book.resolvedURL].contains { $0.map { wanted.contains($0.absoluteString) } ?? false }
             }
         }
     }
