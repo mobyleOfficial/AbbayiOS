@@ -27,7 +27,7 @@ user-facing, but every title-matching Siri phrase depends on it.
   background, reschedules on every run, publishes with `refreshNow` (ignores the throttle) and
   completes the task once, **after the publish reports completion** (#159) — unsuccessfully if it
   expires first. `SiriLibraryPublisher.publish(audios:completion:)` completes on main once
-  Spotlight's `indexSearchableItems` completion handler has run. `updateAppShortcutParameters()`,
+  Spotlight's clear and `indexSearchableItems` completion handlers have run. `updateAppShortcutParameters()`,
   `INVocabulary` and `becomeCurrent()` are synchronous with no completion API, so whatever the
   system does after they return can't be waited for. iOS decides when, or whether, it
   runs. Drop it if the device judgement in #127 shows no improvement.
@@ -35,7 +35,15 @@ user-facing, but every title-matching Siri phrase depends on it.
   `{title, urlString, bookmarkData}`. The extension's only data source.
 - **spotlight:** `LibrarySpotlightIndexer` indexes each book as a `CSSearchableItem` in a named index
   with `completeUntilFirstUserAuthentication` protection, so the system can read it while locked.
-  Skips books with no URL or an empty title.
+  Skips books with no URL or an empty title. **Each publish replaces the index (#195):** it deletes
+  every item under the domain identifier `com.edyuto.Abbay.library`
+  (`deleteSearchableItems(withDomainIdentifiers:)`), then indexes the books it was given, so a
+  deleted book leaves Spotlight at the next publish, and so do identifiers no longer used (a moved
+  book's pre-#186 resolved URL). An empty library clears and indexes nothing. A failed clear logs
+  `spotlight clearing failed: <domain> <code>` and the books are indexed anyway. One replacement
+  runs at a time: a publish that arrives meanwhile waits, a newer one supersedes it, and every
+  waiting caller completes once the latest library is indexed (so a clear can't land after another
+  publish's index). Unit-tested against a fake index (`LibrarySpotlightIndexerTests`).
 - **entity-queries:** `AudiobookEntityQuery` (40 suggestions) and `ChapterEntityQuery` (50) back the
   entity parameters. Both implement `EntityStringQuery` so Siri can match a spoken string.
   `ChapterEntity.currentBook()` resolves chapters against whatever is playing.
@@ -66,14 +74,16 @@ $B spotlight query "<title>"                  # planned: CSSearchQuery against o
 The refreshes and the background task are not observable from the app's state: they log to the
 `Siri` category (`context refresh (foreground|pause|interruption|carPlay|backgroundTask): N books`,
 `… skipped … throttled`, `publish: N books` (#157, `.info`, count only), `publish: finished`
-(`.debug`), `spotlight indexing failed: <domain> <code>`, `background refresh: publish finished`,
+(`.debug`), `spotlight indexing failed: <domain> <code>`, `spotlight clearing failed: <domain>
+<code>`, `background refresh: publish finished`,
 `background refresh: …`). Read `.info`/`.debug` with `log stream --level debug` or `log show --info --debug`. On the simulator `BGTaskScheduler.submit` is refused (logged,
 expected). To fire the task on a device under the debugger, pause and run
 `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.edyuto.Abbay.siriRefresh"]`.
 Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests` (incl. completion order),
 `AppDelegateSiriFreshnessTests`, `PlayerSiriFreshnessTests` (incl. interruptions),
 `CarPlaySceneDelegateTests` and `SiriLibraryPublisherTests`. `SiriLibraryPublisher` and
-`LibrarySpotlightIndexer` log `publish: N books`, `publish: finished` and `spotlight indexing failed`
+`LibrarySpotlightIndexer` log `publish: N books`, `publish: finished`, `spotlight indexing failed`
+and `spotlight clearing failed`
 through an injected `SiriLogSink` (`Abbay/Core/SiriLog.swift`): `OSSiriLogSink` writes them to
 `Log.siri` with every field `.public`, and the `SiriLogEvent` cases carry only counts and error
 domains/codes, so titles have nowhere to go. Tests assert on `RecordingSiriLogSink`; no unit test
@@ -103,15 +113,18 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
   identifier but are fragile if the file moves.
 - **`urlString` is the book's identity (#186):** the URL its row was saved under, never where a
   moved file resolves now, so entity ids, donations and Spotlight ids keep matching the row after
-  the file moves (`MovedBookIdentityTests`). Spotlight items are only ever added, so one published
-  under a moved book's resolved URL before #186 stays in the index (#195).
+  the file moves (`MovedBookIdentityTests`). An item published under a moved book's resolved URL
+  before #186 is cleared by the next publish (#195).
 - `LibrarySnapshotWriter` logs through `Log.librarySnapshot` (category `LibrarySnapshot`) with
   `.public` counts. The subsystem is the running bundle's, so a write from the extension (none today)
   would log under `com.edyuto.Abbay.AbbayIntents`, not the app's.
   `$B launch -seedLibrary` logs `snapshot WRITTEN: 2 entries (0 with bookmark),
   suite=group.com.edyuto.abbay` under `[com.edyuto.Abbay:LibrarySnapshot]`.
-- The Spotlight indexer returns early when *every* item is filtered out, so an all-untitled library
-  silently indexes nothing.
+- When *every* book is filtered out (an all-untitled library) the indexer clears and indexes
+  nothing, so such a library has no Spotlight items.
+- Whether a deleted book also leaves the Spotlight *search screen* promptly on a device is part of
+  #173's device check. On the simulator the clear was checked by reading the index back in-process
+  with `CSSearchQuery` (the PR for #195).
 - `SiriLibraryPublisher.shared` is a `let` since #153: `LibrarySnapshotWriter` and
   `SiriContextRefresher` take their publisher as an init argument, which is where tests inject a
   spy (and where `NoopSiriLibraryPublisher` keeps a real writer off Siri), and the publisher takes

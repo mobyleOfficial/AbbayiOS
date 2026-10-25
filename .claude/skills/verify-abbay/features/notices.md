@@ -61,6 +61,8 @@ $B launch --reset-library --stub-failing-import      # -resetLibrary -stubFailin
 $B tap library.empty.import && $B wait notice.banner  # "Couldn't import 2 files: Missing Book.mp3 and Broken Book.m4b."
 $B launch -seedLibrary -seedMissingFile
 $B tap library.row.<n>.play && $B wait notice.banner  # n = the "Seeded Missing Book" row: "... was moved or renamed ..."
+# Following the banner's advice (#196): with -stubMovedImport, Import file relinks the book, and Play plays.
+$B launch -seedLibrary -seedMissingFile -stubMovedImport
 ```
 
 `-stubFailingImport` makes *Import file* (`library.menu.import` and `library.empty.import`) skip
