@@ -142,7 +142,15 @@ enum CoverTint {
 /// accessory (iOS 26.1+) a `Color` background blends with the glass, while a `Color` wrapped in a
 /// view carrying `.task` drew visibly darker (#141's screenshots).
 struct CoverTintBackground: ViewModifier {
+    enum Style {
+        /// A flat tint: the bar's.
+        case solid
+        /// The details screen's (G1): the tint at the top, darkening to near-black at the bottom.
+        case playerGradient
+    }
+
     let book: AudioModel
+    var style: Style = .solid
 
     @State
     private var resolved: (identity: Identity, color: UIColor)?
@@ -162,11 +170,34 @@ struct CoverTintBackground: ViewModifier {
         let color = resolved.flatMap { $0.identity == identity ? $0.color : nil }
             ?? CoverTint.cachedTint(for: book)
             ?? ColorConstants.onyx.uiColor
-        content
-            .background(Color(uiColor: color))
-            .task(id: identity) {
-                let tint = await CoverTint.tint(for: book)
-                resolved = (identity, tint)
+        Group {
+            switch style {
+            case .solid:
+                // A plain `Color` background, as the accessory needs (above).
+                content.background(Color(uiColor: color))
+            case .playerGradient:
+                content.background { Self.gradient(Color(uiColor: color)) }
             }
+        }
+        .task(id: identity) {
+            let tint = await CoverTint.tint(for: book)
+            resolved = (identity, tint)
+        }
+    }
+
+    /// Black laid over the tint, so the top is exactly the bar's colour and the bottom is
+    /// near-black, where the transport and pills sit.
+    private static func gradient(_ tint: Color) -> some View {
+        tint.overlay {
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0), location: 0),
+                    .init(color: .black.opacity(0.45), location: 0.45),
+                    .init(color: .black.opacity(0.82), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 }

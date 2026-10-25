@@ -29,6 +29,10 @@ enum LaunchArgument {
     /// With `seedLibrary`: also add *Seeded Missing Book*, whose file doesn't exist, which is what a
     /// moved or renamed import looks like: Play shows the moved-file banner (#139, #147).
     static let seedMissingFile = "-seedMissingFile"
+    /// With `seedLibrary`: give *Seeded Chaptered Book* and *Seeded Playable Book* a generated
+    /// cover (a warm gradient), so the cover tint behind the mini player and the details screen
+    /// (#166 G1) can be seen. *Seeded Plain Book* keeps none, for the generic tile.
+    static let seedCoverArt = "-seedCoverArt"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
@@ -69,7 +73,7 @@ enum LaunchArgument {
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
-        resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubDownloadStates, stubPathCellular,
+        seedCoverArt, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubDownloadStates, stubPathCellular,
         stubPathHotspot, stubPathLowDataMode, stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
     ]
 }

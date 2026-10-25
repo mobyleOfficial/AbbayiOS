@@ -1,0 +1,154 @@
+//
+//  ChaptersPanel.swift
+//  Abbay
+//
+
+import SwiftUI
+
+/// The player's chapter list as a glass dropdown (#166 G2, `redesign-v3.html`): it grows out of
+/// the Chapters pill and floats over the cover; nothing else on the player moves.
+///
+/// - The header says "Chapters" and the time left in the book.
+/// - Rows are `ChapterListView`'s (finished dimmed with a check, the current one malachite with
+///   its progress and time left), with the per-chapter download status and "Failed · Retry".
+/// - It opens scrolled to the current chapter. A tap on a row plays that chapter (paused or not,
+///   of the book on screen; the owner's decision) and closes the panel.
+/// - It closes on a tap outside, on the pill (✕), on Escape / the accessibility escape gesture,
+///   and on a drag down that starts on its top (the handle and the header).
+///
+/// Reads the clock for the current row's progress and the header's time left, but its rows redraw
+/// only when what they show changes (`ChaptersPanelContent` is `Equatable`).
+struct ChaptersPanel: View {
+    let model: PlayerViewModel
+    let onClose: () -> Void
+
+    @Environment(PlaybackClock.self)
+    private var clock
+
+    /// The handle and the header: a drag down that starts here closes the panel.
+    static let dragHandleHeight: CGFloat = SpaceConstants.sx64.value
+    /// How far down such a drag must go to close it.
+    static let closeDistance: CGFloat = SpaceConstants.sx48.value
+    static let cornerRadius: CGFloat = 26
+
+    var body: some View {
+        let book = model.book
+        let index = model.currentChapter(in: clock)
+        let time = model.bookTime(in: clock)
+        ChaptersPanelContent(
+            model: model,
+            onClose: onClose,
+            bookURL: book.url,
+            currentIndex: index,
+            progress: Self.chapterProgress(chapters: book.chapters, index: index, time: time),
+            headerDetail: ChapterListView.timeLeftText(
+                duration: book.duration,
+                progress: book.duration > 0 ? time / book.duration : 0
+            ),
+            downloadState: model.downloadEntry?.state
+        )
+        .equatable()
+    }
+
+    // MARK: - Decisions
+
+    /// How far into chapter `index` the book time is, 0...1, in steps of 1%, so the rows redraw at
+    /// most a hundred times per chapter rather than on every tick. Nil without such a chapter.
+    static func chapterProgress(chapters: [ChapterModel], index: Int, time: Double) -> Double? {
+        guard chapters.indices.contains(index) else { return nil }
+        let chapter = chapters[index]
+        guard chapter.duration > 0, time.isFinite else { return 0 }
+        let fraction = min(max((time - chapter.startTime) / chapter.duration, 0), 1)
+        return (fraction * 100).rounded(.down) / 100
+    }
+
+    /// A drag closes the panel when it starts on the panel's top (the handle or the header, not
+    /// the list, which scrolls) and goes down far enough, more down than sideways.
+    static func closesOnDrag(startY: CGFloat, translation: CGSize) -> Bool {
+        startY <= dragHandleHeight
+            && translation.height >= closeDistance
+            && translation.height > abs(translation.width)
+    }
+}
+
+/// What the panel draws. `Equatable` on what the rows show, so a clock tick that changes none of
+/// it (most ticks) doesn't redraw the list.
+private struct ChaptersPanelContent: View, Equatable {
+    let model: PlayerViewModel
+    let onClose: () -> Void
+    let bookURL: URL?
+    let currentIndex: Int
+    let progress: Double?
+    let headerDetail: String
+    let downloadState: BookDownloadState?
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.bookURL == rhs.bookURL
+            && lhs.currentIndex == rhs.currentIndex
+            && lhs.progress == rhs.progress
+            && lhs.headerDetail == rhs.headerDetail
+            && lhs.downloadState == rhs.downloadState
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: ChaptersPanel.cornerRadius, style: .continuous)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            handle
+            ScrollViewReader { proxy in
+                ChapterListView(
+                    chapters: model.book.chapters.map(ChapterListView.Item.init),
+                    currentIndex: currentIndex,
+                    currentProgress: progress,
+                    downloadState: downloadState,
+                    layout: .list,
+                    chrome: .plain,
+                    headerDetail: headerDetail,
+                    title: Localizable.chaptersTitle.localized,
+                    showsBookProgress: false,
+                    titleIdentifier: AccessibilityID.Player.chaptersTitle,
+                    rowIdentifier: AccessibilityID.Player.chapter,
+                    onSelect: { index in
+                        model.selectChapter(index)
+                        onClose()
+                    },
+                    retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) })
+                )
+                .onAppear {
+                    // Opens with the current chapter in view (the rows' ids are their indices).
+                    proxy.scrollTo(currentIndex, anchor: .center)
+                }
+            }
+        }
+        .abbayGlass(in: shape, tint: Color.black.opacity(0.35))
+        .clipShape(shape)
+        .contentShape(shape)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: SpaceConstants.sx12.value)
+                .onEnded { value in
+                    if ChaptersPanel.closesOnDrag(startY: value.startLocation.y, translation: value.translation) {
+                        onClose()
+                    }
+                }
+        )
+        .accessibilityAction(.escape) { onClose() }
+    }
+
+    /// A small grabber at the top: the panel's handle, and VoiceOver's "Close chapters" button.
+    private var handle: some View {
+        Capsule()
+            .fill(ColorConstants.white.value.opacity(0.3))
+            .frame(width: SpaceConstants.sx36.value, height: 4)
+            .padding(.top, SpaceConstants.sx8.value)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture { onClose() }
+            .accessibilityElement()
+            .accessibilityLabel(Localizable.closeChapters.localized)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onClose() }
+            .accessibilityIdentifier(AccessibilityID.Player.chaptersPanel)
+    }
+}

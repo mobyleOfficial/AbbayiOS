@@ -7,13 +7,19 @@
 
 import SwiftUI
 
-/// The details screen: cover, title, transport, timeline and the chapter list. It is drawn inside
-/// the expansion overlay (`PlayerExpansionOverlay`), which adds the grabber header on top.
+/// The details screen, "Player A" of the Liquid Glass redesign (#166 G1): a large cover, a
+/// left-aligned title block, the scrubber, the transport and two glass pills (speed, chapters).
+/// It is drawn inside the expansion overlay (`PlayerExpansionOverlay`), which paints the cover-tint
+/// gradient behind it and adds the header (glass close button, grabber) on top.
+///
+/// The Chapters pill opens the chapter list as a glass panel floating over the cover (G2,
+/// `ChaptersPanel`); nothing else on the screen moves.
 ///
 /// What it reads, so a clock tick does as little as possible:
 /// - this body reads the slow state only (the book, playing or not, via `PlayerViewModel`);
 /// - `PlayerTimeline` reads `PlaybackClock.bookTime` and re-renders once per tick;
-/// - `PlayerChapters` reads `PlaybackClock.currentChapter`, so it re-renders per chapter.
+/// - `PlayerSubtitle` reads `PlaybackClock.currentChapter`, so it re-renders per chapter;
+/// - the open panel reads the clock too, but redraws its rows only when what they show changes.
 struct PlayerView: View {
     // MARK: - Properties
     /// Shared with the expansion, which draws the growing cover and tint from the same book.
@@ -27,19 +33,29 @@ struct PlayerView: View {
     /// Skip amounts and speeds. Changes only from Settings or the speed sheet, never on a tick.
     @Environment(AppSettings.self)
     private var settings
+    @ReduceMotion
+    private var reduceMotion
     @State
     private var isShowingSpeed = false
+    @State
+    private var isShowingChapters = false
+    /// The pills' row, in `Self.layoutSpace`: the chapter panel sits just above it.
+    @State
+    private var pillsFrame: CGRect = .zero
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
     static let coordinateSpace = "player.details"
-    /// The cover's largest side. It shrinks on a short screen; see `minChapterListHeight`.
-    static let coverSide: CGFloat = SpaceConstants.sx72.value * SpaceConstants.sx4.value
-    /// The chapter card's least height: its header and three rows and a bit, so the list can be
-    /// read and scrolled. On a short screen (the iPhone SE, the iOS 27.1 iPhone Duo) the cover
-    /// gives up height to keep it, rather than the list collapsing to one row (#203). Taller
-    /// screens already give the card more than this, so their cover stays at `coverSide`.
+    /// This view's own space, where the chapter panel is placed.
+    private static let layoutSpace = "player.view"
+    /// The cover's largest side. It fills the width minus the margins, and shrinks on a short
+    /// screen so the transport and the pills keep their room.
+    static let coverSide: CGFloat = SpaceConstants.sx72.value * SpaceConstants.sx4.value + SpaceConstants.sx72.value
+    /// The chapter panel's least height: its header and three rows and a bit, so the list can be
+    /// read and scrolled on a short screen (the iPhone SE, the iOS 27.1 iPhone Duo; #203).
     static let minChapterListHeight: CGFloat = SpaceConstants.sx56.value * SpaceConstants.sx4.value
-    static let coverRadius: CGFloat = SpaceConstants.sx32.value
+    /// The spec's ~14 pt. The expansion's growing cover lands on the same radius.
+    static let coverRadius: CGFloat = 14
+    private static let margin = SpaceConstants.sx24.value
 
     // MARK: - Inits
     init(model: PlayerViewModel, onCoverFrame: ((CGRect) -> Void)? = nil) {
@@ -49,47 +65,63 @@ struct PlayerView: View {
 
     // MARK: - Body
     var body: some View {
-        VStack(spacing: SpaceConstants.sx16.value) {
-            // The cover is offered space first, but only what is left once the chapter list has
-            // its least height; the transport and timeline keep their own.
-            coverView
-                .layoutPriority(1)
-            playerView
-            PlayerChapters(model: model)
-                .frame(minHeight: Self.minChapterListHeight)
+        AbbayGlassContainer {
+            VStack(spacing: SpaceConstants.sx16.value) {
+                // The cover is offered space first, but only what is left once the rest has its
+                // own: it shrinks (staying square) on a short screen.
+                coverView
+                    .layoutPriority(1)
+                titleBlock
+                VStack(spacing: SpaceConstants.sx8.value) {
+                    PlayerTimeline(model: model)
+                    PlayerDownloadLine(model: model)
+                }
+                playerButtonsView
+                pills
+            }
+            .padding(.horizontal, Self.margin)
+            .padding(.top, SpaceConstants.sx8.value)
+            .padding(.bottom, SpaceConstants.sx12.value)
+            .overlay { chaptersOverlay }
+            .coordinateSpace(.named(Self.layoutSpace))
         }
-        .padding(.horizontal, SpaceConstants.sx32.value)
-        .backgroundColor(ColorConstants.onyx.value)
     }
 
     // MARK: - Cover view
     private var coverView: some View {
-        VStack {
-            ArtworkView(book: model.book, cornerRadius: Self.coverRadius)
-                // A square of up to `coverSide`, smaller when the height runs short.
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
-                .opacity(hidesCover ? 0 : 1)
-                .onGeometryChange(for: CGRect.self) { proxy in
-                    proxy.frame(in: .named(Self.coordinateSpace))
-                } action: { frame in
-                    onCoverFrame?(frame)
-                }
-                .accessibilityHidden(true)
-            PlayerTitleView(
-                isPlaying: .constant(model.isPlaying),
-                text: model.book.title,
-                alignment: .center
-            )
-            .font(.system(size: SpaceConstants.sx24.value))
-            .accessibilityIdentifier(AccessibilityID.Player.title)
+        ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
+            // A square as wide as the screen allows, smaller when the height runs short.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
+            .opacity(hidesCover ? 0 : 1)
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .named(Self.coordinateSpace))
+            } action: { frame in
+                onCoverFrame?(frame)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityHidden(true)
+    }
+
+    // MARK: - Title
+    /// Left-aligned: the title in white (it no longer turns green while playing), then the author
+    /// and "Ch N of M".
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: SpaceConstants.sx2.value) {
+            Text(model.book.title)
+                .font(.title3.bold())
+                .foregroundColor(ColorConstants.white.value)
+                .lineLimit(2)
+                .accessibilityIdentifier(AccessibilityID.Player.title)
+            PlayerSubtitle(model: model)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Player buttons
     /// Back, play/pause, forward. The skips jump by the Settings amounts, and their SF Symbols
-    /// draw that number.
+    /// draw that number. Play/pause is the dominant control.
     private var playerButtonsView: some View {
         let back = settings.skipBackward
         let forward = settings.skipForward
@@ -97,45 +129,52 @@ struct PlayerView: View {
             IconButtonView(systemName: back.backwardSymbol) {
                 model.backward(withSeconds: back.seconds)
             }
+            .frame(side: SpaceConstants.sx32.value)
             .accessibilityLabel(Localizable.skipBackAction.localized(with: back.rawValue))
             .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.back))
-            PlayButtonView(isPlaying: .constant(model.isPlaying)) {
-                model.play()
-            } onPause: {
-                model.pause()
-            }
+            PlayButtonView(
+                isPlaying: .constant(model.isPlaying),
+                onPlay: { model.play() },
+                onPause: { model.pause() },
+                pauseColor: ColorConstants.white.value
+            )
+            .frame(side: SpaceConstants.sx44.value)
             .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
             IconButtonView(systemName: forward.forwardSymbol) {
                 model.forward(withSeconds: forward.seconds)
             }
+            .frame(side: SpaceConstants.sx32.value)
             .accessibilityLabel(Localizable.skipForwardAction.localized(with: forward.rawValue))
             .accessibilityIdentifier(AccessibilityID.Player.transport(AccessibilityID.Transport.forward))
         }
-        .frame(height: SpaceConstants.sx32.value)
+        .frame(height: SpaceConstants.sx56.value)
         .foregroundColor(ColorConstants.white.value)
     }
 
-    // MARK: - Player view
-    private var playerView: some View {
-        VStack(spacing: SpaceConstants.sx16.value) {
-            playerButtonsView
-            PlayerTimeline(model: model)
-            speedButton
+    // MARK: - Pills
+    /// Speed on the left, Chapters on the right. A book with no chapters has no Chapters pill.
+    private var pills: some View {
+        HStack {
+            speedPill
+            Spacer()
+            if !model.book.chapters.isEmpty {
+                chaptersPill
+            }
+        }
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .named(Self.layoutSpace))
+        } action: { frame in
+            pillsFrame = frame
         }
     }
 
-    // MARK: - Speed
-    private var speedButton: some View {
+    private var speedPill: some View {
         let speed = model.speed(in: settings)
         return Button {
             isShowingSpeed = true
         } label: {
-            Label(PlaybackSpeed.label(speed), systemImage: "gauge.with.dots.needle.33percent")
-                .font(.subheadline.weight(.semibold))
+            PlayerPill(text: PlaybackSpeed.label(speed))
                 .monospacedDigit()
-                .padding(.horizontal, SpaceConstants.sx16.value)
-                .padding(.vertical, SpaceConstants.sx8.value)
-                .background(ColorConstants.onyx.value, in: Capsule())
         }
         .buttonStyle(.plain)
         .foregroundColor(speed == PlaybackSpeed.normal ? ColorConstants.white.value : ColorConstants.malachite.value)
@@ -151,12 +190,154 @@ struct PlayerView: View {
             )
         }
     }
+
+    /// "☰ Chapters", or "✕ Chapters" while the panel is open; a tap toggles it.
+    private var chaptersPill: some View {
+        Button {
+            setChapters(open: !isShowingChapters)
+        } label: {
+            PlayerPill(
+                text: Localizable.chaptersTitle.localized,
+                systemImage: isShowingChapters ? "xmark" : "list.bullet"
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(ColorConstants.white.value)
+        .accessibilityLabel(
+            isShowingChapters ? Localizable.closeChapters.localized : Localizable.chaptersTitle.localized
+        )
+        .accessibilityIdentifier(AccessibilityID.Player.chapters)
+    }
+
+    // MARK: - Chapters panel (G2)
+
+    @ViewBuilder
+    private var chaptersOverlay: some View {
+        if isShowingChapters {
+            GeometryReader { proxy in
+                let frame = ChaptersPanelLayout.frame(
+                    container: proxy.size,
+                    pillsTop: pillsFrame.minY,
+                    idealHeight: ChaptersPanelLayout.idealHeight
+                )
+                ZStack(alignment: .topLeading) {
+                    // The faint dim behind the panel; a tap outside the panel closes it.
+                    Color.black.opacity(0.18)
+                        .contentShape(Rectangle())
+                        .onTapGesture { setChapters(open: false) }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                    ChaptersPanel(model: model) {
+                        setChapters(open: false)
+                    }
+                    .frame(width: frame.width, height: frame.height)
+                    .offset(x: frame.minX, y: frame.minY)
+                    .transition(panelTransition)
+                }
+            }
+        }
+    }
+
+    /// Grows from the Chapters pill (the panel's bottom-right corner) and fades; with Reduce
+    /// Motion it only fades.
+    private var panelTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity)
+    }
+
+    private func setChapters(open: Bool) {
+        guard isShowingChapters != open else { return }
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.82)) {
+            isShowingChapters = open
+        }
+    }
+}
+
+// MARK: - Panel layout
+
+/// Where the chapter panel sits, in the details screen's own coordinates: anchored bottom-right,
+/// just above the pills, spanning most of the width, as tall as about eight rows when the screen
+/// allows. Pure, so it is unit tested.
+enum ChaptersPanelLayout {
+    /// About eight rows and the header at the default text size.
+    static let idealHeight: CGFloat = 440
+    /// The gap between the panel and the pills, and the panel's least distance from the top.
+    static let gap: CGFloat = SpaceConstants.sx12.value
+    static let leadingInset: CGFloat = SpaceConstants.sx40.value
+    static let trailingInset: CGFloat = SpaceConstants.sx16.value
+
+    static func frame(container: CGSize, pillsTop: CGFloat, idealHeight: CGFloat) -> CGRect {
+        // Before the pills report (the first layout pass), assume they sit at the bottom.
+        let top = pillsTop > 0 ? pillsTop : container.height
+        let bottom = max(top - gap, 0)
+        let available = max(bottom - gap, 0)
+        let height = min(idealHeight, available)
+        let width = max(container.width - leadingInset - trailingInset, 0)
+        return CGRect(x: leadingInset, y: bottom - height, width: width, height: height)
+    }
 }
 
 // MARK: - Leaves
 
-/// The timeline and its two timestamps. Reads `PlaybackClock.bookTime` for the loaded book (the
-/// book's saved position otherwise), so it is the one part of the screen that ticks.
+/// A glass capsule with a label, the look of the speed and chapters pills.
+private struct PlayerPill: View {
+    let text: String
+    var systemImage: String?
+
+    var body: some View {
+        HStack(spacing: SpaceConstants.sx4.value) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+        }
+        .font(.subheadline.weight(.semibold))
+        .lineLimit(1)
+        .padding(.horizontal, SpaceConstants.sx16.value)
+        .padding(.vertical, SpaceConstants.sx8.value + SpaceConstants.sx2.value)
+        .abbayGlass(in: Capsule(), interactive: true)
+        .contentShape(Capsule())
+    }
+}
+
+/// "Author · Ch N of M", or just the author for a book without chapters. Reads
+/// `PlaybackClock.currentChapter` only.
+struct PlayerSubtitle: View {
+    let model: PlayerViewModel
+
+    @Environment(PlaybackClock.self)
+    private var clock
+
+    var body: some View {
+        let book = model.book
+        let text = Self.text(
+            author: book.artist,
+            chapter: model.currentChapter(in: clock),
+            chapterCount: book.chapters.count
+        )
+        if !text.isEmpty {
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(ColorConstants.white.value.opacity(0.6))
+                .lineLimit(1)
+        }
+    }
+
+    static func text(author: String, chapter: Int, chapterCount: Int) -> String {
+        var parts: [String] = []
+        if !author.isEmpty { parts.append(author) }
+        if chapterCount > 0 {
+            let number = min(max(chapter, 0), chapterCount - 1) + 1
+            parts.append(Localizable.chapterPosition.localized(with: number, chapterCount))
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// The timeline and its labels. Reads `PlaybackClock.bookTime` for the loaded book (the book's
+/// saved position otherwise), so it is the one part of the screen that ticks.
 private struct PlayerTimeline: View {
     let model: PlayerViewModel
 
@@ -169,9 +350,14 @@ private struct PlayerTimeline: View {
 
     var body: some View {
         let time = model.bookTime(in: clock)
+        let book = model.book
+        let shown = scrub.time ?? time
         PlayerProgressView(
             currentTime: Binding(get: { scrub.time ?? time }, set: { scrub.drag(to: $0) }),
-            totalTime: model.book.duration,
+            totalTime: book.duration,
+            centerLabel: book.currentChapter(for: shown).flatMap { index in
+                book.chapters.indices.contains(index) ? book.chapters[index].title : nil
+            },
             onStartUpdate: { [clock] in
                 scrub.drag(to: model.bookTime(in: clock))
             },
@@ -180,10 +366,36 @@ private struct PlayerTimeline: View {
                 scrub.finish()
             }
         )
-        .font(.system(size: SpaceConstants.sx16.value))
-        .foregroundColor(ColorConstants.white.value)
         .onChange(of: time) {
             scrub.clockMoved()
+        }
+    }
+}
+
+/// The book's download progress (an incomplete LibriVox download): a thin line under the
+/// scrubber's labels, and why it waits on this network, if it does. Per-chapter status is in the
+/// chapter panel.
+private struct PlayerDownloadLine: View {
+    let model: PlayerViewModel
+
+    var body: some View {
+        let state = model.downloadEntry?.state
+        if ChapterListView.showsProgress(state), let state {
+            VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
+                ProgressView(value: state.fraction)
+                    .tint(ColorConstants.malachite.value)
+                    .scaleEffect(x: 1, y: 0.5)
+                    .frame(height: SpaceConstants.sx2.value)
+                    .accessibilityIdentifier(AccessibilityID.Player.downloadProgress)
+                if let hold = ChapterListView.shownHold(state, hold: model.downloadHold) {
+                    Label(hold.message, systemImage: hold.systemImage)
+                        .font(.caption)
+                        .foregroundColor(ColorConstants.lightSilver.value)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier(hold.playerIdentifier)
+                }
+            }
         }
     }
 }
@@ -222,35 +434,6 @@ private final class Scrub {
 
     private func clear() {
         if time != nil { time = nil }
-    }
-}
-
-/// The chapter list. Reads `PlaybackClock.currentChapter` only, so it re-renders when the chapter
-/// changes, not on every tick.
-private struct PlayerChapters: View {
-    let model: PlayerViewModel
-
-    @Environment(PlaybackClock.self)
-    private var clock
-    @Environment(\.expansionListCollapse)
-    private var listCollapse
-
-    var body: some View {
-        ChapterListView(
-            chapters: model.book.chapters.map(ChapterListView.Item.init),
-            currentIndex: model.currentChapter(in: clock),
-            downloadState: model.downloadEntry?.state,
-            layout: .list,
-            titleIdentifier: AccessibilityID.Player.chaptersTitle,
-            progressIdentifier: AccessibilityID.Player.downloadProgress,
-            hold: model.downloadHold,
-            holdIdentifier: \.playerIdentifier,
-            emptyIdentifier: AccessibilityID.Player.chaptersEmpty,
-            rowIdentifier: AccessibilityID.Player.chapter,
-            onSelect: { model.selectChapter($0) },
-            retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) }),
-            listCollapse: listCollapse
-        )
     }
 }
 

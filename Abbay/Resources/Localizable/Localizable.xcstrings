@@ -2834,6 +2834,60 @@
           }
         }
       }
+    },
+    "chaptersTitle" : {
+      "comment" : "Player: the Chapters pill and the chapter panel's header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapters"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulos"
+          }
+        }
+      }
+    },
+    "chapterPosition" : {
+      "comment" : "Player: under the title, the current chapter and the count (Ch 3 of 12)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ch %1$d of %2$d"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap. %1$d de %2$d"
+          }
+        }
+      }
+    },
+    "closeChapters" : {
+      "comment" : "Player: VoiceOver label of the Chapters pill and the panel's handle while the panel is open",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close chapters"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar capítulos"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -5,6 +5,7 @@
 
 #if DEBUG
 import Foundation
+import UIKit
 
 /// Debug-only library seeding, driven by launch arguments.
 ///
@@ -50,7 +51,45 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedPlayableBook), let playable = playableBookModel() {
             models.append(playable)
         }
+        if arguments.contains(LaunchArgument.seedCoverArt) {
+            models = models.map(withCoverArt)
+        }
         try? save.execute(models)
+    }
+
+    // MARK: - Cover art
+
+    /// The books `-seedCoverArt` gives a cover to.
+    static let coverArtTitles: Set<String> = ["Seeded Chaptered Book", playableBookTitle]
+
+    static func withCoverArt(_ book: AudioModel) -> AudioModel {
+        guard coverArtTitles.contains(book.title) else { return book }
+        var book = book
+        book.imageData = coverArt()
+        return book
+    }
+
+    /// A 300 pt square, warm brown to orange, like the mockups' first cover.
+    static func coverArt() -> Data? {
+        let side: CGFloat = 300
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+        let image = renderer.image { context in
+            let colors = [
+                UIColor(red: 0.48, green: 0.23, blue: 0.18, alpha: 1).cgColor,
+                UIColor(red: 0.82, green: 0.55, blue: 0.31, alpha: 1).cgColor
+            ] as CFArray
+            guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: nil)
+            else { return }
+            context.cgContext.drawLinearGradient(
+                gradient,
+                start: .zero,
+                end: CGPoint(x: side, y: side),
+                options: []
+            )
+        }
+        return image.pngData()
     }
 
     // MARK: - Audio
