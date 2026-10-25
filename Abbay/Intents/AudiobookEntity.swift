@@ -26,6 +26,7 @@ enum AudiobookLibrary {
             guard let url = URL(string: entry.urlString) else { return nil }
             var model = AudioModel(url: url)
             model.title = entry.title
+            model.artist = entry.artist ?? ""
             return model
         }
     }

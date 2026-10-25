@@ -82,6 +82,18 @@ final class AudioDomainIntentTests: XCTestCase {
         XCTAssertEqual(books.map(\.title), ["Goblet of Fire"])
     }
 
+    /// What Siri sends carries extra words: articles, the rest of the series title, the author (#201).
+    func test_query_withExtraWords_findsTheBook() {
+        let library = library + [book("Harry Potter and the Chamber of Secrets", "file:///cos", artist: "J. K. Rowling")]
+        for spoken in [
+            "the goblet of fire", "harry potter and the goblet of fire", "goblet of fire by rowling",
+            "o goblet of fire por rowling"
+        ] {
+            let books = AudioDomainMatcher.books(for: .query(spoken), library: library, lastPlayedURL: nil)
+            XCTAssertEqual(books.map(\.title), ["Goblet of Fire"], spoken)
+        }
+    }
+
     func test_query_withNoMatch_isEmpty() {
         XCTAssertTrue(AudioDomainMatcher.books(for: .query("dune"), library: library, lastPlayedURL: nil).isEmpty)
     }
@@ -117,7 +129,7 @@ final class AudioDomainIntentTests: XCTestCase {
         guard #available(iOS 27, *) else { throw XCTSkip("the audio domain is iOS 27+") }
         lister.stub = library
         let found = try await AudioDomainBookQuery().values(
-            for: AudioSearch(criteria: .searchQuery("goblet of fire"))
+            for: AudioSearch(criteria: .searchQuery("the goblet of fire"))
         )
         XCTAssertEqual(found.map(\.id), ["file:///gof"])
         XCTAssertEqual(found.first?.title, "Goblet of Fire")

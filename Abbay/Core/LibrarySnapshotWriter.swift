@@ -10,6 +10,9 @@ struct LibrarySnapshotEntry: Codable, Equatable {
     let title: String
     let urlString: String
     let bookmarkData: Data?
+    /// The book's artist, so Siri can match "<title> by <author>" (#201). Absent from snapshots
+    /// written before it existed, which decode it as nil.
+    var artist: String?
 }
 
 struct LibrarySnapshot: Codable, Equatable {
@@ -105,7 +108,8 @@ final class LibrarySnapshotWriter: LibrarySnapshotWriterProtocol {
             LibrarySnapshotEntry(
                 title: audio.title,
                 urlString: audio.url?.absoluteString ?? "",
-                bookmarkData: (audio.bookmarkData?.isEmpty == false) ? audio.bookmarkData : nil
+                bookmarkData: (audio.bookmarkData?.isEmpty == false) ? audio.bookmarkData : nil,
+                artist: audio.artist.isEmpty ? nil : audio.artist
             )
         }
         let snapshot = LibrarySnapshot(version: 1, updatedAt: Date(), audios: entries)
