@@ -29,7 +29,11 @@ final class FileLoaderTests: XCTestCase {
         loadAudio: MockLoadAudioUseCase = .init(),
         saveAudio: MockSaveAudioUseCase = .init()
     ) -> FileLoader {
-        FileLoader(loadAudioUseCase: loadAudio, saveAudioUseCase: saveAudio)
+        FileLoader(
+            loadAudioUseCase: loadAudio,
+            saveAudioUseCase: saveAudio,
+            loadAllAudiosUseCase: MockLoadAllAudiosUseCase()
+        )
     }
 
     // MARK: - Metadata

@@ -93,9 +93,25 @@ final class DebugOverridesTests: XCTestCase {
         XCTAssertFalse(DebugOverrides.skipsSiriAuthorizationPrompt(arguments: ["/path/to/Abbay"]))
     }
 
+    // MARK: - Import (#196)
+
+    /// `-stubMovedImport` imports *Seeded Missing Book*'s file name from a new place, and the file is
+    /// there to load: a copy of the fixture, so it isn't the same file as the linked seeds.
+    func test_stubMovedImport_importsTheMissingBooksFileFromItsNewPlace() throws {
+        let arguments = ["/path/to/Abbay", LaunchArgument.stubMovedImport]
+        let urls = try XCTUnwrap(DebugOverrides.importURLs(arguments: arguments))
+        let url = try XCTUnwrap(urls.first)
+        let seed = try XCTUnwrap(UITestSeeder.missingFileModel().url)
+
+        XCTAssertEqual(urls.count, 1)
+        XCTAssertEqual(url.lastPathComponent, seed.lastPathComponent)
+        XCTAssertNotEqual(url, seed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+    }
+
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 17, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 18, "a new launch argument belongs in `all`")
     }
 
     // MARK: - Stub download states and network path (#171)

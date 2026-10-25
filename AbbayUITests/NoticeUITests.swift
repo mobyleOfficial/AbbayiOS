@@ -98,6 +98,26 @@ final class NoticeUITests: XCTestCase {
         assertLabel(of: barPlay, becomes: "Play")
     }
 
+    /// #196: what the moved-file banner asks for. `-stubMovedImport` imports *Seeded Missing Book*'s
+    /// file from where it moved to; the book is relinked to it, not added again, and then plays.
+    func test_importingAMovedBooksFileAgain_relinksTheBook_insteadOfAddingASecond() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedMissingFile, LaunchArgument.stubMovedImport])
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Missing Book"))
+        let extraRow = element(AccessibilityID.Element.title(AccessibilityID.Library.row(3)))
+        XCTAssertFalse(extraRow.exists, "the seed is three books")
+
+        element(AccessibilityID.Library.toolbarAdd).tap()
+        element(AccessibilityID.Library.menuImport).tap()
+
+        XCTAssertFalse(extraRow.waitForExistence(timeout: 5), "the import added a second book")
+        XCTAssertEqual(rowIndex(titled: "Seeded Missing Book"), index)
+        let rowPlay = element(AccessibilityID.Element.play(AccessibilityID.Library.row(index)))
+        rowPlay.tap()
+        assertLabel(of: rowPlay, becomes: "Pause")
+        XCTAssertFalse(banner.exists, "the relinked book still reads as moved")
+    }
+
     private func assertLabel(of element: XCUIElement, becomes label: String, file: StaticString = #filePath, line: UInt = #line) {
         let predicate = NSPredicate(format: "label == %@", label)
         let result = XCTWaiter().wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: 10)

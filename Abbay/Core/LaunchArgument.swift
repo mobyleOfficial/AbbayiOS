@@ -55,6 +55,10 @@ enum LaunchArgument {
     /// Make *Import file* skip the system picker and import two files that don't exist, so the
     /// failed-import banner shows.
     static let stubFailingImport = "-stubFailingImport"
+    /// Make *Import file* skip the system picker and import *Seeded Missing Book*'s file from where
+    /// it "moved" to (`UITestSeedAudio/moved/missing.m4b`, the fixture's audio), which is what the
+    /// moved-file banner asks for: with `seedMissingFile`, the book is relinked, not added (#196).
+    static let stubMovedImport = "-stubMovedImport"
     /// Start from the default settings, kept in memory for this launch only, so a test that changes
     /// the language or a skip interval can't leak it into the next launch.
     static let resetSettings = "-resetSettings"
@@ -66,6 +70,6 @@ enum LaunchArgument {
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
         resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubDownloadStates, stubPathCellular,
-        stubPathHotspot, stubPathLowDataMode, stubFailingImport, resetSettings, forceReduceMotion
+        stubPathHotspot, stubPathLowDataMode, stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
     ]
 }

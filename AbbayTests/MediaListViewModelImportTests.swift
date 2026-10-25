@@ -18,11 +18,14 @@ final class MediaListViewModelImportTests: XCTestCase {
     @MainActor
     private func makeImportingViewModel(
         notices: MockNoticeReporter,
-        debugImportURLs: [URL]? = nil
+        debugImportURLs: [URL]? = nil,
+        library: [AudioModel] = []
     ) throws -> MediaListViewModel {
-        MediaListViewModel(
+        let loadAll = MockLoadAllAudiosUseCase()
+        loadAll.stub = library
+        return MediaListViewModel(
             playback: PlaybackCenter(player: MockPlayer()),
-            loadAllAudiosUseCase: MockLoadAllAudiosUseCase(),
+            loadAllAudiosUseCase: loadAll,
             deleteAudioUseCase: MockDeleteAudioUseCase(),
             fileLoader: try XCTUnwrap(mockFileLoader),
             noticeReporter: notices,
@@ -100,5 +103,30 @@ final class MediaListViewModelImportTests: XCTestCase {
         await fulfillment(of: [reported], timeout: 2)
         XCTAssertFalse(viewModel.isShowingFilePicker)
         XCTAssertEqual(loader.loadedURLs, [[missing]])
+    }
+
+    /// #196: the loader hands back a book already in the list, relinked to where its file moved.
+    /// It replaces that row, so there is still one, and it opens the file at its new place.
+    @MainActor
+    func test_importAudio_ofABookAlreadyInTheList_replacesItsRowInsteadOfAddingOne() async throws {
+        let loader = try XCTUnwrap(mockFileLoader)
+        let stored = try XCTUnwrap(URL(string: "file:///old/book.m4b"))
+        let moved = try XCTUnwrap(URL(string: "file:///new/book.m4b"))
+        var relinked = AudioModel(title: "Book", currentTime: 120, url: stored)
+        relinked.resolvedURL = moved
+        loader.modelsToReturn = [relinked]
+        let viewModel = try makeImportingViewModel(
+            notices: MockNoticeReporter(),
+            library: [
+                AudioModel(title: "Book", currentTime: 120, url: stored),
+                AudioModel(title: "Other", url: URL(string: "file:///other.m4b"))
+            ]
+        )
+
+        await viewModel.importAudio(from: [moved])
+
+        XCTAssertEqual(viewModel.audioList.map(\.title), ["Book", "Other"])
+        XCTAssertEqual(viewModel.audioList.first?.fileURL, moved)
+        XCTAssertEqual(viewModel.audioList.first?.currentTime, 120)
     }
 }
