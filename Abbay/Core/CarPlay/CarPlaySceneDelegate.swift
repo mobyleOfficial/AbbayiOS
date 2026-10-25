@@ -40,6 +40,20 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         .map { _ in () }
         .receive(on: DispatchQueue.main)
         .eraseToAnyPublisher()
+    /// The URL of each book whose position was just saved (every 10 s while playing, and on pause
+    /// or a book switch), so that row's progress follows while connected (#150). On main.
+    var positionSaves: AnyPublisher<URL, Never> = NotificationCenter.default
+        .publisher(for: .playbackPositionDidSave)
+        .compactMap { $0.userInfo?[PlaybackPositionSave.urlKey] as? URL }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
+    /// Fires when the in-app language changes on the phone, so CarPlay's own strings follow it
+    /// while connected (#152). On main.
+    var languageChanges: AnyPublisher<Void, Never> = NotificationCenter.default
+        .publisher(for: .appLanguageDidChange)
+        .map { _ in () }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
 
     // MARK: - State
     //
@@ -57,7 +71,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// The root list, kept so a library change can update it in place.
     private(set) var libraryTemplate: CPListTemplate?
-    private var libraryChangesCancellable: AnyCancellable?
+    /// What each shown row draws apart from its progress, in order: a refresh that finds the same
+    /// contents updates progress in place instead of rebuilding the list (#150).
+    private var shownRows: [RowContent] = []
+    /// The language changed while connected and the library's title (read-only on
+    /// `CPListTemplate`) still shows the old one. Cleared when the library is rebuilt.
+    private(set) var isLibraryTitleStale = false
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - CPTemplateApplicationSceneDelegate
 
@@ -66,10 +86,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         didConnect interfaceController: CPInterfaceController
     ) {
         self.interfaceController = interfaceController
+        interfaceController.delegate = self
 
         let nowPlaying = CPNowPlayingTemplate.shared
         nowPlaying.isUpNextButtonEnabled = true
         nowPlaying.upNextTitle = Localizable.chapterSelectionTitle.localized
+        nowPlaying.updateNowPlayingButtons(makeNowPlayingButtons())
         nowPlaying.add(self)
 
         setupObservers()
@@ -109,9 +131,11 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         CPNowPlayingTemplate.shared.remove(self)
         playerObserver.cancelTimeSubscription()
         playerObserver.cancelUrlSubscription()
-        libraryChangesCancellable = nil
+        cancellables.removeAll()
         self.interfaceController = nil
         self.libraryTemplate = nil
+        self.shownRows = []
+        self.isLibraryTitleStale = false
         self.audioItems = []
         self.currentAudio = nil
         self.currentPlayingItem = nil
@@ -141,33 +165,84 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             self.currentPlayingItem?.playbackProgress = progress
         }
 
-        libraryChangesCancellable = libraryChanges.sink { [weak self] in
-            self?.refreshLibrary()
-        }
+        libraryChanges
+            .sink { [weak self] in self?.refreshLibrary() }
+            .store(in: &cancellables)
+        positionSaves
+            .sink { [weak self] url in self?.refreshProgress(forURL: url) }
+            .store(in: &cancellables)
+        languageChanges
+            .sink { [weak self] in self?.languageDidChange() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Template Builders
 
     func buildLibraryTemplate() -> CPListTemplate {
-        let template = CPListTemplate(title: Localizable.libraryTitle.localized, sections: buildLibrarySections())
+        let template = CPListTemplate(
+            title: Localizable.libraryTitle.localized,
+            sections: buildLibrarySections(from: loadAllAudiosUseCase.execute())
+        )
         // Shown by CarPlay only while the list has no rows. Books can only be added on the phone,
         // so say so rather than leave a blank list (#95).
-        template.emptyViewTitleVariants = [Localizable.carPlayEmptyLibraryTitle.localized]
-        template.emptyViewSubtitleVariants = [Localizable.carPlayEmptyLibrarySubtitle.localized]
+        applyEmptyViewStrings(to: template)
         libraryTemplate = template
+        isLibraryTitleStale = false
         return template
     }
 
-    /// Re-reads the store and swaps the rows in place. No-op until the list has been built.
-    func refreshLibrary() {
-        guard let libraryTemplate else { return }
-        libraryTemplate.updateSections(buildLibrarySections())
+    private func applyEmptyViewStrings(to template: CPListTemplate) {
+        template.emptyViewTitleVariants = [Localizable.carPlayEmptyLibraryTitle.localized]
+        template.emptyViewSubtitleVariants = [Localizable.carPlayEmptyLibrarySubtitle.localized]
     }
 
-    /// Reloads `audioItems` and rebuilds every row. The rows are new objects, so the
+    /// Re-reads the store. When no row's text, detail, cover or order changed (the player's
+    /// bookmark refresh, a download flag), the rows stay and only their saved progress is
+    /// updated: `updateSections` redraws the whole list (#150). No-op until the list is built.
+    func refreshLibrary() {
+        guard let libraryTemplate else { return }
+        let audios = loadAllAudiosUseCase.execute()
+        guard audios.map(RowContent.init) != shownRows else {
+            audioItems = audios
+            audios.forEach(showStoredProgress(of:))
+            return
+        }
+        libraryTemplate.updateSections(buildLibrarySections(from: audios))
+    }
+
+    /// A book's position was saved: re-read that one book and show its saved progress on its row,
+    /// unless it is the playing row, which the player drives. The stored copy is updated either
+    /// way, so a row handed back by `trackRow` shows where its book was left (#150).
+    func refreshProgress(forURL url: URL) {
+        guard libraryTemplate != nil,
+              let index = audioItems.firstIndex(where: { $0.url == url }),
+              let stored = loadAudioUseCase.execute(url: url)
+        else { return }
+        audioItems[index].currentTime = stored.currentTime
+        showStoredProgress(of: audioItems[index])
+    }
+
+    /// Sets a non-playing row's progress to its book's saved position, if that changed.
+    private func showStoredProgress(of audio: AudioModel) {
+        guard let url = audio.url, url != currentPlayingURL,
+              let item = listItemsByURL[url],
+              let progress = Self.progress(of: audio),
+              abs(item.playbackProgress - progress) > 0.0005
+        else { return }
+        item.playbackProgress = progress
+    }
+
+    /// The saved position as a 0…1 ratio; nil without a duration.
+    static func progress(of audio: AudioModel) -> CGFloat? {
+        guard audio.duration > 0 else { return nil }
+        return CGFloat(min(max(audio.currentTime / audio.duration, 0), 1))
+    }
+
+    /// Sets `audioItems` and rebuilds every row. The rows are new objects, so the
     /// live-progress row is re-resolved to the playing book's new row.
-    private func buildLibrarySections() -> [CPListSection] {
-        audioItems = loadAllAudiosUseCase.execute()
+    private func buildLibrarySections(from audios: [AudioModel]) -> [CPListSection] {
+        audioItems = audios
+        shownRows = audios.map(RowContent.init)
         listItemsByURL = [:]
         currentPlayingItem = nil
 
@@ -183,11 +258,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     func buildListItem(for audio: AudioModel) -> CPListItem {
-        let detailText = audio.artist.isEmpty ? audio.albumName : audio.artist
-
         let item = CPListItem(
             text: audio.title,
-            detailText: detailText
+            detailText: RowContent.detailText(of: audio)
         )
 
         if let imageData = audio.imageData, let image = UIImage(data: imageData) {
@@ -196,8 +269,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             item.setImage(UIImage(systemName: "book.closed"))
         }
 
-        if audio.duration > 0 {
-            item.playbackProgress = CGFloat(audio.currentTime / audio.duration)
+        if let progress = Self.progress(of: audio) {
+            item.playbackProgress = progress
         }
 
         if let url = audio.url {
@@ -264,8 +337,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func restoreStoredProgress(forURL url: URL) {
         guard let item = listItemsByURL[url],
               let model = audioItems.first(where: { $0.url == url }),
-              model.duration > 0 else { return }
-        item.playbackProgress = CGFloat(model.currentTime / model.duration)
+              let progress = Self.progress(of: model) else { return }
+        item.playbackProgress = progress
     }
 
     func handleAudioSelection(_ audio: AudioModel) {
@@ -302,6 +375,85 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             nowPlaying: nowPlaying
         ) else { return }
         interfaceController.pushTemplate(nowPlaying, animated: true, completion: nil)
+    }
+}
+
+// MARK: - Row contents
+
+extension CarPlaySceneDelegate {
+    /// Everything a library row draws except its progress. Two refreshes with equal contents, in
+    /// the same order, would draw the same list (#150).
+    struct RowContent: Equatable {
+        let url: URL?
+        let text: String
+        let detailText: String
+        let imageData: Data?
+
+        init(_ audio: AudioModel) {
+            url = audio.url
+            text = audio.title
+            detailText = Self.detailText(of: audio)
+            imageData = audio.imageData
+        }
+
+        static func detailText(of audio: AudioModel) -> String {
+            audio.artist.isEmpty ? audio.albumName : audio.artist
+        }
+    }
+}
+
+// MARK: - Playback rate (#150)
+
+extension CarPlaySceneDelegate {
+    /// The Now Playing template's own buttons. The rate button shows the rate the app reports in
+    /// Now Playing info (`NowPlayingManager`, the book's speed) and leaves the cycling to the app.
+    func makeNowPlayingButtons() -> [CPNowPlayingButton] {
+        [CPNowPlayingPlaybackRateButton { [weak self] _ in self?.rateButtonTapped() }]
+    }
+
+    /// Moves the loaded book to the next preset, saved as that book's speed exactly as the
+    /// player's speed sheet and the lock screen's rate command do (#140).
+    func rateButtonTapped() {
+        let player = playerObserver.player
+        guard player.url != nil else { return }
+        player.setPlaybackRate(PlaybackSpeed.nextPreset(after: player.playbackRate))
+    }
+}
+
+// MARK: - In-app language (#152)
+
+extension CarPlaySceneDelegate: CPInterfaceControllerDelegate {
+    /// CarPlay's strings come from `Localizable`, so a connection made after a language change
+    /// already follows it. This handles a change made on the phone while connected: what can
+    /// change in place does; the library's title, read-only on `CPListTemplate`, needs a new root
+    /// template, which waits until the library is on top.
+    func languageDidChange() {
+        guard let libraryTemplate else { return }
+        CPNowPlayingTemplate.shared.upNextTitle = Localizable.chapterSelectionTitle.localized
+        applyEmptyViewStrings(to: libraryTemplate)
+        isLibraryTitleStale = true
+        replaceLibraryIfStale()
+    }
+
+    /// Whether the root can be swapped without moving the driver: only while the library itself
+    /// is on top. `setRootTemplate` pops everything above it.
+    static func canReplaceLibrary(top: CPTemplate?, library: CPTemplate) -> Bool {
+        guard let top else { return false }
+        return top === library
+    }
+
+    private func replaceLibraryIfStale() {
+        guard isLibraryTitleStale,
+              let interfaceController,
+              let libraryTemplate,
+              Self.canReplaceLibrary(top: interfaceController.topTemplate, library: libraryTemplate)
+        else { return }
+        interfaceController.setRootTemplate(buildLibraryTemplate(), animated: false, completion: nil)
+    }
+
+    func templateDidAppear(_ aTemplate: CPTemplate, animated: Bool) {
+        guard aTemplate === libraryTemplate else { return }
+        replaceLibraryIfStale()
     }
 }
 

@@ -39,6 +39,24 @@ final class SettingsValuesTests: XCTestCase {
         XCTAssertEqual(PlaybackSpeed.stepped(0.5, by: -1), 0.5)
     }
 
+    /// CarPlay's rate button (#150) has no sheet: each tap moves to the next preset.
+    func test_nextPreset_cyclesThroughThePresets() {
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 0.8), 1)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 1), 1.2)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 1.75), 2)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 2.5), 0.8, "the fastest wraps to the slowest")
+    }
+
+    /// A speed set in the sheet sits between presets, or past them: the next tap goes to the first
+    /// preset above it, and past the fastest it wraps.
+    func test_nextPreset_fromASpeedBetweenPresets_goesToTheNextOneUp() {
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 1.05), 1.2)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 0.5), 0.8)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 3), 0.8)
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: 1.2000001), 1.5, "drift doesn't count as a speed")
+        XCTAssertEqual(PlaybackSpeed.nextPreset(after: .nan), 1.2, "NaN is normal speed")
+    }
+
     func test_label_showsOneOrTwoDecimals() {
         let english = Locale(identifier: "en")
         XCTAssertEqual(PlaybackSpeed.label(1, locale: english), "1.0×")

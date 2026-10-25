@@ -36,7 +36,15 @@ struct LiveSettingsEffects: SettingsEffects {
 
     func apply(language: AppLanguage) {
         AbbayBundle.languageCode = language.languageCode
+        NotificationCenter.default.post(name: .appLanguageDidChange, object: nil)
     }
+}
+
+extension Notification.Name {
+    /// Posted after the in-app language is applied to `AbbayBundle` (at launch and on every change
+    /// in Settings). SwiftUI re-renders off `AppSettings` itself; this is for what lives outside
+    /// it: CarPlay re-reads its strings (#152).
+    static let appLanguageDidChange = Notification.Name("abbay.appLanguageDidChange")
 }
 
 /// The app's settings, persisted through the storage layer's `KeyValueStoring` and observable, so

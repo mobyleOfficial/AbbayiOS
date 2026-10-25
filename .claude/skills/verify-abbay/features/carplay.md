@@ -6,12 +6,36 @@ two of its original bugs (#90, #95) are still open.
 
 ## Sub-features
 
-- **connect:** `didConnect` stores the interface controller, configures
-  `CPNowPlayingTemplate.shared` (Up Next button enabled, titled *"Chapter selection"*, self
-  registered as observer), installs player observers, sets the library as root, then resolves
-  `currentAudio` against anything already playing.
+- **connect:** `didConnect` stores the interface controller (and becomes its delegate), configures
+  `CPNowPlayingTemplate.shared` (Up Next button enabled, titled *"Chapter selection"*, the rate
+  button, self registered as observer), installs player observers, sets the library as root, then
+  resolves `currentAudio` against anything already playing.
 - **library-list:** `CPListTemplate` of `CPListItem`s — title, plus artist or album as detail text,
-  artwork or a `book.closed` fallback, and `playbackProgress` from the saved `currentTime`.
+  artwork or a `book.closed` fallback, and `playbackProgress` from the saved `currentTime`. Empty
+  library: *"No audiobooks yet"* with a subtitle saying books are added on the phone.
+- **library-refresh (#95, #150):** every library snapshot write (`.libraryDidChange`) re-reads the
+  store. Only when a row's title, detail text, cover or the order changed is the list rebuilt
+  (`updateSections`); otherwise the rows stay and only their saved progress is updated in place
+  (`RowContent` is the diff). So the player's bookmark refresh in `Player.play` no longer redraws the
+  list.
+- **saved-progress (#150):** every position save (`.playbackPositionDidSave`, posted by
+  `SavePlaybackPositionUseCase`: every 10 s while playing, on pause, a book switch, a chapter jump,
+  backgrounding) re-reads that one book and sets its row's progress, unless it is the playing row
+  (the player drives that one). The stored copy is updated either way, so a row handed back when
+  another book starts shows where its book was left.
+- **rate-button (#150):** the Now Playing template has a `CPNowPlayingPlaybackRateButton`. CarPlay
+  shows the rate from Now Playing info (the book's speed, see [now-playing](now-playing.md)); each
+  tap moves the loaded book to the next preset (0.8, 1, 1.2, 1.5, 1.75, 2, 2.5, then back to 0.8;
+  a speed between presets goes to the next one up), saved as that book's speed through
+  `Player.setPlaybackRate`, the same path as the speed sheet and the lock screen. Nothing loaded:
+  no-op.
+- **language (#152):** CarPlay's own strings (library title, empty state, *Chapter selection*) come
+  from `Localizable`, so they follow the **in-app** language, applied at launch before the scene
+  connects. A change on the phone while connected (`.appLanguageDidChange`) updates the empty state
+  and Up Next title in place; the library title (read-only on `CPListTemplate`) is replaced with a
+  new root template when the library is on top (`templateDidAppear`), never while Now Playing or the
+  chapter list is shown. Book titles, authors and chapter titles are data, not localized; chapter
+  start times are `hh:mm:ss`.
 - **selection:** the row handler re-fetches the model from Core Data (to pick up the latest saved
   position), plays it, and pushes the now-playing template.
 - **chapter-list:** reachable from the now-playing template's Up Next **or** album-artist button.
@@ -22,8 +46,9 @@ two of its original bugs (#90, #95) are still open.
 - **siri-freshness (#160):** `didConnect` and `sceneDidBecomeActive` call `carPlayBecameActive()`,
   which asks the shared `SiriContextRefresher` (from `DependencyContainer`) for a throttled refresh,
   reason `carPlay`; see [siri-library-publish](siri-library-publish.md).
-- **disconnect:** removes the now-playing observer, cancels the time **and** URL subscriptions, and
-  nils the cached state, including the row map.
+- **disconnect:** removes the now-playing observer, cancels the time **and** URL subscriptions and
+  the library, position-save and language subscriptions, and nils the cached state, including the
+  row map.
 
 ## How to get to it (user POV)
 
@@ -59,11 +84,13 @@ and `NowPlayingManager`; each fix is unit-tested, none was driven on a head unit
 - **#92, #94 — fixed in #108.** Progress is tracked by playing URL (`trackRow`, `listItemsByURL`) and
   `didDisconnect` cancels both the time and the URL subscriptions.
 - **#93 — fixed in #98.** See [now-playing](now-playing.md).
-- **#95 — still open.** The list is built once at connect (`buildLibraryTemplate`), with no refresh
-  when the library changes and no empty state. Relevant to LibriVox: a book downloaded from the phone
-  while CarPlay is connected does not appear until reconnect, and a deleted one still taps through to
-  a dead URL via the `?? audio` fallback.
-- **#96 — fixed in #107.** The delegate has an injection seam and tests.
+- **#95 — fixed.** The list refreshes on library changes and has an empty state; a tapped row whose
+  book was deleted refreshes the list instead of playing a dead URL.
+- **#96 — fixed in #107.** The delegate has an injection seam and tests
+  (`CarPlaySceneDelegateTests`, `CarPlayLibraryRefreshTests`, `CarPlayRateAndLanguageTests`).
+- **#150 — refresh, progress and rate button**: unit-tested only. Not yet run on the CarPlay
+  Simulator or a head unit (tracked on #90's device-check list); in particular whether the rate
+  button's label follows a speed changed on the phone is the system's job, from Now Playing info.
 
 **LibriVox books in CarPlay are assumed, not verified.** The delegate is unchanged on this branch. A
 LibriVox book is an ordinary `AudioModel` (URL `librivox://book/<id>`, book-wide `duration`,

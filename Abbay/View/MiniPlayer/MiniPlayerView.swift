@@ -406,7 +406,8 @@ enum MiniPlayerActions {
         formatter.allowedUnits = [.hour, .minute]
         formatter.unitsStyle = .short
         formatter.maximumUnitCount = 2
-        formatter.zeroFormattingBehavior = .dropLeading
+        // Not `.dropLeading`, which kept a zero minute: exactly one hour read "1 h e 0 min" (#152).
+        formatter.zeroFormattingBehavior = .dropAll
         return formatter
     }()
 

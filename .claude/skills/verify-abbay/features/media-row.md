@@ -12,7 +12,9 @@ root), and sends actions through `MediaViewModel` straight to `PlaybackCenter.pl
 - **title:** `PlayerTitleView` with `SlidingTextView` underneath — the title scrolls horizontally
   and turns malachite while the row's book is playing. This is the subject of issue #54.
 - **detail:** one line, `author · Ch N/M` for a chaptered book (`Localizable.rowChapter`, 1-based),
-  else `author · <time left>` (`Localizable.rowTimeLeft`, e.g. "3m 20s left"). The author and its
+  else `author · <time left>` (`Localizable.rowTimeLeft`, e.g. "3m 20s left"; a finished book
+  "0s left" / "0s restantes", plural in pt-BR through the string's `zero` form, #152;
+  `-seedTimeLeftEdges` seeds *Seeded Finished Book* to show it). The author and its
   separator are dropped when the book has none. An idle row computes it from the saved
   `currentTime`; the loaded book's row shows `RowProgressView` instead, with live values from
   `PlaybackClock`.

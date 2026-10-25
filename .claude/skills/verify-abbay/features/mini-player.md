@@ -20,7 +20,9 @@
   - the cover (40 pt)
   - the title
   - *Chapter N · X min left* (`miniPlayerSubtitle`), or the time left in the book when it has no
-    chapters
+    chapters. Whole minutes rounded up; zero units are dropped, so exactly one hour reads
+    "1 hr left" / "1 h restante", not "1 h e 0 min" (#152). Nothing left is plural in pt-BR
+    ("0 min restantes"). `-seedTimeLeftEdges` seeds *Seeded Hour Book* to show it.
   - play/pause (`miniPlayer.playPause`)
   - a 2 pt line along the bottom edge for progress within the chapter, or within the book without
     chapters (`miniPlayer.progress`)

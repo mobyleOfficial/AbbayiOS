@@ -38,6 +38,9 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedLongBook) {
             models.append(longBookModel())
         }
+        if arguments.contains(LaunchArgument.seedTimeLeftEdges) {
+            models += timeLeftEdgeModels()
+        }
         if arguments.contains(LaunchArgument.seedPlayableBook), let playable = playableBookModel() {
             models.append(playable)
         }
@@ -72,6 +75,37 @@ enum UITestSeeder {
             chapters: chapters,
             url: URL(string: "file:///seed/long.m4b")
         )
+    }
+
+    static let finishedBookTitle = "Seeded Finished Book"
+    static let hourBookTitle = "Seeded Hour Book"
+
+    /// The time-left edge cases (#152): a book without chapters listened to the end (nothing
+    /// left), and a book whose first chapter is exactly one hour, which the mini player shows from
+    /// 0 s once the book is loaded.
+    static func timeLeftEdgeModels() -> [AudioModel] {
+        [
+            AudioModel(
+                title: finishedBookTitle,
+                albumName: "Seed Album",
+                artist: "Seed Author",
+                duration: 200,
+                currentTime: 200,
+                chapters: [],
+                url: URL(string: "file:///seed/finished.mp3")
+            ),
+            AudioModel(
+                title: hourBookTitle,
+                albumName: "Seed Album",
+                artist: "Seed Author",
+                duration: 5400,
+                chapters: [
+                    ChapterModel(title: "Hour Chapter", startTime: 0, duration: 3600),
+                    ChapterModel(title: "Half Hour Chapter", startTime: 3600, duration: 1800)
+                ],
+                url: URL(string: "file:///seed/hour.m4b")
+            )
+        ]
     }
 
     static let playableBookTitle = "Seeded Playable Book"

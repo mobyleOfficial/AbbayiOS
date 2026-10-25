@@ -93,10 +93,8 @@ final class SettingsViewModel: ObservableObject {
     /// Siri intent answer "Audio temporarily unavailable" until playback starts again.
     var isAudioUnavailable: Bool { audioUnavailable() }
 
+    /// In KB, MB or GB, never bytes, in the app's language (#152).
     static func formatted(bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        return formatter.string(fromByteCount: bytes)
+        ByteSize.text(bytes, allowedUnits: [.kb, .mb, .gb])
     }
 }
