@@ -27,6 +27,8 @@ struct SystemBackgroundRefreshScheduler: BackgroundRefreshScheduling {
     /// unit tests launch the app delegate more than once in one process.
     private static var registered: Set<String> = []
 
+    var log: SiriLogSink = OSSiriLogSink()
+
     func register(identifier: String, launchHandler: @escaping (BackgroundRefreshTask) -> Void) {
         guard Self.registered.insert(identifier).inserted else { return }
         // The main queue: the publish reads Core Data through the view context.
@@ -38,7 +40,7 @@ struct SystemBackgroundRefreshScheduler: BackgroundRefreshScheduling {
             launchHandler(task)
         }
         if !didRegister {
-            Log.siri.error("background refresh: registration refused for \(identifier, privacy: .public)")
+            log.log(.backgroundRefreshRegistrationRefused(identifier: identifier))
         }
     }
 
@@ -66,15 +68,18 @@ final class SiriBackgroundRefresh {
     private let scheduler: BackgroundRefreshScheduling
     private let refresher: SiriContextRefreshing
     private let now: () -> Date
+    private let log: SiriLogSink
 
     init(
         scheduler: BackgroundRefreshScheduling = SystemBackgroundRefreshScheduler(),
         refresher: SiriContextRefreshing,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        log: SiriLogSink = OSSiriLogSink()
     ) {
         self.scheduler = scheduler
         self.refresher = refresher
         self.now = now
+        self.log = log
     }
 
     func register() {
@@ -89,8 +94,7 @@ final class SiriBackgroundRefresh {
             try scheduler.submit(identifier: Self.identifier, earliestBeginDate: earliestBeginDate)
         } catch {
             // Expected on the simulator, and when the user turned Background App Refresh off.
-            let error = error as NSError
-            Log.siri.error("background refresh: not scheduled: \(error.domain, privacy: .public) \(error.code, privacy: .public)")
+            log.log(.backgroundRefreshNotScheduled(error as NSError))
         }
     }
 
@@ -100,6 +104,7 @@ final class SiriBackgroundRefresh {
     /// completion.
     func handle(_ task: BackgroundRefreshTask) {
         schedule()
+        let log = self.log
         let lock = NSLock()
         var isCompleted = false
         let complete = { (success: Bool) in
@@ -111,11 +116,11 @@ final class SiriBackgroundRefresh {
             task.setTaskCompleted(success: success)
         }
         task.expirationHandler = {
-            Log.siri.info("background refresh: expired")
+            log.log(.backgroundRefreshExpired)
             complete(false)
         }
         refresher.refreshNow(.backgroundTask) {
-            Log.siri.info("background refresh: publish finished")
+            log.log(.backgroundRefreshPublishFinished)
             complete(true)
         }
     }

@@ -11,9 +11,30 @@ final class SiriBackgroundRefreshTests: XCTestCase {
     private let scheduler = FakeBackgroundRefreshScheduler()
     private let refresher = MockSiriContextRefresher()
     private let now = Date(timeIntervalSinceReferenceDate: 1000)
+    private let log = RecordingSiriLogSink()
 
     private func makeRefresh() -> SiriBackgroundRefresh {
-        SiriBackgroundRefresh(scheduler: scheduler, refresher: refresher, now: { [now] in now })
+        SiriBackgroundRefresh(scheduler: scheduler, refresher: refresher, now: { [now] in now }, log: log)
+    }
+
+    /// #197: a refused request and a finished run each log their line.
+    func test_logs_notScheduled_andPublishFinished() {
+        scheduler.submitError = NSError(domain: "BGTaskSchedulerErrorDomain", code: 1)
+        makeRefresh().handle(FakeBackgroundRefreshTask())
+
+        XCTAssertEqual(log.events, [
+            .backgroundRefreshNotScheduled(domain: "BGTaskSchedulerErrorDomain", code: 1),
+            .backgroundRefreshPublishFinished
+        ])
+    }
+
+    func test_logs_expiry() {
+        let task = FakeBackgroundRefreshTask()
+        refresher.completesImmediately = false
+        makeRefresh().handle(task)
+        task.expirationHandler?()
+
+        XCTAssertEqual(log.events, [.backgroundRefreshExpired])
     }
 
     /// The identifier must also be in `BGTaskSchedulerPermittedIdentifiers`, or registering traps.

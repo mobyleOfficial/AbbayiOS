@@ -89,11 +89,20 @@ through an injected `SiriLogSink` (`Abbay/Core/SiriLog.swift`): `OSSiriLogSink` 
 domains/codes, so titles have nowhere to go. Tests assert on `RecordingSiriLogSink`; no unit test
 reads the unified log (`OSLogStore` missed entries late in full-suite runs, #181). The exact
 `os.Logger` text, level and privacy come from the pure `SiriLogEvent.record` and are pinned by
-`SiriLogRecordTests` (#190); `OSSiriLogSink` only forwards the record to `Log.siri`. A live
-`log stream` read remains the check that the wrapper itself writes.
+`SiriLogRecordTests` (#190); `OSSiriLogSink` only forwards the record to `Log.siri`. Since #197 the
+same holds for every other line here: `SiriContextRefresher` (`context refresh …`, `… skipped …
+throttled`) and `SiriBackgroundRefresh` (`background refresh: registration refused for <id>`,
+`not scheduled: <domain> <code>`, `expired`, `publish finished`) log `SiriLogEvent`s through an
+injected `SiriLogSink`, and `LibrarySnapshotWriter` logs `LibrarySnapshotLogEvent`s
+(`snapshot WRITTEN: …`, `snapshot WRITE FAILED: JSON encode error`) through an injected closure.
+All of them are pinned in `SiriLogRecordTests`; the call sites are covered by
+`SiriContextRefresherTests`, `SiriBackgroundRefreshTests` and `LibrarySnapshotWriterTests`. A live
+`log stream` read remains the check that the wrapper (`Logger.write(_:)` in `Log.swift`) itself
+writes.
 
-`AppIntentsTesting` can validate entity queries and Spotlight indexing directly, which makes this
-feature one of the better arguments for taking the Xcode 27 upgrade.
+`AppIntentsTesting` (Xcode 27) is now in use for the iOS 27 audio domain (`AudioDomainUITests`, see
+[siri-app-intents](siri-app-intents.md)); it could also validate these entity queries and
+Spotlight indexing directly.
 
 ## Gotchas
 

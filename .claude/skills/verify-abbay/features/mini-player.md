@@ -136,8 +136,10 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
   short drag settling closed all land, and afterwards the bar, its play button and a library row
   take touches (nothing invisible left over the tabs).
 
-The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock). The 12 `test_a11y_*` tests pass on
-26.4, 18.5 and 17.5 (#162).
+The UI suite runs on iOS 27.1 and 26.4 (accessory) and 18.5 (dock). The 12 `test_a11y_*` tests
+pass on 27.1, 26.4, 18.5 and 17.5 (#162, #129). On the iPhone Duo (the iOS 27.1 runtime's only
+device) the details screen's chapter card is one row tall, and the chapter-list drag tests fail
+there (#203).
 
 **Unit-tested only:**
 - swipes and their no-op haptic (`MiniPlayerActionsTests`)

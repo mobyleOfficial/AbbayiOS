@@ -1,7 +1,8 @@
 # Siri — App Intents
 
-The seven modern `AudioPlaybackIntent`s and the spoken phrases registered for them. This is the
-half of Siri that Apple's `AppIntentsTesting` framework can validate.
+The seven modern `AudioPlaybackIntent`s and the spoken phrases registered for them, plus, on iOS 27,
+the App Intents audio domain. This is the half of Siri that Apple's `AppIntentsTesting` framework
+can validate.
 
 ## Sub-features
 
@@ -34,6 +35,29 @@ half of Siri that Apple's `AppIntentsTesting` framework can validate.
 - **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()`
   (the container's `audioSessionActivator`, #153) and returns *"Audio temporarily unavailable. Try
   again in a moment."* on failure.
+- **audio-domain (iOS 27+, #129):** `Abbay/Intents/AudioDomainIntents.swift`, all
+  `@available(iOS 27, *)` (the deployment target stays iOS 17; on 17–26 nothing here exists and
+  SiriKit's `INPlayMediaIntent` plus the App Shortcuts above do the work).
+  - `AudioDomainBookEntity` is `@AppEntity(schema: .audio.audiobook)` (schema `MediaBookEntity`):
+    id = the book's URL string, `title`, `author` (the model's artist); the schema's other
+    properties (`genre`, `narrator`, `publisher`, `seriesTitle`, `releaseDate`, `purchaseDate`) are
+    required by the metadata processor and always nil.
+  - `AudioDomainBookQuery` is an `EntityQuery` plus `IntentValueQuery` over
+    `MediaIntents.AudioSearch`. Siri hands it the request's `criteria`: `.searchQuery(text)` →
+    the same fuzzy title rules as the other paths (`matchAll`); `.unspecified` ("play an
+    audiobook") → the library, last-played first, capped at 40; `.url([URL])` → books whose URL
+    or saved row URL matches. The mapping is the pure `AudioDomainMatcher`, unit-tested on every
+    runtime.
+  - `PlayAudioDomainIntent` is `@AppIntent(schema: .audio.playAudio)`. Its `audioEntity` is the
+    `@UnionValue` `AudioDomainItem`, which keeps only the `audiobook` case. `playbackAttributes`
+    (default empty) and `queueLocation` are accepted and ignored (an audiobook plays in order, and
+    Abbay has no queue); `warmupAudioQueueResult` is a transient entity that Abbay never produces.
+    It plays through the same `abbayPlayBook(at:)` as `PlayAudiobookIntent`: *"Playing \<title>."*
+    or the cannot-find dialog (clearing a dead last-played pointer).
+  - Diagnostics: `appintent PlayAudioDomainIntent fired`, `query audio search <kind> found=N`
+    (the kind, never what was said) and `query audio book byId asked=N found=N`.
+  - The case labels the schema enums show in Shortcuts (*Shuffle*, *Repeat*, *Play next*,
+    *Play last*) are in `Localizable.xcstrings` in `en` and `pt-BR`.
 - **diagnostics:** every intent calls `DependencyContainer.diagnostics.record("appintent <Name> fired")`
   first: the App Group trail in the app, an in-memory one under `MockDependencyContainer` (#153).
 
@@ -59,8 +83,19 @@ $B wait miniPlayer.bar                         # in-app proof that a book was lo
 
 The durable answer is **`AppIntentsTesting`** (Xcode 27 / iOS 27 SDK): it executes intents through
 the real App Intents stack with no UI automation and no mocks, building `IntentDefinitions` from the
-bundle identifier so the test never imports the app target. It needs a UI-test bundle — Abbay has
-no UITests target today — and an iOS 27 simulator, while the app itself stays on iOS 17.
+bundle identifier so the test never imports the app target. It runs in the UI-test bundle on an
+iOS 27 simulator, while the app itself stays on iOS 17. **Verified** for the audio domain by
+`AudioDomainUITests` (skipped below iOS 27):
+
+- `test_audioSearch_findsASeededBook_andPlayAudioPlaysIt`: launch `-seedLibrary`,
+  `valueQueries["AudioDomainBookQuery"].values(for: AudioSearch(criteria: .searchQuery("Seeded
+  Chaptered")))` returns one `AudioDomainBookEntity` titled *Seeded Chaptered Book*, then
+  `intents["PlayAudioDomainIntent"].makeIntent(audioEntity:).run()` loads it: `miniPlayer.bar`
+  appears with that title.
+- `test_audioSearch_withNoTitle_offersTheLibrary`: `.unspecified` returns the seeded books.
+
+What it can't cover: Siri's speech recognition and its choice of Abbay over other audio apps. That
+needs an iOS 27 device: #201.
 
 ## Gotchas
 

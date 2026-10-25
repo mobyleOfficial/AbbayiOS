@@ -446,7 +446,18 @@ final class AccessibilityIdentifierTests: XCTestCase {
         // The seeded chaptered book has three chapters.
         assertResolves(AccessibilityID.Player.chapter(0))
         assertResolves(AccessibilityID.Player.chapter(1))
+        revealBelowTheFold(AccessibilityID.Player.chapter(2), swiping: AccessibilityID.Player.chapter(0))
         assertResolves(AccessibilityID.Player.chapter(2))
+    }
+}
+
+private extension AccessibilityIdentifierTests {
+    /// On a shorter screen (the iPhone Duo, the iOS 27.1 runtime's only device) a row can start
+    /// below the fold, where the lazy list hasn't built it yet: swipe up on `anchor` to reach it.
+    func revealBelowTheFold(_ identifier: String, swiping anchor: String) {
+        if !element(identifier).waitForExistence(timeout: 3) {
+            element(anchor).swipeUp()
+        }
     }
 }
 
