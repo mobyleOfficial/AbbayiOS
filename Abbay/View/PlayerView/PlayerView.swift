@@ -32,7 +32,13 @@ struct PlayerView: View {
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
     static let coordinateSpace = "player.details"
+    /// The cover's largest side. It shrinks on a short screen; see `minChapterListHeight`.
     static let coverSide: CGFloat = SpaceConstants.sx72.value * SpaceConstants.sx4.value
+    /// The chapter card's least height: its header and three rows and a bit, so the list can be
+    /// read and scrolled. On a short screen (the iPhone SE, the iOS 27.1 iPhone Duo) the cover
+    /// gives up height to keep it, rather than the list collapsing to one row (#203). Taller
+    /// screens already give the card more than this, so their cover stays at `coverSide`.
+    static let minChapterListHeight: CGFloat = SpaceConstants.sx56.value * SpaceConstants.sx4.value
     static let coverRadius: CGFloat = SpaceConstants.sx32.value
 
     // MARK: - Inits
@@ -44,9 +50,13 @@ struct PlayerView: View {
     // MARK: - Body
     var body: some View {
         VStack(spacing: SpaceConstants.sx16.value) {
+            // The cover is offered space first, but only what is left once the chapter list has
+            // its least height; the transport and timeline keep their own.
             coverView
+                .layoutPriority(1)
             playerView
             PlayerChapters(model: model)
+                .frame(minHeight: Self.minChapterListHeight)
         }
         .padding(.horizontal, SpaceConstants.sx32.value)
         .backgroundColor(ColorConstants.onyx.value)
@@ -58,7 +68,10 @@ struct PlayerView: View {
             DataImageView(data: model.book.imageData)
                 .scaledToFit()
                 .cornerRadius(Self.coverRadius)
-                .frame(side: Self.coverSide)
+                // A square of up to `coverSide`, smaller when the height runs short.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
                 .opacity(hidesCover ? 0 : 1)
                 .onGeometryChange(for: CGRect.self) { proxy in
                     proxy.frame(in: .named(Self.coordinateSpace))

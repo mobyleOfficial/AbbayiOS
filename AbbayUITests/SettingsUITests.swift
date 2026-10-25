@@ -56,7 +56,14 @@ final class SettingsUITests: XCTestCase {
     }
 
     private func closeSettings() {
-        element(AccessibilityID.Settings.done).tap()
+        // iOS 27.1 (seen on the iPhone Duo) hides the navigation bar's items while the form is
+        // scrolled down: the bar stays, Done leaves the tree. Scroll back up to bring it back. A
+        // swipe that starts scrolled never dismisses the sheet, and the loop stops at the top.
+        let done = element(AccessibilityID.Settings.done)
+        for _ in 0..<4 where !done.waitForExistence(timeout: 1) {
+            app.swipeDown()
+        }
+        done.tap()
         XCTAssertTrue(element(AccessibilityID.Settings.done).waitForNonExistence(timeout: 10), "Settings did not close")
     }
 
