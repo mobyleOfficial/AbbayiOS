@@ -111,6 +111,110 @@ final class AppLanguageTests: XCTestCase {
         )
     }
 
+    // MARK: - pt-BR edge cases (#152)
+
+    /// CLDR puts 0 in Portuguese's "one" category, which read "0s restante". Nothing left is
+    /// plural in Brazilian Portuguese ("0 minutos restantes"), so the strings carry a zero form.
+    func test_zeroTimeLeft_inPortuguese_isPlural() {
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "0s", 0), "0s restantes")
+        XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 3, "0 min", 0), "Capítulo 3 · 0 min restantes")
+        let finished = AudioModel(duration: 200)
+        XCTAssertEqual(MediaView.detailLine(book: finished, chapterIndex: 0, bookTime: 200), "0s restantes")
+    }
+
+    func test_zeroTimeLeft_inEnglish_readsLeft() {
+        XCTAssertEqual(MediaView.detailLine(book: AudioModel(duration: 200), chapterIndex: 0, bookTime: 200), "0s left")
+    }
+
+    /// Exactly one hour read "1 h e 0 min" ("1 hr, 0 min" in English): a zero minute is dropped,
+    /// and one hour is singular.
+    func test_miniPlayerSubtitle_exactlyOneHour_dropsTheZeroMinutes() {
+        let book = AudioModel(duration: 5400, chapters: [
+            ChapterModel(startTime: 0, duration: 3600),
+            ChapterModel(startTime: 3600, duration: 1800)
+        ])
+
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 0), "Chapter 1 · 1 hr left")
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 3540), "Chapter 1 · 1 min left")
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 0), "Capítulo 1 · 1 h restante")
+        let oneMinute = "Capítulo 1 · 1 min restante"
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 3540), oneMinute)
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 3570), oneMinute)
+    }
+
+    /// Two whole hours drop the zero minutes too, and stay plural.
+    func test_miniPlayerSubtitle_wholeHours_inPortuguese_arePlural() {
+        let book = AudioModel(duration: 7200, chapters: [ChapterModel(startTime: 0, duration: 7200)])
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 0), "Capítulo 1 · 2 h restantes")
+    }
+
+    /// At the very end of a chapter the mini player shows zero, not an empty string.
+    func test_miniPlayerSubtitle_atTheChaptersEnd_showsZero() {
+        let book = AudioModel(duration: 7200, chapters: [ChapterModel(startTime: 0, duration: 7200)])
+
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 7200), "Chapter 1 · 0 min left")
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        let zero = "Capítulo 1 · 0 min restantes"
+        XCTAssertEqual(MiniPlayerActions.subtitle(book: book, chapter: 0, bookTime: 7200), zero)
+    }
+
+    // MARK: - Byte sizes follow the app language (#152, part of #166)
+
+    /// "296,7 MB" showed in the English UI on a Portuguese device: `ByteCountFormatter` has no
+    /// locale of its own and always uses the device's.
+    func test_byteSize_usesTheAppLanguagesDecimalSeparator() {
+        XCTAssertEqual(ByteSize.text(29_670_000, locale: Locale(identifier: "en")), "29.7 MB")
+        XCTAssertEqual(ByteSize.text(29_670_000, locale: Locale(identifier: "pt-BR")), "29,7 MB")
+    }
+
+    func test_byteSize_defaultsToTheAppLanguage() {
+        AbbayBundle.languageCode = "en"
+        XCTAssertEqual(ByteSize.text(296_700_000), "296.7 MB")
+
+        AbbayBundle.languageCode = "pt-BR"
+        XCTAssertEqual(ByteSize.text(296_700_000), "296,7 MB")
+    }
+
+    /// Settings › Downloads (Space used, the delete confirmation) never reads in bytes.
+    @MainActor
+    func test_settingsSizes_followTheAppLanguage() {
+        AbbayBundle.languageCode = "en"
+        XCTAssertEqual(SettingsViewModel.formatted(bytes: 1_536_000), "1.5 MB")
+        XCTAssertEqual(SettingsViewModel.formatted(bytes: 0), "Zero kB")
+
+        AbbayBundle.languageCode = "pt-BR"
+        XCTAssertEqual(SettingsViewModel.formatted(bytes: 1_536_000), "1,5 MB")
+    }
+
+    /// The LibriVox page's "· inglês" read in the device's language under an English UI.
+    func test_libriVoxLanguageName_followsTheAppLanguage() {
+        let book = LibriVoxBook(
+            id: "x",
+            title: "T",
+            authors: "A",
+            descriptionText: "",
+            language: "eng",
+            totalSeconds: 60,
+            coverURL: URL(fileURLWithPath: "/dev/null"),
+            sections: []
+        )
+
+        AbbayBundle.languageCode = "en"
+        XCTAssertEqual(book.languageName, "English")
+
+        AbbayBundle.languageCode = "pt-BR"
+        XCTAssertEqual(book.languageName, "inglês")
+    }
+
     func test_rowDetailLine_formatsUnitsInTheAppLanguage() {
         let book = AudioModel(duration: 3600)
 

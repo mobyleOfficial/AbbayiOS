@@ -88,6 +88,28 @@ final class LibriVoxPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.chapters.count, 2)
     }
 
+    /// CarPlay refreshes the saved book's row off this (#150).
+    func test_savePlaybackPosition_announcesTheSavedBook() throws {
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(makeBook())
+        let bookURL = try XCTUnwrap(bookURL)
+        let saved = expectation(forNotification: .playbackPositionDidSave, object: nil) { notification in
+            notification.userInfo?[PlaybackPositionSave.urlKey] as? URL == bookURL
+        }
+
+        SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 75, bookmarkData: nil)
+
+        wait(for: [saved], timeout: 1)
+    }
+
+    func test_savePlaybackPosition_unknownBook_announcesNothing() {
+        let saved = expectation(forNotification: .playbackPositionDidSave, object: nil)
+        saved.isInverted = true
+
+        SavePlaybackPositionUseCase().execute(url: bookURL, currentTime: 75, bookmarkData: nil)
+
+        wait(for: [saved], timeout: 0.2)
+    }
+
     func test_savePlaybackPosition_withoutBookmark_keepsTheSavedBookmark() throws {
         var audio = makeBook()
         audio.bookmarkData = Data([9])

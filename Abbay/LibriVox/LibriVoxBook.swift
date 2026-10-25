@@ -33,9 +33,14 @@ struct LibriVoxBook: Hashable, Identifiable, Codable {
     }
 
     /// `language` in the app's language ("English", "inglês"), or as sent when it isn't a code.
+    /// Read through `AbbayBundle.locale`, so it follows the in-app language rather than the
+    /// device's (#152: "inglês" in the English UI on a Portuguese device).
     var languageName: String {
-        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-        return locale.localizedString(forLanguageCode: language) ?? language
+        languageName(in: AbbayBundle.locale)
+    }
+
+    func languageName(in locale: Locale) -> String {
+        locale.localizedString(forLanguageCode: language) ?? language
     }
 }
 

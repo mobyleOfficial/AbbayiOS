@@ -70,11 +70,16 @@ added. Resolve a row by matching its title label rather than assuming an index.
     four-chapter LibriVox m4b from `AbbayTests/Fixtures/Christmastide.m4b`, copied into Debug
     builds only, saved 200 s in (chapter 2, 39% through it). The one seeded book that plays and
     seeks, for the mini player's *Next chapter* / *Restart chapter* tests. It makes sound: pause it.
+  - `-seedTimeLeftEdges` — with `-seedLibrary`, also adds *Seeded Finished Book* (no chapters,
+    saved at its end: the row reads "0s left") and *Seeded Hour Book* (a first chapter of exactly
+    one hour: once loaded, the mini player reads "Chapter 1 · 1 hr left"), the time-left edge cases
+    of #152. No audio: loading the hour book also shows the "moved or renamed" notice.
   - `-forceReduceMotion` — run with Reduce Motion on whatever the system setting says
     (`DebugOverrides.reduceMotion`, applied as the environment's Reduce Motion in `AppRootView`),
     because XCUITest can't switch the setting.
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
-    one stub book, which any query containing "stub" also finds) and swaps in a download manager
+    one stub book, which any query containing "stub" also finds; its size is 29,670,000 bytes, so
+    it shows a decimal separator) and swaps in a download manager
     that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
     debounce. Combine it with the others; without it search and downloads use the real network.
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't

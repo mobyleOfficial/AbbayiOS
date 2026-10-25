@@ -150,10 +150,7 @@ struct SettingsView: View {
     }
 
     private var downloadsFooter: String {
-        let threshold = ByteCountFormatter.string(
-            fromByteCount: CellularDownloadPolicy.largeDownloadThreshold,
-            countStyle: .file
-        )
+        let threshold = ByteSize.text(CellularDownloadPolicy.largeDownloadThreshold)
         let finished = model.canDeleteFinished
             ? Localizable.deleteFinishedFooter.localized
             : Localizable.deleteFinishedNone.localized

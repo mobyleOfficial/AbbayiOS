@@ -27,6 +27,13 @@ enum PlaybackSpeed {
         snap(speed + Double(count) * step)
     }
 
+    /// The preset after `speed`, wrapping from the fastest to the slowest: what one tap of
+    /// CarPlay's rate button picks (#150). A speed between presets goes to the next one up.
+    static func nextPreset(after speed: Double) -> Double {
+        let current = snap(speed)
+        return presets.first { $0 > current + step / 2 } ?? presets[0]
+    }
+
     /// "1.0×", "1.25×", "1,5×" in Portuguese: one or two decimals, the locale's separator.
     static func label(_ speed: Double, locale: Locale = AbbayBundle.locale) -> String {
         let formatter = NumberFormatter()

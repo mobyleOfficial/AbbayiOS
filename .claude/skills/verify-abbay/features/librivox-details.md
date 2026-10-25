@@ -11,7 +11,11 @@ once the book is in the library. The only way to add a LibriVox book.
   *"Couldn't load this book."* and a **Retry** button (`detail.retry`) that reloads.
 - **header:** cover (`AsyncImageView`, see *cover-loading* below), title, author, then
   `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour) and the
-  whole-book download size (`ByteCountFormatter`, summed over the chapter files).
+  whole-book download size (`ByteSize.text`, summed over the chapter files). The language name and
+  the size follow the **in-app** language (`AbbayBundle.locale`), not the device's: English on a
+  Portuguese device reads "English" and "29.7 MB", not "inglês" and "29,7 MB" (#152, #166). The
+  large-download alert's size uses the same text. With `-stubLibriVox` the size is 29,670,000
+  bytes ("29.7 MB" / "29,7 MB"), so the separator shows which locale formatted it.
 - **cover-loading:** `AsyncImageView`, shared with the Search tab's cards and results. While the
   cover loads, an `onyx` tile with a light band sweeping across it (`cover.loading`); then the
   image fades in (`cover.loaded`). A failed load (offline, non-2xx, not an image) leaves the `onyx`

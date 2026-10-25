@@ -24,7 +24,10 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
     default) / Always / Wi-Fi only. An input to `CellularDownloadPolicy.decide(...preference:)`;
     applies only to books over `largeDownloadThreshold` (99 MB). Read when Download is tapped.
   - **Space used** (`settings.downloads.spaceUsed`): the size of `LibriVoxIdentity.defaultRoot`,
-    measured off the main thread each time the sheet opens (*Calculating…* until then).
+    measured off the main thread each time the sheet opens (*Calculating…* until then). Sizes here
+    (this row, the footer's 99 MB, the delete confirmation) are formatted by `ByteSize.text` in the
+    in-app language (`AbbayBundle.locale`), not the device's (#152): `ByteCountFormatter` has no
+    locale and always used the device's decimal separator.
   - **Delete finished downloads** (`settings.downloads.deleteFinished`): LibriVox books that are
     fully downloaded AND whose saved position is within 30 s of the end
     (`DownloadHousekeeping`). Disabled when there are none. Asks first (alert: Delete
@@ -35,8 +38,10 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   (`settings.language.{system,english,portuguese}`). `AbbayBundle.languageCode` points
   `Localizable` at that `.lproj`. Applies at once, no relaunch: the root re-identifies the tabs and
   the player (`.id(settings.language)`), and this sheet re-reads its strings. System-drawn strings
-  (alert buttons the system owns, the search field's Cancel), Siri phrases and CarPlay keep the
-  device language.
+  (alert buttons the system owns, the search field's Cancel) and Siri phrases keep the device
+  language. CarPlay's own strings follow the in-app language, also when it changes while connected
+  (`.appLanguageDidChange`, see [carplay](carplay.md) *language*); the CarPlay system chrome is the
+  device's.
   The choice is stored (`abbay.settings.language` in standard defaults) and applied at the next
   launch before anything draws. Only strings follow it: colors and spacing load from
   `AbbayBundle.resources`, the app bundle, because the `.lproj` holds no plists (#155: the next

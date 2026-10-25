@@ -94,7 +94,7 @@ struct LibriVoxDetailView: View {
     }
 
     private var sizeText: String {
-        ByteCountFormatter.string(fromByteCount: model.totalBytes, countStyle: .file)
+        ByteSize.text(model.totalBytes)
     }
 
     private func header(_ book: LibriVoxBook) -> some View {

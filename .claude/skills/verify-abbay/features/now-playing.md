@@ -20,7 +20,9 @@ own UI.
   paused) and `DefaultPlaybackRate` is the book's speed, so the lock screen's clock runs at the right
   pace. `changePlaybackRateCommand` offers the speed presets and sets the loaded book's speed
   (`changePlaybackRate(to:)` → `Player.setPlaybackRate`). Changing the speed in the app pushes the
-  info at once rather than waiting for the next tick.
+  info at once rather than waiting for the next tick. CarPlay's Now Playing rate button (#150) shows
+  this rate and cycles the presets through the same `Player.setPlaybackRate` (see
+  [carplay](carplay.md) *rate-button*).
 - **current-audio:** `currentAudio` is the read-only view of the loaded model. Written only by
   `Player.play` on every play (`NowPlayingManager.setPlayer(_, currentAudio:)`) and dropped by
   `clearNowPlaying()`. Consumed by `PauseAbbayIntent`, `NextChapterIntent`,

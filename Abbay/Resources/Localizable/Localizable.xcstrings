@@ -621,6 +621,12 @@
                       "state" : "translated",
                       "value" : "restantes"
                     }
+                  },
+                  "zero" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restantes"
+                    }
                   }
                 }
               }
@@ -729,6 +735,12 @@
                     }
                   },
                   "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "restantes"
+                    }
+                  },
+                  "zero" : {
                     "stringUnit" : {
                       "state" : "translated",
                       "value" : "restantes"
