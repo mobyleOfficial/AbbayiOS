@@ -41,7 +41,7 @@ final class CoverUITests: XCTestCase {
 
     private func launch(_ extra: [String] = []) {
         app.launchArguments = [LaunchArgument.seedLibrary, LaunchArgument.stubLibriVox] + extra
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     /// Search tab, then the Popular card. The card's cover starts loading as the tab appears; the

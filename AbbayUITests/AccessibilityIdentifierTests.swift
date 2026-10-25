@@ -25,7 +25,7 @@ final class AccessibilityIdentifierTests: XCTestCase {
         app = XCUIApplication()
     }
 
-    // No `tearDown` terminating the app on purpose. `app.launch()` already terminates and
+    // No `tearDown` terminating the app on purpose. `app.launchRetryingOnce()` already terminates and
     // relaunches a running instance, and an explicit `terminate()` between tests left the
     // simulator unable to hand out a background assertion on CI -- five of nine tests failed
     // with "Timed out while acquiring background assertion" at the *next* test's launch.
@@ -34,7 +34,7 @@ final class AccessibilityIdentifierTests: XCTestCase {
 
     private func launch(_ arguments: [String]) {
         app.launchArguments = arguments
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     /// Type-agnostic lookup. A driver needs the identifier to resolve; which `XCUIElementType`

@@ -29,7 +29,7 @@ final class AudioDomainUITests: XCTestCase {
     @MainActor
     func test_audioSearch_findsASeededBook_andPlayAudioPlaysIt() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
         XCTAssertFalse(element(AccessibilityID.MiniPlayer.bar).exists, "nothing should be loaded yet")
 
@@ -53,7 +53,7 @@ final class AudioDomainUITests: XCTestCase {
     @MainActor
     func test_audioSearch_withExtraWords_findsOnlyThatBook() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
 
         let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
@@ -74,7 +74,7 @@ final class AudioDomainUITests: XCTestCase {
     @MainActor
     func test_audioSearch_authorOnly_carriesOnWithThatAuthorsLastPlayedBook() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
 
         let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
@@ -104,7 +104,7 @@ final class AudioDomainUITests: XCTestCase {
     @MainActor
     func test_audioSearch_withNoTitle_offersTheLibrary() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
 
         let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")

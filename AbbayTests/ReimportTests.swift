@@ -139,12 +139,16 @@ final class ReimportMatcherTests: XCTestCase {
     }
 }
 
-/// `FileLoader` over real Core Data: a lost book's file, picked from its new place, updates the
-/// book's row (new bookmark, same identity and position) and adds none.
+/// `FileLoader` over fakes of the library (#208): a lost book's file, picked from its new place,
+/// is saved back to the book's own row (new bookmark, same identity and position) and adds none.
+/// Nothing reads or writes the app's real Core Data store, so what the simulator's library holds
+/// can't change the outcome.
 final class FileLoaderReimportTests: XCTestCase {
     /// Where the row was saved: no file there any more.
     private let storedURL = URL(fileURLWithPath: "/reimport-tests/gone/Moved.m4b")
     private var directory: URL?
+    private var library = MockLoadAllAudiosUseCase()
+    private var saver = MockSaveAudioUseCase()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -152,17 +156,17 @@ final class FileLoaderReimportTests: XCTestCase {
             .appendingPathComponent("FileLoaderReimportTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         self.directory = directory
-        removeRows()
+        library = MockLoadAllAudiosUseCase()
+        saver = MockSaveAudioUseCase()
     }
 
     override func tearDown() {
-        removeRows()
         if let directory { try? FileManager.default.removeItem(at: directory) }
         super.tearDown()
     }
 
     func test_reimportingALostBooksFile_updatesItsRow_andAddsNone() async throws {
-        try insertLostBook(currentTime: 300)
+        insertLostBook(currentTime: 300)
         let picked = try placeFixture(named: "Moved.m4b")
 
         let result = await makeLoader().load(urls: [picked])
@@ -172,38 +176,31 @@ final class FileLoaderReimportTests: XCTestCase {
         XCTAssertEqual(loaded.url, storedURL, "the book it already was")
         XCTAssertEqual(loaded.fileURL, picked, "opens the file where it is now")
         XCTAssertEqual(loaded.currentTime, 300, "the position is kept")
-        XCTAssertEqual(rowCount(picked), 0, "no second book")
-        XCTAssertEqual(rowCount(storedURL), 1)
-        XCTAssertNotNil(storedBookmark(), "the row now has a bookmark to the picked file")
+        XCTAssertEqual(saver.savedModels.count, 1)
+        XCTAssertEqual(saver.savedModels.filter { $0.url == picked }.count, 0, "no second book")
+        XCTAssertEqual(saver.savedModels.filter { $0.url == storedURL }.count, 1)
+        XCTAssertNotNil(saver.savedModels.first?.bookmarkData, "the row now has a bookmark to the picked file")
     }
 
     func test_importingAnUnrelatedFile_stillAddsABook() async throws {
-        try insertLostBook(currentTime: 0, duration: 10)
+        insertLostBook(currentTime: 0, duration: 10)
         let picked = try placeFixture(named: "Another.m4b")
-        defer { removeRow(picked) }
 
         let result = await makeLoader().load(urls: [picked])
 
         XCTAssertEqual(result.loaded.first?.url, picked)
-        XCTAssertEqual(rowCount(picked), 1)
-        XCTAssertNil(storedBookmark(), "the lost book is untouched")
+        XCTAssertEqual(saver.savedModels.map(\.url), [picked])
+        XCTAssertFalse(saver.savedModels.contains { $0.url == storedURL }, "the lost book is untouched")
     }
 
     // MARK: - Helpers
 
     private func makeLoader() -> FileLoader {
-        let noStaleSaves = StaleBookmarkSaver(save: { MockSaveAudioUseCase() })
-        let noMigration = MovedBookKeyMigration(stores: { nil })
-        // No bookmark resolves: the stored book's file is lost.
-        let unresolved: (Data?) -> ResolvedBookmark? = { _ in nil }
-        return FileLoader(
-            loadAudioUseCase: LoadAudioUseCase(
-                resolveBookmark: unresolved, staleBookmarks: noStaleSaves, movedBooks: noMigration
-            ),
-            saveAudioUseCase: SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()),
-            loadAllAudiosUseCase: LoadAllAudiosUseCase(
-                resolveBookmark: unresolved, staleBookmarks: noStaleSaves, movedBooks: noMigration
-            )
+        // The picked URL is not a stored book's, so the file is parsed and matched against the library.
+        FileLoader(
+            loadAudioUseCase: MockLoadAudioUseCase(),
+            saveAudioUseCase: saver,
+            loadAllAudiosUseCase: library
         )
     }
 
@@ -215,46 +212,12 @@ final class FileLoaderReimportTests: XCTestCase {
     }
 
     /// The fixture's duration by default, as the book's was when it was imported.
-    private func insertLostBook(currentTime: Double, duration: Double = 831.6) throws {
+    private func insertLostBook(currentTime: Double, duration: Double = 831.6) {
         var audio = AudioModel()
         audio.title = "Lost Book"
         audio.duration = duration
         audio.currentTime = currentTime
         audio.url = storedURL
-        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
-    }
-
-    private func storedBookmark() -> Data? {
-        LocalStorage.persistent.performAndWait { context in
-            let request = AudioDataModel.fetchRequest()
-            request.predicate = NSPredicate(format: "url == %@", storedURL as NSURL)
-            return (try? context.fetch(request))?.first?.bookmarkData
-        }
-    }
-
-    private func rowCount(_ url: URL) -> Int {
-        LocalStorage.persistent.performAndWait { context in
-            let request = AudioDataModel.fetchRequest()
-            request.predicate = NSPredicate(format: "url == %@", url as NSURL)
-            return (try? context.count(for: request)) ?? 0
-        }
-    }
-
-    private func removeRows() {
-        removeRow(storedURL)
-        if let directory {
-            removeRow(directory.appendingPathComponent("Moved.m4b"))
-        }
-    }
-
-    private func removeRow(_ url: URL) {
-        LocalStorage.persistent.performAndWait { context in
-            let request = AudioDataModel.fetchRequest()
-            request.predicate = NSPredicate(format: "url == %@", url as NSURL)
-            for book in (try? context.fetch(request)) ?? [] {
-                context.delete(book)
-            }
-        }
-        LocalStorage.persistent.saveContext()
+        library.stub = [audio]
     }
 }

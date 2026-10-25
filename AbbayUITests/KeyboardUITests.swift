@@ -24,7 +24,7 @@ final class KeyboardUITests: XCTestCase {
     /// keyboard must not stay up over the timeline and the chapters.
     func test_openingDetailsFromASearch_dismissesTheKeyboard() throws {
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
         // The Library field's placeholder (`Localizable.librarySearchPrompt`, English).
         let field = app.searchFields

@@ -15,7 +15,7 @@ final class EmptyStateUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = [LaunchArgument.seedLibrary]
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     // MARK: - Helpers

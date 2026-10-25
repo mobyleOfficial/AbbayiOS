@@ -207,6 +207,7 @@ targets:
       - target: Abbay
     sources:
       - path: AbbayUITests
+      - path: UITestSupport
       # Identifier constants are shared with the app. A UI test bundle runs out of process and
       # cannot `import Abbay`, so the file is compiled into both targets rather than duplicated.
       - path: Abbay/Core/AccessibilityID.swift
@@ -228,6 +229,7 @@ targets:
       - target: Abbay
     sources:
       - path: AbbayAudioDomainUITests
+      - path: UITestSupport
       - path: Abbay/Core/AccessibilityID.swift
       - path: Abbay/Core/LaunchArgument.swift
     settings:

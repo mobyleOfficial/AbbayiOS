@@ -21,7 +21,7 @@ final class NoticeUITests: XCTestCase {
 
     private func launch(_ arguments: [String]) {
         app.launchArguments = arguments
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     private func element(_ identifier: String) -> XCUIElement {

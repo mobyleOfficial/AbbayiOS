@@ -28,7 +28,7 @@ final class SettingsUITests: XCTestCase {
             "-AppleLanguages", "(\(language))",
             "-AppleLocale", locale
         ]
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     private func element(_ identifier: String) -> XCUIElement {

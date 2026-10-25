@@ -53,7 +53,7 @@ final class DownloadStatusUITests: XCTestCase {
             path,
             "-AppleLanguages", "(en)"
         ]
-        app.launch()
+        app.launchRetryingOnce()
         assertResolves(AccessibilityID.Root.tabSearch)
         element(AccessibilityID.Root.tabSearch).tap()
         assertResolves(AccessibilityID.Search.card(0))
@@ -121,7 +121,7 @@ final class DownloadStatusUITests: XCTestCase {
             LaunchArgument.stubPathCellular,
             "-AppleLanguages", "(en)"
         ]
-        app.launch()
+        app.launchRetryingOnce()
         element(AccessibilityID.Root.tabSearch).tap()
         assertResolves(AccessibilityID.Search.card(0))
         element(AccessibilityID.Search.card(0)).tap()

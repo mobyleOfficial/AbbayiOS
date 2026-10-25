@@ -21,7 +21,7 @@ final class MiniPlayerUITests: XCTestCase {
 
     func launch(_ arguments: [String]) {
         app.launchArguments = arguments
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     func element(_ identifier: String) -> XCUIElement {
@@ -75,6 +75,18 @@ final class MiniPlayerUITests: XCTestCase {
         let index = try XCTUnwrap(rowIndex(titled: title), "no seeded row titled \"\(title)\"")
         element(AccessibilityID.Element.play(AccessibilityID.Library.row(index))).tap()
         assertResolves(AccessibilityID.MiniPlayer.bar)
+        waitForBarToSettle()
+    }
+
+    /// The bar exists as soon as the book loads, while it is still sliding in (and the play press
+    /// is still animating): a tap or drag started then lands on a moving target, or on the list
+    /// behind it (#210). Wait until it is hittable and has stopped moving.
+    func waitForBarToSettle(file: StaticString = #filePath, line: UInt = #line) {
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        let hittable = NSPredicate(format: "isHittable == true")
+        let result = XCTWaiter().wait(for: [expectation(for: hittable, evaluatedWith: bar)], timeout: 15)
+        XCTAssertEqual(result, .completed, "the bar never became hittable", file: file, line: line)
+        _ = restingFrame(of: bar)
     }
 
     func test_miniPlayer_identifiersResolve() throws {
