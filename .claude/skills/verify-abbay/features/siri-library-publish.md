@@ -60,8 +60,27 @@ user-facing, but every title-matching Siri phrase depends on it.
   One update runs at a time: a publish that arrives meanwhile waits, a newer one supersedes it,
   and every waiting caller completes once the latest library is indexed. Unit-tested against a
   fake index (`LibrarySpotlightIndexerTests`).
-- **entity-queries:** `AudiobookEntityQuery` (40 suggestions) and `ChapterEntityQuery` (50) back the
-  entity parameters. Both implement `EntityStringQuery` so Siri can match a spoken string.
+- **spotlight re-index requests (#205):** `SpotlightReindexDelegate` (`Abbay/Core/`) is the named
+  index's `CSSearchableIndexDelegate`, attached in `didFinishLaunching` before the launch publish
+  (`LibrarySpotlightIndexer.attach`; held by `AppDelegate`, the index keeps it weakly). When the
+  system asks for every item again (`reindexAllSearchableItemsWithAcknowledgementHandler`) it logs
+  `spotlight: the system asked to re-index everything`, calls `forgetIndexedItems(nil)` and
+  publishes with `SiriContextRefresher.refreshNow(.spotlightReindex)` on main (log `context refresh
+  (spotlightReindex): N books`); that publish rebuilds (`spotlight: rebuilt, N items (the system
+  asked)`) and the system is acknowledged when it has finished. Asked for some identifiers
+  (`reindexSearchableItemsWithIdentifiers`), it logs `… re-index N items` and forgets only those:
+  the publish indexes them as additions, without clearing. A forget is held in memory and applied
+  when the next update starts, so an update already in flight can't save its record over it, and
+  requests before that update add up (one for everything wins). Unit-tested with fake delegate
+  calls (`SpotlightReindexDelegateTests`, `LibrarySpotlightIndexerTests`). The requests reach the
+  delegate only while the app runs; a request made while it doesn't needs a Core Spotlight index
+  extension (#ISSUE_EXT). **No launch self-check:** probing the index with `CSSearchQuery` was tried
+  and rejected for #205: `uniqueIdentifier == "…"` never finds an item (0 results, no error), and
+  `domainIdentifier == "com.edyuto.Abbay.library"` / `title == "…"` find it but took 69–114 s on a
+  cold iOS 27.0 simulator (a few ms warm); `*` fails with `CSSearchQueryErrorDomain -2002`.
+- **entity-queries:** `AudiobookEntityQuery` (40 suggestions), `ChapterEntityQuery` (50) and
+  `AuthorEntityQuery` (15, #213; the library's distinct artists) back the
+  entity parameters. All implement `EntityStringQuery` so Siri can match a spoken string.
   `ChapterEntity.currentBook()` resolves chapters against whatever is playing.
 - **shortcut-parameter refresh:** `AbbayAppShortcuts.updateAppShortcutParameters()`, called only by
   `SiriLibraryPublisher.publish`, so once per snapshot write: import, LibriVox add
@@ -88,11 +107,11 @@ $B spotlight query "<title>"                  # planned: CSSearchQuery against o
 ```
 
 The refreshes and the background task are not observable from the app's state: they log to the
-`Siri` category (`context refresh (foreground|pause|interruption|carPlay|backgroundTask): N books`,
+`Siri` category (`context refresh (foreground|pause|interruption|carPlay|backgroundTask|spotlightReindex): N books`,
 `… skipped … throttled`, `publish: N books` (#157, `.info`, count only), `publish: finished in
 N ms` (`.info`, #173: from the publish's start to Spotlight's completion, waiting behind an
 earlier publish included), `spotlight: unchanged, N items` (`.debug`), `spotlight: indexed N,
-deleted M`, `spotlight: rebuilt, N items (no record|after a failure)`, `spotlight indexing failed:
+deleted M`, `spotlight: rebuilt, N items (no record|after a failure|the system asked)`, `spotlight: the system asked to re-index (everything|N items)`, `spotlight indexing failed:
 <domain> <code>`, `spotlight deleting failed: <domain> <code>`, `spotlight clearing failed:
 <domain> <code>`, `background refresh: publish finished`,
 `background refresh: …`). Read `.info`/`.debug` with `log stream --level debug` or `log show --info --debug`. On the simulator `BGTaskScheduler.submit` is refused (logged,
@@ -157,9 +176,10 @@ Spotlight indexing directly.
   a library has no Spotlight items.
 - **The record trusts the index (#173).** If the system loses the app's items while the record is
   kept (Spotlight's own index reset, or a restore from a backup that carries `UserDefaults`), the
-  next publishes see no change and don't re-index. The app doesn't implement
-  `CSSearchableIndexDelegate`'s re-index request; #205.
-  Deleting the app removes both. To force a rebuild while testing, delete the app or remove
+  next publishes see no change and don't re-index, **until the system asks**: since #205 the
+  re-index request forgets the record and the publish it triggers rebuilds. Whether, and when, iOS
+  sends that request after such a loss is the system's call and unobserved; a request while the
+  app isn't running is not received (#ISSUE_EXT). Deleting the app removes both. To force a rebuild while testing, delete the app or remove
   `abbay.spotlightIndexRecord.v1` from its defaults (`xcrun simctl spawn <udid> defaults delete
   com.edyuto.Abbay abbay.spotlightIndexRecord.v1`).
 - Whether a deleted book also leaves the Spotlight *search screen* promptly on a device is part of

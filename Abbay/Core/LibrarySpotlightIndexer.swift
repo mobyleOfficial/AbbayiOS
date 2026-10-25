@@ -119,7 +119,7 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
 
     private enum Forgotten {
         case all
-        case some(Set<String>)
+        case only(Set<String>)
     }
 
     /// A named index with `completeUntilFirstUserAuthentication` protection, so the
@@ -169,12 +169,12 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
         lock.lock()
         defer { lock.unlock() }
         switch (forgotten, identifiers) {
-        case (.all, _), (_, nil):
+        case (.all?, _), (_, nil):
             forgotten = .all
-        case let (.some(known), identifiers?):
-            forgotten = .some(known.union(identifiers))
+        case let (.only(known)?, identifiers?):
+            forgotten = .only(known.union(identifiers))
         case let (nil, identifiers?):
-            forgotten = .some(Set(identifiers))
+            forgotten = .only(Set(identifiers))
         }
     }
 
@@ -202,14 +202,14 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
         let forgotten = forgotten
         self.forgotten = nil
         lock.unlock()
-        if case .all = forgotten {
+        if case .all? = forgotten {
             return rebuild(with: contents, reason: .reindexRequested, completions: completions)
         }
         guard var record = loadRecord() else {
             rebuild(with: contents, reason: .noRecord, completions: completions)
             return
         }
-        if case let .some(identifiers) = forgotten {
+        if case let .only(identifiers)? = forgotten {
             identifiers.forEach { record[$0] = nil }
         }
         let wanted = Dictionary(uniqueKeysWithValues: contents.map { ($0.identifier, $0.fingerprint) })
