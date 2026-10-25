@@ -79,13 +79,17 @@ final class SiriLibraryPublisherTests: XCTestCase {
     /// its end once Spotlight has finished. Never the titles.
     func test_publish_logsTheBookCount_withoutTitles() {
         let log = RecordingSiriLogSink()
+        var clock = Date(timeIntervalSince1970: 1000)
+        let spotlight = SpySpotlightIndexer()
+        spotlight.completesImmediately = false
         let publisher = SiriLibraryPublisher(
             mediaUserContextDonor: SpyMediaUserContextDonor(),
-            spotlightIndexer: SpySpotlightIndexer(),
+            spotlightIndexer: spotlight,
             vocabulary: { _ in },
             refreshShortcutParameters: {},
             log: log,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            now: { clock }
         )
         let done = expectation(description: "publish completed")
 
@@ -94,9 +98,12 @@ final class SiriLibraryPublisherTests: XCTestCase {
             audio(title: "HiddenTwo157", url: "file:///second"),
             audio(title: "HiddenThree157", url: "file:///third")
         ]) { done.fulfill() }
+        // #173: the duration runs from the publish's start to Spotlight's completion.
+        clock = clock.addingTimeInterval(2.5)
+        spotlight.pendingCompletion?()
         wait(for: [done], timeout: 1)
 
-        XCTAssertEqual(log.events, [.publishStarted(bookCount: 3), .publishFinished])
+        XCTAssertEqual(log.events, [.publishStarted(bookCount: 3), .publishFinished(milliseconds: 2500)])
         XCTAssertFalse(log.events.contains { String(describing: $0).contains("Hidden") }, "\(log.events)")
     }
 
@@ -133,6 +140,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
         let log = RecordingSiriLogSink()
         let indexer = LibrarySpotlightIndexer(
             clearItems: { done in done(nil) },
+            deleteItems: { _, done in done(nil) },
             indexItems: { _, done in
                 done(NSError(
                     domain: "CSIndexErrorDomain",
@@ -140,6 +148,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
                     userInfo: [NSLocalizedDescriptionKey: "SpotlightSecret159"]
                 ))
             },
+            store: InMemoryKeyValueStore(),
             log: log
         )
         var completed = false
@@ -151,11 +160,14 @@ final class SiriLibraryPublisherTests: XCTestCase {
         XCTAssertFalse(log.events.contains { String(describing: $0).contains("SpotlightSecret159") })
     }
 
-    func test_spotlightIndexer_success_logsNothing() {
+    /// A first publish (no record yet) logs only that it rebuilt the index, by count.
+    func test_spotlightIndexer_success_logsOnlyTheRebuild() {
         let log = RecordingSiriLogSink()
         let indexer = LibrarySpotlightIndexer(
             clearItems: { done in done(nil) },
+            deleteItems: { _, done in done(nil) },
             indexItems: { _, done in done(nil) },
+            store: InMemoryKeyValueStore(),
             log: log
         )
         var completed = false
@@ -163,7 +175,7 @@ final class SiriLibraryPublisherTests: XCTestCase {
         indexer.index(audios: [audio(title: "Fine", url: "file:///fine")]) { completed = true }
 
         XCTAssertTrue(completed)
-        XCTAssertEqual(log.events, [])
+        XCTAssertEqual(log.events, [.spotlightRebuilt(itemCount: 1, reason: .noRecord)])
     }
 
     /// #195: an empty library still clears the index (its last book was just deleted), and indexes
@@ -174,7 +186,10 @@ final class SiriLibraryPublisherTests: XCTestCase {
         var completed = false
         LibrarySpotlightIndexer(
             clearItems: { done in clears += 1; done(nil) },
-            indexItems: { _, _ in indexCalls += 1 }
+            deleteItems: { _, done in done(nil) },
+            indexItems: { _, _ in indexCalls += 1 },
+            store: InMemoryKeyValueStore(),
+            log: RecordingSiriLogSink()
         ).index(audios: []) { completed = true }
         XCTAssertEqual(clears, 1)
         XCTAssertEqual(indexCalls, 0)

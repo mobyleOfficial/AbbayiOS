@@ -15,8 +15,9 @@ enum SiriLogEvent: Equatable {
     case donationFailed(domain: String, code: Int)
     /// A library publish started, with the number of books (never their titles).
     case publishStarted(bookCount: Int)
-    /// A publish's asynchronous part (Spotlight indexing) finished.
-    case publishFinished
+    /// A publish's asynchronous part (Spotlight indexing) finished, this long after it started
+    /// (#173), waiting behind an earlier publish included.
+    case publishFinished(milliseconds: Int)
     /// Core Spotlight refused the library's items.
     case spotlightIndexingFailed(domain: String, code: Int)
     /// Core Spotlight didn't clear the library's previous items before re-indexing (#195): books
@@ -36,6 +37,16 @@ enum SiriLogEvent: Equatable {
     case backgroundRefreshExpired
     /// A background refresh's publish finished.
     case backgroundRefreshPublishFinished
+    /// Core Spotlight didn't delete the items of books that left the library (#173). The publish
+    /// falls back to clearing and re-indexing.
+    case spotlightDeletingFailed(domain: String, code: Int)
+    /// The library matches what the index holds: no Core Spotlight call was made (#173).
+    case spotlightUnchanged(itemCount: Int)
+    /// Only what changed went to Core Spotlight: new and changed items indexed, removed ones
+    /// deleted (#173).
+    case spotlightUpdated(indexed: Int, deleted: Int)
+    /// The index was cleared and every item indexed again (#173).
+    case spotlightRebuilt(itemCount: Int, reason: SpotlightRebuildReason)
 
     /// The domain and code only: an error's description can carry a title or a file path.
     static func donationFailed(_ error: NSError) -> SiriLogEvent {
@@ -52,6 +63,26 @@ enum SiriLogEvent: Equatable {
 
     static func backgroundRefreshNotScheduled(_ error: NSError) -> SiriLogEvent {
         .backgroundRefreshNotScheduled(domain: error.domain, code: error.code)
+    }
+
+    static func spotlightDeletingFailed(_ error: NSError) -> SiriLogEvent {
+        .spotlightDeletingFailed(domain: error.domain, code: error.code)
+    }
+}
+
+/// Why a publish cleared the Spotlight index and indexed every book instead of only the change.
+enum SpotlightRebuildReason: Equatable {
+    /// No record of what the index holds: a fresh install, the first publish after updating, or a
+    /// previous rebuild that failed.
+    case noRecord
+    /// Deleting or indexing only the change failed.
+    case afterFailure
+
+    var logText: String {
+        switch self {
+        case .noRecord: "no record"
+        case .afterFailure: "after a failure"
+        }
     }
 }
 
@@ -79,8 +110,8 @@ extension SiriLogEvent {
             SiriLogRecord(level: .error, message: "donation failed: \(domain) \(code)", privacy: .public)
         case let .publishStarted(bookCount):
             SiriLogRecord(level: .info, message: "publish: \(bookCount) books", privacy: .public)
-        case .publishFinished:
-            SiriLogRecord(level: .debug, message: "publish: finished", privacy: .public)
+        case let .publishFinished(milliseconds):
+            SiriLogRecord(level: .info, message: "publish: finished in \(milliseconds) ms", privacy: .public)
         case let .spotlightIndexingFailed(domain, code):
             SiriLogRecord(level: .error, message: "spotlight indexing failed: \(domain) \(code)", privacy: .public)
         case let .spotlightClearingFailed(domain, code):
@@ -101,6 +132,18 @@ extension SiriLogEvent {
             SiriLogRecord(level: .info, message: "background refresh: expired", privacy: .public)
         case .backgroundRefreshPublishFinished:
             SiriLogRecord(level: .info, message: "background refresh: publish finished", privacy: .public)
+        case let .spotlightDeletingFailed(domain, code):
+            SiriLogRecord(level: .error, message: "spotlight deleting failed: \(domain) \(code)", privacy: .public)
+        case let .spotlightUnchanged(itemCount):
+            SiriLogRecord(level: .debug, message: "spotlight: unchanged, \(itemCount) items", privacy: .public)
+        case let .spotlightUpdated(indexed, deleted):
+            SiriLogRecord(level: .info, message: "spotlight: indexed \(indexed), deleted \(deleted)", privacy: .public)
+        case let .spotlightRebuilt(itemCount, reason):
+            SiriLogRecord(
+                level: .info,
+                message: "spotlight: rebuilt, \(itemCount) items (\(reason.logText))",
+                privacy: .public
+            )
         }
     }
 }
