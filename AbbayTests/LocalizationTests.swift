@@ -6,6 +6,13 @@
 @testable import Abbay
 import XCTest
 
+/// The library grid's keys (#166 G3): every one is prose, translated in both languages. Outside the
+/// test type, which is at its length limit.
+private let libraryGridKeys: [Localizable] = [
+    .libraryContinue, .libraryAllBooks, .resume, .rowNew, .rowFinished, .nowPlaying,
+    .emptyLibraryMessage, .noResultsFor, .noResultsHint
+]
+
 /// Every key, for the checks that each one resolves. At file scope to keep the test type short.
 private let allKeys: [Localizable] = [
     .libraryTitle,
@@ -120,7 +127,7 @@ private let allKeys: [Localizable] = [
     .speedIsDefault,
     .skipBackAction,
     .skipForwardAction
-]
+] + libraryGridKeys
 
 /// The `Localizable` layer had no tests. Every key ships in two languages, and nothing checked
 /// that either language actually resolves or that the format strings take their arguments.
@@ -238,7 +245,7 @@ final class LocalizationTests: XCTestCase {
         .speedIsDefault,
         .skipBackAction,
         .skipForwardAction
-    ]
+    ] + libraryGridKeys
 
     /// Format-only strings (`%d/%d`). They carry no language, so they deliberately ship a single
     /// entry and fall back to the base language rather than being duplicated per locale.

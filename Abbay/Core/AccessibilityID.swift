@@ -39,8 +39,17 @@ enum AccessibilityID {
         static let emptyImport = "library.empty.import"
         static let noResults = "library.search.noResults"
         static let toolbarSettings = "library.toolbar.settings"
+        /// The Continue card's title (the last played book): taps open the player. A leaf; the
+        /// card itself has no identifier.
+        static let continueTitle = "library.continue"
+        /// The card's "Chapter 3 · 28 min left".
+        static let continueDetail = "library.continue.detail"
+        /// The card's Resume / Pause capsule.
+        static let continueResume = "library.continue.resume"
 
-        /// Namespace for one library row. Positional: read a snapshot, then address by index.
+        /// Namespace for one library grid cell. Kept as `row` from the list it replaced (#166 G3), so
+        /// `library.row.N.title` etc. still address the Nth book. Positional: read a snapshot, then
+        /// address by index.
         static func row(_ index: Int) -> String {
             "library.row.\(index)"
         }
@@ -198,11 +207,17 @@ enum AccessibilityID {
             "\(namespace).title"
         }
 
+        /// A library cell's context-menu Play / Pause item (the menu exists only while it is open).
         static func play(_ namespace: String) -> String {
             "\(namespace).play"
         }
 
-        /// A row's one line of detail: author plus chapter N/M, or time left.
+        /// A library cell's context-menu Delete item.
+        static func delete(_ namespace: String) -> String {
+            "\(namespace).delete"
+        }
+
+        /// A library cell's status line: New, Ch N/M, the time left, or Finished.
         static func detail(_ namespace: String) -> String {
             "\(namespace).detail"
         }

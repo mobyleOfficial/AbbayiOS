@@ -11,8 +11,11 @@ struct SpeedControlView: View {
     let speed: Double
     let onChange: (Double) -> Void
 
-    @ScaledMetric(relativeTo: .body)
-    private var chipWidth: CGFloat = SpaceConstants.sx72.value
+    /// Seven chips of this width fit one row on a 375 pt wide screen at the default text size.
+    @ScaledMetric(relativeTo: .subheadline)
+    private var chipWidth: CGFloat = 43
+    @ScaledMetric(relativeTo: .subheadline)
+    private var chipHeight: CGFloat = SpaceConstants.sx36.value
 
     var body: some View {
         VStack(spacing: SpaceConstants.sx16.value) {
@@ -61,31 +64,55 @@ struct SpeedControlView: View {
         .accessibilityIdentifier(identifier)
     }
 
+    /// The preset chips in one row, all the same width (#166 G7): glass capsules, the selected one
+    /// solid malachite. When the row doesn't fit (large text), the same row scrolls sideways.
     private var presets: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: chipWidth), spacing: SpaceConstants.sx8.value)]) {
-            ForEach(PlaybackSpeed.presets, id: \.self) { preset in
-                let isSelected = preset == speed
-                Button {
-                    onChange(preset)
-                } label: {
-                    Text(PlaybackSpeed.label(preset))
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, SpaceConstants.sx8.value)
-                        .foregroundColor(isSelected ? ColorConstants.background2.value : ColorConstants.white.value)
-                        .background(
-                            isSelected ? ColorConstants.malachite.value : ColorConstants.onyx.value,
-                            in: Capsule()
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier(AccessibilityID.Speed.preset(preset))
+        ViewThatFits(in: .horizontal) {
+            presetRow
+            ScrollView(.horizontal, showsIndicators: false) {
+                presetRow
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Localizable.speedPresets.localized)
+    }
+
+    private var presetRow: some View {
+        AbbayGlassContainer(spacing: SpaceConstants.sx4.value) {
+            HStack(spacing: SpaceConstants.sx4.value) {
+                ForEach(PlaybackSpeed.presets, id: \.self) { preset in
+                    presetChip(preset)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func presetChip(_ preset: Double) -> some View {
+        let isSelected = preset == speed
+        let label = Text(PlaybackSpeed.label(preset))
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: chipWidth, height: chipHeight)
+        Button {
+            onChange(preset)
+        } label: {
+            if isSelected {
+                label
+                    .foregroundColor(ColorConstants.background2.value)
+                    .background(ColorConstants.malachite.value, in: Capsule())
+            } else {
+                label
+                    .foregroundColor(ColorConstants.white.value)
+                    .abbayGlass(in: Capsule(), interactive: true)
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier(AccessibilityID.Speed.preset(preset))
     }
 }
 

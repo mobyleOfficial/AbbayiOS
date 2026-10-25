@@ -121,11 +121,11 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(Localizable.rowTimeLeft.localized(with: "0s", 0), "0s restantes")
         XCTAssertEqual(Localizable.miniPlayerSubtitle.localized(with: 3, "0 min", 0), "Capítulo 3 · 0 min restantes")
         let finished = AudioModel(duration: 200)
-        XCTAssertEqual(MediaView.detailLine(book: finished, chapterIndex: 0, bookTime: 200), "0s restantes")
+        XCTAssertEqual(MediaView.timeLeftLine(book: finished, bookTime: 200), "0s restantes")
     }
 
     func test_zeroTimeLeft_inEnglish_readsLeft() {
-        XCTAssertEqual(MediaView.detailLine(book: AudioModel(duration: 200), chapterIndex: 0, bookTime: 200), "0s left")
+        XCTAssertEqual(MediaView.timeLeftLine(book: AudioModel(duration: 200), bookTime: 200), "0s left")
     }
 
     /// Exactly one hour read "1 h e 0 min" ("1 hr, 0 min" in English): a zero minute is dropped,
@@ -218,13 +218,26 @@ final class AppLanguageTests: XCTestCase {
     func test_rowDetailLine_formatsUnitsInTheAppLanguage() {
         let book = AudioModel(duration: 3600)
 
-        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 0), "1h left")
+        XCTAssertEqual(MediaView.timeLeftLine(book: book, bookTime: 0), "1h left")
         XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 3510), "1m 30s left")
 
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
 
-        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 0), "1h restante")
+        XCTAssertEqual(MediaView.timeLeftLine(book: book, bookTime: 0), "1h restante")
         XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 3540), "1min restante")
         XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 3510), "1min 30s restantes")
+    }
+
+    /// The library cell's other two states (#166 G3), in both languages.
+    func test_cellNewAndFinished_followTheAppLanguage() {
+        let book = AudioModel(duration: 3600)
+
+        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 0), "New")
+        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 3600), "Finished ✓")
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 0), "Novo")
+        XCTAssertEqual(MediaView.detailLine(book: book, chapterIndex: 0, bookTime: 3600), "Concluído ✓")
     }
 }
