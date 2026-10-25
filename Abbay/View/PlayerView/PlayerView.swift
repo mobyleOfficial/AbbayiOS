@@ -45,9 +45,9 @@ struct PlayerView: View {
     /// A chapter row's height and the panel's handle and header, estimated at the current text
     /// size, so a short book's panel fits its rows instead of showing empty glass.
     @ScaledMetric(relativeTo: .subheadline)
-    private var panelRowHeight: CGFloat = 54
+    private var panelRowHeight: CGFloat = 58
     @ScaledMetric(relativeTo: .headline)
-    private var panelChromeHeight: CGFloat = 84
+    private var panelChromeHeight: CGFloat = 92
     private static let dimReach: CGFloat = 200
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
