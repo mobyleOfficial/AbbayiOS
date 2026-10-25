@@ -35,13 +35,29 @@ above the tab bar on both tabs.
   There is no field while the library is empty. See [library](library.md).
 - **librivox-search:** the Search tab (`LibriVoxSearchView`, title *Search*), same placement, prompt
   *Search LibriVox* (`librivoxSearchPrompt`).
-  - **Empty query:** *Popular on LibriVox* as a grid of cards (`search.card.<n>`). An empty
-    Popular list online is shown as the *Could not reach LibriVox* message, not a heading over a
-    blank grid (offline, as *You are offline…*).
-  - **Typed query:** a debounced LibriVox search whose results are `search.result.<n>`.
-  - **No matches:** *No results* (`search.noResults`).
-  - **Offline or failed:** a message (`search.message`): *You are offline…* or *Could not reach
-    LibriVox…*.
+  - **Empty query:** *Popular on LibriVox* as a uniform grid of cells (`search.card.<n>`, #166
+    G4): an adaptive grid (three columns on an iPhone, cells 100–180 pt), each a square cover
+    (`ArtworkView(url:)`), the title in a fixed two-line box (`lineLimit(2, reservesSpace: true)`)
+    and the author on one line, so every cell in a row is the same height. An empty Popular list
+    online is shown as the *LibriVox unavailable* state, not a heading over a blank grid (offline,
+    as *You're offline*).
+  - **Typed query:** a debounced LibriVox search whose results are rows (`search.result.<n>`): a
+    48 pt cover, the title (up to two lines), the author (results carry no duration), and a glass
+    pill (`abbayGlass(in: Capsule())`) that reads **GET** (*OBTER*), or **OPEN** (*ABRIR*) for a book
+    already in the library (`LibriVoxBookRow.action`, from the library's `librivox://book/<id>` URLs,
+    observed by `SearchTab`). The pill is part of the row's button, not its own: tapping the row or
+    the pill opens the book page; nothing downloads from the list. The row's label ends with the
+    pill's word.
+  - **No matches:** a `ContentUnavailableView` (magnifying glass), title *No results*
+    (`search.noResults`, on the title text) and *Check the spelling or try a new search.*
+  - **Offline or failed:** a `ContentUnavailableView`, *You're offline* (`wifi.slash`) or *LibriVox
+    unavailable* (warning triangle), whose description is the message (`search.message`): *You are
+    offline…* or *Could not reach LibriVox…*.
+  - **Idle** (before Popular first starts loading): a `ContentUnavailableView`, *Free audiobooks*.
+    **Loading:** a centred `ProgressView`.
+  - The tab draws the app background behind itself with `.background`, not the old
+    `.backgroundColor()` ZStack, and has no `List` row backgrounds; the grid and the results are
+    `ScrollView`s that dismiss the keyboard when scrolled.
   - Covers on cards and results shimmer while they load, then fade in; a failed one is an `onyx`
     tile with a book glyph. Loaded covers are cached in memory, so scrolling back or switching
     tabs doesn't shimmer them again. Same view as the details page (see its *cover-loading*).
@@ -69,7 +85,7 @@ Launch: the Library tab is selected. Tap **Search** in the tab bar for LibriVox.
 
 ```bash
 $B launch -seedLibrary -stubLibriVox
-$B tap root.tab.search && $B wait search.card.0     # the stub's Popular is its one book
+$B tap root.tab.search && $B wait search.card.0     # the stub book, then five extras (card.1–5)
 $B tap placeholder:"Search LibriVox" && $B type "Stub" && $B wait search.result.0   # no id: by placeholder
 $B tap search.result.0 && $B wait detail.view
 $B tap root.tab.library && $B wait library.list
@@ -82,9 +98,17 @@ $B tap root.tab.library && $B wait library.list
 "Stub"), `library.search.noResults`. The fields' top placement (`test_searchTab_fieldIsAtTheTop`)
 and the keyboard behaviour are tested on both iOS 26.4 and 18.5.
 
-**Implemented but unverified:** `search.noResults` and `search.message`. No UI test types a
-non-matching LibriVox query, and the stub client never fails or goes offline. Their states are
-unit-tested in `LibriVoxSearchViewModelTests`.
+`LibriVoxSearchUITests` (#166 G4): `search.noResults` (typed "zzzzqqq"), `search.message`
+offline (`-stubPathOffline`, typed "Stub"), and the result pill reading GET, then OPEN after the
+book is downloaded and the page popped. The *failed* state's `search.message` is unverified (the
+stub client never fails); it is unit-tested in `LibriVoxSearchViewModelTests`, and the pill's
+decision and strings in `LibriVoxScreensTests`.
+
+```bash
+$B launch -seedLibrary -stubLibriVox -stubPathOffline
+$B tap root.tab.search && $B tap placeholder:"Search LibriVox" && $B type "Stub"
+$B wait search.message                               # You're offline
+```
 
 **Not addressable:** the search fields have no identifier. Find each by placeholder: *Search your
 library* or *Search LibriVox* (`app.searchFields` matching `placeholderValue`).

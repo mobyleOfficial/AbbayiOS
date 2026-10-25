@@ -98,7 +98,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
     a pushed page on iOS 18 (#185). SwiftLint's `reduce_motion_through_wrapper` rule keeps views
     off the raw environment value.
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
-    one stub book, which any query containing "stub" also finds; its size is 29,670,000 bytes, so
+    stub book, then five public-domain extras, *Emma* last with 24 chapters; any query containing
+    "stub" finds the same list, any other nothing; the stub book's size is 29,670,000 bytes, so
     it shows a decimal separator) and swaps in a download manager
     that downloads nothing and, without `-stubDownloadStates`, never reports state
     (`UITestDownloadManager`), plus a 50 ms search
@@ -118,6 +119,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-stubPathCellular`, `-stubPathHotspot`, `-stubPathLowDataMode` — the download screens read a
     fixed network path (`NetworkPathMonitor.app`): cellular, a Personal Hotspot or Low Data Mode
     Wi-Fi, all online and metered. The player and the real download manager keep the real path.
+  - `-stubPathOffline` — the same fixed path, offline: the Search tab (which reads
+    `NetworkPathMonitor.app` too) shows *You're offline* for a typed query (see [tabs](tabs.md)).
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
     exist, so the failed-import banner shows (see [notices](notices.md)).
   - `-stubMovedImport` — *Import file* skips the system picker and imports *Seeded Missing Book*'s

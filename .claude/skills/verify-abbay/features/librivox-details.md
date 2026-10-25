@@ -8,14 +8,23 @@ once the book is in the library. The only way to add a LibriVox book.
 
 - **load:** `.task` calls `client.details(for:)` (archive.org item metadata, plus chapter titles from
   the LibriVox API when the item matches one). While loading it shows a `ProgressView`; on failure
-  *"Couldn't load this book."* and a **Retry** button (`detail.retry`) that reloads.
-- **header:** cover (`ArtworkView(url:)` over `AsyncImageView`, see *cover-loading* below), title, author, then
-  `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour; the count
-  is a plural variant, `1 chapter` / `1 capítulo`, `0 capítulos` in pt-BR, #180) and the
-  whole-book download size (`ByteSize.text`, summed over the chapter files). The language name and
+  *"Couldn't load this book."* and a glass **Retry** button (`abbayGlassButton()`, `detail.retry`)
+  that reloads.
+- **background (#166 G5):** the cover's tint (`CoverTint.color(for:)` on the cover's bytes from
+  `AsyncImageLoader.coverData(for:)`, the same load the artwork uses) at the top, fading into the
+  app background by about the middle of the screen. It stays put while the page scrolls. A cover
+  that can't load leaves a neutral `onyx` tint. The navigation bar draws its own scroll edge over
+  it, so nothing on the page covers the back button or slides under the status bar.
+- **header (hero, #166 G5):** a 160 pt cover centred with a soft shadow (`ArtworkView(url:shadow:)`
+  over `AsyncImageView`, see *cover-loading* below), then the title (`.title3.bold()`) and author,
+  centred, then one metadata line, `<length> · <N> chapters · <size>`
+  (`LibriVoxDetailView.metadataText`): the length in whole minutes rounded up
+  (`ChapterListView.durationText`: "3h 5m", pt-BR "3h 5min"), the count a plural variant
+  (`1 chapter` / `1 capítulo`, #180), and the whole-book download size (`ByteSize.text`, summed over
+  the chapter files; left out while unknown). The book's language is no longer shown. The units and
   the size follow the **in-app** language (`AbbayBundle.locale`), not the device's: English on a
-  Portuguese device reads "English" and "29.7 MB", not "inglês" and "29,7 MB" (#152, #166). The
-  large-download alert's size uses the same text. With `-stubLibriVox` the size is 29,670,000
+  Portuguese device reads "29.7 MB", not "29,7 MB" (#152, #166, fixed in #187). The large-download
+  alert's size uses the same text. With `-stubLibriVox` the size is 29,670,000
   bytes ("29.7 MB" / "29,7 MB"), so the separator shows which locale formatted it; with
   `-stubDownloadStates` as well it is 120,000,000 bytes in three chapters ("120 MB").
 - **cover-loading:** `AsyncImageView`, shared with the Search tab's cards and results. While the
@@ -34,10 +43,13 @@ once the book is in the library. The only way to add a LibriVox book.
   logged (`Log.covers`, URL private). Reduce Motion: a plain `onyx` tile instead of the sweep,
   and no fade. Leaving the screen stops the view waiting, but the shared download finishes and is
   cached; a failure is retried on the next appearance.
-- **description:** three lines, with a **More** button (`detail.more`) that expands it in place. The
+- **description:** three lines of secondary text, under the action button, with a malachite
+  **More** button (`detail.more`) that expands it in place. The
   button shows whenever the description is non-empty and collapsed — not only when the text is
   actually truncated.
-- **download:** primary **Download** button (`detail.download`). It saves the book (cover first,
+- **download:** one full-width malachite **Download** button (`detail.download`,
+  `abbayGlassProminentButton()`: `.glassProminent` on iOS 26, `.borderedProminent` earlier, capsule,
+  dark label). `DetailButtonStyle` is gone. It saves the book (cover first,
   through `AsyncImageLoader.coverData(for:)`: from the covers' disk cache when the page already
   loaded it, otherwise one download shared with any load in flight and stored; refused off
   `CoverHostPolicy`; nil, so no artwork, if it isn't an image, #175), hands it to the download manager, adds it to the Library and **stays on the page**; the
@@ -54,12 +66,20 @@ once the book is in the library. The only way to add a LibriVox book.
   presentation a Library row or the [mini player](mini-player.md) opens. With nothing visible to grow
   from yet it grows up from the bottom strip; collapsing it (`player.close`, or a drag down) lands on
   the mini player, which now shows this book, and returns to the page.
+- **pinned-action (#166 G5):** once the big Download/Play button's bottom edge scrolls above the
+  scroll view (`LibriVoxDetailView.isScrolledAway`, read with `onGeometryChange`), a compact
+  Download / Play appears in the navigation bar's trailing slot (`detail.pinned.download` /
+  `detail.pinned.play`) and does the same thing; scrolling back hides it. iOS 26 draws it on the
+  bar's glass; earlier it is a plain malachite bar button. The stub book is too short to scroll it
+  away: the stub catalog's last Popular book, *Emma* (`search.card.5`, 24 chapters), is.
 - **already-owned:** a book already in the Library opens with **Play** instead of Download (looked up
   by its `librivox://book/<id>` URL) and is never added twice.
 - **download-state:** read from the app-wide `DownloadStateStore` entry for this book, not from a
   `statesPublisher` sink of its own, so the download manager keeps one subscriber
   (`SubscriptionBudgetTests`).
-- **chapters:** the shared `ChapterListView` in its stack layout: *Chapter selection* header (*Seleção de capítulos*), one row per
+- **chapters:** the shared `ChapterListView` in its stack layout with `chrome: .plain`, on **one**
+  glass card (`abbayGlass(in: RoundedRectangle(cornerRadius: 26))`; the rows inside are not glass,
+  #166 G5): *Chapter selection* header (*Seleção de capítulos*), one row per
   chapter with its number, title (up to two lines) and duration ("42m", "1h 5m"); no row is
   current or finished here. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
@@ -106,6 +126,16 @@ stub book is then 120 MB, so on the fixed metered path Download asks): `detail.c
 `detail.hotspotHold`, `detail.lowDataMode`, `detail.chapter.2.retry` and retrying it (see
 [downloads](downloads.md)).
 
+`LibriVoxSearchUITests` (#166 G5): `detail.pinned.download` appears after two swipes up on
+*Emma*'s page (`search.card.5`), and tapping it downloads (it becomes `detail.pinned.play`). The
+metadata line and the pinned decision are unit-tested in `LibriVoxScreensTests`.
+
+```bash
+$B launch -seedLibrary -stubLibriVox
+$B tap root.tab.search && $B tap search.card.5 && $B wait detail.download
+$B swipe up && $B swipe up && $B wait detail.pinned.download
+```
+
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
 UI test resolves them): `detail.more`, `detail.retry`. The stub client never fails `details`, so
 Retry is unreachable.
@@ -146,8 +176,9 @@ states are read.
 
 ## Gotchas
 
-- **Stub limits.** `UITestLibriVoxClient` serves one book (`ui-test-stub`, one 60 s chapter whose
-  `/dev/null/...` URLs are not real files) and `UITestDownloadManager` downloads nothing. Playing it
+- **Stub limits.** `UITestLibriVoxClient` serves the stub book (`ui-test-stub`, one 60 s chapter whose
+  `/dev/null/...` URLs are not real files) and five public-domain extras after it (one 20-minute
+  chapter each, except *Emma* with 24), whose covers fail unless `-stubCovers`, and `UITestDownloadManager` downloads nothing. Playing it
   therefore opens the details screen and the mini player appears, but no audio plays. Everything about
   real search results, real sizes, real covers and real downloads is **unreachable by UI automation**.
   `-stubCovers` gives the stub a cover that loads (a generated green square), from its own disk
