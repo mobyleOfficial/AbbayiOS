@@ -121,7 +121,8 @@ final class DebugOverridesTests: XCTestCase {
     func test_stubBook_withStubDownloadStates_isOverTheCellularThreshold() async throws {
         let arguments = [LaunchArgument.stubLibriVox, LaunchArgument.stubDownloadStates]
         let client = try XCTUnwrap(DebugOverrides.libriVoxClient(arguments: arguments))
-        let book = try XCTUnwrap(try await client.popular().first)
+        let books = try await client.popular()
+        let book = try XCTUnwrap(books.first)
 
         let details = try await client.details(for: book)
 
