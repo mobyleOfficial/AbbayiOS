@@ -56,13 +56,21 @@ final class LibriVoxClient: LibriVoxClientProtocol {
 
     private let network: NetworkProviderProtocol
     private let cache: CatalogCache
+    private let covers: CoverDataLoading
     private let lock = NSLock()
     private var sessionSearches = [String: [LibriVoxBook]]()
     private var popularRefresh: Task<Void, Never>?
 
-    init(network: NetworkProviderProtocol = NetworkProvider(), cache: CatalogCache = .shared) {
+    /// `covers` is the app's cover loader, so the cover saved with a book comes from the same disk
+    /// cache, through the same host allowlist, as the one on screen.
+    init(
+        network: NetworkProviderProtocol = NetworkProvider(),
+        cache: CatalogCache = .shared,
+        covers: CoverDataLoading = AsyncImageLoader.shared
+    ) {
         self.network = network
         self.cache = cache
+        self.covers = covers
     }
 
     // MARK: - Search
@@ -136,13 +144,11 @@ final class LibriVoxClient: LibriVoxClientProtocol {
         return fetched.details
     }
 
+    /// The artwork saved with a downloaded book, through the cover loader rather than a request of
+    /// its own: the details page has usually just loaded it, so it comes from the disk cache, and a
+    /// URL off `CoverHostPolicy` is refused (#175).
     func coverData(for book: LibriVoxBook) async -> Data? {
-        let request = LibriVoxRequests.cover(for: book.coverURL)
-        guard let response: NetworkResponse<Data> = try? await network.makeRequest(request),
-              (200..<300).contains(response.statusCode),
-              !response.content.isEmpty
-        else { return nil }
-        return response.content
+        await covers.coverData(for: book.coverURL)
     }
 }
 

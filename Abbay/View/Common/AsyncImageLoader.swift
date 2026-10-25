@@ -23,6 +23,11 @@ struct CoverHostPolicy {
     }
 }
 
+/// A cover's bytes by URL, for the artwork saved with a downloaded book.
+protocol CoverDataLoading {
+    func coverData(for url: URL) async -> Data?
+}
+
 /// Loads remote images (LibriVox covers) through `NetworkProvider`, in front of two caches: decoded
 /// images in memory by URL, so a view that comes back on screen shows its image at once, and the
 /// downloaded bytes on disk (`CoverDiskCache`), so a cover doesn't download again after a relaunch.
@@ -31,10 +36,13 @@ struct CoverHostPolicy {
 /// That shared load runs to completion even if every view asking for it leaves the screen, so the
 /// cover is cached for the next appearance; the view simply ignores a result it no longer wants.
 ///
+/// `coverData(for:)` hands out a cover's bytes, for the artwork saved on Download, through the same
+/// allowlist, disk cache and shared loads (#175), so saving a book doesn't download its cover again.
+///
 /// URLs outside `CoverHostPolicy` are refused before either cache or the network is touched, and
 /// logged. Every failure (refused host, no connection, non-2xx status, a body that isn't an image)
 /// comes back as `nil` and is not cached, so the next appearance tries again.
-final class AsyncImageLoader {
+final class AsyncImageLoader: CoverDataLoading {
     enum Policy {
         /// Enough for Popular (30) plus a page of search results (50) and the open details page.
         static let cacheCountLimit = 100
@@ -42,12 +50,18 @@ final class AsyncImageLoader {
 
     static let shared = DebugOverrides.coverLoader() ?? AsyncImageLoader()
 
+    /// A cover that loaded: its bytes, as stored on disk, and the image decoded from them.
+    private struct Loaded {
+        let data: Data
+        let image: UIImage
+    }
+
     private let network: NetworkProviderProtocol
     private let cache: NSCache<NSURL, UIImage>
     private let diskCache: CoverDiskCache?
     private let hosts: CoverHostPolicy
     private let lock = NSLock()
-    private var inFlight = [URL: Task<UIImage?, Never>]()
+    private var inFlight = [URL: Task<Loaded?, Never>]()
 
     init(
         network: NetworkProviderProtocol = NetworkProvider(),
@@ -76,33 +90,46 @@ final class AsyncImageLoader {
     /// thread; nil when it can't be had.
     func image(for url: URL) async -> UIImage? {
         if let cached = cachedImage(for: url) { return cached }
-        guard hosts.allows(url) else {
-            Log.covers.error("Refused a cover outside the host allowlist: \(url.absoluteString, privacy: .private)")
-            return nil
-        }
-        return await sharedLoad(for: url).value
+        guard isAllowed(url) else { return nil }
+        return await sharedLoad(for: url).value?.image
+    }
+
+    /// The cover's bytes from disk or the network, sharing a load already running for `url`, for
+    /// the artwork saved with a book. Nil off the allowlist, on any failure and for a body that
+    /// isn't an image. A download is stored on disk and in memory like any other load.
+    func coverData(for url: URL) async -> Data? {
+        guard isAllowed(url) else { return nil }
+        return await sharedLoad(for: url).value?.data
     }
 
     // MARK: - Private
 
+    private func isAllowed(_ url: URL) -> Bool {
+        guard hosts.allows(url) else {
+            Log.covers.error("Refused a cover outside the host allowlist: \(url.absoluteString, privacy: .private)")
+            return false
+        }
+        return true
+    }
+
     /// The load already running for `url`, or a new one. It leaves `inFlight` when it ends, so a
     /// failed load is retried by the next caller.
-    private func sharedLoad(for url: URL) -> Task<UIImage?, Never> {
+    private func sharedLoad(for url: URL) -> Task<Loaded?, Never> {
         lock.withLock {
             if let running = inFlight[url] { return running }
             // Registered before the lock is released, so the task can't end and unregister first.
             let task = Task {
-                let image = await self.load(url)
+                let loaded = await self.load(url)
                 self.lock.withLock { self.inFlight[url] = nil }
-                return image
+                return loaded
             }
             inFlight[url] = task
             return task
         }
     }
 
-    private func load(_ url: URL) async -> UIImage? {
-        if let image = await imageFromDisk(for: url) { return image }
+    private func load(_ url: URL) async -> Loaded? {
+        if let stored = await loadFromDisk(url) { return stored }
 
         let request = LibriVoxRequests.cover(for: url)
         guard let response: NetworkResponse<Data> = try? await network.makeRequest(request),
@@ -111,19 +138,19 @@ final class AsyncImageLoader {
         else { return nil }
 
         diskCache?.store(response.content, for: url)
-        return await remember(decoded, for: url)
+        return Loaded(data: response.content, image: await remember(decoded, for: url))
     }
 
     /// The stored cover, or nil; an entry that no longer decodes is dropped so the download
     /// replaces it.
-    private func imageFromDisk(for url: URL) async -> UIImage? {
+    private func loadFromDisk(_ url: URL) async -> Loaded? {
         guard let diskCache, let data = diskCache.data(for: url) else { return nil }
         guard let decoded = UIImage(data: data) else {
             diskCache.remove(for: url)
             return nil
         }
         Log.covers.debug("Cover served from disk: \(url.absoluteString, privacy: .private)")
-        return await remember(decoded, for: url)
+        return Loaded(data: data, image: await remember(decoded, for: url))
     }
 
     private func remember(_ decoded: UIImage, for url: URL) async -> UIImage {
