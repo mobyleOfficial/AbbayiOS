@@ -26,10 +26,20 @@ import UniformTypeIdentifiers
 /// identifier, new and changed ones are indexed, and an unchanged library makes no Core Spotlight
 /// call at all. Without a record (a fresh install, the first publish after updating, or after a
 /// failure) the publish clears the whole domain and indexes every book, as every publish did before.
+///
+/// The record can outlive the index: Spotlight's own index reset, or a backup restore that brings
+/// back `UserDefaults` without it. The system then asks for the items again through the index's
+/// `CSSearchableIndexDelegate` (`SpotlightReindexDelegate`, #205), which forgets them
+/// (`forgetIndexedItems`) and publishes.
 protocol LibrarySpotlightIndexerProtocol {
     /// Makes the index's items `audios`' and calls `completion` once the index has taken them, or
     /// failed to (logged), on any queue.
     func index(audios: [AudioModel], completion: @escaping () -> Void)
+
+    /// The index no longer holds these items (nil: any of the app's), whatever the record says: the
+    /// next update indexes them again, every book by a rebuild for nil, else these as additions.
+    /// Applied when the next update starts, so an update in flight can't save its record over it.
+    func forgetIndexedItems(_ identifiers: [String]?)
 }
 
 /// Everything one book's Spotlight item carries. The item is built from this and nothing else, so
@@ -104,6 +114,13 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
     private let lock = NSLock()
     private var isUpdating = false
     private var waiting: (contents: [SpotlightItemContent], completions: [() -> Void])?
+    /// What `forgetIndexedItems` asked for, until the next update drops it from the record.
+    private var forgotten: Forgotten?
+
+    private enum Forgotten {
+        case all
+        case some(Set<String>)
+    }
 
     /// A named index with `completeUntilFirstUserAuthentication` protection, so the
     /// system can still read these items while the device is locked.
@@ -148,6 +165,25 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
         update(to: contents, completions: [completion])
     }
 
+    func forgetIndexedItems(_ identifiers: [String]?) {
+        lock.lock()
+        defer { lock.unlock() }
+        switch (forgotten, identifiers) {
+        case (.all, _), (_, nil):
+            forgotten = .all
+        case let (.some(known), identifiers?):
+            forgotten = .some(known.union(identifiers))
+        case let (nil, identifiers?):
+            forgotten = .some(Set(identifiers))
+        }
+    }
+
+    /// Sets the delegate of the index the app writes to (held weakly), so the system's re-index
+    /// requests reach it (#205).
+    static func attach(_ delegate: CSSearchableIndexDelegate) {
+        index.indexDelegate = delegate
+    }
+
     /// Exposed for tests.
     static func searchableItem(for audio: AudioModel) -> CSSearchableItem? {
         SpotlightItemContent(audio: audio)?.searchableItem
@@ -162,9 +198,19 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
     }
 
     private func update(to contents: [SpotlightItemContent], completions: [() -> Void]) {
-        guard let record = loadRecord() else {
+        lock.lock()
+        let forgotten = forgotten
+        self.forgotten = nil
+        lock.unlock()
+        if case .all = forgotten {
+            return rebuild(with: contents, reason: .reindexRequested, completions: completions)
+        }
+        guard var record = loadRecord() else {
             rebuild(with: contents, reason: .noRecord, completions: completions)
             return
+        }
+        if case let .some(identifiers) = forgotten {
+            identifiers.forEach { record[$0] = nil }
         }
         let wanted = Dictionary(uniqueKeysWithValues: contents.map { ($0.identifier, $0.fingerprint) })
         let deletions = record.keys.filter { wanted[$0] == nil }.sorted()

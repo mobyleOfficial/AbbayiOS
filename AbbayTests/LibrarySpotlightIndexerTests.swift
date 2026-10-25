@@ -73,6 +73,12 @@ private final class FakeSpotlightIndex {
         calls = []
     }
 
+    /// The system drops items behind the app's back (#205): all of them, or these.
+    func lose(_ identifiers: Set<String>? = nil) {
+        guard let identifiers else { return items.removeAll() }
+        identifiers.forEach { items[$0] = nil }
+    }
+
     private func run(_ work: @escaping () -> Void) {
         if holdsCompletions { pending.append(work) } else { work() }
     }
@@ -389,6 +395,108 @@ final class LibrarySpotlightIndexerTests: XCTestCase {
 
         XCTAssertEqual(index.calls.last, "delete [\"file:///a.m4b\"]")
         XCTAssertEqual(index.pendingCount, 1)
+    }
+
+}
+
+// MARK: - The system's re-index requests (#205)
+
+extension LibrarySpotlightIndexerTests {
+
+    /// The record outlives the index: without a request, the next publish sees no change.
+    func test_lostItems_stayLost_untilTheSystemAsks() {
+        let index = FakeSpotlightIndex()
+        let log = RecordingSiriLogSink()
+        let indexer = index.makeIndexer(log: log)
+        let library = [book("Dune", dune), book("Emma", emma)]
+        indexer.index(audios: library) {}
+        index.lose()
+        index.resetCalls()
+
+        indexer.index(audios: library) {}
+        XCTAssertEqual(index.calls, [], "the record trusts the index")
+
+        indexer.forgetIndexedItems(nil)
+        var completed = false
+        indexer.index(audios: library) { completed = true }
+
+        XCTAssertTrue(completed)
+        XCTAssertEqual(index.calls, ["clear", "index [\"\(dune)\", \"\(emma)\"]"])
+        XCTAssertEqual(index.identifiers, [dune, emma])
+        XCTAssertEqual(log.events.last, .spotlightRebuilt(itemCount: 2, reason: .reindexRequested))
+    }
+
+    /// After the rebuild the record is trusted again.
+    func test_afterAReindex_theNextPublishIsIncrementalAgain() {
+        let index = FakeSpotlightIndex()
+        let indexer = index.makeIndexer()
+        indexer.index(audios: [book("Dune", dune)]) {}
+        indexer.forgetIndexedItems(nil)
+        indexer.index(audios: [book("Dune", dune)]) {}
+        index.resetCalls()
+
+        indexer.index(audios: [book("Dune", dune)]) {}
+
+        XCTAssertEqual(index.calls, [])
+    }
+
+    /// Asked for some items: only those go back, without clearing the rest.
+    func test_reindexingSomeItems_indexesOnlyThose() {
+        let index = FakeSpotlightIndex()
+        let log = RecordingSiriLogSink()
+        let indexer = index.makeIndexer(log: log)
+        let library = [book("Dune", dune), book("Emma", emma)]
+        indexer.index(audios: library) {}
+        index.lose([dune])
+        index.resetCalls()
+
+        indexer.forgetIndexedItems([dune, "file:///gone.m4b"])
+        indexer.index(audios: library) {}
+
+        XCTAssertEqual(index.calls, ["index [\"\(dune)\"]"])
+        XCTAssertEqual(index.identifiers, [dune, emma])
+        XCTAssertEqual(log.events.last, .spotlightUpdated(indexed: 1, deleted: 0))
+    }
+
+    /// Requests made before the next update add up; one for everything covers the rest.
+    func test_requestsBeforeTheNextUpdate_addUp() {
+        let index = FakeSpotlightIndex()
+        let indexer = index.makeIndexer()
+        let library = [book("Dune", dune), book("Emma", emma)]
+        indexer.index(audios: library) {}
+        index.lose()
+        index.resetCalls()
+
+        indexer.forgetIndexedItems([dune])
+        indexer.forgetIndexedItems([emma])
+        indexer.index(audios: library) {}
+        XCTAssertEqual(index.calls, ["index [\"\(dune)\", \"\(emma)\"]"])
+
+        index.resetCalls()
+        indexer.forgetIndexedItems([dune])
+        indexer.forgetIndexedItems(nil)
+        indexer.index(audios: library) {}
+        XCTAssertEqual(index.calls.first, "clear")
+    }
+
+    /// A request during an update applies to the next one: the update in flight saves its record
+    /// after the request, which would otherwise trust the lost items again.
+    func test_aRequestDuringAnUpdate_appliesToTheNextOne() {
+        let index = FakeSpotlightIndex()
+        let indexer = index.makeIndexer()
+        indexer.index(audios: [book("Dune", dune)]) {}
+        index.holdsCompletions = true
+        index.resetCalls()
+
+        indexer.index(audios: [book("Dune", dune), book("Emma", emma)]) {}
+        indexer.forgetIndexedItems(nil)
+        indexer.index(audios: [book("Dune", dune), book("Emma", emma)]) {}
+        index.releaseNext()
+
+        XCTAssertEqual(index.calls, ["index [\"\(emma)\"]", "clear"])
+        index.releaseNext()
+        index.releaseNext()
+        XCTAssertEqual(index.identifiers, [dune, emma])
     }
 
     // MARK: - Items

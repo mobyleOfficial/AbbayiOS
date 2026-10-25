@@ -15,6 +15,8 @@ enum SiriRefreshReason: String {
     /// window scene (#160).
     case carPlay
     case backgroundTask
+    /// The system asked for the library's Spotlight items again (#205).
+    case spotlightReindex
 }
 
 /// Re-publishes the library to Siri (`SiriLibraryPublisher.publish`) beyond cold launch and

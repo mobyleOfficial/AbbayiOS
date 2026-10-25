@@ -227,6 +227,38 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
     }
 }
 
+// MARK: - Play an author (one-shot, entity parameter)
+
+/// One-utterance "Play <author> in Abbay" (#213): the author's last-played book, else their first
+/// in library order (#207's rule, `LibraryAuthors.book`).
+struct PlayAuthorIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play author"
+    static let description = IntentDescription("Plays an audiobook by one of the authors in your Abbay library.")
+
+    @Parameter(title: "Author")
+    var author: AuthorEntity
+
+    static func noBookDialog(_ author: String) -> LocalizedStringResource {
+        LocalizedStringResource("siriNoAuthorBook", defaultValue: "No audiobook by \(author) in Abbay.")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        DependencyContainer.diagnostics.record("appintent PlayAuthorIntent fired")
+        guard AudioSessionActivator.attemptActivation() else {
+            return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
+        }
+        guard let book = LibraryAuthors.book(
+            by: author.name,
+            in: DependencyContainer.shared.loadAllAudios.execute(),
+            lastPlayedURL: DependencyContainer.lastPlayed.lastPlayedURL()
+        ) else {
+            return .result(dialog: IntentDialog(Self.noBookDialog(author.name)))
+        }
+        return .result(dialog: IntentDialog(abbayPlayBook(at: book.url)))
+    }
+}
+
 /// Loads and plays the book at `url`, for the intents that name a book (`PlayAudiobookIntent`, and
 /// iOS 27's `PlayAudioDomainIntent`). Returns what to say: *"Playing <title>."*, or the
 /// cannot-find dialog when the book is gone, after clearing the last-played pointer if it was that
@@ -267,6 +299,11 @@ struct PlayChapterIntent: AudioPlaybackIntent {
         LocalizedStringResource("siriPlayingChapter", defaultValue: "Playing chapter \(number).")
     }
 
+    /// "Playing chapter 1.", or "Playing Prologue." for a chapter without a number (#212).
+    var playingDialog: LocalizedStringResource {
+        chapter.number.map(Self.playingChapterDialog) ?? abbayPlayingDialog(title: chapter.title)
+    }
+
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         DependencyContainer.diagnostics.record("appintent PlayChapterIntent fired")
@@ -278,7 +315,7 @@ struct PlayChapterIntent: AudioPlaybackIntent {
         // Already listening: a seek is enough, and it avoids reloading the item.
         if NowPlayingManager.shared.currentAudio != nil,
            DependencyContainer.shared.player.playChapter(at: index) {
-            return .result(dialog: IntentDialog(Self.playingChapterDialog(chapter.number)))
+            return .result(dialog: IntentDialog(playingDialog))
         }
 
         // Cold: resume the last-played book, but start it at the requested chapter.
@@ -289,11 +326,11 @@ struct PlayChapterIntent: AudioPlaybackIntent {
             return .result(dialog: IntentDialog(Self.nothingToPlayDialog))
         }
         guard model.chapters.indices.contains(index) else {
-            return .result(dialog: IntentDialog(Self.noChapterDialog(chapter.number)))
+            return .result(dialog: IntentDialog(Self.noChapterDialog(chapter.spokenNumber)))
         }
         model.currentTime = model.chapters[index].startTime
         DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(Self.playingChapterDialog(chapter.number)))
+        return .result(dialog: IntentDialog(playingDialog))
     }
 }
 
@@ -376,6 +413,18 @@ struct AbbayAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Play audiobook",
             systemImageName: "books.vertical.fill"
+        )
+        // #213. Two phrases plus one pt-BR, each expanding once per suggested author: what is left
+        // of the 1,000-phrase budget (`AppShortcutPhraseTests`). "Play something by <author>" is
+        // not registered for that reason; Siri hands it to SiriKit's media routing (#207).
+        AppShortcut(
+            intent: PlayAuthorIntent(),
+            phrases: [
+                "Play \(\.$author) in \(.applicationName)",
+                "Play \(\.$author) on \(.applicationName)"
+            ],
+            shortTitle: "Play author",
+            systemImageName: "person.fill"
         )
         AppShortcut(
             intent: PlayChapterIntent(),

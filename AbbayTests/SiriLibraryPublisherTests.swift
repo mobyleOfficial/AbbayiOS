@@ -26,6 +26,8 @@ private final class SpySpotlightIndexer: LibrarySpotlightIndexerProtocol {
         indexedTitles.append(audios.map(\.title))
         if completesImmediately { completion() } else { pendingCompletion = completion }
     }
+
+    func forgetIndexedItems(_ identifiers: [String]?) {}
 }
 
 private final class SpySiriLibraryPublisher: SiriLibraryPublisherProtocol {

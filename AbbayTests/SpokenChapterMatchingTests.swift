@@ -52,6 +52,28 @@ final class SpokenChapterMatchingTests: XCTestCase {
         "Epílogo"
     ]
 
+    /// Named chapters with no front matter and no numbers in their titles: numbered by position, as
+    /// in #206.
+    private let englishPlain = [
+        "The Boy Who Lived",
+        "The Vanishing Glass",
+        "The Letters from No One",
+        "Diagon Alley",
+        "The Journey",
+        "The Sorting Hat",
+        "Halloween"
+    ]
+
+    private let portuguesePlain = [
+        "Do título",
+        "Do livro",
+        "A Lição de Botânica",
+        "Um Seminarista",
+        "O Tratado",
+        "A Ópera",
+        "Capítulo Final"
+    ]
+
     /// Titles that are only numbers, as most files without named chapters have.
     private let numbered = (1...25).map { "Chapter \($0)" }
 
@@ -70,7 +92,7 @@ final class SpokenChapterMatchingTests: XCTestCase {
             // A number that isn't a word of any title, alone.
             Case("five", [5])
         ]
-        check(cases, in: english)
+        check(cases, in: englishPlain)
     }
 
     func test_english_twoWordNumbers() {
@@ -143,7 +165,7 @@ final class SpokenChapterMatchingTests: XCTestCase {
             Case("capítulo sete", [7]),
             Case("cinco", [5])
         ]
-        check(cases, in: portuguese)
+        check(cases, in: portuguesePlain)
     }
 
     func test_portuguese_twoWordNumbers() {
@@ -172,8 +194,8 @@ final class SpokenChapterMatchingTests: XCTestCase {
             // A title that is a number word: the title wins when "capítulo" isn't said…
             Case("o quarto", [5]),
             Case("quarto", [5]),
-            // …and the position when it is.
-            Case("o quarto capítulo", [4]),
+            // …and the number when it is: the fourth chapter after the prologue (#212).
+            Case("o quarto capítulo", [5]),
             Case("capítulo final", [6]),
             Case("epílogo", [7]),
             Case("do livro", [3])
@@ -212,7 +234,105 @@ final class SpokenChapterMatchingTests: XCTestCase {
 
     /// The only number in a request the titles don't explain is still the position.
     func test_aLoneNumberAmongOtherWords_isThePosition() {
-        check([Case("play chapter 4 please", [4]), Case("toca o capítulo 2 agora", [2])], in: english)
+        check([Case("play chapter 4 please", [4]), Case("toca o capítulo 2 agora", [2])], in: englishPlain)
+    }
+
+    // MARK: - The chapter's own number (#212)
+
+    /// A prologue first: "chapter 1" is the chapter titled so, not the first one.
+    func test_numberedTitlesAfterAPrologue_theTitlesNumberWins() {
+        let english: [Case] = [
+            Case("chapter 1", [2]),
+            Case("Chapter 1", [2]),
+            Case("1", [2]),
+            Case("chapter one", [2]),
+            Case("first chapter", [2]),
+            Case("the third chapter", [4]),
+            Case("chapter 3", [4]),
+            Case("play chapter 2 please", [3]),
+            Case("chapter 4", []),
+            Case("chapter 0", []),
+            Case("prologue", [1]),
+            Case("the epilogue", [5])
+        ]
+        check(english, in: ["Prologue", "Chapter 1", "Chapter 2", "Chapter 3", "Epilogue"])
+
+        let portuguese: [Case] = [
+            Case("capítulo 1", [2]),
+            Case("capitulo um", [2]),
+            Case("primeiro capítulo", [2]),
+            Case("o terceiro capítulo", [4]),
+            Case("capítulo número 2", [3]),
+            Case("capítulo 4", []),
+            Case("o prólogo", [1]),
+            Case("epílogo", [5])
+        ]
+        check(portuguese, in: ["Prólogo", "Capítulo 1", "Capítulo 2", "Capítulo 3", "Epílogo"])
+    }
+
+    /// Numbers in the title as words, Roman numerals or a leading "1.".
+    func test_titleNumbers_inWordsRomanOrLeadingDigits() {
+        let words = ["Foreword", "Chapter One: Arrival", "Chapter Two: Departure"]
+        check([Case("chapter 2", [3]), Case("chapter one", [2])], in: words)
+        let roman = ["Preface", "Chapter I", "Chapter II", "Chapter III"]
+        check([Case("chapter 3", [4]), Case("chapter one", [2])], in: roman)
+        check([Case("capítulo dois", [3]), Case("capítulo 1", [2])], in: ["Prefácio", "Capítulo Um", "Capítulo Dois"])
+        let twoWords = ["Introdução", "Capítulo Vinte", "Capítulo Vinte e Um"]
+        check([Case("capítulo vinte e um", [3]), Case("capítulo 20", [2])], in: twoWords)
+        // "00 -" is a track number on front matter; "1." is the chapter's.
+        let leading = ["00 - Introduction", "1. The Boy", "2. The Glass"]
+        check([Case("chapter 1", [2]), Case("chapter 2", [3])], in: leading)
+    }
+
+    /// No numbers in the titles: the count starts after the front matter, and back matter has no
+    /// number.
+    func test_frontMatterByTitle_countsFromTheFirstChapterAfterIt() {
+        let english: [Case] = [
+            Case("chapter 1", [3]),
+            Case("chapter two", [4]),
+            Case("chapter 3", []),
+            Case("the introduction", [1]),
+            Case("preface", [2]),
+            Case("afterword", [5])
+        ]
+        let titles = ["Introduction", "Translator's Preface", "The Boy Who Lived", "The Vanishing Glass", "Afterword"]
+        check(english, in: titles)
+
+        let portuguese: [Case] = [
+            Case("capítulo 1", [3]),
+            Case("segundo capítulo", [4]),
+            Case("capítulo 3", []),
+            Case("o prefácio", [1]),
+            Case("posfácio", [5])
+        ]
+        check(portuguese, in: ["Prefácio", "Apresentação", "Do título", "Do livro", "Posfácio"])
+    }
+
+    /// A position whose title says another number names nothing, and a title keeps its own number.
+    func test_aPositionWhoseTitleSaysAnotherNumber_namesNothing() {
+        // `english` opens with "Prologue" and has "Chapter 6: The Journey" fifth after it.
+        let cases = [Case("chapter 5", []), Case("chapter 6", [6]), Case("chapter 4", [5]), Case("chapter 1", [2])]
+        check(cases, in: english)
+    }
+
+    /// Books the rule leaves alone: plain numbered titles, two parts that both start at
+    /// "Chapter 1", and a book that is all front matter.
+    func test_booksWithoutAnOffset_keepThePositions() {
+        check([Case("chapter 4", [4]), Case("4", [4])], in: numbered)
+        let parts = ["Chapter 1", "Chapter 2", "Chapter 1", "Chapter 2"]
+        check([Case("chapter 2", [2]), Case("chapter 1", [1])], in: parts)
+        check([Case("chapter 1", [1]), Case("1", [1])], in: ["Introduction"])
+        check([Case("chapter 2", [2])], in: ["Introduction", "Preface"])
+    }
+
+    /// What `ChapterEntity` shows and the App Shortcut phrases expand to.
+    func test_numbering_givesFrontAndBackMatterNoNumber() {
+        let numbers = { (titles: [String]) in ChapterNumbering(titles: titles).numbers }
+        XCTAssertEqual(numbers(["Prologue", "Chapter 1", "Chapter 2", "Epilogue"]), [nil, 1, 2, nil])
+        XCTAssertEqual(numbers(["Prólogo", "Do título", "Do livro"]), [nil, 1, 2])
+        XCTAssertEqual(numbers(englishPlain), [1, 2, 3, 4, 5, 6, 7])
+        XCTAssertEqual(numbers(english), [nil, 1, 2, 3, 4, 6, nil])
+        XCTAssertEqual(numbers(["", ""]), [1, 2])
     }
 
     func test_emptyInputOrBook_matchesNothing() {
