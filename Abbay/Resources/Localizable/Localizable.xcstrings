@@ -2654,6 +2654,78 @@
           }
         }
       }
+    },
+    "Shuffle" : {
+      "comment" : "Siri audio domain (iOS 27): playback attribute, shown in Shortcuts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shuffle"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aleatório"
+          }
+        }
+      }
+    },
+    "Repeat" : {
+      "comment" : "Siri audio domain (iOS 27): playback attribute, shown in Shortcuts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repetir"
+          }
+        }
+      }
+    },
+    "Play next" : {
+      "comment" : "Siri audio domain (iOS 27): queue position, shown in Shortcuts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play next"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar em seguida"
+          }
+        }
+      }
+    },
+    "Play last" : {
+      "comment" : "Siri audio domain (iOS 27): queue position, shown in Shortcuts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play last"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar por último"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

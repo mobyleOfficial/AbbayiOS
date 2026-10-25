@@ -223,17 +223,24 @@ struct PlayAudiobookIntent: AudioPlaybackIntent {
         guard AudioSessionActivator.attemptActivation() else {
             return .result(dialog: IntentDialog(abbayAudioUnavailableDialog))
         }
-        guard let url = audiobook.url,
-              var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
-            // Stuck-state guard: clear the pointer only if the dead book is the saved one.
-            if let url = audiobook.url, DependencyContainer.lastPlayed.lastPlayedURL() == url {
-                DependencyContainer.lastPlayed.save(url: nil)
-            }
-            return .result(dialog: IntentDialog(Self.cannotFindDialog))
-        }
-        DependencyContainer.shared.player.play(&model)
-        return .result(dialog: IntentDialog(Self.playingDialog(title: model.title)))
+        return .result(dialog: IntentDialog(abbayPlayBook(at: audiobook.url)))
     }
+}
+
+/// Loads and plays the book at `url`, for the intents that name a book (`PlayAudiobookIntent`, and
+/// iOS 27's `PlayAudioDomainIntent`). Returns what to say: *"Playing <title>."*, or the
+/// cannot-find dialog when the book is gone, after clearing the last-played pointer if it was that
+/// book (so Resume doesn't loop on it).
+@MainActor
+func abbayPlayBook(at url: URL?) -> LocalizedStringResource {
+    guard let url, var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
+        if let url, DependencyContainer.lastPlayed.lastPlayedURL() == url {
+            DependencyContainer.lastPlayed.save(url: nil)
+        }
+        return abbayCannotFindDialog
+    }
+    DependencyContainer.shared.player.play(&model)
+    return abbayPlayingDialog(title: model.title)
 }
 
 // MARK: - Play a specific chapter
