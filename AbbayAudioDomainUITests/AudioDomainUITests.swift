@@ -122,7 +122,8 @@ final class AudioDomainUITests: XCTestCase {
         XCTAssertEqual(suggested.count, 1, "every seeded book is by Seed Author")
         let spoken = try await authors.entities(matching: "something by seed author")
         XCTAssertEqual(spoken.count, 1)
-        XCTAssertEqual(try await authors.entities(matching: "nobody else").count, 0)
+        let nobody = try await authors.entities(matching: "nobody else")
+        XCTAssertEqual(nobody.count, 0)
 
         try await definitions.intents["PlayAuthorIntent"].makeIntent(author: spoken[0]).run()
 
@@ -147,7 +148,8 @@ final class AudioDomainUITests: XCTestCase {
         XCTAssertTrue(bar.waitForExistence(timeout: 15), "the intent didn't load the book")
 
         let chapters = definitions.entities["ChapterEntity"]
-        XCTAssertEqual(try await chapters.suggestedEntities().count, 3)
+        let suggestedChapters = try await chapters.suggestedEntities()
+        XCTAssertEqual(suggestedChapters.count, 3)
         let found = try await chapters.entities(matching: "chapter two")
         XCTAssertEqual(found.count, 1)
 

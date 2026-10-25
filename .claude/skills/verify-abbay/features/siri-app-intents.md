@@ -44,7 +44,8 @@ can validate.
   *"Chapter N"* / *"Capítulo N"*, or the title when it has no number, so the expanded
   *"Play \<chapter> in Abbay"* phrases match the numbering. The dialog says *"Playing chapter N."*,
   or *"Playing \<title>."* for an unnumbered chapter. Cases: `SpokenChapterMatchingTests`,
-  `SiriEntityTests`.
+  `SiriEntityTests`, and `AudioDomainUITests.test_chapterShortcut_jumpsToTheChapterNamedByItsTitle`
+  (no seed has front matter, so the offset is unit-tested only; spoken check #220).
 - **PlayAuthorIntent (#213)** — takes an `AuthorEntity` (`Abbay/Intents/AuthorEntity.swift`):
   *"Play \<author> in/on Abbay"*, pt-BR *"Tocar \<author> no Abbay"*. The authors are the library's
   distinct artists (`LibraryAuthors.all`: library order, the last-played book's author first, empty
@@ -56,7 +57,9 @@ can validate.
   is). No book: *"No audiobook by \<author> in Abbay."* / *"Nenhum audiolivro de \<author> no
   Abbay."* The suggestions refresh with the library through `SiriLibraryPublisher`'s
   `updateAppShortcutParameters()` (see [siri-library-publish](siri-library-publish.md)). Cases:
-  `AuthorEntityTests`, `AppShortcutPhraseTests`.
+  `AuthorEntityTests`, `AppShortcutPhraseTests`, and through `AppIntentsTesting` on iOS 27
+  (`AudioDomainUITests.test_authorShortcut_playsTheAuthorsLastPlayedBook`). Spoken, on a device:
+  unchecked (#220).
 - **moved books (#186):** every intent finds a book by its identity, the URL its row was saved
   under (last played, entity ids, the library's `url`), so a book whose file moved is resumed,
   played by name or entity and has its chapters found. `MovedBookIdentityTests` drives
@@ -70,7 +73,7 @@ can validate.
   music app. `AppShortcutPhraseTests` reads the shipped `Metadata.appintents` to pin the variants and
   keeps the total under Apple's 1,000-phrase cap, counting pt-BR on top of English (entity phrases
   × 40 books / 50 chapters / 15 authors). **The total is exactly 1,000 since #213** (955 before it,
-  plus 3 author phrases × 15): a new entity phrase needs a smaller limit somewhere (#ISSUE_BUDGET).
+  plus 3 author phrases × 15): a new entity phrase needs a smaller limit somewhere (#219).
   *"Play something by \<author> in Abbay"* is not registered for that reason; Siri hands it to
   SiriKit's media routing (#207).
 - **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()`

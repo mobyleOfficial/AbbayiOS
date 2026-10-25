@@ -74,7 +74,7 @@ user-facing, but every title-matching Siri phrase depends on it.
   requests before that update add up (one for everything wins). Unit-tested with fake delegate
   calls (`SpotlightReindexDelegateTests`, `LibrarySpotlightIndexerTests`). The requests reach the
   delegate only while the app runs; a request made while it doesn't needs a Core Spotlight index
-  extension (#ISSUE_EXT). **No launch self-check:** probing the index with `CSSearchQuery` was tried
+  extension (#218). **No launch self-check:** probing the index with `CSSearchQuery` was tried
   and rejected for #205: `uniqueIdentifier == "…"` never finds an item (0 results, no error), and
   `domainIdentifier == "com.edyuto.Abbay.library"` / `title == "…"` find it but took 69–114 s on a
   cold iOS 27.0 simulator (a few ms warm); `*` fails with `CSSearchQueryErrorDomain -2002`.
@@ -179,7 +179,7 @@ Spotlight indexing directly.
   next publishes see no change and don't re-index, **until the system asks**: since #205 the
   re-index request forgets the record and the publish it triggers rebuilds. Whether, and when, iOS
   sends that request after such a loss is the system's call and unobserved; a request while the
-  app isn't running is not received (#ISSUE_EXT). Deleting the app removes both. To force a rebuild while testing, delete the app or remove
+  app isn't running is not received (#218). Deleting the app removes both. To force a rebuild while testing, delete the app or remove
   `abbay.spotlightIndexRecord.v1` from its defaults (`xcrun simctl spawn <udid> defaults delete
   com.edyuto.Abbay abbay.spotlightIndexRecord.v1`).
 - Whether a deleted book also leaves the Spotlight *search screen* promptly on a device is part of

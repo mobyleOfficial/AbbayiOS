@@ -17,7 +17,7 @@ import Foundation
 ///
 /// Attached to the app's named index at launch (`AppDelegate`). The requests reach it while the
 /// app runs; a request made while it doesn't would need a Core Spotlight index extension, which
-/// Abbay doesn't have (#ISSUE_EXT).
+/// Abbay doesn't have (#218).
 final class SpotlightReindexDelegate: NSObject, CSSearchableIndexDelegate {
     private let indexer: LibrarySpotlightIndexerProtocol
     /// Publishes the library and calls back once the publish has finished.
