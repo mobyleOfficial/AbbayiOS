@@ -10,9 +10,11 @@ import Foundation
 /// capítulo", or the chapter's own title with extra words ("the prologue chapter", "o capítulo
 /// prólogo", #206). In order:
 ///
-/// 1. A position said as a number: digits ("4", "capítulo 3", "3rd"), or number words next to
-///    "chapter"/"capítulo" ("chapter three", "capítulo vinte e um", "the third chapter"). Spoken
-///    positions count from one; one past the book falls through to the titles ("1984").
+/// 1. A chapter number said as a number: digits ("4", "capítulo 3", "3rd"), or number words next
+///    to "chapter"/"capítulo" ("chapter three", "capítulo vinte e um", "the third chapter"). What
+///    the number names is `ChapterNumbering`'s (#212): the one chapter whose title carries it
+///    ("Chapter 1" after a "Prologue"), else the position counted from one, from the first chapter
+///    after any front matter. A number the book doesn't have falls through to the titles ("1984").
 /// 2. The titles, by the book-title rules of `matchAll` (folding, en and pt-BR stop words, word
 ///    overlap, `SpokenQuery`), with "chapter"/"capítulo" dropped at either end. Every chapter tied
 ///    at the top score is returned, in book order. "chapter" or stop words alone name no chapter
@@ -23,8 +25,9 @@ func matchChapters(input: String, titles: [String]) -> [Int] {
     let words = SpokenText.words(input)
     guard !words.isEmpty, !titles.isEmpty else { return [] }
     let spoken = SpokenChapterNumber(words: words)
+    let numbering = ChapterNumbering(titles: titles)
     let inBook = { (number: Int?) -> [Int]? in
-        number.flatMap { titles.indices.contains($0 - 1) ? [$0 - 1] : nil }
+        number.flatMap(numbering.index(of:)).map { [$0] }
     }
     if let position = inBook(spoken.explicit) { return position }
     let byTitle = matchChapterTitles(words: words, input: input, titles: titles)
@@ -46,6 +49,121 @@ private func matchChapterTitles(words: [String], input: String, titles: [String]
     }
     guard let top = scores.max(), top > 0 else { return [] }
     return scores.indices.filter { scores[$0] == top }
+}
+
+/// What "chapter N" names in a book (#212). What people see in the chapter list is the titles, so
+/// a book that opens with a prologue has its "chapter 1" second:
+///
+/// * A title's own number wins when exactly one chapter carries it: "Chapter 1", "Capítulo Um",
+///   "Chapter IV", "Chapter 6: The Journey", or a leading "1." / "1 -" / "1:" ("1. The Boy Who
+///   Lived"). Two chapters titled "Chapter 1" (a book in parts) leave the number to the position.
+/// * Otherwise the position, counted from one, from the first chapter that isn't front matter.
+///   Front matter is a leading run of titles that open with `matterWords` ("Prologue", "Prólogo",
+///   "Introduction", "Introdução", "Preface", "Prefácio", "Foreword", "Translator's Preface", …);
+///   the same words in a trailing run ("Epilogue", "Epílogo", "Afterword", "Appendix") are back
+///   matter. Neither has a number: they are asked for by title ("the prologue"). A position whose
+///   title carries a different number names nothing.
+///
+/// A book with neither numbered titles nor front matter is numbered by position, as before (#206).
+/// A book that is all front matter is too.
+struct ChapterNumbering {
+    /// The number each chapter is asked for by, nil for front and back matter (and for the odd
+    /// chapter whose position another chapter's title claims). `ChapterEntity` shows these.
+    let numbers: [Int?]
+    private let titleNumbers: [Int?]
+    /// The chapters between the front and back matter: the ones positions count.
+    private let body: Range<Int>
+
+    /// Folded words that make a title front or back matter when one of its first two content words.
+    static let matterWords: Set<String> = [
+        // en
+        "prologue", "prolog", "prelude", "introduction", "intro", "preface", "foreword", "preamble",
+        "dedication", "epigraph", "contents", "disclaimer", "acknowledgments", "acknowledgements",
+        "epilogue", "epilog", "afterword", "appendix", "glossary", "credits",
+        // pt-BR
+        "prologo", "preludio", "introducao", "prefacio", "preambulo", "apresentacao", "dedicatoria",
+        "epigrafe", "sumario", "indice", "agradecimentos", "epilogo", "posfacio", "apendice",
+        "glossario", "creditos"
+    ]
+
+    init(titles: [String]) {
+        let words = titles.map(SpokenText.words)
+        let matter = words.map(Self.isMatter)
+        // A leading "00 - Preface" is a track number, not the chapter's.
+        let titleNumbers = titles.indices.map { index in
+            Self.chapterNumber(in: words[index]) ?? (matter[index] ? nil : Self.leadingNumber(in: titles[index]))
+        }
+        let unnumberedMatter = titles.indices.map { matter[$0] && titleNumbers[$0] == nil }
+        let leading = unnumberedMatter.prefix { $0 }.count
+        let trailing = unnumberedMatter.reversed().prefix { $0 }.count
+        let body = leading + trailing < titles.count ? leading..<(titles.count - trailing) : titles.indices
+        self.titleNumbers = titleNumbers
+        self.body = body
+        numbers = titles.indices.map { index in
+            let candidates = [titleNumbers[index], body.contains(index) ? index - body.lowerBound + 1 : nil]
+            return candidates.compactMap { $0 }.first {
+                Self.index(of: $0, titleNumbers: titleNumbers, body: body) == index
+            }
+        }
+    }
+
+    /// The zero-based chapter "chapter `number`" names, if the book has one.
+    func index(of number: Int) -> Int? {
+        Self.index(of: number, titleNumbers: titleNumbers, body: body)
+    }
+
+    private static func index(of number: Int, titleNumbers: [Int?], body: Range<Int>) -> Int? {
+        guard number >= 1 else { return nil }
+        let titled = titleNumbers.indices.filter { titleNumbers[$0] == number }
+        if titled.count == 1 { return titled[0] }
+        let position = body.lowerBound + number - 1
+        guard body.contains(position) else { return nil }
+        if let own = titleNumbers[position], own != number { return nil }
+        return position
+    }
+
+    // MARK: - Reading titles
+
+    /// "Chapter 4", "Capítulo vinte e um", "Chapter IV", anywhere in the title.
+    private static func chapterNumber(in words: [String]) -> Int? {
+        guard let marker = words.firstIndex(where: SpokenChapterNumber.chapterWords.contains) else { return nil }
+        let after = Array(words[(marker + 1)...].prefix(3))
+        guard let first = after.first else { return nil }
+        if let digits = SpokenChapterNumber.digits(first) { return digits }
+        if let roman = roman(first) { return roman }
+        let longestFirst = (1...after.count).reversed()
+        return longestFirst.lazy.compactMap { SpokenChapterNumber.spelled(Array(after.prefix($0))) }.first
+    }
+
+    /// "1. The Boy Who Lived", "01 - Opening", "3: Home". Not a bare "1984".
+    private static func leadingNumber(in title: String) -> Int? {
+        let trimmed = title.drop { $0.isWhitespace }
+        let digits = trimmed.prefix { $0.isASCII && $0.isNumber }
+        guard !digits.isEmpty, let number = Int(digits) else { return nil }
+        let rest = trimmed.dropFirst(digits.count).drop { $0 == " " }
+        guard let mark = rest.first, ".:)-\u{2013}\u{2014}".contains(mark) else { return nil }
+        return number
+    }
+
+    /// One of the title's first two content words is a matter word; leading track numbers ("00 -
+    /// Preface") don't count.
+    private static func isMatter(_ words: [String]) -> Bool {
+        let content = SpokenText.content(words).filter { !$0.allSatisfy(\.isNumber) }
+        return content.prefix(2).contains(where: matterWords.contains)
+    }
+
+    /// I to XXXIX, as chapter numbers go.
+    private static func roman(_ word: String) -> Int? {
+        let values: [Character: Int] = ["i": 1, "v": 5, "x": 10, "l": 50]
+        guard !word.isEmpty, word.allSatisfy({ values[$0] != nil }) else { return nil }
+        let digits = word.compactMap { values[$0] }
+        var total = 0
+        for (index, value) in digits.enumerated() {
+            let next = index + 1 < digits.count ? digits[index + 1] : 0
+            total += value < next ? -value : value
+        }
+        return total > 0 ? total : nil
+    }
 }
 
 /// A chapter position said aloud, en and pt-BR.

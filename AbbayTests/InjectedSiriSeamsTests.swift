@@ -139,4 +139,5 @@ private struct NoopMediaUserContextDonor: MediaUserContextDonorProtocol {
 
 private struct NoopSpotlightIndexer: LibrarySpotlightIndexerProtocol {
     func index(audios: [AudioModel], completion: @escaping () -> Void) { completion() }
+    func forgetIndexedItems(_ identifiers: [String]?) {}
 }

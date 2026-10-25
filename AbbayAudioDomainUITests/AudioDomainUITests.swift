@@ -101,6 +101,72 @@ final class AudioDomainUITests: XCTestCase {
         XCTAssertEqual(nobody.items.count, 0)
     }
 
+    /// "Play <author> in Abbay" (#213), through the real App Intents stack: the author entity comes
+    /// from the library's artists, and the intent plays that author's last-played book.
+    @MainActor
+    func test_authorShortcut_playsTheAuthorsLastPlayedBook() async throws {
+        app.launchArguments = [LaunchArgument.seedLibrary]
+        app.launch()
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
+
+        let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
+        let books = try await definitions.valueQueries["AudioDomainBookQuery"]
+            .values(for: AudioSearch(criteria: .searchQuery("Seeded Chaptered")))
+        let chaptered = try books.items[0].as(definitions.entities["AudioDomainBookEntity"])
+        try await definitions.intents["PlayAudioDomainIntent"].makeIntent(audioEntity: chaptered).run()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 15), "the intent didn't load the book")
+
+        let authors = definitions.entities["AuthorEntity"]
+        let suggested = try await authors.suggestedEntities()
+        XCTAssertEqual(suggested.count, 1, "every seeded book is by Seed Author")
+        let spoken = try await authors.entities(matching: "something by seed author")
+        XCTAssertEqual(spoken.count, 1)
+        let nobody = try await authors.entities(matching: "nobody else")
+        XCTAssertEqual(nobody.count, 0)
+
+        try await definitions.intents["PlayAuthorIntent"].makeIntent(author: spoken[0]).run()
+
+        XCTAssertTrue(bar.waitForExistence(timeout: 15))
+        XCTAssertTrue(bar.label.contains("Seeded Chaptered Book"), "unexpected bar \"\(bar.label)\"")
+    }
+
+    /// "Play chapter two in Abbay" (#206, #212) through the real App Intents stack, on the book
+    /// that is playing: the chapter entity the query returns seeks there.
+    @MainActor
+    func test_chapterShortcut_jumpsToTheChapterNamedByItsTitle() async throws {
+        app.launchArguments = [LaunchArgument.seedLibrary]
+        app.launch()
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
+
+        let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
+        let books = try await definitions.valueQueries["AudioDomainBookQuery"]
+            .values(for: AudioSearch(criteria: .searchQuery("Seeded Chaptered")))
+        let chaptered = try books.items[0].as(definitions.entities["AudioDomainBookEntity"])
+        try await definitions.intents["PlayAudioDomainIntent"].makeIntent(audioEntity: chaptered).run()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 15), "the intent didn't load the book")
+
+        let chapters = definitions.entities["ChapterEntity"]
+        let suggestedChapters = try await chapters.suggestedEntities()
+        XCTAssertEqual(suggestedChapters.count, 3)
+        let found = try await chapters.entities(matching: "chapter two")
+        XCTAssertEqual(found.count, 1)
+
+        try await definitions.intents["PlayChapterIntent"].makeIntent(chapter: found[0]).run()
+
+        XCTAssertTrue(waitFor(bar, label: "Chapter 2"), "unexpected bar \"\(bar.label)\"")
+    }
+
+    private func waitFor(_ element: XCUIElement, label: String) -> Bool {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if element.label.contains(label) { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
+    }
+
     @MainActor
     func test_audioSearch_withNoTitle_offersTheLibrary() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]

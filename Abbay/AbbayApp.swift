@@ -24,6 +24,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var diagnostics: SiriDiagnostics = .shared
     lazy var siriContext: SiriContextRefreshing = DependencyContainer.shared.siriContext
     lazy var backgroundRefresh = SiriBackgroundRefresh(refresher: siriContext)
+    /// Held here: the index keeps its delegate weakly. Requests arrive on any queue; the publish
+    /// reads Core Data, so it runs on main.
+    lazy var spotlightReindex = SpotlightReindexDelegate { [siriContext] done in
+        DispatchQueue.main.async { siriContext.refreshNow(.spotlightReindex, completion: done) }
+    }
 
     func application(
         _ application: UIApplication,
@@ -65,6 +70,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                 diagnostics.record("app launch siriAuth=\(status.rawValue)")
             }
         }
+
+        // Before the first publish, so a re-index request that arrives at launch is answered (#205).
+        LibrarySpotlightIndexer.attach(spotlightReindex)
 
         // Rewrite the snapshot, which publishes the library to Siri, on every launch.
         // Apple requires at least one successful entity fetch before entity-parameter

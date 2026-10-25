@@ -226,7 +226,20 @@
     },
     "Skip chapter on ${applicationName}" : {},
     "Skip to ${chapter} in ${applicationName}" : {},
-    "Skip to ${chapter} on ${applicationName}" : {}
+    "Skip to ${chapter} on ${applicationName}" : {},
+    "Play ${author} in ${applicationName}" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar ${author} no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Play ${author} on ${applicationName}" : {}
   },
   "version" : "1.0"
 }

@@ -44,6 +44,8 @@ final class AppShortcutPhraseTests: XCTestCase {
                 total += AudiobookEntityQuery.suggestionLimit
             } else if phrase.contains("${chapter}") {
                 total += ChapterEntityQuery.suggestionLimit
+            } else if phrase.contains("${author}") {
+                total += AuthorEntityQuery.suggestionLimit
             } else {
                 total += 1
             }
@@ -85,6 +87,8 @@ final class AppShortcutPhraseTests: XCTestCase {
         XCTAssertTrue(phrases.contains("\(Self.appName) tocar ${audiobook}"))
         XCTAssertTrue(phrases.contains("Tocar ${audiobook} no \(Self.appName)"))
         XCTAssertTrue(phrases.contains("Tocar ${chapter} no \(Self.appName)"))
+        // #213: an author in the phrase.
+        XCTAssertTrue(phrases.contains("Tocar ${author} no \(Self.appName)"))
     }
 
     // MARK: - Helpers

@@ -143,20 +143,42 @@ final class SiriEntityTests: XCTestCase {
         let book = audio(title: "Book", url: "file:///b", chapters: titled)
         NowPlayingManager.shared.setPlayer(player, currentAudio: book)
         let query = ChapterEntityQuery()
+        // The chapter numbers count from the first chapter after the prologue (#212).
         let cases: [(String, [Int])] = [
-            ("o capítulo prologo", [1]),
-            ("the prologo chapter", [1]),
-            ("vanishing glass", [2]),
-            ("chapter three", [3]),
-            ("o terceiro capítulo", [3]),
-            ("capítulo 4", [4]),
+            ("o capítulo prologo", [0]),
+            ("the prologo chapter", [0]),
+            ("vanishing glass", [1]),
+            ("chapter one", [1]),
+            ("chapter two", [2]),
+            ("o segundo capítulo", [2]),
+            ("capítulo 3", []),
             ("chapter", []),
             ("the half blood prince", [])
         ]
-        for (spoken, numbers) in cases {
+        for (spoken, ids) in cases {
             let found = try await query.entities(matching: spoken)
-            XCTAssertEqual(found.map(\.number), numbers, spoken)
+            XCTAssertEqual(found.map(\.id), ids, spoken)
         }
+    }
+
+    /// The suggestions are what "Play <chapter> in Abbay" expands to: the prologue by its title,
+    /// then Chapter 1 (#212).
+    func test_chapterQuery_suggested_numbersFromTheFirstChapterAfterThePrologue() async throws {
+        var titled = chapters([0, 100, 200, 300])
+        titled[0].title = "Prologue"
+        titled[1].title = "Chapter 1"
+        titled[2].title = "Chapter 2"
+        titled[3].title = "Epílogo"
+        NowPlayingManager.shared.setPlayer(player, currentAudio: audio(title: "Book", url: "file:///b", chapters: titled))
+        let results = try await ChapterEntityQuery().suggestedEntities()
+        XCTAssertEqual(results.map(\.number), [nil, 1, 2, nil])
+        XCTAssertEqual(
+            results.map { $0.displayRepresentation.title.resolved(in: "en") },
+            ["Prologue", "Chapter 1", "Chapter 2", "Epílogo"]
+        )
+        XCTAssertEqual(results[1].displayRepresentation.title.resolved(in: "pt-BR"), "Capítulo 1")
+        let byID = try await ChapterEntityQuery().entities(for: [1, 0, 9])
+        XCTAssertEqual(byID.map(\.number), [1, nil])
     }
 
     func test_chapterQuery_suggested_usesLastPlayedBookWhenNothingLoaded() async throws {
@@ -295,6 +317,16 @@ final class SiriEntityTests: XCTestCase {
             "Esse audiolivro não tem o capítulo 9."
         )
         XCTAssertEqual(PlayChapterIntent.playingChapterDialog(4).resolved(in: "pt-BR"), "Tocando o capítulo 4.")
+    }
+
+    /// A chapter says its own number back, and front matter its title (#212).
+    func test_playChapterIntent_dialog_saysTheChaptersNumberOrTitle() {
+        var intent = PlayChapterIntent()
+        intent.chapter = ChapterEntity(id: 1, number: 1, title: "Chapter 1")
+        XCTAssertEqual(intent.playingDialog.resolved(in: "en"), "Playing chapter 1.")
+        intent.chapter = ChapterEntity(id: 0, number: nil, title: "Prólogo")
+        XCTAssertEqual(intent.playingDialog.resolved(in: "en"), "Playing Prólogo.")
+        XCTAssertEqual(intent.playingDialog.resolved(in: "pt-BR"), "Tocando Prólogo.")
     }
 
     /// Siri shows, and reads back, a chapter by its display representation.

@@ -2726,6 +2726,78 @@
           }
         }
       }
+    },
+    "Play author" : {
+      "comment" : "App Intent title and App Shortcut tile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play author"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar autor"
+          }
+        }
+      }
+    },
+    "Plays an audiobook by one of the authors in your Abbay library." : {
+      "comment" : "App Intent description",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays an audiobook by one of the authors in your Abbay library."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca um audiolivro de um dos autores da sua biblioteca do Abbay."
+          }
+        }
+      }
+    },
+    "Author" : {
+      "comment" : "App Intent parameter title and entity type name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Author"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autor"
+          }
+        }
+      }
+    },
+    "siriNoAuthorBook" : {
+      "comment" : "Siri dialog when the library has no book by the requested author. %@ is the author's name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No audiobook by %@ in Abbay."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum audiolivro de %@ no Abbay."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -173,5 +173,21 @@ final class SiriLogRecordTests: XCTestCase {
             SiriLogEvent.spotlightRebuilt(itemCount: 3, reason: .afterFailure).record.message,
             "spotlight: rebuilt, 3 items (after a failure)"
         )
+        XCTAssertEqual(
+            SiriLogEvent.spotlightRebuilt(itemCount: 2, reason: .reindexRequested).record.message,
+            "spotlight: rebuilt, 2 items (the system asked)"
+        )
+    }
+
+    /// #205.
+    func test_spotlightReindexRequested_isPublicInfo() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightReindexRequested(itemCount: nil).record,
+            SiriLogRecord(level: .info, message: "spotlight: the system asked to re-index everything", privacy: .public)
+        )
+        XCTAssertEqual(
+            SiriLogEvent.spotlightReindexRequested(itemCount: 4).record.message,
+            "spotlight: the system asked to re-index 4 items"
+        )
     }
 }

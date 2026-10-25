@@ -1,6 +1,6 @@
 # Siri — App Intents
 
-The seven modern `AudioPlaybackIntent`s and the spoken phrases registered for them, plus, on iOS 27,
+The eight modern `AudioPlaybackIntent`s and the spoken phrases registered for them, plus, on iOS 27,
 the App Intents audio domain. This is the half of Siri that Apple's `AppIntentsTesting` framework
 can validate.
 
@@ -27,22 +27,55 @@ can validate.
   the chapter titles by the book-title rules (folding, stop words, word overlap; "chapter" /
   "capítulo" dropped at either end: "the prologue chapter", "o capítulo prólogo"), every tied
   chapter in book order; then number words alone ("three", when no title has them); then the one
-  number in an otherwise unmatched request ("play chapter 4 please"). A position past the book
-  falls through to the titles ("1984"). "chapter" or stop words alone match nothing. Positions are
-  one-based places in the book, not the numbers in chapter titles. Cases:
-  `SpokenChapterMatchingTests`, `SiriEntityTests`.
+  number in an otherwise unmatched request ("play chapter 4 please"). A number the book doesn't
+  have falls through to the titles ("1984"). "chapter" or stop words alone match nothing.
+  **What a number names is `ChapterNumbering`'s (#212):** the one chapter whose title carries it
+  ("Chapter 1", "Capítulo Um", "Chapter IV", "Chapter 6: The Journey", a leading "1." / "1 -" /
+  "1:"), so *Prologue, Chapter 1, …* plays *Chapter 1* for "chapter 1"; else the one-based position
+  counted from the first chapter after the front matter (a leading run of titles whose first two
+  content words include a `matterWords` entry: prologue/prólogo, introduction/introdução,
+  preface/prefácio, foreword, apresentação, dedication, disclaimer, …; a leading "00 -" track
+  number doesn't count). A trailing run of the same words (epilogue/epílogo, afterword/posfácio,
+  appendix) is back matter. Front and back matter have no number and are asked for by title. A
+  position whose title carries another number names nothing; two titles with the same number
+  ("Chapter 1" in two parts) leave it to the position. A book with neither numbered titles nor
+  front matter, or one that is all front matter, is numbered by position as in #206.
+  `ChapterEntity` carries that `number` (nil for front/back matter) and its `title`: it shows
+  *"Chapter N"* / *"Capítulo N"*, or the title when it has no number, so the expanded
+  *"Play \<chapter> in Abbay"* phrases match the numbering. The dialog says *"Playing chapter N."*,
+  or *"Playing \<title>."* for an unnumbered chapter. Cases: `SpokenChapterMatchingTests`,
+  `SiriEntityTests`, and `AudioDomainUITests.test_chapterShortcut_jumpsToTheChapterNamedByItsTitle`
+  (no seed has front matter, so the offset is unit-tested only; spoken check #220).
+- **PlayAuthorIntent (#213)** — takes an `AuthorEntity` (`Abbay/Intents/AuthorEntity.swift`):
+  *"Play \<author> in/on Abbay"*, pt-BR *"Tocar \<author> no Abbay"*. The authors are the library's
+  distinct artists (`LibraryAuthors.all`: library order, the last-played book's author first, empty
+  artists dropped, spellings that fold alike are one author under the first spelling).
+  `AuthorEntityQuery` suggests 15 (phrase budget), resolves ids against the current library, and
+  `entities(matching:)` reads what was said as an author by #207's rules ("jane austen", "something
+  by jane austen", "um livro do machado"). It plays `LibraryAuthors.book`: the author's last-played
+  book, else their first in library order (artist folded equal to the name; `matchAuthor` if none
+  is). No book: *"No audiobook by \<author> in Abbay."* / *"Nenhum audiolivro de \<author> no
+  Abbay."* The suggestions refresh with the library through `SiriLibraryPublisher`'s
+  `updateAppShortcutParameters()` (see [siri-library-publish](siri-library-publish.md)). Cases:
+  `AuthorEntityTests`, `AppShortcutPhraseTests`, and through `AppIntentsTesting` on iOS 27
+  (`AudioDomainUITests.test_authorShortcut_playsTheAuthorsLastPlayedBook`). Spoken, on a device:
+  unchecked (#220).
 - **moved books (#186):** every intent finds a book by its identity, the URL its row was saved
   under (last played, entity ids, the library's `url`), so a book whose file moved is resumed,
   played by name or entity and has its chapters found. `MovedBookIdentityTests` drives
   `ResumeAbbayIntent`, `AudiobookEntityQuery` → `PlayAudiobookIntent` and `PlayBookByNameIntent`
   over real Core Data with a stubbed bookmark resolver.
-- **phrase-registration:** `AbbayAppShortcuts` registers all seven. Entity phrases lead with the app
+- **phrase-registration:** `AbbayAppShortcuts` registers all eight. Entity phrases lead with the app
   name on purpose — Siri completes a known media title from registered vocabulary and then ends the
   utterance, so establishing the app first means a truncated tail costs nothing. Every "in Abbay"
   phrase also has an "on Abbay" twin (plus *"Play Abbay"* and *"Play \<title> using Abbay"*):
   without them, *"Play \<title> on Abbay"* matched no Abbay phrase and Siri sent it to the default
   music app. `AppShortcutPhraseTests` reads the shipped `Metadata.appintents` to pin the variants and
-  keeps the total under Apple's 1,000-phrase cap (entity phrases × 40 books / 50 chapters; 719 now).
+  keeps the total under Apple's 1,000-phrase cap, counting pt-BR on top of English (entity phrases
+  × 40 books / 50 chapters / 15 authors). **The total is exactly 1,000 since #213** (955 before it,
+  plus 3 author phrases × 15): a new entity phrase needs a smaller limit somewhere (#219).
+  *"Play something by \<author> in Abbay"* is not registered for that reason; Siri hands it to
+  SiriKit's media routing (#207).
 - **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()`
   (the container's `audioSessionActivator`, #153) and returns *"Audio temporarily unavailable. Try
   again in a moment."* on failure.
@@ -78,7 +111,8 @@ can validate.
 
 Speak a phrase, or run the shortcut from the Shortcuts app / Spotlight. Phrases include *"Play in
 Abbay"* / *"Play on Abbay"*, *"Pause Abbay"*, *"Next chapter in/on Abbay"*, *"Abbay play \<title>"*,
-*"Play \<title> on Abbay"*, *"Play \<chapter> in/on Abbay"*. Speaking phrases needs a real device;
+*"Play \<title> on Abbay"*, *"Play \<chapter> in/on Abbay"*, *"Play \<author> in/on Abbay"*.
+Speaking phrases needs a real device;
 the simulator can only run the shortcuts.
 
 ## Driving it with abbay-ctl
@@ -122,8 +156,8 @@ needs an iOS 27 device: #201.
 
 - **Dialog strings are spec-locked and unit-tested.** They are lifted into `static let`s precisely
   so a reworded response fails a test. Fix state, not wording.
-- All seven dialogs are **hardcoded English**. `Localizable.xcstrings` has six keys total and none of
-  them are Siri strings — that is issue #83. Do not list extra languages on the store page.
+- The dialogs are `LocalizedStringResource`s with `en` and `pt-BR` in `Localizable.xcstrings`
+  (`siri…` keys), resolved in the Siri language; the pt-BR phrases are in `AppShortcuts.xcstrings`.
 - The Pause / Next / Previous gate used to inherit #93 (success with nothing playing); #98 resets
   the gate on cleanup — see [now-playing](now-playing.md).
 - **LibriVox books are treated as one book here by assumption.** The intents are unchanged on this

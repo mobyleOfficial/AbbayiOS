@@ -47,6 +47,9 @@ enum SiriLogEvent: Equatable {
     case spotlightUpdated(indexed: Int, deleted: Int)
     /// The index was cleared and every item indexed again (#173).
     case spotlightRebuilt(itemCount: Int, reason: SpotlightRebuildReason)
+    /// The system asked for the library's items again (`CSSearchableIndexDelegate`, #205): all of
+    /// them (nil), or this many.
+    case spotlightReindexRequested(itemCount: Int?)
 
     /// The domain and code only: an error's description can carry a title or a file path.
     static func donationFailed(_ error: NSError) -> SiriLogEvent {
@@ -77,11 +80,15 @@ enum SpotlightRebuildReason: Equatable {
     case noRecord
     /// Deleting or indexing only the change failed.
     case afterFailure
+    /// The system asked for every item again: it lost them, so the record no longer says what the
+    /// index holds (#205).
+    case reindexRequested
 
     var logText: String {
         switch self {
         case .noRecord: "no record"
         case .afterFailure: "after a failure"
+        case .reindexRequested: "the system asked"
         }
     }
 }
@@ -142,6 +149,12 @@ extension SiriLogEvent {
             SiriLogRecord(
                 level: .info,
                 message: "spotlight: rebuilt, \(itemCount) items (\(reason.logText))",
+                privacy: .public
+            )
+        case let .spotlightReindexRequested(itemCount):
+            SiriLogRecord(
+                level: .info,
+                message: "spotlight: the system asked to re-index \(itemCount.map { "\($0) items" } ?? "everything")",
                 privacy: .public
             )
         }
