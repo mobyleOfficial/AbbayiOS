@@ -51,9 +51,7 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
             let cover = coverURL == nil ? nil : URL(string: "https://archive.org/services/img/\(id)")
             let sections = (1...entry.chapters).map { number in
                 LibriVoxBook.Section(
-                    title: entry.chapters == 1
-                        ? "Chapter 1"
-                        : "\(number). \(Self.chapterTitles[number % Self.chapterTitles.count])",
+                    title: entry.chapters == 1 ? "Chapter 1" : Self.chapterTitles[number % Self.chapterTitles.count],
                     seconds: 1200,
                     listenURL: URL(fileURLWithPath: "/dev/null/\(id)_\(number).mp3")
                 )

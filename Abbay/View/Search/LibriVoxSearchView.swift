@@ -98,9 +98,9 @@ struct LibriVoxSearchView: View {
             }
         } description: {
             Text(message)
+                .foregroundColor(ColorConstants.lightSilver.value)
                 .identifier(ifPresent: messageIdentifier)
         }
-        .foregroundStyle(ColorConstants.white.value, ColorConstants.lightSilver.value)
     }
 
     // MARK: - Popular

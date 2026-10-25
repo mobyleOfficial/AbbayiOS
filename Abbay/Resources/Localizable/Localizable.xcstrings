@@ -3094,13 +3094,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You're offline"
+            "value" : "No connection"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Você está offline"
+            "value" : "Sem conexão"
           }
         }
       }
