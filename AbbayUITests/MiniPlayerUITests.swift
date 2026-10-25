@@ -89,6 +89,21 @@ final class MiniPlayerUITests: XCTestCase {
         _ = restingFrame(of: bar)
     }
 
+    /// Taps the bar until the details screen is presenting. The bar is hittable and at rest, yet a
+    /// tap can be swallowed while the bar's gesture is still being set up after the book loads
+    /// (a cold first run; #210 saw "no element resolves player.title" after a tap with the app
+    /// idle). The condition is the screen opening, not a delay; a second and third tap are only
+    /// made while the bar is still there with nothing open.
+    func tapBarToOpenDetails(file: StaticString = #filePath, line: UInt = #line) {
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        for _ in 0..<3 {
+            bar.tap()
+            if element(AccessibilityID.Player.close).waitForExistence(timeout: 5) { return }
+            guard bar.exists else { break }
+        }
+        XCTFail("tapping the bar did not open the details screen", file: file, line: line)
+    }
+
     func test_miniPlayer_identifiersResolve() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")
 
@@ -104,7 +119,7 @@ final class MiniPlayerUITests: XCTestCase {
         try loadSeededBook(titled: "Seeded Chaptered Book")
         let bar = element(AccessibilityID.MiniPlayer.bar)
 
-        bar.tap()
+        tapBarToOpenDetails()
 
         assertResolves(AccessibilityID.Player.title)
         XCTAssertEqual(element(AccessibilityID.Player.title).label, "Seeded Chaptered Book")
