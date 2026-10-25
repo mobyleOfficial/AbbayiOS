@@ -2,6 +2,7 @@
 # rubocop:disable Style/MultilineOperationIndentation, Style/StringConcatenation, Metrics/BlockLength
 
 require 'yaml'
+require_relative 'build_number'
 
 default_platform(:ios)
 
@@ -103,6 +104,10 @@ generates the project once and reuses that build for both suites, rather than le
     Dir.chdir('..') do
       message('SwiftLint (strict)')
       sh 'bundle exec Scripts/swiftlint --strict --quiet'
+
+      # Outside the bundle: minitest ships with Ruby but is not in the Gemfile.
+      message('Release build-number tests')
+      Bundler.with_unbundled_env { sh 'ruby fastlane/test/build_number_test.rb' }
     end
 
     generate_project(open: false)
@@ -181,9 +186,29 @@ generates the project once and reuses that build for both suites, rather than le
     vars.reject { |_, value| value.empty? }
   end
 
+  # The fastlane API key hash for App Store Connect actions (TestFlight lookup and upload).
+  def testflight_api_key(key)
+    source = key[:key_filepath] ? { key_filepath: key[:key_filepath] } : { key_content: key[:key_content] }
+    app_store_connect_api_key(key_id: key[:key_id], issuer_id: key[:issuer_id], **source)
+  end
+
+  # The build number for this release (see fastlane/build_number.rb). With a key it asks
+  # TestFlight for the latest build across all versions (read-only); an app with no builds yet
+  # reads as 0. Never writes the version file.
+  def release_build_plan(api_key, requested)
+    version_build = File.read('../version').split[1]
+    latest = api_key && latest_testflight_build_number(api_key: api_key, initial_build_number: 0)
+    BuildNumber.plan(version_file_build: version_build, testflight_latest: latest, requested: requested)
+  rescue BuildNumber::Error => e
+    UI.user_error!(e.message)
+  end
+
   desc "Archives a Release build, checks it, exports an App Store .ipa and uploads it to TestFlight
 
-1. Generates the project and stamps the version from the `version` file.
+1. Picks the build number (fastlane/build_number.rb, #183): with an API key,
+   max(latest TestFlight build, `version` file) + 1; without one, the `version` file's number
+   (no upload, so nothing to collide with). Generates the project, stamps the marketing version
+   from `version` and that build number into the generated project. `version` is never written.
 2. Archives Release for `generic/platform=iOS` to build/Abbay.xcarchive.
 3. Runs Scripts/check-app-binary on the archived .app: load paths (#142), entitlements, no
    Debug-only resources.
@@ -193,13 +218,34 @@ generates the project once and reuses that build for both suites, rather than le
    stops after the .ipa with a message, so it is runnable locally.
 
 Env: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID, and
-APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path)."
-  lane :release do
+APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path).
+
+#### Optional parameters
+  * dry_run: false - Resolve the key and the build number, print the plan, stop before building
+  * build_number: <n> - Use this build number; with a key it must be above TestFlight's latest"
+  lane :release do |options|
     key = app_store_connect_key_env # before the build, so a missing secret fails fast
+    api_key = key && testflight_api_key(key)
+    build_plan = release_build_plan(api_key, options[:build_number])
+    message(build_plan.explanation)
+
+    if options[:dry_run].to_s == 'true'
+      marketing_version = File.read('../version').split[0]
+      message("Dry run: would archive #{project_name} #{marketing_version} (#{build_plan.build_number}), " \
+              "check it, export #{project_name}.ipa and " +
+              (api_key ? 'upload it to TestFlight' : 'stop before uploading (no API key)'))
+      message('Dry run: nothing built, the version file is unchanged')
+      next
+    end
+
     generate_project(open: false)
     setup_ci if ENV['CI']
 
     project_dir = File.expand_path('..', Dir.pwd)
+    increment_build_number(
+      build_number: build_plan.build_number.to_s,
+      xcodeproj: "#{project_dir}/#{project_name}.xcodeproj"
+    )
     build_dir = "#{project_dir}/build"
     archive_path = "#{build_dir}/#{project_name}.xcarchive"
     ipa_name = "#{project_name}.ipa"
@@ -265,12 +311,7 @@ APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (
         next
       end
 
-      message('Uploading to TestFlight')
-      api_key = app_store_connect_api_key(
-        key_id: key[:key_id],
-        issuer_id: key[:issuer_id],
-        key_filepath: key_file
-      )
+      message("Uploading build #{build_plan.build_number} to TestFlight")
       upload_to_testflight(
         api_key: api_key,
         ipa: ipa_path,

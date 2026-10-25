@@ -37,18 +37,56 @@ protocol SiriLogSink {
 }
 
 /// Writes events to `Log.siri` (`os.Logger`, category "Siri"), with the messages and levels the
-/// app has always used.
+/// app has always used. A thin wrapper: the text, level and privacy come from
+/// `SiriLogEvent.record`, which is what the tests pin (#190).
 struct OSSiriLogSink: SiriLogSink {
     func log(_ event: SiriLogEvent) {
-        switch event {
+        let record = event.record
+        // `os.Logger` fixes privacy per interpolation at compile time, so each combination is
+        // spelled out rather than passed as a value.
+        switch (record.level, record.privacy) {
+        case (.debug, .public): Log.siri.debug("\(record.message, privacy: .public)")
+        case (.debug, .private): Log.siri.debug("\(record.message, privacy: .private)")
+        case (.info, .public): Log.siri.info("\(record.message, privacy: .public)")
+        case (.info, .private): Log.siri.info("\(record.message, privacy: .private)")
+        case (.error, .public): Log.siri.error("\(record.message, privacy: .public)")
+        case (.error, .private): Log.siri.error("\(record.message, privacy: .private)")
+        }
+    }
+}
+
+/// The `os.Logger` level a `SiriLogRecord` is written at.
+enum SiriLogLevel: Equatable {
+    case debug, info, error
+}
+
+/// Whether a record's message shows in the unified log (`.public`) or is redacted to `<private>`
+/// (`.private`).
+enum SiriLogPrivacy: Equatable {
+    case `public`, `private`
+}
+
+/// Exactly what `OSSiriLogSink` writes for one event. A pure value, so tests pin the text a
+/// sysdiagnose shows without reading the unified log back (#181, #190).
+struct SiriLogRecord: Equatable {
+    let level: SiriLogLevel
+    let message: String
+    let privacy: SiriLogPrivacy
+}
+
+extension SiriLogEvent {
+    /// The record `OSSiriLogSink` writes. Every event is `.public`: the cases carry only counts and
+    /// error domains/codes, never a title.
+    var record: SiriLogRecord {
+        switch self {
         case let .donationFailed(domain, code):
-            Log.siri.error("donation failed: \(domain, privacy: .public) \(code, privacy: .public)")
+            SiriLogRecord(level: .error, message: "donation failed: \(domain) \(code)", privacy: .public)
         case let .publishStarted(bookCount):
-            Log.siri.info("publish: \(bookCount, privacy: .public) books")
+            SiriLogRecord(level: .info, message: "publish: \(bookCount) books", privacy: .public)
         case .publishFinished:
-            Log.siri.debug("publish: finished")
+            SiriLogRecord(level: .debug, message: "publish: finished", privacy: .public)
         case let .spotlightIndexingFailed(domain, code):
-            Log.siri.error("spotlight indexing failed: \(domain, privacy: .public) \(code, privacy: .public)")
+            SiriLogRecord(level: .error, message: "spotlight indexing failed: \(domain) \(code)", privacy: .public)
         }
     }
 }

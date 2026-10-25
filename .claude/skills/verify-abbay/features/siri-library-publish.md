@@ -78,7 +78,9 @@ through an injected `SiriLogSink` (`Abbay/Core/SiriLog.swift`): `OSSiriLogSink` 
 `Log.siri` with every field `.public`, and the `SiriLogEvent` cases carry only counts and error
 domains/codes, so titles have nowhere to go. Tests assert on `RecordingSiriLogSink`; no unit test
 reads the unified log (`OSLogStore` missed entries late in full-suite runs, #181). The exact
-`os.Logger` text is checked live with `log stream`, not by a test.
+`os.Logger` text, level and privacy come from the pure `SiriLogEvent.record` and are pinned by
+`SiriLogRecordTests` (#190); `OSSiriLogSink` only forwards the record to `Log.siri`. A live
+`log stream` read remains the check that the wrapper itself writes.
 
 `AppIntentsTesting` can validate entity queries and Spotlight indexing directly, which makes this
 feature one of the better arguments for taking the Xcode 27 upgrade.

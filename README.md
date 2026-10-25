@@ -91,9 +91,24 @@ Pass `open:false` to `generate_project`, `test_project`, or `generate_app` to sk
 
 `bundle exec fastlane release` produces and uploads a TestFlight build:
 
-1. Generates the project and stamps the version and build number from the `version` file.
-   **Bump the build number (second line) before every upload**: App Store Connect rejects a
-   build number it has already seen.
+1. Picks the build number, generates the project and stamps the marketing version (first line
+   of `version`) and that build number into the generated project (#183):
+   - **With an API key:** `max(latest TestFlight build, version file) + 1`. The latest build is
+     read with `latest_testflight_build_number` across all versions (an app with no builds reads
+     as 0), so consecutive releases upload without editing `version`.
+   - **Without a key:** the `version` file's build number, unchanged. That run never uploads, so
+     it has nothing to collide with; the lane says the number was not checked. (A failure here
+     would block the local IPA, and a timestamp or commit count would permanently inflate the
+     numbers TestFlight then has to exceed.)
+   - **`build_number:<n>`** overrides both; with a key the lane refuses, before archiving, a
+     number that is not above TestFlight's latest.
+
+   The lane never writes `version`: the chosen number lives only in the generated `.xcodeproj`,
+   so `verify` and other local runs leave the file alone. `version` stays the marketing-version
+   source (`fastlane update_version` stamps it); its build number is a floor, raised by hand only
+   to jump ahead. `bundle exec fastlane release dry_run:true` resolves the key and the number,
+   prints the plan and stops before building. The logic is `fastlane/build_number.rb`, tested by
+   `ruby fastlane/test/build_number_test.rb` (also run by `verify`).
 2. Archives Release for `generic/platform=iOS` to `build/Abbay.xcarchive`.
 3. Runs `Scripts/check-app-binary` on the archived app (see below).
 4. Exports `build/export/Abbay.ipa` with `fastlane/ExportOptions-AppStore.plist`
