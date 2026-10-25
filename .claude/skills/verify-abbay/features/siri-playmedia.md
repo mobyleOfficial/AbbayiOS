@@ -33,6 +33,9 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   play request itself (`isPlayRequested`), since the system has already paused the queue player when
   the notification arrives. Donations pass a completion handler; a failure logs
   `donation failed: <domain> <code>` to the `Siri` category at `.error`, never the title (#157).
+  The line goes through an injected `SiriLogSink` (`OSSiriLogSink` → `Log.siri` in the app); its
+  `SiriLogEvent` carries only the domain and code, so a title can't reach it. `IntentDonorLoggingTests`
+  assert on a recording sink, not the unified log (#181).
 - **cross-process state:** the extension cannot touch Core Data. It reads
   `abbay.librarySnapshot.v1` from the App Group, which the app writes on every library mutation.
   `LibrarySnapshotWriter` compiles a no-op `LoadAllAudios` under `ABBAY_INTENTS_EXTENSION`.

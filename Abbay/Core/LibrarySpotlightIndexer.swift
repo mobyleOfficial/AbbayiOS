@@ -26,6 +26,7 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
 
     /// Indexes the items and calls back with the index's outcome.
     private let indexItems: ([CSSearchableItem], @escaping (Error?) -> Void) -> Void
+    private let log: SiriLogSink
 
     /// A named index with `completeUntilFirstUserAuthentication` protection, so the
     /// system can still read these items while the device is locked.
@@ -37,9 +38,11 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
     init(
         indexItems: @escaping ([CSSearchableItem], @escaping (Error?) -> Void) -> Void = { items, done in
             LibrarySpotlightIndexer.index.indexSearchableItems(items, completionHandler: done)
-        }
+        },
+        log: SiriLogSink = OSSiriLogSink()
     ) {
         self.indexItems = indexItems
+        self.log = log
     }
 
     func index(audios: [AudioModel], completion: @escaping () -> Void) {
@@ -48,11 +51,10 @@ final class LibrarySpotlightIndexer: LibrarySpotlightIndexerProtocol {
             completion()
             return
         }
+        let log = log
         indexItems(items) { error in
             if let error = error as NSError? {
-                Log.siri.error(
-                    "spotlight indexing failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
-                )
+                log.log(.spotlightIndexingFailed(error))
             }
             completion()
         }

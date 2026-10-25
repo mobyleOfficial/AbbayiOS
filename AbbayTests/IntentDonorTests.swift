@@ -87,37 +87,52 @@ final class IntentDonorRepeatTests: XCTestCase {
     }
 }
 
-/// A donation's outcome reaches the unified log (#157): a failure with its public error domain and
-/// code, never the book's title.
+/// A donation's outcome is logged (#157): a failure with its public error domain and code, never
+/// the book's title. Asserted on a recording sink rather than the unified log (#181).
 final class IntentDonorLoggingTests: XCTestCase {
     private func book(_ title: String) -> AudioModel {
         AudioModel(title: title, url: URL(string: "file:///\(title).m4b"))
     }
 
     func test_donation_passesACompletionHandler_andLogsAFailure_withoutTheTitle() throws {
-        let since = Date()
+        let log = RecordingSiriLogSink()
         var completion: ((Error?) -> Void)?
-        let donor = IntentDonor(donate: { _, handler in completion = handler })
+        let donor = IntentDonor(donate: { _, handler in completion = handler }, log: log)
 
         donor.donatePlayMedia(model: book("SecretTitle157"))
         try XCTUnwrap(completion, "the donation must be given a completion handler")(
-            NSError(domain: "IntentsErrorDomain", code: 1901)
+            NSError(
+                domain: "IntentsErrorDomain",
+                code: 1901,
+                userInfo: [NSLocalizedDescriptionKey: "Couldn't donate SecretTitle157"]
+            )
         )
 
-        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "donation failed")
-        let failure = try XCTUnwrap(messages.first { $0.contains("donation failed") }, "\(messages)")
-        XCTAssertTrue(failure.contains("IntentsErrorDomain"), failure)
-        XCTAssertTrue(failure.contains("1901"), failure)
-        XCTAssertFalse(messages.contains { $0.contains("SecretTitle157") }, "\(messages)")
+        XCTAssertEqual(log.events, [.donationFailed(domain: "IntentsErrorDomain", code: 1901)])
+        XCTAssertFalse(log.events.contains { String(describing: $0).contains("SecretTitle157") }, "\(log.events)")
     }
 
-    func test_successfulDonation_logsNoFailure() throws {
-        let since = Date()
-        let donor = IntentDonor(donate: { _, handler in handler(nil) })
+    func test_successfulDonation_logsNoFailure() {
+        let log = RecordingSiriLogSink()
+        let donor = IntentDonor(donate: { _, handler in handler(nil) }, log: log)
 
         donor.donatePlayMedia(model: book("Fine"))
 
-        let messages = try LoggedMessages.messages(category: "Siri", since: since)
-        XCTAssertFalse(messages.contains { $0.contains("donation failed") }, "\(messages)")
+        XCTAssertEqual(log.events, [])
+    }
+
+    /// The failure event keeps an error's domain and code and drops the rest: its description and
+    /// user info can carry a title or a file path.
+    func test_failureEvent_keepsOnlyDomainAndCode() {
+        let error = NSError(
+            domain: "IntentsErrorDomain",
+            code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "SecretTitle181", NSFilePathErrorKey: "/private/SecretTitle181.m4b"]
+        )
+
+        let event = SiriLogEvent.donationFailed(error)
+
+        XCTAssertEqual(event, .donationFailed(domain: "IntentsErrorDomain", code: 7))
+        XCTAssertFalse(String(describing: event).contains("SecretTitle181"))
     }
 }

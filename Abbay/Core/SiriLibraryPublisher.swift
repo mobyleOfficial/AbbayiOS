@@ -49,6 +49,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     private let vocabulary: (NSOrderedSet) -> Void
     private let refreshShortcutParameters: () -> Void
     private let lastPlayed: LastPlayedStore
+    private let log: SiriLogSink
 
     init(
         mediaUserContextDonor: MediaUserContextDonorProtocol = MediaUserContextDonor.shared,
@@ -59,13 +60,15 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         refreshShortcutParameters: @escaping () -> Void = {
             AbbayAppShortcuts.updateAppShortcutParameters()
         },
-        lastPlayed: LastPlayedStore = .shared
+        lastPlayed: LastPlayedStore = .shared,
+        log: SiriLogSink = OSSiriLogSink()
     ) {
         self.mediaUserContextDonor = mediaUserContextDonor
         self.spotlightIndexer = spotlightIndexer
         self.vocabulary = vocabulary
         self.refreshShortcutParameters = refreshShortcutParameters
         self.lastPlayed = lastPlayed
+        self.log = log
     }
 
     /// Only Spotlight reports completion. `INVocabulary`, `INMediaUserContext.becomeCurrent()` and
@@ -79,10 +82,11 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
         SiriDiagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
         // The unified-log twin of the diagnostics line (#157). The count only, never titles.
-        Log.siri.info("publish: \(audios.count, privacy: .public) books")
+        log.log(.publishStarted(bookCount: audios.count))
         refreshShortcutParameters()
+        let log = log
         indexing.notify(queue: .main) {
-            Log.siri.debug("publish: finished")
+            log.log(.publishFinished)
             completion()
         }
     }
