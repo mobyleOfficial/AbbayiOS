@@ -10,7 +10,8 @@ once the book is in the library. The only way to add a LibriVox book.
   the LibriVox API when the item matches one). While loading it shows a `ProgressView`; on failure
   *"Couldn't load this book."* and a **Retry** button (`detail.retry`) that reloads.
 - **header:** cover (`AsyncImageView`, see *cover-loading* below), title, author, then
-  `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour) and the
+  `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour; the count
+  is a plural variant, `1 chapter` / `1 capítulo`, `0 capítulos` in pt-BR, #180) and the
   whole-book download size (`ByteSize.text`, summed over the chapter files). The language name and
   the size follow the **in-app** language (`AbbayBundle.locale`), not the device's: English on a
   Portuguese device reads "English" and "29.7 MB", not "inglês" and "29,7 MB" (#152, #166). The

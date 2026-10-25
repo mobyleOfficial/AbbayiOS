@@ -260,7 +260,7 @@ final class LocalizationTests: XCTestCase {
     func test_proseKeysAreTranslatedToPortuguese() {
         var english: [String: String] = [:]
         for key in proseKeys {
-            english[key.rawValue] = key.localized
+            english[key.rawValue] = key.comparableText
         }
 
         XCTAssertTrue(
@@ -269,7 +269,7 @@ final class LocalizationTests: XCTestCase {
         )
 
         for key in proseKeys {
-            let translated = key.localized
+            let translated = key.comparableText
             XCTAssertFalse(translated.isEmpty, "\(key.rawValue) is empty in pt-BR")
             XCTAssertNotEqual(translated, key.rawValue, "\(key.rawValue) has no pt-BR entry")
             XCTAssertNotEqual(
@@ -334,5 +334,58 @@ final class LocalizationTests: XCTestCase {
             Localizable.miniPlayerSubtitle.localized(with: 35, "12 min", 12),
             "Capítulo 35 · 12 min restantes"
         )
+    }
+}
+
+/// Count strings that pick a plural variant from their number (#180: a one-chapter LibriVox book
+/// read "1 chapters").
+final class LocalizationPluralTests: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        AbbayBundle.languageCode = nil
+    }
+
+    override func tearDownWithError() throws {
+        AbbayBundle.value.unsetLocalizedLanguage()
+        AbbayBundle.languageCode = nil
+        try super.tearDownWithError()
+    }
+
+    /// A one-chapter LibriVox book read "1 chapters" (#180): the count picks a plural variant.
+    func test_chaptersCount_isSingularForOneAndPluralOtherwise_inEnglish() {
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 1), "1 chapter")
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 2), "2 chapters")
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 0), "0 chapters")
+    }
+
+    /// Portuguese counts 0 as singular, so 0 has its own variant: "0 capítulos", not "0 capítulo".
+    func test_chaptersCount_isSingularForOneAndPluralOtherwise_inPortuguese() {
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 1), "1 capítulo")
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 2), "2 capítulos")
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 0), "0 capítulos")
+    }
+
+    /// The in-app language override (`AbbayBundle.languageCode`) picks the variant too, which is
+    /// how the app switches language at run time.
+    func test_chaptersCount_followsTheInAppLanguage() {
+        AbbayBundle.languageCode = "pt-BR"
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 1), "1 capítulo")
+        AbbayBundle.languageCode = "en"
+        XCTAssertEqual(Localizable.chaptersCount.localized(with: 1), "1 chapter")
+    }
+}
+
+private extension Localizable {
+    /// Keys with plural variants, whose raw table value is the same `%#@value@` placeholder in
+    /// every language: only a formatted count shows their text.
+    static let pluralKeys: Set<Localizable> = [.chaptersCount]
+
+    /// What the translation check compares: the string itself, or a plural key formatted.
+    var comparableText: String {
+        Self.pluralKeys.contains(self) ? localized(with: 2) : localized
     }
 }
