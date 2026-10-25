@@ -37,13 +37,51 @@ final class ChapterListViewTests: XCTestCase {
         XCTAssertFalse(ChapterListView.showsProgress(complete))
     }
 
-    // MARK: - Low Data Mode hint (#148)
+    // MARK: - Hold hint (#148, #171)
 
-    func test_showsLowDataModeHint_onlyWhenHeldAndStillDownloading() {
-        XCTAssertTrue(ChapterListView.showsLowDataModeHint(partial, isHeldByLowDataMode: true))
-        XCTAssertFalse(ChapterListView.showsLowDataModeHint(partial, isHeldByLowDataMode: false))
-        XCTAssertFalse(ChapterListView.showsLowDataModeHint(complete, isHeldByLowDataMode: true))
-        XCTAssertFalse(ChapterListView.showsLowDataModeHint(nil, isHeldByLowDataMode: true))
+    func test_shownHold_onlyWhenHeldAndStillDownloading() {
+        for hold in NetworkHold.allCases {
+            XCTAssertEqual(ChapterListView.shownHold(partial, hold: hold), hold)
+            XCTAssertNil(ChapterListView.shownHold(complete, hold: hold))
+            XCTAssertNil(ChapterListView.shownHold(nil, hold: hold))
+        }
+        XCTAssertNil(ChapterListView.shownHold(partial, hold: nil))
+    }
+
+    /// Each hold has its own text and id on both screens; Low Data Mode keeps its #148 ids.
+    func test_holds_haveDistinctTextsAndIdentifiers() {
+        let holds = NetworkHold.allCases
+        XCTAssertEqual(Set(holds.map(\.message)).count, holds.count)
+        XCTAssertEqual(Set(holds.map(\.systemImage)).count, holds.count)
+        XCTAssertEqual(
+            holds.map(\.detailIdentifier),
+            ["detail.cellularHold", "detail.hotspotHold", "detail.lowDataMode"]
+        )
+        XCTAssertEqual(
+            holds.map(\.playerIdentifier),
+            ["player.download.cellularHold", "player.download.hotspotHold", "player.download.lowDataMode"]
+        )
+    }
+
+    // MARK: - Download ring (#171)
+
+    func test_ringLabel_saysPaused_thePercent_orThePercentAndWhy() {
+        let paused = BookDownloadState(chapters: [.downloaded, .waiting], isPaused: true, fraction: 0.5)
+
+        XCTAssertEqual(DownloadRingView.label(state: partial, hold: nil), "Downloading, 70%")
+        XCTAssertEqual(
+            DownloadRingView.label(state: partial, hold: .cellular),
+            "Downloading, 70%. Waiting for Wi-Fi: on cellular"
+        )
+        XCTAssertEqual(DownloadRingView.label(state: paused, hold: .cellular), "Paused")
+    }
+
+    func test_ringGlyph_isPlayWhenPaused_theHoldsWhenHeld_andNoneOtherwise() {
+        let paused = BookDownloadState(chapters: [.downloaded, .waiting], isPaused: true, fraction: 0.5)
+
+        XCTAssertNil(DownloadRingView.glyph(state: partial, hold: nil))
+        XCTAssertEqual(DownloadRingView.glyph(state: partial, hold: .personalHotspot), "personalhotspot")
+        XCTAssertEqual(DownloadRingView.glyph(state: paused, hold: .personalHotspot), "play.fill")
     }
 
     // MARK: - No chapters (#115)

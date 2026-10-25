@@ -23,8 +23,10 @@ root), and sends actions through `MediaViewModel` straight to `PlaybackCenter.pl
 - **download-ring:** for a LibriVox book whose download is incomplete, a `DownloadRingView` sits
   before the play button (`library.row.<n>.downloadRing`). Tapping it pauses a running download or
   resumes a paused one (a paused ring shows a play glyph); its accessibility label is *"Downloading,
-  N%"* or *"Paused"*. It disappears when the book is complete and never exists for imported books.
-  See [downloads](downloads.md).
+  N%"* or *"Paused"*. A *Wait for Wi-Fi* book the network holds shows the hold's glyph inside the
+  ring (light grey) and adds why: *"Downloading, 33%. Waiting for Wi-Fi: on cellular"* (#171; the
+  reasons are in [downloads](downloads.md) *hold-hint*). It disappears when the book is complete and
+  never exists for imported books.
 - **created-while-loaded:** a row built after its book was already loaded (the list is filtered or
   scrolled back into view, or playback began from Siri, CarPlay or another tab) shows it playing with no
   play event to catch, because it compares its URL with `PlaybackState.loadedBook` (#116;
@@ -67,8 +69,11 @@ $B tap library.row.1.play                    # row 0 must stop reporting playing
 "Ch 1/3" for the chaptered seed, the time left for the plain one), `library.row.<n>.play`
 (also used by `MiniPlayerUITests` to load a seeded book).
 
-**Implemented but unverified:** `library.row.<n>.downloadRing` — the stub download manager reports no
-state, so no UI test can make a ring appear.
+`library.row.<n>.downloadRing` is verified by `DownloadStatusUITests`
+(`test_libraryRing_saysWhyTheDownloadWaits_andPausedOnceTapped`): with `-stubDownloadStates
+-stubPathCellular` the stub book added with *Wait for Wi-Fi* shows a ring labelled *"Downloading,
+33%. Waiting for Wi-Fi: on cellular"*, and *"Paused"* once tapped. Label and glyph rules:
+`ChapterListViewTests` (*Download ring*).
 
 `library.row.<n>.title` doubles as the row handle: the tap gesture sits on the whole row, so
 tapping the title opens the details screen. There is deliberately no identifier on the row container —

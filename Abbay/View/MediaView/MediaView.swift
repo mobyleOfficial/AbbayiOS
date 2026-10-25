@@ -41,7 +41,8 @@ struct MediaView: View {
     // MARK: - Body
     var body: some View {
         let entry = book.librivoxID.flatMap { downloads?.entry(for: $0) }
-        let detail = DetailModel(book: book, state: playback, entry: entry)
+        let hold = book.librivoxID.flatMap { downloads?.hold(bookID: $0, allowsCellular: book.allowsCellularDownload) }
+        let detail = DetailModel(book: book, state: playback, entry: entry, hold: hold)
         HStack {
             DataImageView(data: book.imageData)
                 .accessibilityIdentifier(AccessibilityID.Element.artwork(namespace))
@@ -61,7 +62,7 @@ struct MediaView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, SpaceConstants.sx8.value)
             if let state = detail.downloadState {
-                DownloadRingView(state: state) { actions.toggleDownload() }
+                DownloadRingView(state: state, hold: detail.downloadHold) { actions.toggleDownload() }
                     .padding(.leading, SpaceConstants.sx8.value)
                     .accessibilityIdentifier(AccessibilityID.Element.downloadRing(namespace))
             }
@@ -99,8 +100,10 @@ extension MediaView {
         /// From the book's saved fields; the loaded row shows `RowProgressView` instead.
         let detailLine: String
         let downloadState: BookDownloadState?
+        /// Why the network holds the download, for the ring (`DownloadStateStore.hold`).
+        let downloadHold: NetworkHold?
 
-        init(book: AudioModel, state: PlaybackState, entry: BookDownloadEntry?) {
+        init(book: AudioModel, state: PlaybackState, entry: BookDownloadEntry?, hold: NetworkHold? = nil) {
             isLoaded = book.url != nil && state.loadedBook?.url == book.url
             isPlaying = isLoaded && state.isPlaying
             detailLine = MediaView.detailLine(
@@ -109,6 +112,7 @@ extension MediaView {
                 bookTime: book.currentTime
             )
             downloadState = entry?.state
+            downloadHold = hold
         }
     }
 

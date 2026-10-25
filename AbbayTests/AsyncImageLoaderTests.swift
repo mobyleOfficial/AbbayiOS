@@ -346,6 +346,26 @@ final class AsyncImageLoaderTests: XCTestCase {
         XCTAssertFalse(policy.allows(try XCTUnwrap(URL(string: "file:///dev/null/cover.jpg"))))
     }
 
+    // MARK: - Waiting
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: () -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while !condition() {
+            guard clock.now < deadline else {
+                XCTFail("condition not met within \(timeout)")
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+}
+
+/// The bytes path `LibriVoxClient.coverData` saves artwork through (#175).
+extension AsyncImageLoaderTests {
     // MARK: - Cover bytes (#175)
 
     func test_coverData_whenOnDisk_returnsTheStoredBytes_withoutARequest() async throws {
@@ -411,23 +431,6 @@ final class AsyncImageLoaderTests: XCTestCase {
         XCTAssertEqual(network.requests.count, 1)
         XCTAssertNotNil(loadedImage)
         XCTAssertEqual(loadedBytes, data)
-    }
-
-    // MARK: - Waiting
-
-    private func waitUntil(
-        timeout: Duration = .seconds(2),
-        _ condition: () -> Bool
-    ) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-        while !condition() {
-            guard clock.now < deadline else {
-                XCTFail("condition not met within \(timeout)")
-                return
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
     }
 }
 

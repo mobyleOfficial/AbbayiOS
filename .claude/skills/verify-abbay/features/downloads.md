@@ -41,13 +41,20 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   kept) and the chapter starts afresh, and `restore()` cancels a still-running task whose request
   allows one (`runningIDsAllowingMeteredNetworks`, `cancel(ids:)`) and starts it again. Either way
   the chapter's progress so far is lost.
-- **low-data-mode-hint:** while a *Wait for Wi-Fi* book (cellular not allowed) is incomplete and not
-  paused, and the path is Wi-Fi in Low Data Mode (`NetworkPathSnapshot.isLowDataModeWiFi`: satisfied,
-  constrained, not expensive, not cellular-only), the details screen and the LibriVox page show
-  *"Waiting: Low Data Mode is on"* / *"Aguardando: Modo Dados Reduzidos ativado"* under the progress
-  bar (`player.download.lowDataMode`, `detail.lowDataMode`). On cellular or a hotspot there is no
-  hint: the book waits as asked. Read through `DownloadStateStore.lowDataMode` /
-  `isHeldByLowDataMode(bookID:allowsCellular:)`.
+- **hold-hint:** while a *Wait for Wi-Fi* book (cellular not allowed) is incomplete and not paused,
+  and the path is metered and online, the details screen and the LibriVox page say why under the
+  progress bar, and the Library ring adds it to its label (#148, #171). The reason is
+  `NetworkPathSnapshot.hold`, checked in this order:
+
+  | Path | Text (en / pt-BR) | Ids (detail / player) | Glyph |
+  |---|---|---|---|
+  | cellular only | *Waiting for Wi-Fi: on cellular* / *Aguardando Wi-Fi: na rede celular* | `detail.cellularHold` / `player.download.cellularHold` | `antenna.radiowaves.left.and.right` |
+  | expensive Wi-Fi (Personal Hotspot) | *Waiting for Wi-Fi: on a Personal Hotspot* / *Aguardando Wi-Fi: em um Acesso Pessoal* | `detail.hotspotHold` / `player.download.hotspotHold` | `personalhotspot` |
+  | Wi-Fi in Low Data Mode | *Waiting: Low Data Mode is on* / *Aguardando: Modo Dados Reduzidos ativado* | `detail.lowDataMode` / `player.download.lowDataMode` | `wifi.exclamationmark` |
+
+  Offline or on unmetered Wi-Fi there is no hint. Read through `DownloadStateStore.networkHold` /
+  `hold(bookID:allowsCellular:)`, which reads the path only for a book it could hold, so idle rows
+  don't follow it. The ring: see [media-row](media-row.md) *download-ring*.
 - **restore:** on every launch (after any `-seedLibrary`/`-resetLibrary` seeding) `restore()`
   re-attaches to tasks the system kept running and restarts the missing chapters of every
   LibriVox book in the Library. The system can also relaunch the app in the background to deliver
@@ -74,10 +81,26 @@ look at the chapter list; background the app or lock the phone and come back.
 ## Driving it with abbay-ctl
 
 Real downloads are **not drivable in the UI-test configuration**: `-stubLibriVox` swaps in
-`UITestDownloadManager`, whose `statesPublisher` is permanently empty and whose `enqueue`, `pause`,
-`resume`, `remove`, `restore`, `prioritize` and `retry` do nothing. The ring, progress bar and statuses
-therefore never render under the stub. A real run needs the network, no `-stubLibriVox`, and a
-LibriVox book chosen deliberately small:
+`UITestDownloadManager`, which downloads nothing. Alone, its `statesPublisher` stays empty. With
+**`-stubDownloadStates`** (#171) the stub book is 120 MB in three chapters, and every book enqueued gets
+a fixed state: chapter 0 downloaded, 1 waiting, 2 failed (33%); pause and resume flip `isPaused` and
+retry sets the chapter back to waiting. **`-stubPathCellular`**, **`-stubPathHotspot`** or
+**`-stubPathLowDataMode`** fix the path the download screens read (`NetworkPathMonitor.app`), so
+Download asks and *Wait for Wi-Fi* produces each hold:
+
+```bash
+$B launch -stubLibriVox -resetLibrary -resetSettings -stubDownloadStates -stubPathCellular
+$B tap root.tab.search && $B tap search.card.0
+$B tap detail.download && $B tap detail.cellular.wait     # the 120 MB alert
+$B wait detail.progress && $B wait detail.cellularHold    # "Waiting for Wi-Fi: on cellular"
+$B tap detail.chapter.2.retry                             # the retry button goes away
+$B tap root.tab.library && $B wait library.row.0.downloadRing
+# label "Downloading, 33%. Waiting for Wi-Fi: on cellular"; tap → "Paused"
+$B tap library.row.0.title && $B wait player.download.cellularHold
+```
+
+Real transfers still need the network, no `-stubLibriVox`, and a LibriVox book chosen deliberately
+small:
 
 ```bash
 $B launch -seedLibrary                        # real catalog; needs network
@@ -89,21 +112,26 @@ $B snapshot | jq '.elements[] | select(.id|startswith("detail.chapter"))'
 $B terminate && $B launch                     # restore: ring and statuses come back
 ```
 
-**Verified:** nothing in this file by UI test.
+**Verified** by `DownloadStatusUITests`, under the stubs above: `detail.progress`,
+`detail.cellularHold`, `detail.hotspotHold`, `detail.lowDataMode` (with their en texts),
+`detail.chapter.2.retry` and retrying it, `player.download.progress`, `player.download.lowDataMode`,
+`player.download.hotspotHold`, `player.chapter.2.retry`, and `library.row.0.downloadRing` (its held
+label, then *Paused* once tapped).
 
-**Implemented but unverified** (attached in the views, never resolved by a UI test):
-`library.row.<n>.downloadRing`,
-`detail.progress`, `detail.lowDataMode`, `detail.chapter.<n>`, `detail.chapter.<n>.retry`,
-`player.download.progress`, `player.download.lowDataMode`,
-`player.chapter.<n>.retry`. A failed chapter can't be produced under `-stubLibriVox` at all.
+**Implemented but unverified by UI test:** `player.download.cellularHold` (same view and mapping as
+the verified hotspot and Low Data Mode ids; covered by `ChapterListViewTests`), and anything to do
+with real transfers (below).
 
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, backoff and
 cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove,
 failures kept across a relaunch, metered pre-#134 tasks restarted on restore),
 `ChapterFailureStoreTests`, `ResumeDataInspectorTests` and `DownloadProviderTests` (resume data
 allowing metered networks refused, `runningIDsAllowingMeteredNetworks`, `cancel(ids:)`),
-`DownloadStateStoreTests` (Low Data Mode hold), `LocalizationTests` (statuses stay short),
-`CellularDownloadPolicyTests` and `NetworkPathSnapshotTests` (hotspot and Low Data Mode are metered),
+`DownloadStateStoreTests` (which book a path holds, and that idle rows don't read the path),
+`LocalizationTests` (statuses stay short, the ring's held label),
+`CellularDownloadPolicyTests` (hotspot and Low Data Mode are metered; `NetworkPathSnapshot.hold` for
+every path, set exactly when the path is metered and online),
+`DebugOverridesTests` (the `-stubDownloadStates` / `-stubPath*` stand-ins),
 `DownloadProviderTests` (no cellular also means no expensive or constrained network),
 `MediaViewModelTests` (ring state, pause toggle), `ChapterListViewTests` (when statuses, progress and
 the retry button show), `LibriVoxDetailViewModelTests` / `PlayerViewModelTests` (retry forwards to the
@@ -113,13 +141,14 @@ manager), `PlayerMultiFileTests` (prefers local file, prioritizes the chapter),
 **Not verified at all in this repo:** background transfer while the app is suspended or the phone is
 locked, relaunch-by-the-system delivery, resume across a force quit, and cellular, Personal Hotspot
 and Low Data Mode behaviour on a real network (including whether a background session honours the
-request's expensive/constrained flags), and the Low Data Mode hint on a real constrained Wi-Fi. These
+request's expensive/constrained flags), and the hold hints on a real cellular, hotspot or
+constrained Wi-Fi path (whether `NWPath` reports them as `NetworkPathSnapshot.hold` expects). These
 need a device (#128); only the manager's logic against a mock provider is covered.
 `ResumeDataInspector` was checked against real resume data from a macOS URLSession download (its
 format: a keyed archive under `NSKeyedArchiveRootObjectKey` whose request entries are archived
 `NSMutableURLRequest`s); iOS resume data from the background session is a device check (#128).
-The hint and the shorter pt-BR status were driven live on iPhone 17 and iPhone SE (3rd gen)
-simulators with a temporary, uncommitted stub (see #148's PR); a committed stub that makes these ids UI-testable is #171.
+The hints and the shorter pt-BR status were first driven with a temporary stub (#148's PR); since
+#171 the committed `-stubDownloadStates` / `-stubPath*` arguments do it.
 
 ## Gotchas
 
@@ -129,12 +158,13 @@ simulators with a temporary, uncommitted stub (see #148's PR); a committed stub 
   asked about, shows no ring. `MediaViewModel`, `PlayerViewModel` and the details page all filter on
   `!isComplete`.
 - **Wait for Wi-Fi still enqueues.** The book is added and its chapters show *Waiting*; cellular,
-  hotspots and Low Data Mode are simply not allowed for its tasks. With Low Data Mode on for the
-  home Wi-Fi, such a book waits until it is turned off, and says so (*low-data-mode-hint*).
+  hotspots and Low Data Mode are simply not allowed for its tasks. On any of them such a book waits,
+  and says which (*hold-hint*).
 - **Failure counts outlive a relaunch, not a reinstall.** They live in the app's
   `UserDefaults`; deleting the app clears them with the files.
 - **Pause is a toggle on a tiny target.** The ring is 22 pt; its accessibility label is
-  *"Downloading, N%"* or *"Paused"*, which is the evidence for its state when no state id exists.
+  *"Downloading, N%"*, *"Downloading, N%. <hold text>"* or *"Paused"*, which is the evidence for its
+  state when no state id exists.
 - A restored book is held in a restoring state until the manager knows which tasks are still running,
   so nothing starts twice; assertions straight after launch can see *Waiting* briefly.
 - The manager keys everything by the archive.org identifier, not a LibriVox catalog ID; a

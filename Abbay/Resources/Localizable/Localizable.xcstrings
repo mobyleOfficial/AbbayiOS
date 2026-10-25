@@ -85,6 +85,60 @@
         }
       }
     },
+    "cellularHoldWaiting" : {
+      "comment" : "Under a book's download progress: a Wait-for-Wi-Fi book is held because the phone is on cellular data",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Wi-Fi: on cellular"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aguardando Wi-Fi: na rede celular"
+          }
+        }
+      }
+    },
+    "hotspotHoldWaiting" : {
+      "comment" : "Under a book's download progress: a Wait-for-Wi-Fi book is held because the Wi-Fi is another phone's Personal Hotspot",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Wi-Fi: on a Personal Hotspot"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aguardando Wi-Fi: em um Acesso Pessoal"
+          }
+        }
+      }
+    },
+    "downloadingHeld" : {
+      "comment" : "Library download ring, VoiceOver: the percentage downloaded, then why the download is waiting (one of the hold messages)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading, %1$d%%. %2$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixando, %1$d%%. %2$@"
+          }
+        }
+      }
+    },
     "chapterSelectionTitle" : {
       "comment" : "Chapter selection title",
       "extractionState" : "manual",
@@ -1966,7 +2020,7 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Downloads grandes na rede celular"
+            "value" : "Downloads grandes no celular"
           }
         }
       }
@@ -2020,7 +2074,7 @@
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apenas Wi-Fi"
+            "value" : "Só Wi-Fi"
           }
         }
       }

@@ -36,25 +36,31 @@ final class MockLibriVoxClient: LibriVoxClientProtocol {
     }
 }
 
-/// Setting `isOnline` publishes it synchronously, like a path update arriving.
+/// Setting `isOnline` or `hold` publishes it synchronously, like a path update arriving.
 final class FakeNetworkPath: NetworkPathProviding {
     var isMetered = false
     var isOnline = true {
         didSet { onlineSubject.send(isOnline) }
     }
 
-    var isLowDataMode = false {
-        didSet { lowDataModeSubject.send(isLowDataMode) }
+    var hold: NetworkHold? {
+        didSet { holdSubject.send(hold) }
+    }
+
+    /// Shorthand for `hold == .lowDataMode`.
+    var isLowDataMode: Bool {
+        get { hold == .lowDataMode }
+        set { hold = newValue ? .lowDataMode : nil }
     }
 
     private let onlineSubject = CurrentValueSubject<Bool, Never>(true)
-    private let lowDataModeSubject = CurrentValueSubject<Bool, Never>(false)
+    private let holdSubject = CurrentValueSubject<NetworkHold?, Never>(nil)
 
     var onlinePublisher: AnyPublisher<Bool, Never> {
         onlineSubject.eraseToAnyPublisher()
     }
 
-    var lowDataModePublisher: AnyPublisher<Bool, Never> {
-        lowDataModeSubject.eraseToAnyPublisher()
+    var holdPublisher: AnyPublisher<NetworkHold?, Never> {
+        holdSubject.eraseToAnyPublisher()
     }
 }

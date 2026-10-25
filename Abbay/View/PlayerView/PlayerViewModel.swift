@@ -59,10 +59,11 @@ final class PlayerViewModel {
         return downloads?.entry(for: id)
     }
 
-    /// A Wait-for-Wi-Fi book held only by the Wi-Fi's Low Data Mode: the chapter list says so.
-    var isHeldByLowDataMode: Bool {
-        guard let id = book.librivoxID, let downloads else { return false }
-        return downloads.isHeldByLowDataMode(bookID: id, allowsCellular: book.allowsCellularDownload)
+    /// Why a Wait-for-Wi-Fi book's download is waiting on this network, if it is: the chapter list
+    /// says so.
+    var downloadHold: NetworkHold? {
+        guard let id = book.librivoxID, let downloads else { return nil }
+        return downloads.hold(bookID: id, allowsCellular: book.allowsCellularDownload)
     }
 
     /// The clock for the loaded book, the saved position otherwise. Call it only from a leaf: it

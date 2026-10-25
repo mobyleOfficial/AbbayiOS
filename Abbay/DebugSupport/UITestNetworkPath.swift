@@ -34,8 +34,8 @@ final class UITestNetworkPath: NetworkPathProviding {
         Just(snapshot.isSatisfied).eraseToAnyPublisher()
     }
 
-    var lowDataModePublisher: AnyPublisher<Bool, Never> {
-        Just(snapshot.isLowDataModeWiFi).eraseToAnyPublisher()
+    var holdPublisher: AnyPublisher<NetworkHold?, Never> {
+        Just(snapshot.hold).eraseToAnyPublisher()
     }
 }
 #endif

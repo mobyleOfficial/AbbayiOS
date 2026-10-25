@@ -122,13 +122,23 @@ struct SettingsView: View {
 
     private func downloadsSection(settings: Bindable<AppSettings>) -> some View {
         Section {
-            Picker(Localizable.cellularDownloads.localized, selection: settings.cellularPreference) {
-                Text(Localizable.cellularAsk.localized).tag(CellularDownloadPreference.ask)
-                Text(Localizable.cellularAlways.localized).tag(CellularDownloadPreference.always)
-                Text(Localizable.cellularWifiOnly.localized).tag(CellularDownloadPreference.wifiOnly)
+            // The label is the row's own text, so a long one wraps beside the value rather than
+            // pushing the menu picker's value onto a line of its own (#189). The picker keeps the
+            // label for VoiceOver; the visible copy is hidden from it so it isn't read twice.
+            LabeledContent {
+                Picker(Localizable.cellularDownloads.localized, selection: settings.cellularPreference) {
+                    Text(Localizable.cellularAsk.localized).tag(CellularDownloadPreference.ask)
+                    Text(Localizable.cellularAlways.localized).tag(CellularDownloadPreference.always)
+                    Text(Localizable.cellularWifiOnly.localized).tag(CellularDownloadPreference.wifiOnly)
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityIdentifier(AccessibilityID.Settings.cellular)
+            } label: {
+                Text(Localizable.cellularDownloads.localized)
+                    .accessibilityHidden(true)
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier(AccessibilityID.Settings.cellular)
             LabeledContent(
                 Localizable.spaceUsed.localized,
                 value: model.bytesUsed.map(SettingsViewModel.formatted(bytes:)) ?? Localizable.calculating.localized

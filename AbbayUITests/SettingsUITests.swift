@@ -89,6 +89,26 @@ final class SettingsUITests: XCTestCase {
 
     // MARK: - Settings screen
 
+    /// pt-BR's cellular label was too long for its row, and the menu picker then dropped its value
+    /// under the label (#189). The value must stay on the trailing side, in both languages.
+    func test_cellularPicker_keepsItsValueBesideTheLabel() {
+        for (language, locale) in [("pt-BR", "pt_BR"), ("en", "en_US")] {
+            launch(language: language, locale: locale)
+            openSettings()
+            let picker = element(AccessibilityID.Settings.cellular)
+            for _ in 0..<4 where !(picker.exists && picker.isHittable) {
+                app.swipeUp()
+            }
+            XCTAssertTrue(picker.waitForExistence(timeout: 15))
+
+            XCTAssertGreaterThan(
+                picker.frame.minX,
+                app.frame.midX,
+                "\(language): the value is not on the trailing side (\(picker.frame))"
+            )
+        }
+    }
+
     func test_gear_opensSettings_withEverySection_andDoneCloses() {
         launch()
 

@@ -30,9 +30,9 @@ struct ChapterListView: View {
     var layout: Layout = .list
     var titleIdentifier: String?
     var progressIdentifier: String?
-    /// Shows "Waiting: Low Data Mode is on" under the progress bar (see `showsLowDataModeHint`).
-    var isHeldByLowDataMode = false
-    var lowDataModeIdentifier: String?
+    /// Why the download is waiting on this network, said under the progress bar (see `shownHold`).
+    var hold: NetworkHold?
+    var holdIdentifier: ((NetworkHold) -> String)?
     /// The "No chapters" message shown instead of rows when there are none.
     var emptyIdentifier: String?
     let rowIdentifier: (Int) -> String
@@ -56,10 +56,11 @@ struct ChapterListView: View {
         return !state.isComplete
     }
 
-    /// Why a Wait-for-Wi-Fi book isn't moving: the Wi-Fi is in Low Data Mode, which its tasks are
-    /// kept off. Only while the progress bar shows, so never for a finished book.
-    static func showsLowDataModeHint(_ state: BookDownloadState?, isHeldByLowDataMode: Bool) -> Bool {
-        isHeldByLowDataMode && showsProgress(state)
+    /// Why a Wait-for-Wi-Fi book isn't moving: cellular, a Personal Hotspot or Low Data Mode, which
+    /// its tasks are kept off (#148, #171). Only while the progress bar shows, so never for a
+    /// finished book.
+    static func shownHold(_ state: BookDownloadState?, hold: NetworkHold?) -> NetworkHold? {
+        showsProgress(state) ? hold : nil
     }
 
     static func status(at index: Int, in state: BookDownloadState?) -> ChapterDownloadState? {
@@ -83,8 +84,8 @@ struct ChapterListView: View {
                     .frame(height: SpaceConstants.sx2.value)
                     .accessibilityIdentifier(ifPresent: progressIdentifier)
             }
-            if Self.showsLowDataModeHint(downloadState, isHeldByLowDataMode: isHeldByLowDataMode) {
-                lowDataModeHint
+            if let shown = Self.shownHold(downloadState, hold: hold) {
+                holdHint(shown)
             }
             if Self.showsEmptyState(chapters) {
                 emptyState
@@ -120,15 +121,15 @@ struct ChapterListView: View {
         .accessibilityIdentifier(ifPresent: emptyIdentifier)
     }
 
-    private var lowDataModeHint: some View {
-        Label(Localizable.lowDataModeWaiting.localized, systemImage: "wifi.exclamationmark")
+    private func holdHint(_ hold: NetworkHold) -> some View {
+        Label(hold.message, systemImage: hold.systemImage)
             .font(.caption)
             .foregroundColor(ColorConstants.lightSilver.value)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, spacing)
             .padding(.top, SpaceConstants.sx8.value)
             .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(ifPresent: lowDataModeIdentifier)
+            .accessibilityIdentifier(ifPresent: holdIdentifier?(hold))
     }
 
     private var header: some View {
