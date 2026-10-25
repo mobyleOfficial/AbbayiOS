@@ -106,6 +106,9 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
   suite=group.com.edyuto.abbay` under `[com.edyuto.Abbay:LibrarySnapshot]`.
 - The Spotlight indexer returns early when *every* item is filtered out, so an all-untitled library
   silently indexes nothing.
-- `SiriLibraryPublisher` is `static var shared` so tests can rebind it; the same is true of
-  `LibrarySpotlightIndexer.shared` and `LibrarySnapshotWriter.shared`. Rebind in `setUp`, restore in
+- `SiriLibraryPublisher.shared` is a `let` since #153: `LibrarySnapshotWriter` and
+  `SiriContextRefresher` take their publisher as an init argument, which is where tests inject a
+  spy (and where `NoopSiriLibraryPublisher` keeps a real writer off Siri), and the publisher takes
+  its `SiriDiagnostics` trail. `LibrarySpotlightIndexer.shared` and `LibrarySnapshotWriter.shared`
+  are still `static var`s tests can rebind. Rebind in `setUp`, restore in
   `tearDown`, or tests leak into each other.

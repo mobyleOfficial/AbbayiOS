@@ -77,5 +77,25 @@ final class DebugOverridesTests: XCTestCase {
         XCTAssertNotNil(fromDisk)
         XCTAssertNil(afterReset)
     }
+
+    // MARK: - Siri authorization
+
+    /// #163: a UI test's launch doesn't raise the Siri authorization alert, which raced the first
+    /// tap on a fresh simulator; a normal launch still asks.
+    func test_siriPrompt_isSkippedForAnyLaunchArgument() {
+        for argument in LaunchArgument.all {
+            let arguments = ["/path/to/Abbay", argument]
+            XCTAssertTrue(DebugOverrides.skipsSiriAuthorizationPrompt(arguments: arguments), argument)
+        }
+    }
+
+    func test_siriPrompt_isAskedOnANormalLaunch() {
+        XCTAssertFalse(DebugOverrides.skipsSiriAuthorizationPrompt(arguments: ["/path/to/Abbay"]))
+    }
+
+    func test_launchArgumentAll_listsEveryArgumentOnce() {
+        XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
+        XCTAssertEqual(LaunchArgument.all.count, 13, "a new launch argument belongs in `all`")
+    }
 }
 #endif

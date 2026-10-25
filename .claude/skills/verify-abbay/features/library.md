@@ -40,7 +40,7 @@ The first tab on launch (`root.tab.library`). See [tabs](tabs.md) for the tab ba
 $B launch -seedLibrary -stubLibriVox
 $B wait library.list
 $B tap library.row.0.title                   # → details screen (grows up); close with player.close
-$B tap library.row.0.play && $B wait miniPlayer.bar        # loads the seeded book (no audio)
+$B tap library.row.0.play && $B wait miniPlayer.bar        # plays the seeded book (the Debug fixture's audio)
 $B tap library.toolbar.add && $B tap library.menu.import   # → document picker
 $B swipe library.row.0.title left            # trailing Delete action (no identifier; the row itself is not addressable)
 $B wait library.empty                        # after deleting the last book

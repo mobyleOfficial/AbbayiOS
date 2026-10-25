@@ -101,7 +101,7 @@ Press play on any library row, or Play on a LibriVox details page, then look abo
 
 ```bash
 $B launch -seedLibrary
-$B tap library.row.0.play && $B wait miniPlayer.bar     # a seeded book loads (no audio), the bar shows
+$B tap library.row.0.play && $B wait miniPlayer.bar     # a seeded book plays (the Debug fixture), the bar shows
 $B tap miniPlayer.bar && $B wait player.close            # details screen, grown from the bar
 $B tap player.close && $B wait miniPlayer.bar
 $B drag miniPlayer.bar up                                # planned: finger-tracked expansion
@@ -129,7 +129,8 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
   - *Next chapter* moves to chapter 3 and *Restart chapter* back to 0% of chapter 2
     (`-seedPlayableBook`)
   - *Close player* is labelled, and activating it or the escape scrub collapses into the bar
-  - the progress line's label and value (0% on a seeded book, about 39% on the playable one)
+  - the progress line's label and value (a few % into a seeded book's first chapter, which now
+    plays from 0 s; about 39% on the playable one)
   - play/pause buttons have a label, which flips *Pause* to *Play*
 - Reduce Motion (`-forceReduceMotion`): tap open, chevron close, drag open, grabber collapse and a
   short drag settling closed all land, and afterwards the bar, its play button and a library row
@@ -154,9 +155,15 @@ and run on 26.4 only (#126; 18.5 is #162).
 
 ## Gotchas
 
-- **A seeded book loads without audio.** Its row's play button makes the player announce the
-  book, which is all the bar needs, but nothing plays, so the clock doesn't move. The progress
-  line and the time left stay at the saved position.
+- **A seeded book plays real audio** (#147): the Debug fixture, linked under the seed's name. The
+  clock moves, so the progress line and the time left change while a test runs; pause it if the
+  assertion needs a still position (as `loadPlayableBook` does). Only *Seeded Missing Book*
+  (`-seedMissingFile`) loads without audio.
+- **No Siri alert in UI tests** (#163): a launch with any `LaunchArgument` skips
+  `requestSiriAuthorization`. Before, on a fresh simulator, the alert intercepted the first tap
+  of the run (always `library.row.<n>.play` in `test_miniPlayer_identifiersResolve`); XCTest
+  dismissed it when it was already up, but one that came up after its check swallowed the tap
+  and the bar never appeared.
 - **The playing glyph trusts buffering.** `Player.isPlayingPublisher` counts *waiting* as playing
   only while buffering (`.toMinimizeStalls`, `.evaluatingBufferingRate`), not with no item to play.
   A book whose audio can't load shows *play* rather than a stuck *pause* (Ruling 12,

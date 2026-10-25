@@ -145,7 +145,9 @@ extension MiniPlayerUITests {
         try loadSeededBook(titled: "Seeded Chaptered Book")
 
         XCTAssertEqual(progress.label, "Chapter progress")
-        XCTAssertEqual(progress.value as? String, "0%")
+        // The seed plays from 0 s now (#147): a few seconds into its 100 s first chapter.
+        XCTAssertTrue((progress.value as? String)?.hasSuffix("%") ?? false, "\(String(describing: progress.value))")
+        XCTAssertLessThanOrEqual(try progressPercent(), 15, "\(String(describing: progress.value))")
     }
 
     func test_a11y_progress_valueIsTheChapterFraction() throws {

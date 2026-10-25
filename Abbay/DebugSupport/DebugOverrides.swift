@@ -88,6 +88,18 @@ enum DebugOverrides {
         return nil
     }
 
+    /// True for a UI test's launch (any `LaunchArgument`): the app then doesn't ask for Siri
+    /// authorization. On a fresh simulator that system alert comes up a moment after launch, and
+    /// a tap landing just as it appears goes to the alert instead of the app: XCTest dismisses an
+    /// alert only if it is already up when it checks before the tap (#163). False in Release.
+    static func skipsSiriAuthorizationPrompt(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        #if DEBUG
+        return arguments.contains { LaunchArgument.all.contains($0) }
+        #else
+        return false
+        #endif
+    }
+
     /// Reduce Motion forced on, for `-forceReduceMotion`; `nil` follows the system setting.
     static func reduceMotion(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
         #if DEBUG

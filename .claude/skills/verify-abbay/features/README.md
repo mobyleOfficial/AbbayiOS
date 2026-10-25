@@ -59,7 +59,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
   named in `Abbay/Core/LaunchArgument.swift`. The seeder and the other UI-test stand-ins live in
   `Abbay/DebugSupport/`, which `DebugOverrides` reads and Release builds leave out:
   - `-seedLibrary` — replaces the library with two deterministic books, one chaptered (three
-    chapters) and one without chapters.
+    chapters) and one without chapters. They play real audio (#147): each is a hard link, under
+    its own name in Application Support/`UITestSeedAudio`, to the Debug-only
+    `Christmastide.m4b` fixture (rows are keyed by URL, so each book needs its own file).
   - `-resetLibrary` — empties the library, for the empty state.
   - `-seedFillerBooks` — with `-seedLibrary`, also adds filler books so the list is longer than
     the screen (the mini player's last-row inset test).
@@ -68,12 +70,17 @@ added. Resolve a row by matching its title label rather than assuming an index.
     tests).
   - `-seedPlayableBook` — with `-seedLibrary`, also adds *Seeded Playable Book*: the real
     four-chapter LibriVox m4b from `AbbayTests/Fixtures/Christmastide.m4b`, copied into Debug
-    builds only, saved 200 s in (chapter 2, 39% through it). The one seeded book that plays and
-    seeks, for the mini player's *Next chapter* / *Restart chapter* tests. It makes sound: pause it.
+    builds only, saved 200 s in (chapter 2, 39% through it). The one seeded book whose chapters
+    and duration are the file's own, for the mini player's *Next chapter* / *Restart chapter*
+    tests. It makes sound: pause it.
+  - `-seedMissingFile` — with `-seedLibrary`, also adds *Seeded Missing Book*, whose file doesn't
+    exist: what a moved or renamed import looks like. Play shows the moved-file banner (#139's
+    `NoticeUITests`).
   - `-seedTimeLeftEdges` — with `-seedLibrary`, also adds *Seeded Finished Book* (no chapters,
     saved at its end: the row reads "0s left") and *Seeded Hour Book* (a first chapter of exactly
     one hour: once loaded, the mini player reads "Chapter 1 · 1 hr left"), the time-left edge cases
-    of #152. No audio: loading the hour book also shows the "moved or renamed" notice.
+    of #152. No audio (unlike the other seeds), so their clocks stay put: loading the hour book
+    also shows the "moved or renamed" notice.
   - `-forceReduceMotion` — run with Reduce Motion on whatever the system setting says
     (`DebugOverrides.reduceMotion`, applied as the environment's Reduce Motion in `AppRootView`),
     because XCUITest can't switch the setting.
@@ -96,15 +103,19 @@ added. Resolve a row by matching its title label rather than assuming an index.
     that changes the language, a skip amount or a speed leaves nothing behind (see [settings](settings.md)).
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
-  cumulative. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
-  `DebugOverrides` returns `nil` there. Apart from `-seedPlayableBook`, the seeded models carry
-  **no playable audio**: pressing a seeded row's play button loads the book (the mini player and
-  the row's loaded state appear), but nothing plays and the clock doesn't move, so anything needing real playback — time advancing,
-  tapping a chapter — is unreachable this way. The stub LibriVox book is the same: Play opens the
-  details screen and the mini player appears; its chapter URL is `/dev/null`. Because nothing is
-  there to play, both now also show the error banner (`notice.banner`) for about 5 s: the
-  moved-file notice for a seeded book, *Couldn't play this chapter* for the stub book. It doesn't
-  take touches.
+  cumulative (a book whose file moved included, #176). A launch with any of these arguments
+  (`LaunchArgument.all`) doesn't ask for Siri authorization, so a fresh simulator shows no
+  *"Would you like to use Abbay with Siri?"* alert to race the first tap (#163); launch without
+  arguments to see it. All of them are DEBUG-only: the `UITest*` files are excluded from Release and
+  `DebugOverrides` returns `nil` there, and Release excludes the fixture too
+  (`EXCLUDED_SOURCE_FILE_NAMES`). The seeded books **play** (#147): pressing a seeded row's play
+  button plays the fixture's audio, and the clock moves. Their titles, durations and chapters are
+  the seed's own, not the file's (14 min long): *Seeded Long Book*'s chapters past the 13th start
+  past the end of the audio. It makes sound: pause it. Only *Seeded Missing Book*
+  (`-seedMissingFile`) has no file, and Play on it shows the moved-file banner (`notice.banner`,
+  about 5 s, doesn't take touches). The stub LibriVox book still has no audio: Play opens the
+  details screen and the mini player appears, its chapter URL is `/dev/null`, and the banner says
+  *Couldn't play this chapter*.
 
   Not reachable by any launch configuration: real search results, real downloads and their
   progress/ring/statuses (the stub manager's state stream is empty), the cellular alert (the stub

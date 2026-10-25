@@ -50,4 +50,11 @@ enum LaunchArgument {
     /// Run with Reduce Motion on, whatever the system setting says: XCUITest can't switch the
     /// setting itself.
     static let forceReduceMotion = "-forceReduceMotion"
+
+    /// Every name above. A launch carrying any of them is a UI test's.
+    static let all = [
+        seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
+        resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubFailingImport, resetSettings,
+        forceReduceMotion
+    ]
 }

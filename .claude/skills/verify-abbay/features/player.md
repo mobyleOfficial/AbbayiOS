@@ -106,7 +106,7 @@ top down into the bar.
 ```bash
 $B launch -seedLibrary
 $B tap library.row.0.title && $B wait player.close       # grows up from the bottom (nothing loaded)
-$B tap player.transport.play                              # a seeded book loads; no audio plays
+$B tap player.transport.play                              # a seeded book loads and plays (the Debug fixture's audio)
 $B tap player.transport.forward && $B snapshot
 $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed value "1.5×"
 $B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed)
@@ -122,8 +122,8 @@ $B drag player.close down                                 # planned: collapse un
   (`test_changingSkipForward_updatesThePlayersButton`)
 - `player.chapters.title` and `player.chapter.<n>`
 - a chapter tap on a book that isn't loaded, with nothing playing, loads that book: the bar
-  appears (`MiniPlayerUITests.test_tappingAChapter_ofABookNotLoaded_loadsIt`, seeded long book,
-  no audio), and with real audio it plays from the tapped chapter, not the saved position
+  appears at the tapped chapter (`MiniPlayerUITests.test_tappingAChapter_ofABookNotLoaded_loadsIt`,
+  seeded long book: the bar reads *Chapter 4*), and it plays from the tapped chapter, not the saved position
   (`test_chapterTap_bookNotLoaded_playsThatChapter`, `-seedPlayableBook`: the transport flips to
   *Pause* and the bar reads *Chapter 4*). The three cases are unit-tested in
   `PlayerViewModelChapterTapTests`.
@@ -142,7 +142,7 @@ details page.
 render only while a download is incomplete, and the stub download manager never reports one.
 
 Speed itself (the requested `rate`/`defaultRate` across pause, seek and files) is unit-tested in
-`PlayerSpeedTests`; seeded books have no audio, so no UI test hears it.
+`PlayerSpeedTests`; the seeded books play real audio since #147, but no UI test measures the rate.
 
 **Not addressable:** there is no `player.root`. It overwrote the title, all the transport controls
 and the chapter list. Wait on `player.close` or `player.transport.play` to know the screen is up.
@@ -158,9 +158,9 @@ identifiers threaded through the component, not applied from the call site.
 - **A chapter tap starts playback, even from pause, and can switch books.** Since #166's owner
   decision there is no `isPlaying` gate and no dimming: tapping a row of a book that isn't loaded
   loads it (the previous book stops) at that chapter. A UI test that taps a chapter therefore
-  changes the loaded book; open the book you mean first. Only *Seeded Playable Book*
-  (`-seedPlayableBook`) actually plays from the chapter; on the other seeds the tap loads the
-  book and the moved-file banner shows (#147). It makes sound: pause it afterwards.
+  changes the loaded book; open the book you mean first. Every seed but *Seeded Missing Book*
+  plays from the chapter (#147); on *Seeded Long Book* a chapter past the 13th starts past the end
+  of the 14-minute audio. It makes sound: pause it afterwards.
 - **The overlay stays hit-testable only while a book is presented** (`allowsHitTesting`). After a
   close, taps reach the tabs once the collapse finishes.
 - `PlayerProgressView.swift:44` still uses the deprecated `onChange(of:perform:)` (deprecated as of

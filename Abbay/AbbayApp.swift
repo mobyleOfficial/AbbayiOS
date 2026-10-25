@@ -58,9 +58,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Siri responds "Abbay hasn't added support for that with Siri".
         // First call surfaces the system permission prompt; subsequent calls are
         // no-ops if status is already determined.
-        let diagnostics = diagnostics
-        INPreferences.requestSiriAuthorization { status in
-            diagnostics.record("app launch siriAuth=\(status.rawValue)")
+        // Not for a UI test's launch: the alert would race the test's first tap (#163).
+        if !DebugOverrides.skipsSiriAuthorizationPrompt() {
+            let diagnostics = diagnostics
+            INPreferences.requestSiriAuthorization { status in
+                diagnostics.record("app launch siriAuth=\(status.rawValue)")
+            }
         }
 
         // Rewrite the snapshot, which publishes the library to Siri, on every launch.
