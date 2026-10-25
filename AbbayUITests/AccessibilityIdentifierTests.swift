@@ -344,7 +344,9 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Element.artwork(row))
         assertResolves(AccessibilityID.Element.title(row))
         assertResolves(AccessibilityID.Element.detail(row))
-        assertResolves(AccessibilityID.Element.play(row))
+        // Play / Pause and Delete are the cell's context-menu items (#166 G3).
+        LibraryGridActions.openMenu(in: app, cell: index)
+        assertResolves(AccessibilityID.Element.delete(row))
     }
 
     /// Each row must carry its own identifiers rather than inheriting a container's, or a driver
@@ -410,33 +412,16 @@ final class AccessibilityIdentifierTests: XCTestCase {
     // MARK: - Displayed values
 
     /// End-to-end guard for #104. The counter is rendered from a 0-based index by
-    /// `ChapterCountView`, so a three-chapter book at rest must read 1/3 -- it previously read
-    /// 0/3 until playback reported a time. Substring rather than equality because the detail line
-    /// also carries the author.
-    func test_seededChapteredRow_showsOneBasedChapterCounter() throws {
-        launch([LaunchArgument.seedLibrary])
+    /// `ChapterCountView`: *Seeded Chaptered Book*, 150 s in under `-seedLastPlayed`, is in its
+    /// second chapter and must read 2/3 (a 0-based counter would read 1/3).
+    func test_seededChapteredCell_showsOneBasedChapterCounter() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedLastPlayed])
         assertResolves(AccessibilityID.Library.list)
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
         let counter = element(AccessibilityID.Element.detail(AccessibilityID.Library.row(index)))
         XCTAssertTrue(counter.waitForExistence(timeout: 15))
 
-        XCTAssertTrue(
-            counter.label.contains("Ch 1/3"),
-            "expected a 1-based counter for a three-chapter book, got \"\(counter.label)\""
-        )
-    }
-
-    /// A book without chapters shows the time left instead of a chapter counter.
-    func test_seededPlainRow_showsAuthorAndTimeLeft() throws {
-        launch([LaunchArgument.seedLibrary])
-        assertResolves(AccessibilityID.Library.list)
-        let index = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
-        let detail = element(AccessibilityID.Element.detail(AccessibilityID.Library.row(index)))
-        XCTAssertTrue(detail.waitForExistence(timeout: 15))
-
-        XCTAssertTrue(detail.label.contains("Seed Author"), "author missing from \"\(detail.label)\"")
-        XCTAssertTrue(detail.label.contains("left"), "expected the time left, got \"\(detail.label)\"")
-        XCTAssertFalse(detail.label.contains("Ch "), "a book without chapters has no counter: \"\(detail.label)\"")
+        XCTAssertEqual(counter.label, "Ch 2/3")
     }
 }
 

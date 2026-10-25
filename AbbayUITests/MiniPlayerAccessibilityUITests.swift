@@ -133,8 +133,8 @@ extension MiniPlayerUITests {
 
         let barButton = element(AccessibilityID.MiniPlayer.playPause).label
         XCTAssertTrue(labels.contains(barButton), "the bar's play button reads \"\(barButton)\"")
-        let rowButton = element(AccessibilityID.Element.play(AccessibilityID.Library.row(0))).label
-        XCTAssertTrue(labels.contains(rowButton), "a row's play button reads \"\(rowButton)\"")
+        let rowButton = LibraryGridActions.playbackItemLabel(in: app, cell: 0)
+        XCTAssertTrue(labels.contains(rowButton), "a cell's Play/Pause menu item reads \"\(rowButton)\"")
         openFromBar()
         XCTAssertTrue(labels.contains(transportPlay.label), "the transport's play button reads \"\(transportPlay.label)\"")
     }

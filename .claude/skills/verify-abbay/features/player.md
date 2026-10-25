@@ -46,7 +46,8 @@ LibriVox page's Play all open it.
   text is the speed, green when not 1.0×) opens the speed sheet (`SpeedSheetView`, ported from the
   Android app): − / the speed / + in 0.05 steps (`speed.decrease`, `speed.value`, `speed.increase`),
   a 0.5–3.5× slider (`speed.slider`), preset chips 0.8, 1.0, 1.2, 1.5, 1.75, 2.0, 2.5
-  (`speed.preset.<n>`), and *Set as default for new books* (`speed.setDefault`, disabled and
+  (`speed.preset.<n>`; one row of equal glass capsules, the selected one solid malachite, and
+  the row scrolls sideways when large text doesn't fit, #166 G7), and *Set as default for new books* (`speed.setDefault`, disabled and
   relabelled when the speed already is the default). The speed is **per book**: on the loaded book
   it applies at once (`Player.setPlaybackRate`); on another book it is remembered for when it plays.
   The player applies it through the one `AVQueuePlayer`'s `defaultRate`, so it holds across pause

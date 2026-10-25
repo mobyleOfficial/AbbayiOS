@@ -68,7 +68,7 @@ final class NoticeUITests: XCTestCase {
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Missing Book"))
 
-        element(AccessibilityID.Element.play(AccessibilityID.Library.row(index))).tap()
+        LibraryGridActions.togglePlayback(in: app, cell: index)
 
         XCTAssertTrue(banner.waitForExistence(timeout: 10), "no banner for a missing file")
         XCTAssertTrue(banner.label.contains("Seeded Missing Book"), "title missing: \"\(banner.label)\"")
@@ -76,20 +76,19 @@ final class NoticeUITests: XCTestCase {
         XCTAssertTrue(element(AccessibilityID.MiniPlayer.bar).exists, "the bar must still appear")
     }
 
-    /// After the failure the row and the bar show Play, not Pause, so one tap retries: the banner
-    /// comes back after it had gone, and the button still shows Play.
+    /// After the failure the cell's menu and the bar show Play, not Pause, so one tap retries: the
+    /// banner comes back after it had gone, and the button still shows Play.
     func test_afterABookFailsToPlay_theButtonsShowPlay_andOneTapRetries() throws {
         launch([LaunchArgument.seedLibrary, LaunchArgument.seedMissingFile])
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Missing Book"))
-        let rowPlay = element(AccessibilityID.Element.play(AccessibilityID.Library.row(index)))
         let barPlay = element(AccessibilityID.MiniPlayer.playPause)
 
-        rowPlay.tap()
+        LibraryGridActions.togglePlayback(in: app, cell: index)
         XCTAssertTrue(banner.waitForExistence(timeout: 10), "no banner for a missing file")
         XCTAssertTrue(barPlay.waitForExistence(timeout: 10))
-        assertLabel(of: rowPlay, becomes: "Play")
         assertLabel(of: barPlay, becomes: "Play")
+        XCTAssertEqual(LibraryGridActions.playbackItemLabel(in: app, cell: index), "Play")
         XCTAssertTrue(banner.waitForNonExistence(timeout: 15), "the banner did not dismiss itself")
 
         barPlay.tap()
@@ -112,9 +111,8 @@ final class NoticeUITests: XCTestCase {
 
         XCTAssertFalse(extraRow.waitForExistence(timeout: 5), "the import added a second book")
         XCTAssertEqual(rowIndex(titled: "Seeded Missing Book"), index)
-        let rowPlay = element(AccessibilityID.Element.play(AccessibilityID.Library.row(index)))
-        rowPlay.tap()
-        assertLabel(of: rowPlay, becomes: "Pause")
+        LibraryGridActions.togglePlayback(in: app, cell: index)
+        assertLabel(of: element(AccessibilityID.MiniPlayer.playPause), becomes: "Pause")
         XCTAssertFalse(banner.exists, "the relinked book still reads as moved")
     }
 

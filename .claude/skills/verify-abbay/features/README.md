@@ -64,7 +64,7 @@ added. Resolve a row by matching its title label rather than assuming an index.
     `Christmastide.m4b` fixture (rows are keyed by URL, so each book needs its own file).
   - `-resetLibrary` — empties the library, for the empty state.
   - `-seedFillerBooks` — with `-seedLibrary`, also adds filler books so the list is longer than
-    the screen (the mini player's last-row inset test).
+    the screen (the mini player's last-cell inset test).
   - `-seedLongBook` — with `-seedLibrary`, also adds *Seeded Long Book*, 60 one-minute chapters,
     so the details screen's chapter list is far longer than the screen (the list-at-top collapse
     tests).
@@ -78,10 +78,16 @@ added. Resolve a row by matching its title label rather than assuming an index.
     `NoticeUITests`). Its duration is the fixture's (831.6 s), so `-stubMovedImport`'s file is
     recognisably its own.
   - `-seedTimeLeftEdges` — with `-seedLibrary`, also adds *Seeded Finished Book* (no chapters,
-    saved at its end: the row reads "0s left") and *Seeded Hour Book* (a first chapter of exactly
+    saved at its end: its cell reads "Finished ✓") and *Seeded Hour Book* (a first chapter of exactly
     one hour: once loaded, the mini player reads "Chapter 1 · 1 hr left"), the time-left edge cases
     of #152. No audio (unlike the other seeds), so their clocks stay put: loading the hour book
     also shows the "moved or renamed" notice.
+  - `-seedArtwork` — with `-seedLibrary`, gives *Seeded Chaptered Book*, *Seeded Playable Book*
+    and *Seeded Long Book* generated covers (a gradient with the title), so the library shows
+    covers next to generic tiles (#166 G3).
+  - `-seedLastPlayed` — with `-seedLibrary`, saves *Seeded Chaptered Book* 150 s in (chapter 2)
+    and makes it last played, so the library's Continue card shows it. Seeding (and
+    `-resetLibrary`) otherwise clears last played, so no card is left over from an earlier launch.
   - `-seedCoverArt` — with `-seedLibrary`, gives *Seeded Chaptered Book* and *Seeded Playable
     Book* a generated warm-brown cover, so the cover tint of the mini player and the details
     screen's gradient (#166 G1) can be seen. *Seeded Plain Book* keeps none (the generic tile).
