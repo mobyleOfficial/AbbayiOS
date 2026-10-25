@@ -116,11 +116,6 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertFalse(element(AccessibilityID.MiniPlayer.bar).exists, "nothing should be loaded yet")
 
         let chapter = element(AccessibilityID.Player.chapter(3))
-        // On a shorter screen (the iPhone Duo, the iOS 27.1 runtime's only device) the fourth row
-        // starts below the fold, and the lazy list hasn't built it yet: scroll to it.
-        if !chapter.waitForExistence(timeout: 5) {
-            element(AccessibilityID.Player.chapter(0)).swipeUp()
-        }
         XCTAssertTrue(chapter.waitForExistence(timeout: 5))
         chapter.tap()
         element(AccessibilityID.Player.close).tap()

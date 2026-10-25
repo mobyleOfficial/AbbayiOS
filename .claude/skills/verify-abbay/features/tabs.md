@@ -12,9 +12,10 @@ above the tab bar on both tabs.
   the Search tab's field into the bottom tab bar, and the owner wants it at the top (Ruling 10).
   The mini player is the tab bar's `.tabViewBottomAccessory(isEnabled:)`, which needs 26.1, hence
   the version split (Ruling 7). The ids `root.tab.library` / `root.tab.search` are set with
-  `TabContent.accessibilityIdentifier` on each `Tab`. Built with the iOS 26.4 SDK that didn't reach
-  the bar's buttons, so a UIKit probe set them; built with the iOS 27 SDK (Xcode 27.1) it does, on
-  both the iOS 26.4 and 27.1 runtimes, and the probe is gone (#154).
+  `TabContent.accessibilityIdentifier` on each `Tab` and by a small UIKit probe
+  (`TabBarIdentifiers`) that sets them on the `UITabBar` items. Built with the iOS 26.4 SDK the
+  SwiftUI id never reached the bar's buttons; built with the iOS 27 SDK (Xcode 27.1) it usually
+  does, on the 26.4 and 27.1 runtimes, but not every time, so the probe stays (#154).
 - **tab-bar (iOS 17.0–26.0):** the hand-built `RootTabs`: a `background2` bar with the same two
   items (malachite when selected) and the docked mini player right above it. The pages end where
   the mini player starts: they are stacked above it, not inset, because a `List` in a tab's
@@ -93,10 +94,11 @@ library* or *Search LibriVox* (`app.searchFields` matching `placeholderValue`).
 - **Two code paths.** iOS 26.1+ uses the system tab bar and accessory. iOS 17.0–26.0 uses
   `RootTabs` and `MiniPlayerDock`. iOS 26.0 is on the hand-built path. Verify a change on both
   (27.1 or 26.4, and 18.5 simulators).
-- **The tab ids on 26.1+ depend on the SDK.** They come from SwiftUI's
-  `TabContent.accessibilityIdentifier`, which reaches the system tab bar's buttons only when the app
-  is built with the iOS 27 SDK. Building with Xcode 26 again would lose them (the UIKit probe that
-  covered this was deleted in #154). Not checked on the 26.1–26.3 runtimes, which aren't installed.
+- **The tab ids on 26.1+ come mainly from a UIKit probe** that walks the window when it lands in
+  one and on each tab switch. It re-applies over about 2.4 s (0, 0.1, 0.3, 0.6, 1.2 and 2.4 s),
+  and a new switch replaces a pending schedule. It matches items by title, so the ids are fragile.
+  Wait for them rather than reading them right after launch. The SwiftUI identifier on each `Tab`
+  is set too; with the iOS 27 SDK it usually lands on its own, but intermittently doesn't (#154).
 - With the accessory attached (26.1+), the accessibility tree has reported the keyboard just off
   screen (minY = screen height) while it is visibly up. Not reproduced on 26.4 in #130. The keyboard
   UI test then uses the top row of keys, and 65% of the screen height only when no key is on screen

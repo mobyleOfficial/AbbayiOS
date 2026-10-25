@@ -137,8 +137,8 @@ private struct SystemTabs<Library: View, Search: View>: View {
             } label: {
                 Label(Localizable.libraryTab.localized, systemImage: "books.vertical")
             }
-            // Reaches the system bar's button on iOS 27 (#154). Below 27 `TabBarIdentifiers` sets the
-            // ids too, because there this one is intermittent.
+            // Reaches the system bar's button when built with the iOS 27 SDK, but not every time
+            // (#154), so `TabBarIdentifiers` still sets the ids as well.
             .accessibilityIdentifier(AccessibilityID.Root.tabLibrary)
             // A regular tab, not `role: .search`: that role moves the tab's search field into the
             // bottom tab bar, and the owner wants it at the top, like the Library's.
@@ -152,26 +152,24 @@ private struct SystemTabs<Library: View, Search: View>: View {
         .tint(ColorConstants.malachite.value)
         .modifier(MiniPlayerAccessory())
         .background {
-            if #unavailable(iOS 27) {
-                TabBarIdentifiers(
-                    identifiers: [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch],
-                    selection: selection
-                )
-            }
+            TabBarIdentifiers(
+                identifiers: [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch],
+                selection: selection
+            )
         }
     }
 }
 
-/// Sets the tab ids on the system tab bar's buttons on iOS 26.1–26.x, where SwiftUI's
-/// `TabContent.accessibilityIdentifier` doesn't reliably reach them. This finds the window's
-/// `UITabBar` and sets them on its items, in tab order, and on any other view in the bar labelled
-/// with an item's title (the bar can show a tab as a separate, collapsed button). Only
-/// identifiers; nothing else is touched. Re-applied on each tab switch, while the bar animates.
+/// SwiftUI's `TabContent.accessibilityIdentifier` doesn't reliably reach the system tab bar's
+/// buttons, so this sets the ids too. It finds the window's `UITabBar` and sets them on its items,
+/// in tab order, and on any other view in the bar labelled with an item's title (the bar can show
+/// a tab as a separate, collapsed button). Only identifiers; nothing else is touched. Re-applied on
+/// each tab switch, while the bar animates.
 ///
-/// Why it stays below iOS 27 (#130, #154): built with the iOS 26.4 SDK, the SwiftUI identifier
-/// never reached the button on the 26.4 runtime. Built with the iOS 27 SDK it does on the 27.1
-/// runtime (the full UI suite passes without this probe there), but on 26.4 it is intermittent:
-/// `root.tab.search` was missing in 2 of the suite's tests. Delete this once iOS 26 is dropped.
+/// Why it stays (#130, #154): built with the iOS 26.4 SDK, the SwiftUI identifier never reached the
+/// button. Built with the iOS 27 SDK (Xcode 27.1) it usually does, on the 26.4 and 27.1 runtimes,
+/// but with this probe removed `root.tab.search` was still missing in a few UI tests per suite run
+/// on both. Retry on the next SDK.
 @available(iOS 26.1, *)
 private struct TabBarIdentifiers: UIViewRepresentable {
     let identifiers: [String]

@@ -446,7 +446,7 @@ final class AccessibilityIdentifierTests: XCTestCase {
         // The seeded chaptered book has three chapters.
         assertResolves(AccessibilityID.Player.chapter(0))
         assertResolves(AccessibilityID.Player.chapter(1))
-        revealBelowTheFold(AccessibilityID.Player.chapter(2), swiping: AccessibilityID.Player.chapter(1))
+        revealBelowTheFold(AccessibilityID.Player.chapter(2), swiping: AccessibilityID.Player.chapter(0))
         assertResolves(AccessibilityID.Player.chapter(2))
     }
 }
