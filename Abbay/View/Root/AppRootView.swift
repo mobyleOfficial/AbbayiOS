@@ -19,8 +19,6 @@ import SwiftUI
 struct AppRootView: View {
     private let container: DependencyContainerProtocol
     private let notices: NoticeCenter
-    /// `-forceReduceMotion` in UI tests; always `nil` in Release.
-    private let forcedReduceMotion = DebugOverrides.reduceMotion()
     @StateObject
     private var models: RootModels
     @State
@@ -64,9 +62,6 @@ struct AppRootView: View {
         .environment(container.settings)
         .playbackEnvironment(container)
         .preferredColorScheme(.dark)
-        .transformEnvironment(\._accessibilityReduceMotion) { [forcedReduceMotion] reduceMotion in
-            if let forcedReduceMotion { reduceMotion = forcedReduceMotion }
-        }
     }
 
     /// Settings deletes finished books through the library model, the same path as a swipe.

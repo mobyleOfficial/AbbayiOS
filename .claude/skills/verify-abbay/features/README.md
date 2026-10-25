@@ -82,8 +82,11 @@ added. Resolve a row by matching its title label rather than assuming an index.
     of #152. No audio (unlike the other seeds), so their clocks stay put: loading the hour book
     also shows the "moved or renamed" notice.
   - `-forceReduceMotion` — run with Reduce Motion on whatever the system setting says
-    (`DebugOverrides.reduceMotion`, applied as the environment's Reduce Motion in `AppRootView`),
-    because XCUITest can't switch the setting.
+    (`DebugOverrides.reduceMotion`, read by the `@ReduceMotion` property wrapper every view uses
+    instead of `\.accessibilityReduceMotion`), because XCUITest can't switch the setting. It
+    reaches every surface on iOS 17, 18 and 26: an environment override at the root didn't cross
+    a pushed page on iOS 18 (#185). SwiftLint's `reduce_motion_through_wrapper` rule keeps views
+    off the raw environment value.
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
     one stub book, which any query containing "stub" also finds; its size is 29,670,000 bytes, so
     it shows a decimal separator) and swaps in a download manager

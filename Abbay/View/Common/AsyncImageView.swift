@@ -21,7 +21,7 @@ struct AsyncImageView: View {
     let url: URL
     private let loader: AsyncImageLoader
 
-    @Environment(\.accessibilityReduceMotion)
+    @ReduceMotion
     private var reduceMotion
     @State
     private var phase: Phase

@@ -99,6 +99,61 @@ enum ExpansionMath {
         lerp(start, 0, clamp(progress))
     }
 
+    // MARK: - Appearance
+
+    /// The panel at `progress`: everything `ExpansionLayout` draws that depends on the progress.
+    /// With `reduceMotion` the panel is full-screen with square corners at every progress, the
+    /// bar's face is gone and the details screen fully drawn, and only `panelOpacity` moves (the
+    /// cross-fade). Otherwise the frame and corners interpolate from the bar and the panel stays
+    /// opaque.
+    static func appearance(
+        progress: CGFloat,
+        startFrame: CGRect,
+        screen: CGSize,
+        startRadius: CGFloat,
+        reduceMotion: Bool
+    ) -> ExpansionAppearance {
+        let fraction = clamp(progress)
+        let full = CGRect(origin: .zero, size: screen)
+        if reduceMotion {
+            return ExpansionAppearance(
+                panelFrame: full,
+                cornerRadius: 0,
+                panelOpacity: fraction,
+                barContentOpacity: 0,
+                detailsOpacity: 1
+            )
+        }
+        return ExpansionAppearance(
+            panelFrame: interpolate(startFrame, full, fraction),
+            cornerRadius: cornerRadius(from: startRadius, progress: fraction),
+            panelOpacity: 1,
+            barContentOpacity: barContentOpacity(fraction),
+            detailsOpacity: detailsOpacity(fraction)
+        )
+    }
+
+    /// The growing cover's frame on screen at `progress`: from the bar's cover slot (`barSlot`, in
+    /// the start frame's coordinates) to `target` (where the details screen lays it out), riding
+    /// with the panel's top edge. With `reduceMotion` it is `target` at every progress.
+    static func coverFrame(
+        progress: CGFloat,
+        barSlot: CGRect,
+        target: CGRect,
+        panelFrame: CGRect,
+        reduceMotion: Bool
+    ) -> CGRect {
+        if reduceMotion { return target }
+        let toSlot = target.offsetBy(dx: -panelFrame.minX, dy: 0)
+        return interpolate(barSlot, toSlot, clamp(progress)).offsetBy(dx: panelFrame.minX, dy: panelFrame.minY)
+    }
+
+    /// The growing cover's corner radius: from the bar's to the details screen's, or the details
+    /// screen's at every progress with `reduceMotion`.
+    static func coverRadius(progress: CGFloat, from start: CGFloat, to end: CGFloat, reduceMotion: Bool) -> CGFloat {
+        reduceMotion ? end : lerp(start, end, clamp(progress))
+    }
+
     static func lerp(_ from: CGFloat, _ to: CGFloat, _ fraction: CGFloat) -> CGFloat {
         from + (to - from) * fraction
     }
@@ -106,4 +161,15 @@ enum ExpansionMath {
     static func clamp(_ value: CGFloat) -> CGFloat {
         min(max(value, 0), 1)
     }
+}
+
+/// What `ExpansionMath.appearance` decides for one progress value: the panel's frame (in screen
+/// coordinates), its corner radius, its overall opacity, and the opacities of the bar's face and
+/// the details screen inside it.
+struct ExpansionAppearance: Equatable {
+    let panelFrame: CGRect
+    let cornerRadius: CGFloat
+    let panelOpacity: CGFloat
+    let barContentOpacity: CGFloat
+    let detailsOpacity: CGFloat
 }

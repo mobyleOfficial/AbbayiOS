@@ -147,3 +147,12 @@ number_separator:
 multiline_arguments:
   first_argument_location: next_line
   only_enforce_after_first_closure_on_first_line: true
+
+# Project rules
+custom_rules:
+  reduce_motion_through_wrapper:
+    name: "Reduce Motion through @ReduceMotion"
+    regex: '\\\._?accessibilityReduceMotion'
+    excluded: 'Abbay/View/Common/ReduceMotion\.swift'
+    message: "Read Reduce Motion with `@ReduceMotion`: it applies `-forceReduceMotion` on every surface, the environment value doesn't on iOS 17/18 (#185)."
+    severity: error

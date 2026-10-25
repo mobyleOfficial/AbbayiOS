@@ -63,10 +63,11 @@ final class CoverUITests: XCTestCase {
         let firstShot = cover.screenshot()
         Thread.sleep(forTimeInterval: 0.5)
         let secondShot = cover.screenshot()
-        // Kept on failure, so a mismatch can be looked at.
+        // Always kept: a mismatch can be looked at, and a pass shows what was compared (#185).
         for (name, shot) in [("first frame", firstShot), ("second frame", secondShot)] {
             let attachment = XCTAttachment(screenshot: shot)
             attachment.name = name
+            attachment.lifetime = .keepAlways
             add(attachment)
         }
         let first = firstShot.pngRepresentation
