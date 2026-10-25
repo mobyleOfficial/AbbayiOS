@@ -72,8 +72,13 @@ expected). To fire the task on a device under the debugger, pause and run
 `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.edyuto.Abbay.siriRefresh"]`.
 Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests` (incl. completion order),
 `AppDelegateSiriFreshnessTests`, `PlayerSiriFreshnessTests` (incl. interruptions),
-`CarPlaySceneDelegateTests` and `SiriLibraryPublisherTests`; the log lines are pinned by reading the
-test process's own log through `OSLogStore` (`AbbayTests/Support/LoggedMessages.swift`).
+`CarPlaySceneDelegateTests` and `SiriLibraryPublisherTests`. `SiriLibraryPublisher` and
+`LibrarySpotlightIndexer` log `publish: N books`, `publish: finished` and `spotlight indexing failed`
+through an injected `SiriLogSink` (`Abbay/Core/SiriLog.swift`): `OSSiriLogSink` writes them to
+`Log.siri` with every field `.public`, and the `SiriLogEvent` cases carry only counts and error
+domains/codes, so titles have nowhere to go. Tests assert on `RecordingSiriLogSink`; no unit test
+reads the unified log (`OSLogStore` missed entries late in full-suite runs, #181). The exact
+`os.Logger` text is checked live with `log stream`, not by a test.
 
 `AppIntentsTesting` can validate entity queries and Spotlight indexing directly, which makes this
 feature one of the better arguments for taking the Xcode 27 upgrade.

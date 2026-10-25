@@ -21,12 +21,12 @@ final class SettingsUITests: XCTestCase {
 
     /// English with a US region, so labels ("30 seconds") and speeds ("1.5×", not "1,5×") don't
     /// depend on the simulator's region.
-    private func launch() {
+    private func launch(language: String = "en", locale: String = "en_US") {
         app.launchArguments = [
             LaunchArgument.seedLibrary,
             LaunchArgument.resetSettings,
-            "-AppleLanguages", "(en)",
-            "-AppleLocale", "en_US"
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", locale
         ]
         app.launch()
     }
@@ -215,11 +215,39 @@ final class SettingsUITests: XCTestCase {
         let library = app.navigationBars["Biblioteca"]
         XCTAssertTrue(library.waitForExistence(timeout: 5), "the library did not switch language")
     }
+
+    /// #179: on a Portuguese device, switching to English re-reads the skip pickers' selected
+    /// value at once ("15 seconds"), like every other string on the sheet.
+    func test_switchingLanguage_relabelsTheSkipPickers() {
+        launch(language: "pt-BR", locale: "pt_BR")
+        openSettings()
+        XCTAssertTrue(skipPickerText(AccessibilityID.Settings.skipBack).contains("15 segundos"))
+        app.swipeUp()
+
+        element(AccessibilityID.Settings.language(AppLanguageRaw.english)).tap()
+
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "Settings did not switch language")
+        app.swipeDown()
+        for identifier in [AccessibilityID.Settings.skipBack, AccessibilityID.Settings.skipForward] {
+            assertResolves(identifier)
+            let text = skipPickerText(identifier)
+            XCTAssertTrue(text.contains("15 seconds"), "\(identifier) reads \"\(text)\"")
+            XCTAssertFalse(text.contains("segundos"), "\(identifier) reads \"\(text)\"")
+        }
+    }
+
+    /// A menu picker's label and selected value, however SwiftUI splits them between the
+    /// element's label and value.
+    private func skipPickerText(_ identifier: String) -> String {
+        let picker = element(identifier)
+        return [picker.label, picker.value as? String ?? ""].joined(separator: " | ")
+    }
 }
 
-/// `AppLanguage` raw values. The UI test target cannot import the app, so the two it needs are
+/// `AppLanguage` raw values. The UI test target cannot import the app, so the ones it needs are
 /// spelled here; `AppSettingsTests` pins the enum on the app side.
 private enum AppLanguageRaw {
     static let system = "system"
+    static let english = "english"
     static let portuguese = "portuguese"
 }

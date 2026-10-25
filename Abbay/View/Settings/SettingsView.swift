@@ -112,6 +112,10 @@ struct SettingsView: View {
             Label(title.localized, systemImage: selection.wrappedValue[keyPath: symbol])
         }
         .pickerStyle(.menu)
+        // A menu picker built from a `ForEach` keeps showing its selected value in the language it
+        // was first drawn in, even though this body re-runs on a switch (#179). A new identity per
+        // language makes it draw the value again.
+        .id(model.settings.language)
     }
 
     // MARK: - Downloads

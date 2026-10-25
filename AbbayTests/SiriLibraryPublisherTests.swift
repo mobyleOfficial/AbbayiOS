@@ -76,25 +76,28 @@ final class SiriLibraryPublisherTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
-    /// #157: a publish reaches the unified log with its book count, not just `SiriDiagnostics`.
-    func test_publish_logsTheBookCount_withoutTitles() throws {
-        let since = Date()
+    /// #157: a publish is logged with its book count, not just recorded in `SiriDiagnostics`, and
+    /// its end once Spotlight has finished. Never the titles.
+    func test_publish_logsTheBookCount_withoutTitles() {
+        let log = RecordingSiriLogSink()
         let publisher = SiriLibraryPublisher(
             mediaUserContextDonor: SpyMediaUserContextDonor(),
             spotlightIndexer: SpySpotlightIndexer(),
             vocabulary: { _ in },
-            refreshShortcutParameters: {}
+            refreshShortcutParameters: {},
+            log: log
         )
+        let done = expectation(description: "publish completed")
 
         publisher.publish(audios: [
             audio(title: "HiddenOne157", url: "file:///first"),
             audio(title: "HiddenTwo157", url: "file:///second"),
             audio(title: "HiddenThree157", url: "file:///third")
-        ])
+        ]) { done.fulfill() }
+        wait(for: [done], timeout: 1)
 
-        let messages = try LoggedMessages.messages(category: "Siri", since: since, awaiting: "publish: 3 books")
-        XCTAssertTrue(messages.contains { $0.contains("publish: 3 books") }, "\(messages)")
-        XCTAssertFalse(messages.contains { $0.contains("Hidden") }, "\(messages)")
+        XCTAssertEqual(log.events, [.publishStarted(bookCount: 3), .publishFinished])
+        XCTAssertFalse(log.events.contains { String(describing: $0).contains("Hidden") }, "\(log.events)")
     }
 
     /// #159: the publish completes once Spotlight has finished indexing, after the synchronous
@@ -125,22 +128,36 @@ final class SiriLibraryPublisherTests: XCTestCase {
     }
 
     /// Indexing reports completion even when it fails, and the failure is logged by domain/code.
-    func test_spotlightIndexer_completes_andLogsAFailure() throws {
-        let since = Date()
-        let indexer = LibrarySpotlightIndexer(indexItems: { _, done in
-            done(NSError(domain: "CSIndexErrorDomain", code: -1003))
-        })
+    func test_spotlightIndexer_completes_andLogsAFailure() {
+        let log = RecordingSiriLogSink()
+        let indexer = LibrarySpotlightIndexer(
+            indexItems: { _, done in
+                done(NSError(
+                    domain: "CSIndexErrorDomain",
+                    code: -1003,
+                    userInfo: [NSLocalizedDescriptionKey: "SpotlightSecret159"]
+                ))
+            },
+            log: log
+        )
         var completed = false
 
         indexer.index(audios: [audio(title: "SpotlightSecret159", url: "file:///s")]) { completed = true }
 
         XCTAssertTrue(completed)
-        let messages = try LoggedMessages.messages(
-            category: "Siri", since: since, awaiting: "spotlight indexing failed"
-        )
-        let failure = try XCTUnwrap(messages.first { $0.contains("spotlight indexing failed") }, "\(messages)")
-        XCTAssertTrue(failure.contains("CSIndexErrorDomain") && failure.contains("-1003"), failure)
-        XCTAssertFalse(messages.contains { $0.contains("SpotlightSecret159") })
+        XCTAssertEqual(log.events, [.spotlightIndexingFailed(domain: "CSIndexErrorDomain", code: -1003)])
+        XCTAssertFalse(log.events.contains { String(describing: $0).contains("SpotlightSecret159") })
+    }
+
+    func test_spotlightIndexer_success_logsNothing() {
+        let log = RecordingSiriLogSink()
+        let indexer = LibrarySpotlightIndexer(indexItems: { _, done in done(nil) }, log: log)
+        var completed = false
+
+        indexer.index(audios: [audio(title: "Fine", url: "file:///fine")]) { completed = true }
+
+        XCTAssertTrue(completed)
+        XCTAssertEqual(log.events, [])
     }
 
     func test_spotlightIndexer_emptyLibrary_completesWithoutIndexing() {
