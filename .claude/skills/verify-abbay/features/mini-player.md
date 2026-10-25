@@ -136,8 +136,8 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
   short drag settling closed all land, and afterwards the bar, its play button and a library row
   take touches (nothing invisible left over the tabs).
 
-The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock). The `test_a11y_*` tests were added
-and run on 26.4 only (#126; 18.5 is #162).
+The UI suite runs on iOS 26.4 (accessory) and 18.5 (dock). The 12 `test_a11y_*` tests pass on
+26.4, 18.5 and 17.5 (#162).
 
 **Unit-tested only:**
 - swipes and their no-op haptic (`MiniPlayerActionsTests`)
@@ -146,11 +146,20 @@ and run on 26.4 only (#126; 18.5 is #162).
 - presentation state (`PlayerPresentationTests`)
 - `-forceReduceMotion` itself (`DebugOverridesTests`), and the playable seed's chapters against
   the file (`UITestSeederTests`)
+- the Reduce Motion cross-fade (`ExpansionAppearanceTests`): `ExpansionLayout` takes the panel's
+  frame, corners, opacities and the cover's frame from `ExpansionMath.appearance` / `coverFrame` /
+  `coverRadius`, and the tests sample every 5% (plus a spring's overshoot) to check that with
+  Reduce Motion the panel is full-screen with square corners, the cover sits at its target, and
+  only the panel's opacity moves (equal to the progress). A control asserts the same samples do
+  interpolate without Reduce Motion. Views read Reduce Motion through `@ReduceMotion`, which
+  applies `-forceReduceMotion` without depending on the environment (#185).
 
 **Not automated:**
-- whether the panel really cross-fades rather than grows: XCUITest only reads the screen once it
-  is idle. Checked by a screenshot mid-drag (a full-screen, half-transparent panel) for #126;
-  automating it is #162, with running `test_a11y_*` on 18.5.
+- the cross-fade on screen: XCUITest only reads the screen once it is idle, so the rendered
+  panel mid-transition is checked by eye. Snapping `simctl io screenshot` while
+  `test_a11y_reduceMotion_dragsOpenCollapseAndSettle` runs on 18.5 shows a full-screen,
+  half-transparent panel during the 120 pt drag and the collapse (#162). The decision behind it
+  is unit-tested (above).
 - a VoiceOver pass on a device: what is spoken, focus order, and the actions rotor itself (#161).
 
 ## Gotchas

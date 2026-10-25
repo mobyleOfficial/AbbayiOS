@@ -443,7 +443,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     let listCollapse: ExpansionListCollapse?
     let details: Details
 
-    @Environment(\.accessibilityReduceMotion)
+    @ReduceMotion
     private var reduceMotion
     /// Resets when the panel's drag ends or is cancelled; a reset with no `onEnded` settles.
     @GestureState
@@ -467,18 +467,20 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
     var body: some View {
         let fraction = reportRendered(progress)
-        let full = CGRect(origin: .zero, size: screen)
-        let frame = reduceMotion ? full : ExpansionMath.interpolate(startFrame, full, fraction)
-        let startRadius = startsInAccessory ? startFrame.height / 2 : ExpansionMetrics.dockCornerRadius
-        let corner = reduceMotion ? 0 : ExpansionMath.cornerRadius(from: startRadius, progress: fraction)
-        // With Reduce Motion the whole panel cross-fades instead.
-        let fade = reduceMotion ? fraction : 1
+        // With Reduce Motion the whole panel cross-fades instead of growing (`ExpansionMath`).
+        let look = ExpansionMath.appearance(
+            progress: fraction,
+            startFrame: startFrame,
+            screen: screen,
+            startRadius: startsInAccessory ? startFrame.height / 2 : ExpansionMetrics.dockCornerRadius,
+            reduceMotion: reduceMotion
+        )
 
         ZStack(alignment: .topLeading) {
-            panel(frame: frame, startFrame: startFrame, corner: corner, fraction: fraction)
-                .opacity(fade)
-            cover(frame: frame, startFrame: startFrame, fraction: fraction)
-                .opacity(fade)
+            panel(look: look, startFrame: startFrame)
+                .opacity(look.panelOpacity)
+            cover(frame: look.panelFrame, startFrame: startFrame, fraction: fraction)
+                .opacity(look.panelOpacity)
         }
         .frame(width: screen.width, height: screen.height, alignment: .topLeading)
         .accessibilityElement(children: .contain)
@@ -502,9 +504,10 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
     // MARK: Panel
 
-    private func panel(frame: CGRect, startFrame: CGRect, corner: CGFloat, fraction: CGFloat) -> some View {
-        let barOpacity = reduceMotion ? 0 : ExpansionMath.barContentOpacity(fraction)
-        let detailsOpacity = reduceMotion ? 1 : ExpansionMath.detailsOpacity(fraction)
+    private func panel(look: ExpansionAppearance, startFrame: CGRect) -> some View {
+        let frame = look.panelFrame
+        let barOpacity = look.barContentOpacity
+        let detailsOpacity = look.detailsOpacity
         // The book the details screen shows: after a switch while open, the loaded one.
         let art = model.book
         let isCollapsingFromList = listCollapse?.isEngaged ?? false
@@ -550,7 +553,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             .opacity(detailsOpacity)
         }
         .frame(width: frame.width, height: frame.height, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: look.cornerRadius, style: .continuous))
         .offset(x: frame.minX, y: frame.minY)
     }
 
@@ -567,13 +570,19 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         // Interpolated in the panel's own coordinates, so the cover rides with the panel's top edge
         // (like the bar's face and the details screen) instead of lagging at the bottom: from the
         // bar's cover slot to where the details screen lays it out (its x is the screen's).
-        let fromSlot = CGRect(x: leading, y: (startFrame.height - side) / 2, width: side, height: side)
-        let toSlot = target.offsetBy(dx: -frame.minX, dy: 0)
-        let inPanel = ExpansionMath.interpolate(fromSlot, toSlot, fraction)
-        let rect = reduceMotion ? target : inPanel.offsetBy(dx: frame.minX, dy: frame.minY)
-        let radius = reduceMotion
-            ? PlayerView.coverRadius
-            : ExpansionMath.lerp(ExpansionMetrics.barCoverRadius, PlayerView.coverRadius, fraction)
+        let rect = ExpansionMath.coverFrame(
+            progress: fraction,
+            barSlot: CGRect(x: leading, y: (startFrame.height - side) / 2, width: side, height: side),
+            target: target,
+            panelFrame: frame,
+            reduceMotion: reduceMotion
+        )
+        let radius = ExpansionMath.coverRadius(
+            progress: fraction,
+            from: ExpansionMetrics.barCoverRadius,
+            to: PlayerView.coverRadius,
+            reduceMotion: reduceMotion
+        )
         return ZStack {
             if !isFullyOpen {
                 DataImageView(data: art.imageData)
