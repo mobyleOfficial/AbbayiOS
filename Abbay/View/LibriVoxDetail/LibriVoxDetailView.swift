@@ -247,6 +247,8 @@ struct LibriVoxDetailView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(ColorConstants.malachite.value)
                 }
+                // A bar button takes the tint, not the label's colour, on iOS 17–25.
+                .tint(ColorConstants.malachite.value)
                 .accessibilityIdentifier(
                     isAdded ? AccessibilityID.Detail.pinnedPlay : AccessibilityID.Detail.pinnedDownload
                 )
