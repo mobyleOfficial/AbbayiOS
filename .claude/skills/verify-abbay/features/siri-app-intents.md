@@ -44,7 +44,9 @@ can validate.
     required by the metadata processor and always nil.
   - `AudioDomainBookQuery` is an `EntityQuery` plus `IntentValueQuery` over
     `MediaIntents.AudioSearch`. Siri hands it the request's `criteria`: `.searchQuery(text)` →
-    the same fuzzy title rules as the other paths (`matchAll`); `.unspecified` ("play an
+    the same fuzzy title rules as the other paths (`matchAll`, which tolerates extra words, an
+    author and pt-BR articles since #201; see [siri-playmedia](siri-playmedia.md) *matching*);
+    `.unspecified` ("play an
     audiobook") → the library, last-played first, capped at 40; `.url([URL])` → books whose URL
     or saved row URL matches. The mapping is the pure `AudioDomainMatcher`, unit-tested on every
     runtime.
@@ -92,6 +94,9 @@ iOS 27 simulator, while the app itself stays on iOS 17. **Verified** for the aud
   Chaptered")))` returns one `AudioDomainBookEntity` titled *Seeded Chaptered Book*, then
   `intents["PlayAudioDomainIntent"].makeIntent(audioEntity:).run()` loads it: `miniPlayer.bar`
   appears with that title.
+- `test_audioSearch_withExtraWords_findsOnlyThatBook`: `.searchQuery("the seeded chaptered book
+  by Seed Author")` returns exactly *Seeded Chaptered Book*, not the other *Seeded … Book*s by the
+  same author (#201).
 - `test_audioSearch_withNoTitle_offersTheLibrary`: `.unspecified` returns the seeded books.
 
 What it can't cover: Siri's speech recognition and its choice of Abbay over other audio apps. That
