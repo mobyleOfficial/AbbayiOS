@@ -19,6 +19,11 @@ half of Siri that Apple's `AppIntentsTesting` framework can validate.
   input-echoing no-match dialog: *"No audiobook matches '\<input>'."*
 - **PlayChapterIntent** — takes a `ChapterEntity`. Seeks if a book is loaded; otherwise resumes the
   last-played book positioned at that chapter by setting `currentTime` before `play`.
+- **moved books (#186):** every intent finds a book by its identity, the URL its row was saved
+  under (last played, entity ids, the library's `url`), so a book whose file moved is resumed,
+  played by name or entity and has its chapters found. `MovedBookIdentityTests` drives
+  `ResumeAbbayIntent`, `AudiobookEntityQuery` → `PlayAudiobookIntent` and `PlayBookByNameIntent`
+  over real Core Data with a stubbed bookmark resolver.
 - **phrase-registration:** `AbbayAppShortcuts` registers all seven. Entity phrases lead with the app
   name on purpose — Siri completes a known media title from registered vocabulary and then ends the
   utterance, so establishing the app first means a truncated tail costs nothing. Every "in Abbay"

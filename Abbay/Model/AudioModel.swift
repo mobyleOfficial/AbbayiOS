@@ -15,6 +15,8 @@ struct AudioModel {
     var currentTime: Double = .zero
     var imageData: Data?
     var chapters = [ChapterModel]()
+    /// The book's identity: the URL its Core Data row is saved under (a new book's file URL, or a
+    /// LibriVox `librivox://` URL). It doesn't change when the file moves; `fileURL` does.
     var url: URL?
     var bookmarkData: Data?
     /// The book's archive.org identifier (e.g. `alice_in_wonderland_librivox`), not a LibriVox
@@ -23,15 +25,18 @@ struct AudioModel {
     var allowsCellularDownload = false
     var isDownloadPaused = false
     var totalBytes: Int64 = 0
-    /// The URL the book's Core Data row is saved under, when the model was loaded from the store.
-    /// It differs from `url` once the file has moved: `url` is where the bookmark resolves now
-    /// (what plays), this is the row's key. Nil for a book not loaded from the store (#176).
-    var storedURL: URL?
+    /// Where the book's file is now, when that is not `url`: its bookmark resolved somewhere else
+    /// (the file moved in Files, an iCloud re-sync, a reinstall that moved the bundle). Set only
+    /// when a book is mapped from the store; nil for one whose file is still at `url` (#186).
+    var resolvedURL: URL?
 
-    /// The key of the book's row: what every row operation (save, delete, position write) must
-    /// look the book up by. A moved book's `url` matches no row.
-    var rowURL: URL? {
-        storedURL ?? url
+    /// What to open to play the book: where its file is now. Only for reaching the file (the
+    /// player item, its security scope, a new bookmark, whether it is still there). Everything that
+    /// identifies the book, from its Core Data row to last played, Siri's ids, speeds, CarPlay's
+    /// playing row and the library's rows, uses `url`, which stays the URL the row is saved under
+    /// (#176, #186).
+    var fileURL: URL? {
+        resolvedURL ?? url
     }
 
     var isLibriVox: Bool {

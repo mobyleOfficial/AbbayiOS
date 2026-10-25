@@ -100,6 +100,9 @@ finished downloads, and the stub download manager writes nothing), the Safari pa
   is the real app: `LocalizationTests` resets `AbbayBundle.languageCode` in `setUp` for that reason).
 - **Per-book speeds are not in Core Data.** They live in `AppSettings` (`abbay.settings.bookSpeeds`),
   keyed by the book URL, and are dropped by `DeleteAudioUseCase`. A book re-added with the same URL
-  (LibriVox identities are stable) starts from the default again.
+  (LibriVox identities are stable) starts from the default again. The key is the book's identity,
+  the URL its row was saved under, so a book whose file moved keeps its speed; one saved under a
+  moved file's resolved URL before #186 is moved to the row's URL on the first load
+  (`MovedBookKeyMigration`, `AppSettings.moveSpeed(from:to:)`).
 - **Skip amounts apply to the lock screen at launch**: `AppSettings.init` pushes them through
   `LiveSettingsEffects`, so they don't wait for a change in Settings.

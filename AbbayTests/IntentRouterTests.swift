@@ -109,7 +109,8 @@ final class IntentRouterTests: XCTestCase {
         XCTAssertNil(appGroup.object(forKey: LastPlayedStore.key))
     }
 
-    func test_handle_snapshotBookmarkPresent_resolvesViaBookmark() throws {
+    /// The identifier is the book's identity (#186): loaded as is, with no bookmark resolution first.
+    func test_handle_snapshotBookmarkPresent_loadsByTheIdentifier() throws {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).m4a")
         try Data().write(to: tempURL)
         defer { try? FileManager.default.removeItem(at: tempURL) }
@@ -123,7 +124,7 @@ final class IntentRouterTests: XCTestCase {
         let router = try makeRouter(snapshotEntries: [entry])
         _ = router.handle(makeIntent(identifier: identifier))
 
-        XCTAssertEqual(loader.executeCalls.last as? URL, tempURL)
+        XCTAssertEqual(loader.executeCalls, [tempURL])
     }
 
     func test_handle_validIntent_callsPlayer_returnsSuccess() throws {

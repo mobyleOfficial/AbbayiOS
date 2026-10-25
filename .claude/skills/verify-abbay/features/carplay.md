@@ -42,7 +42,9 @@ two of its original bugs (#90, #95) are still open.
   Marks the current chapter with `speaker.wave.2.fill`, others with `book.pages`. Tapping seeks and
   pops back.
 - **live-progress:** the time subscription writes progress into `currentPlayingItem`, the row for the
-  book now playing (re-resolved by URL when playback moves to another book).
+  book now playing (re-resolved by URL when playback moves to another book). The URL is the book's
+  identity on both sides (`player.url` and the row's book), so a book whose file moved is still
+  marked playing (#186, `MovedBookIdentityTests.test_carPlay_marksTheMovedBookPlaying`).
 - **siri-freshness (#160):** `didConnect` and `sceneDidBecomeActive` call `carPlayBecameActive()`,
   which asks the shared `SiriContextRefresher` (from `DependencyContainer`) for a throttled refresh,
   reason `carPlay`; see [siri-library-publish](siri-library-publish.md).

@@ -15,10 +15,13 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   generic error even when playback succeeds, which is why the handler object exists.
 - **routing:** `IntentRouter.handle` is the shared tail. It bails on
   `LaunchStateFlag.isUnavailable()`, finds an identifier (from the resolved media item if the
-  extension already matched, otherwise by matching `mediaSearch.mediaName` itself), resolves the URL,
-  loads the model, and plays.
-- **url-resolution:** `resolveURL` prefers the snapshot's security-scoped bookmark, triggers a
-  snapshot refresh when the bookmark is stale, and falls back to the raw identifier string.
+  extension already matched, otherwise by matching `mediaSearch.mediaName` itself), loads the
+  model, and plays.
+- **url-resolution (#186):** the identifier is the book's identity, its row's URL, so it is loaded
+  as is (a moved book plays from where its file is now; see [import](import.md) *identity*). On a
+  miss, `rowURL(resolvingTo:)` looks for the snapshot book whose bookmark resolves to the
+  identifier: a donation from before #186 named a moved book by its resolved URL. A stale bookmark
+  needs nothing here: loading the book saves the fresh one (#146).
 - **matching:** `MediaSearchResolver.candidates` over `FuzzyMatch`, biased toward
   `LastPlayedStore.lastPlayedURL()` so a titleless "play" resumes the right book.
 - **stuck-state guards:** a dead pointer clears `LastPlayedStore` only when the dead URL *is* the

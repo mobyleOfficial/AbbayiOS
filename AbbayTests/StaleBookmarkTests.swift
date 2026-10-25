@@ -41,7 +41,8 @@ final class StaleBookmarkTests: XCTestCase {
         XCTAssertEqual(saved.bookmarkData, freshBookmark)
         XCTAssertEqual(saved.title, "Book")
         XCTAssertEqual(loaded.bookmarkData, freshBookmark, "the caller gets the fresh bookmark too")
-        XCTAssertEqual(loaded.url, movedURL, "and the file the bookmark points at")
+        XCTAssertEqual(loaded.fileURL, movedURL, "and the file the bookmark points at")
+        XCTAssertEqual(loaded.url, firstURL, "still identified by its row (#186)")
     }
 
     func test_load_freshBookmark_isNotSaved() throws {
