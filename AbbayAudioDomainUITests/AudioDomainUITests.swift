@@ -48,6 +48,23 @@ final class AudioDomainUITests: XCTestCase {
         XCTAssertTrue(bar.label.contains("Seeded Chaptered Book"), "unexpected bar \"\(bar.label)\"")
     }
 
+    /// Siri passes the request as spoken: an article, the author, a trailing "book" (#201). The
+    /// seeded library also holds "Seeded Plain Book" by the same author, which must not match.
+    @MainActor
+    func test_audioSearch_withExtraWords_findsOnlyThatBook() async throws {
+        app.launchArguments = [LaunchArgument.seedLibrary]
+        app.launch()
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
+
+        let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
+        let result = try await definitions.valueQueries["AudioDomainBookQuery"]
+            .values(for: AudioSearch(criteria: .searchQuery("the seeded chaptered book by Seed Author")))
+        XCTAssertEqual(result.items.count, 1)
+        let book = try result.items[0].as(definitions.entities["AudioDomainBookEntity"])
+        let title: String = try book.title
+        XCTAssertEqual(title, "Seeded Chaptered Book")
+    }
+
     @MainActor
     func test_audioSearch_withNoTitle_offersTheLibrary() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]

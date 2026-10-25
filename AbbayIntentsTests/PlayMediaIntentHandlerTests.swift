@@ -103,6 +103,19 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
         XCTAssertEqual(item.identifier, "file:///book-0")
     }
 
+    /// Siri passes the media name as spoken, extra words included (#201).
+    func test_decide_queryWithExtraWords_andAuthor_returnsSingleMatch() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Goblet of Fire", urlString: "file:///gof", bookmarkData: nil, artist: "J. K. Rowling"),
+            LibrarySnapshotEntry(title: "Order of the Phoenix", urlString: "file:///ootp", bookmarkData: nil)
+        ])
+        let handler = try XCTUnwrap(self.handler)
+        guard case .singleMatch(let item) = handler.decide(for: makeIntent(mediaName: "the goblet of fire by Rowling")) else {
+            return XCTFail("expected singleMatch for a query with extra words")
+        }
+        XCTAssertEqual(item.identifier, "file:///gof")
+    }
+
     func test_decide_emptyLibrary_returnsEmptyLibraryOutcome() throws {
         let handler = try XCTUnwrap(self.handler)
         XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "Anything")), .emptyLibrary)

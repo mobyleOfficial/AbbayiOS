@@ -23,7 +23,19 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   identifier: a donation from before #186 named a moved book by its resolved URL. A stale bookmark
   needs nothing here: loading the book saves the fresh one (#146).
 - **matching:** `MediaSearchResolver.candidates` over `FuzzyMatch`, biased toward
-  `LastPlayedStore.lastPlayedURL()` so a titleless "play" resumes the right book.
+  `LastPlayedStore.lastPlayedURL()` so a titleless "play" resumes the right book. `matchAll` is the
+  one matcher for every Siri path (this one, the App Shortcuts entity query and the iOS 27 audio
+  domain) and takes the media name as spoken (#201): words compared case- and
+  diacritic-insensitively, en and pt-BR stop words dropped ("the goblet of fire" finds *Harry
+  Potter and the Goblet of Fire*), "\<title> by/por/de \<author>" tried as a title plus an author
+  (the snapshot's `artist` breaks a tie between same-titled books), "audiobook"/"livro" at either
+  end ignored, and the query may contain the title or the title the query. Tiers: whole title >
+  same words > title starts with the query > title contains it > query contains the title > the
+  same words out of order (every word said is in the title, or every title word was said). A
+  series book that isn't in the library is never replaced by another one ("harry potter goblet"
+  doesn't play *Chamber of Secrets*). Short words never
+  match part of a longer one ("go" isn't *Goblet*); a query of stop words alone matches nothing.
+  Books tied at the top go to disambiguation as before. Rules and cases: `SpokenQueryMatchingTests`.
 - **stuck-state guards:** a dead pointer clears `LastPlayedStore` only when the dead URL *is* the
   saved one, then refreshes the snapshot.
 - **recency donations (#127, experiment):** `IntentDonor.donatePlayMedia` donates an

@@ -32,7 +32,9 @@ user-facing, but every title-matching Siri phrase depends on it.
   system does after they return can't be waited for. iOS decides when, or whether, it
   runs. Drop it if the device judgement in #127 shows no improvement.
 - **snapshot:** `abbay.librarySnapshot.v1` in the App Group — a versioned `LibrarySnapshot` of
-  `{title, urlString, bookmarkData}`. The extension's only data source.
+  `{title, urlString, bookmarkData, artist}`. The extension's only data source. `artist` (#201,
+  omitted when empty; older snapshots decode without it) lets Siri match "\<title> by
+  \<author>".
 - **spotlight:** `LibrarySpotlightIndexer` indexes each book as a `CSSearchableItem` in a named index
   with `completeUntilFirstUserAuthentication` protection, so the system can read it while locked.
   Skips books with no URL or an empty title. **Each publish replaces the index (#195):** it deletes
