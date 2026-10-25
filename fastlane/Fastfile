@@ -18,6 +18,14 @@ platform :ios do
     UI.error("❌ #{message}")
   end
 
+  # The simulator the suites run on, from .actions.yml. CI's image has other runtimes than a
+  # developer's Mac, so on CI `ci_test_device` wins when it is set.
+  def test_device
+    config = YAML.load_file('../.actions.yml')
+    device = ENV['CI'] && config['ci_test_device'] ? config['ci_test_device'] : config['test_device']
+    device.to_s
+  end
+
   desc "Generates the project
 
 #### Optional parameters
@@ -48,15 +56,13 @@ platform :ios do
     generate_project(open: false)
     message('Running tests')
 
-    actions_config = YAML.load_file('../.actions.yml')
-
     begin
       # https://docs.fastlane.tools/actions/run_tests/#parameters
       setup_ci if ENV['CI']
       run_tests(
         project: "#{project_name}.xcodeproj",
         scheme: project_name.to_s,
-        device: actions_config['test_device'].to_s,
+        device: test_device,
         derived_data_path: './build_data',
         result_bundle_path: 'TestResults.xcresult'
       )
@@ -76,14 +82,12 @@ boot the app and are far slower than the unit suite -- `test_project` must stay 
     generate_project(open: false)
     message('Running UI tests')
 
-    actions_config = YAML.load_file('../.actions.yml')
-
     begin
       setup_ci if ENV['CI']
       run_tests(
         project: "#{project_name}.xcodeproj",
         scheme: "#{project_name}UITests",
-        device: actions_config['test_device'].to_s,
+        device: test_device,
         derived_data_path: './build_data',
         result_bundle_path: 'UITestResults.xcresult',
         # UI tests drive a real simulator, so they are sensitive to host load in a way the unit
@@ -111,7 +115,7 @@ generates the project once and reuses that build for both suites, rather than le
     end
 
     generate_project(open: false)
-    device = YAML.load_file('../.actions.yml')['test_device'].to_s
+    device = test_device
 
     # Remove the result bundle first: xcodebuild hard-fails with "Existing file at
     # -resultBundlePath" rather than overwriting, which made this lane non-idempotent whenever a

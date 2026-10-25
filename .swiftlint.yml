@@ -3,6 +3,7 @@ included:
   - Abbay
   - AbbayTests
   - AbbayUITests
+  - AbbayAudioDomainUITests
   - Modules
 
 # Paths to exclude during linting

@@ -137,6 +137,9 @@ private struct SystemTabs<Library: View, Search: View>: View {
             } label: {
                 Label(Localizable.libraryTab.localized, systemImage: "books.vertical")
             }
+            // On the system bar's button since the iOS 27 SDK (#154): built with the iOS 26.4 SDK it
+            // didn't reach the button, and a UIKit probe set the ids instead.
+            .accessibilityIdentifier(AccessibilityID.Root.tabLibrary)
             // A regular tab, not `role: .search`: that role moves the tab's search field into the
             // bottom tab bar, and the owner wants it at the top, like the Library's.
             Tab(value: RootTab.search) {
@@ -144,101 +147,10 @@ private struct SystemTabs<Library: View, Search: View>: View {
             } label: {
                 Label(Localizable.searchTab.localized, systemImage: "magnifyingglass")
             }
+            .accessibilityIdentifier(AccessibilityID.Root.tabSearch)
         }
         .tint(ColorConstants.malachite.value)
         .modifier(MiniPlayerAccessory())
-        .background {
-            TabBarIdentifiers(
-                identifiers: [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch],
-                selection: selection
-            )
-        }
-    }
-}
-
-/// SwiftUI can't put an accessibility identifier on a system tab bar item: neither an identifier
-/// on the tab's label nor `customizationID` reaches the bar's button. This finds the window's
-/// `UITabBar` and sets them on its items, in tab order, and on any other view in the bar labelled
-/// with an item's title (the bar can show a tab as a separate, collapsed button). Only
-/// identifiers; nothing else is touched. Re-applied on each tab switch, while the bar animates.
-///
-/// Why it stays (#130): the iOS 18 SDK added `TabContent.accessibilityIdentifier(_:)`, but on the
-/// iOS 26.4 runtime it doesn't reach the bar's button either. With it on both tabs and this probe
-/// removed, `test_tabs_switchBetweenLibraryAndSearch` found no `root.tab.library`. Retry when a
-/// later SDK changes that.
-@available(iOS 26.1, *)
-private struct TabBarIdentifiers: UIViewRepresentable {
-    let identifiers: [String]
-    /// Not read: passing it makes SwiftUI call `updateUIView` on each tab switch.
-    let selection: RootTab
-
-    func makeUIView(context: Context) -> ProbeView {
-        ProbeView(identifiers: identifiers)
-    }
-
-    func updateUIView(_ uiView: ProbeView, context: Context) {
-        uiView.scheduleApply()
-    }
-
-    final class ProbeView: UIView {
-        let identifiers: [String]
-        /// After a trigger, the bar is installed or rebuilt at a time UIKit doesn't announce: apply
-        /// on each of these delays (seconds), which cover a slow switch animation. Applying is
-        /// idempotent and cheap (assigned only where missing).
-        static let applyDelays: [TimeInterval] = [0, 0.1, 0.3, 0.6, 1.2, 2.4]
-        /// Bumped by each trigger, so a burst of switches runs one schedule, the latest.
-        private var schedule = 0
-
-        init(identifiers: [String]) {
-            self.identifiers = identifiers
-            super.init(frame: .zero)
-            isUserInteractionEnabled = false
-            isAccessibilityElement = false
-        }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) { nil }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            scheduleApply()
-        }
-
-        /// The bar is installed, and rebuilt on a switch, after this runs: apply as it settles.
-        func scheduleApply() {
-            schedule += 1
-            let current = schedule
-            for delay in Self.applyDelays {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                    guard let self, schedule == current else { return }
-                    apply()
-                }
-            }
-        }
-
-        private func apply() {
-            guard let window, let tabBar = Self.tabBar(in: window) else { return }
-            for (item, identifier) in zip(tabBar.items ?? [], identifiers) {
-                if item.accessibilityIdentifier != identifier { item.accessibilityIdentifier = identifier }
-                guard let title = item.title else { continue }
-                for view in Self.views(in: tabBar) where view.accessibilityLabel == title
-                    && view.accessibilityIdentifier == nil {
-                    view.accessibilityIdentifier = identifier
-                }
-            }
-        }
-
-        private static func tabBar(in view: UIView) -> UITabBar? {
-            if let tabBar = view as? UITabBar { return tabBar }
-            for subview in view.subviews {
-                if let found = tabBar(in: subview) { return found }
-            }
-            return nil
-        }
-
-        private static func views(in view: UIView) -> [UIView] {
-            view.subviews + view.subviews.flatMap(views(in:))
-        }
     }
 }
 

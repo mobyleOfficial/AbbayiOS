@@ -36,3 +36,39 @@ enum Log {
     static let siri = Logger(subsystem: subsystem, category: "Siri")
     static let covers = Logger(subsystem: subsystem, category: "Covers")
 }
+
+/// The `os.Logger` level a `SiriLogRecord` is written at.
+enum SiriLogLevel: Equatable {
+    case debug, info, error
+}
+
+/// Whether a record's message shows in the unified log (`.public`) or is redacted to `<private>`
+/// (`.private`).
+enum SiriLogPrivacy: Equatable {
+    case `public`, `private`
+}
+
+/// Exactly what is written for one log event: `SiriLogEvent` (Siri publishing and donation) and
+/// `LibrarySnapshotLogEvent`. A pure value, so tests pin the text a sysdiagnose shows without
+/// reading the unified log back (#181, #190, #197). Here rather than in `SiriLog.swift` because the
+/// snapshot writer is also compiled into the AbbayIntents extension.
+struct SiriLogRecord: Equatable {
+    let level: SiriLogLevel
+    let message: String
+    let privacy: SiriLogPrivacy
+}
+
+extension Logger {
+    /// Writes `record` at its level and privacy. `os.Logger` fixes privacy per interpolation at
+    /// compile time, so each combination is spelled out rather than passed as a value.
+    func write(_ record: SiriLogRecord) {
+        switch (record.level, record.privacy) {
+        case (.debug, .public): debug("\(record.message, privacy: .public)")
+        case (.debug, .private): debug("\(record.message, privacy: .private)")
+        case (.info, .public): info("\(record.message, privacy: .public)")
+        case (.info, .private): info("\(record.message, privacy: .private)")
+        case (.error, .public): error("\(record.message, privacy: .public)")
+        case (.error, .private): error("\(record.message, privacy: .private)")
+        }
+    }
+}

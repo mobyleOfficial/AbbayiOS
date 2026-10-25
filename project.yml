@@ -216,6 +216,25 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         TEST_TARGET_NAME: Abbay
 
+  # iOS 27's App Intents audio domain, driven through `AppIntentsTesting` (#129). Its own bundle,
+  # with an iOS 27 deployment target, because `AppIntentsTesting` needs iOS 27 frameworks at load
+  # time: in `AbbayUITests` (iOS 17) the whole bundle failed to load on the iOS 26 simulator, even
+  # weak-linked. The app itself stays on iOS 17.
+  AbbayAudioDomainUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: '27.0'
+    dependencies:
+      - target: Abbay
+    sources:
+      - path: AbbayAudioDomainUITests
+      - path: Abbay/Core/AccessibilityID.swift
+      - path: Abbay/Core/LaunchArgument.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        TEST_TARGET_NAME: Abbay
+
 schemes:
   Abbay:
     build:
@@ -252,6 +271,8 @@ schemes:
       targets:
         Abbay: all
         AbbayUITests: [test]
+        AbbayAudioDomainUITests: [test]
     test:
       targets:
         - name: AbbayUITests
+        - name: AbbayAudioDomainUITests

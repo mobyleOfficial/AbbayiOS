@@ -61,4 +61,76 @@ final class SiriLogRecordTests: XCTestCase {
             )
         )
     }
+
+    // MARK: - Context and background refresh (#197)
+
+    func test_contextRefreshSkipped_isPublicDebugWithReason() {
+        XCTAssertEqual(
+            SiriLogEvent.contextRefreshSkipped(reason: SiriRefreshReason.pause.rawValue).record,
+            SiriLogRecord(level: .debug, message: "context refresh skipped (pause): throttled", privacy: .public)
+        )
+    }
+
+    func test_contextRefreshed_isPublicInfoWithReasonAndCount() {
+        XCTAssertEqual(
+            SiriLogEvent.contextRefreshed(reason: SiriRefreshReason.foreground.rawValue, bookCount: 3).record,
+            SiriLogRecord(level: .info, message: "context refresh (foreground): 3 books", privacy: .public)
+        )
+    }
+
+    func test_backgroundRefreshRegistrationRefused_isPublicErrorWithIdentifier() {
+        XCTAssertEqual(
+            SiriLogEvent.backgroundRefreshRegistrationRefused(identifier: SiriBackgroundRefresh.identifier).record,
+            SiriLogRecord(
+                level: .error,
+                message: "background refresh: registration refused for com.edyuto.Abbay.siriRefresh",
+                privacy: .public
+            )
+        )
+    }
+
+    func test_backgroundRefreshNotScheduled_keepsOnlyDomainAndCode() {
+        let error = NSError(domain: "BGTaskSchedulerErrorDomain", code: 1, userInfo: [NSLocalizedDescriptionKey: "x"])
+        XCTAssertEqual(
+            SiriLogEvent.backgroundRefreshNotScheduled(error).record,
+            SiriLogRecord(
+                level: .error,
+                message: "background refresh: not scheduled: BGTaskSchedulerErrorDomain 1",
+                privacy: .public
+            )
+        )
+    }
+
+    func test_backgroundRefreshExpiredAndFinished_arePublicInfo() {
+        XCTAssertEqual(
+            SiriLogEvent.backgroundRefreshExpired.record,
+            SiriLogRecord(level: .info, message: "background refresh: expired", privacy: .public)
+        )
+        XCTAssertEqual(
+            SiriLogEvent.backgroundRefreshPublishFinished.record,
+            SiriLogRecord(level: .info, message: "background refresh: publish finished", privacy: .public)
+        )
+    }
+
+    // MARK: - Library snapshot (#197)
+
+    func test_snapshotWritten_isPublicInfoWithCountsAndSuite() {
+        XCTAssertEqual(
+            LibrarySnapshotLogEvent
+                .written(entryCount: 4, bookmarkCount: 3, suiteName: "group.com.edyuto.abbay")
+                .record,
+            SiriLogRecord(
+                level: .info,
+                message: "snapshot WRITTEN: 4 entries (3 with bookmark), suite=group.com.edyuto.abbay",
+                privacy: .public
+            )
+        )
+    }
+
+    func test_snapshotEncodeFailed_isPublicError() {
+        XCTAssertEqual(
+            LibrarySnapshotLogEvent.encodeFailed.record,
+            SiriLogRecord(level: .error, message: "snapshot WRITE FAILED: JSON encode error", privacy: .public)
+        )
+    }
 }

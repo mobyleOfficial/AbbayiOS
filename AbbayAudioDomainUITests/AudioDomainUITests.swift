@@ -1,19 +1,18 @@
 //
 //  AudioDomainUITests.swift
-//  AbbayUITests
+//  AbbayAudioDomainUITests
 //
 
-import XCTest
-#if canImport(AppIntentsTesting) && canImport(MediaIntents)
 import AppIntents
 import AppIntentsTesting
 import MediaIntents
-#endif
+import XCTest
 
 /// iOS 27's App Intents audio domain, end to end (#129): `AppIntentsTesting` runs the app's value
 /// query and `PlayAudioDomainIntent` through the real App Intents stack in the running app, the
 /// same path Siri takes after it has understood a request. Only the speech recognition is skipped.
-/// Below iOS 27 the domain doesn't exist and these skip.
+/// The bundle's deployment target is iOS 27 (`AppIntentsTesting` needs iOS 27 frameworks to load), so
+/// it runs only on iOS 27 simulators; the app under test stays on iOS 17.
 final class AudioDomainUITests: XCTestCase {
     var app = XCUIApplication()
 
@@ -27,10 +26,8 @@ final class AudioDomainUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    #if canImport(AppIntentsTesting) && canImport(MediaIntents)
     @MainActor
     func test_audioSearch_findsASeededBook_andPlayAudioPlaysIt() async throws {
-        guard #available(iOS 27, *) else { throw XCTSkip("the audio domain is iOS 27+") }
         app.launchArguments = [LaunchArgument.seedLibrary]
         app.launch()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
@@ -53,7 +50,6 @@ final class AudioDomainUITests: XCTestCase {
 
     @MainActor
     func test_audioSearch_withNoTitle_offersTheLibrary() async throws {
-        guard #available(iOS 27, *) else { throw XCTSkip("the audio domain is iOS 27+") }
         app.launchArguments = [LaunchArgument.seedLibrary]
         app.launch()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
@@ -63,5 +59,4 @@ final class AudioDomainUITests: XCTestCase {
             .values(for: AudioSearch(criteria: .unspecified))
         XCTAssertGreaterThanOrEqual(result.items.count, 2, "the seeded library has at least two books")
     }
-    #endif
 }

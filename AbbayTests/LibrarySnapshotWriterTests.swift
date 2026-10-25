@@ -10,6 +10,7 @@ final class LibrarySnapshotWriterTests: XCTestCase {
     private var testSuite: UserDefaults?
     private var suiteName: String?
     private var mockLoadAllAudios: MockLoadAllAudiosUseCase?
+    private var logged: [LibrarySnapshotLogEvent] = []
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -33,8 +34,22 @@ final class LibrarySnapshotWriterTests: XCTestCase {
         return LibrarySnapshotWriter(
             store: try XCTUnwrap(testSuite),
             loadAllAudios: mock,
-            publisher: NoopSiriLibraryPublisher()
+            publisher: NoopSiriLibraryPublisher(),
+            log: { [weak self] in self?.logged.append($0) }
         )
+    }
+
+    /// #197: the `snapshot WRITTEN` line, with counts only.
+    func test_write_logsTheEntryAndBookmarkCounts() throws {
+        var withBookmark = AudioModel(title: "Secret Title")
+        withBookmark.url = URL(string: "file:///a")
+        withBookmark.bookmarkData = Data([1])
+        var plain = AudioModel(title: "Other")
+        plain.url = URL(string: "file:///b")
+
+        try makeWriter().write(audios: [withBookmark, plain])
+
+        XCTAssertEqual(logged, [.written(entryCount: 2, bookmarkCount: 1, suiteName: AppGroup.suiteName)])
     }
 
     func test_write_emptyList_writesEmptyAudios() throws {

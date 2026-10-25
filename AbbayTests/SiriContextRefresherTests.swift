@@ -23,14 +23,28 @@ final class SiriContextRefresherTests: XCTestCase {
     private var now = Date(timeIntervalSinceReferenceDate: 0)
     private let publisher = CountingPublisher()
     private let library = MockLoadAllAudiosUseCase()
+    private let log = RecordingSiriLogSink()
 
     private func makeRefresher() -> SiriContextRefresher {
         library.stub = [AudioModel(title: "One"), AudioModel(title: "Two")]
         return SiriContextRefresher(
             publisher: publisher,
             loadAllAudios: library,
-            now: { [unowned self] in self.now }
+            now: { [unowned self] in self.now },
+            log: log
         )
+    }
+
+    /// #197: the lines `siri-library-publish.md` tells the reader to look for.
+    func test_refreshes_logThePublishAndTheSkip() {
+        let refresher = makeRefresher()
+        refresher.refreshIfDue(.foreground)
+        refresher.refreshIfDue(.pause)
+
+        XCTAssertEqual(log.events, [
+            .contextRefreshed(reason: "foreground", bookCount: 2),
+            .contextRefreshSkipped(reason: "pause")
+        ])
     }
 
     func test_refreshIfDue_firstCall_publishesTheLibrary() {

@@ -56,22 +56,25 @@ final class SiriContextRefresher: SiriContextRefreshing {
     private let publisher: SiriLibraryPublisherProtocol
     private let loadAllAudios: LoadAllAudiosUseCaseProtocol
     private let now: () -> Date
+    private let log: SiriLogSink
     /// In memory only: a relaunch publishes anyway, so there is nothing worth persisting.
     private var lastPublish: Date?
 
     init(
         publisher: SiriLibraryPublisherProtocol = SiriLibraryPublisher.shared,
         loadAllAudios: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        log: SiriLogSink = OSSiriLogSink()
     ) {
         self.publisher = publisher
         self.loadAllAudios = loadAllAudios
         self.now = now
+        self.log = log
     }
 
     func refreshIfDue(_ reason: SiriRefreshReason) {
         if let lastPublish, now().timeIntervalSince(lastPublish) < Self.minimumInterval {
-            Log.siri.debug("context refresh skipped (\(reason.rawValue, privacy: .public)): throttled")
+            log.log(.contextRefreshSkipped(reason: reason.rawValue))
             return
         }
         refreshNow(reason)
@@ -79,7 +82,7 @@ final class SiriContextRefresher: SiriContextRefreshing {
 
     func refreshNow(_ reason: SiriRefreshReason, completion: @escaping () -> Void) {
         let audios = loadAllAudios.execute()
-        Log.siri.info("context refresh (\(reason.rawValue, privacy: .public)): \(audios.count, privacy: .public) books")
+        log.log(.contextRefreshed(reason: reason.rawValue, bookCount: audios.count))
         publisher.publish(audios: audios, completion: completion)
         markPublished()
     }
