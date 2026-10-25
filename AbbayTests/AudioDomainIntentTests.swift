@@ -94,6 +94,31 @@ final class AudioDomainIntentTests: XCTestCase {
         }
     }
 
+    /// "Play something by Lewis Carroll" names an author, not a title (#207).
+    func test_query_authorOnly_offersTheirBooks_lastPlayedAlone() {
+        let library = [
+            book("Alice in Wonderland", "file:///alice", artist: "Lewis Carroll"),
+            book("Moby Dick", "file:///moby", artist: "Herman Melville"),
+            book("Through the Looking-Glass", "file:///glass", artist: "Lewis Carroll")
+        ]
+        for spoken in ["something by Lewis Carroll", "um livro do Lewis Carroll", "lewis carroll"] {
+            let books = AudioDomainMatcher.books(for: .query(spoken), library: library, lastPlayedURL: nil)
+            XCTAssertEqual(books.map(\.title), ["Alice in Wonderland", "Through the Looking-Glass"], spoken)
+        }
+        let carryOn = AudioDomainMatcher.books(
+            for: .query("something by lewis carroll"),
+            library: library,
+            lastPlayedURL: URL(string: "file:///glass")
+        )
+        XCTAssertEqual(carryOn.map(\.title), ["Through the Looking-Glass"])
+        let nobody = AudioDomainMatcher.books(
+            for: .query("something by Jules Verne"),
+            library: library,
+            lastPlayedURL: nil
+        )
+        XCTAssertEqual(nobody.map(\.title), [])
+    }
+
     func test_query_withNoMatch_isEmpty() {
         XCTAssertTrue(AudioDomainMatcher.books(for: .query("dune"), library: library, lastPlayedURL: nil).isEmpty)
     }

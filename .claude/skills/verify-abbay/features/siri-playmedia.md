@@ -36,6 +36,24 @@ iOS picks is not fully under the app's control. This is the murkiest part of the
   doesn't play *Chamber of Secrets*). Short words never
   match part of a longer one ("go" isn't *Goblet*); a query of stop words alone matches nothing.
   Books tied at the top go to disambiguation as before. Rules and cases: `SpokenQueryMatchingTests`.
+- **author-only requests (#207):** "something by Jane Austen", "um livro do Machado de Assis"
+  (only request words such as something, anything, a book, livro, algo, alguma coisa before
+  by/from/por/de/do/da) ask for the books whose artist has every word of the author (one of three
+  letters or more). Tried before the titles, but a title by that same author still wins ("Book One
+  by Stephen King"), and someone else's title never does ("a book by Bram Stoker" isn't *The
+  Jungle Book*). A bare name ("jane austen", "machado") is read as an author only when no title
+  matches. What plays: the last-played book when it is that author's, alone (so "play something by
+  X" carries on with X); otherwise all their books in library order, which the extension offers as
+  a disambiguation (2-5) or `fallbackBest` (>5), and the in-app path plays the first. An author
+  with no book in the library matches nothing. SiriKit can also carry the author apart, in
+  `INMediaSearch.artistName`: `MediaSearchResolver.candidates(mediaName:artistName:…)` reads a
+  title plus artist as "\<title> by \<artist>", and an artist alone as an author-only request, never
+  as title-less (no resume of someone else's book). Every path that matches a spoken title gets
+  this (extension, in-app, `IntentRouter`, `AudiobookEntityQuery`, `PlayBookByNameIntent`'s second
+  turn, the iOS 27 audio domain); the App Shortcut phrases can't carry an author (their parameter is
+  an entity). The extension's diagnostics line is `ext decide entered titleless=<bool>
+  artist=<bool>`. Cases: `SpokenAuthorMatchingTests`, `PlayMediaIntentHandlerTests`,
+  `InAppPlayMediaHandlerTests`, `AudioDomainIntentTests`.
 - **stuck-state guards:** a dead pointer clears `LastPlayedStore` only when the dead URL *is* the
   saved one, then refreshes the snapshot.
 - **recency donations (#127, experiment):** `IntentDonor.donatePlayMedia` donates an

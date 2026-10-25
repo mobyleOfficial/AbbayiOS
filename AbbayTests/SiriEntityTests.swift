@@ -133,6 +133,32 @@ final class SiriEntityTests: XCTestCase {
         XCTAssertTrue(results.isEmpty)
     }
 
+    /// The chapter's own title, said with extra words, folded and in either language (#206).
+    func test_chapterQuery_matching_titleWithExtraWords_andSpelledNumbers() async throws {
+        var titled = chapters([0, 100, 200, 300])
+        titled[0].title = "Prólogo"
+        titled[1].title = "The Vanishing Glass"
+        titled[2].title = "Diagon Alley"
+        titled[3].title = "Epilogue"
+        let book = audio(title: "Book", url: "file:///b", chapters: titled)
+        NowPlayingManager.shared.setPlayer(player, currentAudio: book)
+        let query = ChapterEntityQuery()
+        let cases: [(String, [Int])] = [
+            ("o capítulo prologo", [1]),
+            ("the prologo chapter", [1]),
+            ("vanishing glass", [2]),
+            ("chapter three", [3]),
+            ("o terceiro capítulo", [3]),
+            ("capítulo 4", [4]),
+            ("chapter", []),
+            ("the half blood prince", [])
+        ]
+        for (spoken, numbers) in cases {
+            let found = try await query.entities(matching: spoken)
+            XCTAssertEqual(found.map(\.number), numbers, spoken)
+        }
+    }
+
     func test_chapterQuery_suggested_usesLastPlayedBookWhenNothingLoaded() async throws {
         let url = try XCTUnwrap(URL(string: "file:///b"))
         let book = audio(title: "Book", url: url.absoluteString, chapters: chapters([0, 100, 200]))

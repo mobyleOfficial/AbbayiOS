@@ -65,6 +65,42 @@ final class AudioDomainUITests: XCTestCase {
         XCTAssertEqual(title, "Seeded Chaptered Book")
     }
 
+    /// An author-only request (#207): "play something by Seed Author" carries on with the last book
+    /// played by that author (both seeded books are theirs, so the one just played is the answer),
+    /// in en and pt-BR, and an author with no book in the library gets nothing rather than any book.
+    /// Offering all of an author's books when none was played last is unit-tested
+    /// (`SpokenAuthorMatchingTests`): the last-played pointer outlives a launch, so a UI test can't
+    /// start from none.
+    @MainActor
+    func test_audioSearch_authorOnly_carriesOnWithThatAuthorsLastPlayedBook() async throws {
+        app.launchArguments = [LaunchArgument.seedLibrary]
+        app.launch()
+        XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20))
+
+        let definitions = IntentDefinitions(bundleIdentifier: "com.edyuto.Abbay")
+        let query = definitions.valueQueries["AudioDomainBookQuery"]
+        let plain = try await query.values(for: AudioSearch(criteria: .searchQuery("Seeded Plain Book")))
+        XCTAssertEqual(plain.items.count, 1)
+        let plainBook = try plain.items[0].as(definitions.entities["AudioDomainBookEntity"])
+        try await definitions.intents["PlayAudioDomainIntent"].makeIntent(audioEntity: plainBook).run()
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 15), "the intent didn't load the book")
+        XCTAssertTrue(bar.label.contains("Seeded Plain Book"), "unexpected bar \"\(bar.label)\"")
+
+        for spoken in ["something by Seed Author", "um livro do Seed Author", "seed author"] {
+            let result = try await query.values(for: AudioSearch(criteria: .searchQuery(spoken)))
+            XCTAssertEqual(result.items.count, 1, spoken)
+            let book = try result.items[0].as(definitions.entities["AudioDomainBookEntity"])
+            let title: String = try book.title
+            let author: String = try book.author
+            XCTAssertEqual(title, "Seeded Plain Book", spoken)
+            XCTAssertEqual(author, "Seed Author", spoken)
+        }
+
+        let nobody = try await query.values(for: AudioSearch(criteria: .searchQuery("something by Nobody Else")))
+        XCTAssertEqual(nobody.items.count, 0)
+    }
+
     @MainActor
     func test_audioSearch_withNoTitle_offersTheLibrary() async throws {
         app.launchArguments = [LaunchArgument.seedLibrary]

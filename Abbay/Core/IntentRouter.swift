@@ -80,6 +80,7 @@ final class IntentRouter: IntentRouterProtocol {
         let audios = MediaSearchResolver.audios(from: snapshotReader())
         let picked = MediaSearchResolver.candidates(
             mediaName: intent.mediaSearch?.mediaName ?? "",
+            artistName: intent.mediaSearch?.artistName,
             audios: audios,
             lastPlayedURL: lastPlayed.lastPlayedURL()
         ).first
