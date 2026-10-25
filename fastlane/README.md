@@ -90,7 +90,10 @@ Generate app (xcarchive)
 
 Archives a Release build, checks it, exports an App Store .ipa and uploads it to TestFlight
 
-1. Generates the project and stamps the version from the `version` file.
+1. Picks the build number (fastlane/build_number.rb, #183): with an API key,
+   max(latest TestFlight build, `version` file) + 1; without one, the `version` file's number
+   (no upload, so nothing to collide with). Generates the project, stamps the marketing version
+   from `version` and that build number into the generated project. `version` is never written.
 2. Archives Release for `generic/platform=iOS` to build/Abbay.xcarchive.
 3. Runs Scripts/check-app-binary on the archived .app: load paths (#142), entitlements, no
    Debug-only resources.
@@ -101,6 +104,10 @@ Archives a Release build, checks it, exports an App Store .ipa and uploads it to
 
 Env: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID, and
 APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path).
+
+#### Optional parameters
+  * dry_run: false - Resolve the key and the build number, print the plan, stop before building
+  * build_number: <n> - Use this build number; with a key it must be above TestFlight's latest
 
 ### ios clean_project
 
