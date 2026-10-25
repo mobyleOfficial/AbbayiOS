@@ -24,9 +24,14 @@ enum LibraryGridActions {
         let namespace = AccessibilityID.Library.row(index)
         let title = element(app, AccessibilityID.Element.title(namespace))
         XCTAssertTrue(title.waitForExistence(timeout: 15), "no cell \(index)", file: file, line: line)
-        title.press(forDuration: 1.2)
         let play = element(app, AccessibilityID.Element.play(namespace))
-        XCTAssertTrue(play.waitForExistence(timeout: 5), "cell \(index)'s menu has no Play/Pause", file: file, line: line)
+        // A press that lands while the grid is still settling (the bar docking, a notice sliding
+        // in) can end as a tap; one more press then opens the menu.
+        for _ in 0..<2 where !play.exists {
+            title.press(forDuration: 1.2)
+            _ = play.waitForExistence(timeout: 4)
+        }
+        XCTAssertTrue(play.waitForExistence(timeout: 2), "cell \(index)'s menu has no Play/Pause", file: file, line: line)
         return play
     }
 
