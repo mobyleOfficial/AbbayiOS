@@ -149,6 +149,8 @@ final class DownloadStatusUITests: XCTestCase {
 
         assertResolves(AccessibilityID.Player.downloadProgress)
         assertResolves(AccessibilityID.Player.downloadLowDataMode)
+        // Per-chapter status lives in the chapter panel (#166 G2).
+        element(AccessibilityID.Player.chapters).tap()
         assertResolves(AccessibilityID.Player.chapterRetry(2))
     }
 

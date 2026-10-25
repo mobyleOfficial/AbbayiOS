@@ -37,7 +37,18 @@ struct PlayerProgressView: View {
     /// The trailing label: the time still to play, with a minus sign ("−28:07").
     static func remainingText(current: Double, total: Double) -> String {
         let remaining = max((total.isFinite ? total : 0) - (current.isFinite ? current : 0), 0)
-        return "\u{2212}" + remaining.timestamp
+        return "\u{2212}" + clockText(remaining)
+    }
+
+    /// "17:12" under an hour, "1:05:09" from an hour on: the scrubber's compact times.
+    static func clockText(_ seconds: Double) -> String {
+        let total = seconds.isFinite ? max(Int(seconds), 0) : 0
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, secs)
+            : String(format: "%d:%02d", minutes, secs)
     }
 
     // MARK: - Body
@@ -77,7 +88,7 @@ struct PlayerProgressView: View {
             // A taller touch area than the 6 pt track.
             .frame(height: SpaceConstants.sx24.value)
             HStack(spacing: SpaceConstants.sx8.value) {
-                Text(currentTime.timestamp)
+                Text(Self.clockText(currentTime))
                 Spacer(minLength: 0)
                 if let centerLabel {
                     Text(centerLabel)
