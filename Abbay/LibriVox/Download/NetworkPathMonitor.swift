@@ -64,6 +64,9 @@ extension NetworkPathSnapshot {
 /// online and not metered.
 final class NetworkPathMonitor: NetworkPathProviding {
     static let shared = NetworkPathMonitor()
+    /// The path the download screens read: `shared`, or a fixed one a UI test asked for
+    /// (`DebugOverrides.networkPath`).
+    static let app: NetworkPathProviding = DebugOverrides.networkPath() ?? shared
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "com.edyuto.Abbay.networkPathMonitor")

@@ -19,13 +19,14 @@ enum DebugOverrides {
         #endif
     }
 
-    /// A download manager that downloads nothing, for `-stubLibriVox`.
+    /// A download manager that downloads nothing, for `-stubLibriVox`; with `-stubDownloadStates`
+    /// it publishes a fixed state for every book it is given.
     static func downloadManager(
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) -> BookDownloadManagerProtocol? {
         #if DEBUG
         if arguments.contains(LaunchArgument.stubLibriVox) {
-            return UITestDownloadManager()
+            return UITestDownloadManager(publishesStates: arguments.contains(LaunchArgument.stubDownloadStates))
         }
         #endif
         return nil
@@ -36,7 +37,26 @@ enum DebugOverrides {
         #if DEBUG
         if arguments.contains(LaunchArgument.stubLibriVox) {
             let stubsCovers = arguments.contains(LaunchArgument.stubCovers)
-            return UITestLibriVoxClient(coverURL: stubsCovers ? UITestCoverNetwork.coverURL : nil)
+            return UITestLibriVoxClient(
+                coverURL: stubsCovers ? UITestCoverNetwork.coverURL : nil,
+                isLarge: arguments.contains(LaunchArgument.stubDownloadStates)
+            )
+        }
+        #endif
+        return nil
+    }
+
+    /// A fixed network path, for `-stubPathCellular`, `-stubPathHotspot` or `-stubPathLowDataMode`
+    /// (the first one given wins).
+    static func networkPath(arguments: [String] = ProcessInfo.processInfo.arguments) -> NetworkPathProviding? {
+        #if DEBUG
+        let paths = [
+            (LaunchArgument.stubPathCellular, UITestNetworkPath.cellular),
+            (LaunchArgument.stubPathHotspot, UITestNetworkPath.hotspot),
+            (LaunchArgument.stubPathLowDataMode, UITestNetworkPath.lowDataMode)
+        ]
+        if let match = paths.first(where: { arguments.contains($0.0) }) {
+            return UITestNetworkPath(match.1)
         }
         #endif
         return nil

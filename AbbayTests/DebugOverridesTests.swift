@@ -95,7 +95,75 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 13, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 17, "a new launch argument belongs in `all`")
+    }
+
+    // MARK: - Stub download states and network path (#171)
+
+    func test_networkPath_withoutAnArgument_isTheRealOne() {
+        XCTAssertNil(DebugOverrides.networkPath(arguments: [LaunchArgument.stubLibriVox]))
+    }
+
+    func test_networkPath_followsTheArgument() throws {
+        let cellular = try XCTUnwrap(DebugOverrides.networkPath(arguments: [LaunchArgument.stubPathCellular]))
+        let hotspot = try XCTUnwrap(DebugOverrides.networkPath(arguments: [LaunchArgument.stubPathHotspot]))
+        let lowData = try XCTUnwrap(DebugOverrides.networkPath(arguments: [LaunchArgument.stubPathLowDataMode]))
+
+        XCTAssertEqual((cellular as? UITestNetworkPath)?.snapshot, UITestNetworkPath.cellular)
+        XCTAssertEqual((hotspot as? UITestNetworkPath)?.snapshot, UITestNetworkPath.hotspot)
+        XCTAssertEqual((lowData as? UITestNetworkPath)?.snapshot, UITestNetworkPath.lowDataMode)
+        for path in [cellular, hotspot, lowData] {
+            XCTAssertTrue(path.isOnline)
+            XCTAssertTrue(path.isMetered, "Download must ask, so Wait for Wi-Fi can be chosen")
+        }
+    }
+
+    func test_stubBook_withStubDownloadStates_isOverTheCellularThreshold() async throws {
+        let arguments = [LaunchArgument.stubLibriVox, LaunchArgument.stubDownloadStates]
+        let client = try XCTUnwrap(DebugOverrides.libriVoxClient(arguments: arguments))
+        let book = try XCTUnwrap(try await client.popular().first)
+
+        let details = try await client.details(for: book)
+
+        XCTAssertEqual(details.book.sections.count, 3)
+        XCTAssertGreaterThan(details.totalBytes, CellularDownloadPolicy.largeDownloadThreshold)
+    }
+
+    func test_stubDownloadManager_withoutStubDownloadStates_publishesNothing() throws {
+        let manager = try XCTUnwrap(DebugOverrides.downloadManager(arguments: [LaunchArgument.stubLibriVox]))
+        var received = [[String: BookDownloadState]]()
+        let cancellable = manager.statesPublisher.sink { received.append($0) }
+
+        manager.enqueue(stubAudio())
+
+        XCTAssertTrue(received.allSatisfy(\.isEmpty))
+        cancellable.cancel()
+    }
+
+    func test_stubDownloadManager_publishesAFixedStateThatPauseResumeAndRetryChange() throws {
+        let arguments = [LaunchArgument.stubLibriVox, LaunchArgument.stubDownloadStates]
+        let manager = try XCTUnwrap(DebugOverrides.downloadManager(arguments: arguments))
+        var latest = [String: BookDownloadState]()
+        let cancellable = manager.statesPublisher.sink { latest = $0 }
+
+        manager.enqueue(stubAudio())
+        XCTAssertEqual(latest["ui-test-stub"]?.chapters, [.downloaded, .waiting, .failed])
+        XCTAssertEqual(latest["ui-test-stub"]?.isPaused, false)
+
+        manager.pause(bookID: "ui-test-stub")
+        XCTAssertEqual(latest["ui-test-stub"]?.isPaused, true)
+        manager.resume(bookID: "ui-test-stub")
+        manager.retry(chapterIndex: 2, ofBookID: "ui-test-stub")
+        XCTAssertEqual(latest["ui-test-stub"]?.chapters, [.downloaded, .waiting, .waiting])
+        XCTAssertEqual(latest["ui-test-stub"]?.isPaused, false)
+        cancellable.cancel()
+    }
+
+    /// Three chapters, like the stub book with `-stubDownloadStates`.
+    private func stubAudio() -> AudioModel {
+        var book = ViewModelSupport.chaptered()
+        book.librivoxID = "ui-test-stub"
+        return book
     }
 }
 #endif

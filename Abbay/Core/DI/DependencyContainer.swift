@@ -90,7 +90,7 @@ final class DependencyContainer: DependencyContainerProtocol {
         self.loadAudio = loadAudio
         // Built here, on main: `configure()` runs from the AppDelegate's launch.
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
-        self.downloadStates = DownloadStateStore(downloads: downloads)
+        self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)
     }
 
     /// The App Group stores for code that can run before launch configured the container (entity
