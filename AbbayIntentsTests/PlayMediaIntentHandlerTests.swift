@@ -29,14 +29,18 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
         )
     }
 
-    private func makeIntent(mediaName: String, mediaItems: [INMediaItem]? = nil) -> INPlayMediaIntent {
+    private func makeIntent(
+        mediaName: String?,
+        artistName: String? = nil,
+        mediaItems: [INMediaItem]? = nil
+    ) -> INPlayMediaIntent {
         INPlayMediaIntent(
             mediaItems: mediaItems, mediaContainer: nil, playShuffled: nil,
             playbackRepeatMode: .none, resumePlayback: nil,
             playbackQueueLocation: .now, playbackSpeed: nil,
             mediaSearch: INMediaSearch(
                 mediaType: .audioBook, sortOrder: .unknown,
-                mediaName: mediaName, artistName: nil, albumName: nil,
+                mediaName: mediaName, artistName: artistName, albumName: nil,
                 genreNames: nil, moodNames: nil, releaseDate: nil,
                 reference: .unknown, mediaIdentifier: nil
             )
@@ -114,6 +118,50 @@ final class PlayMediaIntentHandlerTests: XCTestCase {
             return XCTFail("expected singleMatch for a query with extra words")
         }
         XCTAssertEqual(item.identifier, "file:///gof")
+    }
+
+    /// "Play something by Jane Austen" (#207): the author's books, spoken in the media name or
+    /// carried apart in `artistName`.
+    func test_decide_authorOnly_disambiguatesAmongTheirBooks() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Emma", urlString: "file:///emma", bookmarkData: nil, artist: "Jane Austen"),
+            LibrarySnapshotEntry(title: "Dracula", urlString: "file:///dracula", bookmarkData: nil, artist: "Bram Stoker"),
+            LibrarySnapshotEntry(title: "Persuasion", urlString: "file:///persuasion", bookmarkData: nil, artist: "Jane Austen")
+        ])
+        let handler = try XCTUnwrap(self.handler)
+        for intent in [
+            makeIntent(mediaName: "something by Jane Austen"),
+            makeIntent(mediaName: "um livro da Jane Austen"),
+            makeIntent(mediaName: nil, artistName: "Jane Austen")
+        ] {
+            guard case .disambiguation(let items) = handler.decide(for: intent) else {
+                return XCTFail("expected disambiguation for \(String(describing: intent.mediaSearch))")
+            }
+            XCTAssertEqual(items.map(\.identifier), ["file:///emma", "file:///persuasion"])
+        }
+    }
+
+    func test_decide_authorOnly_withTheirLastPlayed_playsIt() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Emma", urlString: "file:///emma", bookmarkData: nil, artist: "Jane Austen"),
+            LibrarySnapshotEntry(title: "Persuasion", urlString: "file:///persuasion", bookmarkData: nil, artist: "Jane Austen")
+        ])
+        lastPlayed.save(url: try XCTUnwrap(URL(string: "file:///persuasion")))
+        let handler = try XCTUnwrap(self.handler)
+        guard case .singleMatch(let item) = handler.decide(for: makeIntent(mediaName: nil, artistName: "Austen")) else {
+            return XCTFail("expected the author's last-played book")
+        }
+        XCTAssertEqual(item.identifier, "file:///persuasion")
+    }
+
+    func test_decide_artistWithNoBook_isNoMatch_notResume() throws {
+        try writeSnapshot([
+            LibrarySnapshotEntry(title: "Emma", urlString: "file:///emma", bookmarkData: nil, artist: "Jane Austen")
+        ])
+        lastPlayed.save(url: try XCTUnwrap(URL(string: "file:///emma")))
+        let handler = try XCTUnwrap(self.handler)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: nil, artistName: "Agatha Christie")), .noMatch)
+        XCTAssertEqual(handler.decide(for: makeIntent(mediaName: "something by Agatha Christie")), .noMatch)
     }
 
     func test_decide_emptyLibrary_returnsEmptyLibraryOutcome() throws {

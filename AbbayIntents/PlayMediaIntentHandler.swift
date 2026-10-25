@@ -53,7 +53,8 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
             """
         )
 
-        diagnostics.record("ext decide entered titleless=\(mediaName.isEmpty)")
+        let hasArtist = !(intent.mediaSearch?.artistName ?? "").isEmpty
+        diagnostics.record("ext decide entered titleless=\(mediaName.isEmpty) artist=\(hasArtist)")
 
         if flagValue {
             Log.playMediaIntent.info("decide → unavailable (flag set)")
@@ -78,6 +79,7 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
 
         let candidates = resolveCandidates(
             mediaName: mediaName,
+            artistName: intent.mediaSearch?.artistName,
             audios: audios,
             lastPlayedURL: lastPlayedURL
         )
@@ -112,11 +114,13 @@ final class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     /// `application(_:handle:)` path rank a spoken request identically.
     func resolveCandidates(
         mediaName: String,
+        artistName: String? = nil,
         audios: [AudioModel],
         lastPlayedURL: URL?
     ) -> [AudioModel] {
         let candidates = MediaSearchResolver.candidates(
             mediaName: mediaName,
+            artistName: artistName,
             audios: audios,
             lastPlayedURL: lastPlayedURL
         )

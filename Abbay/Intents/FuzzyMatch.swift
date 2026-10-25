@@ -42,9 +42,45 @@ func fuzzyMatch(input: String,
 /// "book", "livro" at either end of the query are tried without them too. The best reading wins.
 /// A word matches another when they are equal, or when the shorter has four letters or more and
 /// starts the longer ("sorcerer" / "sorcerer's"), so "go" never matches "Goblet".
+///
+/// A request for an author rather than a title (#207) gets that author's books (`matchAuthor`):
+/// "something by Jane Austen", "um livro do Machado de Assis" (only request words before the
+/// marker) is tried before the titles; a bare name ("jane austen") only when no title matches.
 func matchAll(input: String,
               audios: [AudioModel],
               lastPlayedURL: URL?) -> [AudioModel] {
+    let words = SpokenText.words(input)
+    let titled = matchTitles(input: input, audios: audios, lastPlayedURL: lastPlayedURL)
+    if let author = SpokenAuthor.requested(in: words) {
+        let theirs = SpokenAuthor.books(by: author, in: audios)
+        if !theirs.isEmpty {
+            // "Book One by X" is a title after all when X wrote it; "a book by X" never hands
+            // X's request to someone else's *The Jungle Book*.
+            let urls = Set(theirs.compactMap(\.url))
+            let named = titled.filter { $0.url.map(urls.contains) ?? false }
+            return named.isEmpty ? SpokenAuthor.pick(theirs, lastPlayedURL: lastPlayedURL) : named
+        }
+    }
+    if !titled.isEmpty { return titled }
+    let theirs = SpokenAuthor.books(by: SpokenAuthor.bare(words), in: audios)
+    return SpokenAuthor.pick(theirs, lastPlayedURL: lastPlayedURL)
+}
+
+/// The books by the author named in `input` ("Jane Austen", "something by Jane Austen"), for
+/// requests that carry the author on its own (SiriKit's `INMediaSearch.artistName`). See
+/// `SpokenAuthor.books`.
+func matchAuthor(input: String,
+                 audios: [AudioModel],
+                 lastPlayedURL: URL?) -> [AudioModel] {
+    let words = SpokenText.words(input)
+    let author = SpokenAuthor.requested(in: words) ?? SpokenAuthor.bare(words)
+    return SpokenAuthor.pick(SpokenAuthor.books(by: author, in: audios), lastPlayedURL: lastPlayedURL)
+}
+
+/// The title tiers of `matchAll`, without the author-only readings.
+private func matchTitles(input: String,
+                         audios: [AudioModel],
+                         lastPlayedURL: URL?) -> [AudioModel] {
     let readings = SpokenQuery.readings(of: input)
     guard !readings.isEmpty else { return [] }
 
@@ -125,6 +161,57 @@ enum SpokenText {
     }
 }
 
+/// An author-only request: "something by Jane Austen", "um livro do Machado de Assis" (#207).
+enum SpokenAuthor {
+    /// Words that ask for a book without naming one ("play something", "toca um livro").
+    static let requestWords: Set<String> = [
+        // en
+        "play", "listen", "something", "anything", "some", "any", "book", "books", "audiobook",
+        "audiobooks", "audio", "novel", "story", "me", "please",
+        // pt-BR
+        "toca", "tocar", "toque", "ouvir", "escutar", "algo", "alguma", "algum", "coisa", "qualquer",
+        "livro", "livros", "audiolivro", "audiolivros", "obra", "historia", "romance"
+    ]
+
+    /// Words that introduce the author in an author-only request. Wider than
+    /// `SpokenText.authorMarkers`: "do"/"da" ("um livro do Machado") only follow request words.
+    static let markers: Set<String> = ["by", "from", "por", "de", "do", "da", "dos", "das"]
+
+    /// The author's words when `words` only ask for a book by someone ("something by X"), else nil.
+    static func requested(in words: [String]) -> [String]? {
+        guard let marker = words.firstIndex(where: markers.contains) else { return nil }
+        let asking = words[..<marker].allSatisfy { requestWords.contains($0) || SpokenText.stopWords.contains($0) }
+        guard asking else { return nil }
+        let author = SpokenText.content(Array(words[(marker + 1)...]))
+        return author.isEmpty ? nil : author
+    }
+
+    /// `words` read as nothing but a name ("jane austen", "machado de assis livros").
+    static func bare(_ words: [String]) -> [String] {
+        SpokenText.content(words).filter { !requestWords.contains($0) }
+    }
+
+    /// The books, in library order, whose artist has every one of `author`'s words (at least one
+    /// of three letters or more, so "by j" names nobody).
+    static func books(by author: [String], in audios: [AudioModel]) -> [AudioModel] {
+        guard author.contains(where: { $0.count >= 3 }) else { return [] }
+        return audios.filter { audio in
+            let artist = SpokenText.content(SpokenText.words(audio.artist))
+            return author.allSatisfy { spoken in artist.contains { SpokenText.wordsMatch(spoken, $0) } }
+        }
+    }
+
+    /// What an author-only request plays: the last-played book when it is one of `theirs`, alone,
+    /// so "play something by X" carries on with X; otherwise all of them, in library order, which
+    /// each Siri path offers as it offers tied titles (the extension disambiguates two to five).
+    static func pick(_ theirs: [AudioModel], lastPlayedURL: URL?) -> [AudioModel] {
+        if let lastPlayedURL, let last = theirs.first(where: { $0.url == lastPlayedURL }) {
+            return [last]
+        }
+        return theirs
+    }
+}
+
 /// A library book as words.
 struct SpokenBook {
     let words: [String]
@@ -145,8 +232,9 @@ struct SpokenQuery {
     let content: [String]
     let author: [String]
 
-    /// Every reading of `input` worth scoring; empty when nothing was said.
-    static func readings(of input: String) -> [SpokenQuery] {
+    /// Every reading of `input` worth scoring; empty when nothing was said. `fillers` are dropped at
+    /// the query's ends ("book", "livro"; chapter matching adds "chapter", "capítulo").
+    static func readings(of input: String, fillers: Set<String> = SpokenText.fillerWords) -> [SpokenQuery] {
         let words = SpokenText.words(input)
         guard !words.isEmpty else { return [] }
         // Every marker is a candidate split: titles hold "by" and "de" too ("Stand by Me",
@@ -157,7 +245,7 @@ struct SpokenQuery {
         }
         return splits.flatMap { split -> [SpokenQuery] in
             let content = SpokenText.content(split.title)
-            let trimmed = withoutFiller(content)
+            let trimmed = withoutFiller(content, fillers)
             var readings = [SpokenQuery(words: split.title, content: content, author: split.author)]
             if trimmed != content {
                 readings.append(SpokenQuery(words: trimmed, content: trimmed, author: split.author))
@@ -166,12 +254,12 @@ struct SpokenQuery {
         }
     }
 
-    private static func withoutFiller(_ content: [String]) -> [String] {
+    private static func withoutFiller(_ content: [String], _ fillers: Set<String>) -> [String] {
         var trimmed = content[...]
-        while trimmed.count > 1, let first = trimmed.first, SpokenText.fillerWords.contains(first) {
+        while trimmed.count > 1, let first = trimmed.first, fillers.contains(first) {
             trimmed = trimmed.dropFirst()
         }
-        while trimmed.count > 1, let last = trimmed.last, SpokenText.fillerWords.contains(last) {
+        while trimmed.count > 1, let last = trimmed.last, fillers.contains(last) {
             trimmed = trimmed.dropLast()
         }
         return Array(trimmed)

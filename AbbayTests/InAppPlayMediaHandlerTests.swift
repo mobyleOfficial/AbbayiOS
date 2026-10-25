@@ -33,7 +33,7 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
         )
     }
 
-    private func intent(mediaName: String?) -> INPlayMediaIntent {
+    private func intent(mediaName: String?, artistName: String? = nil) -> INPlayMediaIntent {
         INPlayMediaIntent(
             mediaItems: nil,
             mediaContainer: nil,
@@ -47,7 +47,7 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
                     mediaType: .audioBook,
                     sortOrder: .unknown,
                     mediaName: name,
-                    artistName: nil,
+                    artistName: artistName,
                     albumName: nil,
                     genreNames: nil,
                     moodNames: nil,
@@ -68,6 +68,17 @@ final class InAppPlayMediaHandlerTests: XCTestCase {
             ),
             LibrarySnapshotEntry(title: "The Hobbit", urlString: "file:///hobbit", bookmarkData: nil)
         ]
+    }
+
+    /// SiriKit can carry the author alone: "play something by Tolkien" (#207).
+    func test_pick_artistOnly_picksTheirBook() throws {
+        let entries = library() + [
+            LibrarySnapshotEntry(title: "Silmarillion", urlString: "file:///silm", bookmarkData: nil, artist: "J. R. R. Tolkien")
+        ]
+        let handler = makeHandler(snapshotReader: { entries })
+        let item = try XCTUnwrap(handler.pick(for: intent(mediaName: "", artistName: "Tolkien")))
+        XCTAssertEqual(item.identifier, "file:///silm")
+        XCTAssertNil(handler.pick(for: intent(mediaName: "", artistName: "Ursula Le Guin")))
     }
 
     func test_pick_matchesSpokenTitle() throws {

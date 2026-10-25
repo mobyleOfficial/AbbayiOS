@@ -17,14 +17,28 @@ enum MediaSearchResolver {
     /// input, so treat title-less as "continue what I was listening to": the
     /// last-played book, else the first in the library so a fresh install still
     /// starts playing instead of erroring.
+    ///
+    /// SiriKit may carry the author apart from the title (`INMediaSearch.artistName`, #207): with a
+    /// title it reads as "<title> by <author>"; on its own ("play something by Jane Austen") it asks
+    /// for that author's books (`matchAuthor`) and is never title-less: an author with no book in
+    /// the library matches nothing rather than resuming someone else.
     static func candidates(
         mediaName: String,
+        artistName: String? = nil,
         audios: [AudioModel],
         lastPlayedURL: URL?
     ) -> [AudioModel] {
-        let isTitleless = mediaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        guard isTitleless else {
-            return matchAll(input: mediaName, audios: audios, lastPlayedURL: lastPlayedURL)
+        let name = mediaName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let artist = artistName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        switch (name.isEmpty, artist.isEmpty) {
+        case (false, true):
+            return matchAll(input: name, audios: audios, lastPlayedURL: lastPlayedURL)
+        case (false, false):
+            return matchAll(input: "\(name) by \(artist)", audios: audios, lastPlayedURL: lastPlayedURL)
+        case (true, false):
+            return matchAuthor(input: artist, audios: audios, lastPlayedURL: lastPlayedURL)
+        case (true, true):
+            break
         }
         if let lastPlayedURL, let resumed = audios.first(where: { $0.url == lastPlayedURL }) {
             return [resumed]
