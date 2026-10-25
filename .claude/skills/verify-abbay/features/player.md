@@ -139,10 +139,9 @@ $B drag player.close down                                 # planned: collapse un
 The screen is reached by a row tap, the bar (tap and drag) and Play on the stub LibriVox book's
 details page.
 
-`player.download.progress`, `player.download.lowDataMode`, `player.download.hotspotHold` and
-`player.chapter.2.retry` are verified by `DownloadStatusUITests` (`-stubDownloadStates` with a
-`-stubPath*` argument, the stub book opened from the Library). **Implemented but unverified:**
-`player.download.cellularHold` (same view and mapping; `ChapterListViewTests`).
+`player.download.progress`, `player.download.cellularHold`, `player.download.hotspotHold`,
+`player.download.lowDataMode` and `player.chapter.2.retry` are verified by `DownloadStatusUITests`
+(`-stubDownloadStates` with a `-stubPath*` argument, the stub book opened from the Library).
 
 Speed itself (the requested `rate`/`defaultRate` across pause, seek and files) is unit-tested in
 `PlayerSpeedTests`; the seeded books play real audio since #147, but no UI test measures the rate.

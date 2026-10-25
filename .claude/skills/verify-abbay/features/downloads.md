@@ -114,13 +114,12 @@ $B terminate && $B launch                     # restore: ring and statuses come 
 
 **Verified** by `DownloadStatusUITests`, under the stubs above: `detail.progress`,
 `detail.cellularHold`, `detail.hotspotHold`, `detail.lowDataMode` (with their en texts),
-`detail.chapter.2.retry` and retrying it, `player.download.progress`, `player.download.lowDataMode`,
-`player.download.hotspotHold`, `player.chapter.2.retry`, and `library.row.0.downloadRing` (its held
+`detail.chapter.2.retry` and retrying it, no hint after *Continue* (`detail.cellular.continue`),
+`player.download.progress`, `player.download.cellularHold`, `player.download.hotspotHold`,
+`player.download.lowDataMode`, `player.chapter.2.retry`, and `library.row.0.downloadRing` (its held
 label, then *Paused* once tapped).
 
-**Implemented but unverified by UI test:** `player.download.cellularHold` (same view and mapping as
-the verified hotspot and Low Data Mode ids; covered by `ChapterListViewTests`), and anything to do
-with real transfers (below).
+**Unverified by UI test:** anything to do with real transfers (below).
 
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, backoff and
 cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove,

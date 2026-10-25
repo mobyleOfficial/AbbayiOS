@@ -100,13 +100,13 @@ longer presents its own player sheet.
 
 `DownloadStatusUITests` (#171) adds, with `-stubDownloadStates` and a `-stubPath*` argument (the
 stub book is then 120 MB, so on the fixed metered path Download asks): `detail.cellular.wait`,
-`detail.progress`, `detail.cellularHold`, `detail.hotspotHold`, `detail.lowDataMode`,
-`detail.chapter.2.retry` and retrying it (see [downloads](downloads.md)).
+`detail.cellular.continue` (no hint follows), `detail.progress`, `detail.cellularHold`,
+`detail.hotspotHold`, `detail.lowDataMode`, `detail.chapter.2.retry` and retrying it (see
+[downloads](downloads.md)).
 
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
-UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`. The stub client
-never fails `details`, so Retry is unreachable; *Continue* is reachable the same way as *Wait for
-Wi-Fi* but no test taps it.
+UI test resolves them): `detail.more`, `detail.retry`. The stub client never fails `details`, so
+Retry is unreachable.
 The decisions behind them are unit-tested: `CellularDownloadPolicyTests`, `NetworkPathSnapshotTests`,
 `LibriVoxDetailViewModelTests`, `ChapterListViewTests`.
 

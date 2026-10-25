@@ -111,7 +111,37 @@ final class DownloadStatusUITests: XCTestCase {
         XCTAssertTrue(retry.waitForNonExistence(timeout: 15), "the retried chapter still offers retry")
     }
 
+    /// *Continue* allows cellular for the book, so the path holds nothing and there is no hint.
+    func test_detail_continueOnCellular_showsProgressWithoutAHold() {
+        app.launchArguments = [
+            LaunchArgument.stubLibriVox,
+            LaunchArgument.resetLibrary,
+            LaunchArgument.resetSettings,
+            LaunchArgument.stubDownloadStates,
+            LaunchArgument.stubPathCellular,
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        element(AccessibilityID.Root.tabSearch).tap()
+        assertResolves(AccessibilityID.Search.card(0))
+        element(AccessibilityID.Search.card(0)).tap()
+        assertResolves(AccessibilityID.Detail.download)
+        element(AccessibilityID.Detail.download).tap()
+        assertResolves(AccessibilityID.Detail.cellularContinue)
+        element(AccessibilityID.Detail.cellularContinue).tap()
+
+        assertResolves(AccessibilityID.Detail.progress)
+        XCTAssertFalse(element(AccessibilityID.Detail.cellularHold).exists)
+    }
+
     // MARK: - Details screen
+
+    func test_player_onCellular_showsTheCellularHold() {
+        addWaitForWiFiBook(path: LaunchArgument.stubPathCellular)
+        openPlayerFromLibrary()
+
+        assertResolves(AccessibilityID.Player.downloadCellularHold)
+    }
 
     func test_player_showsProgressAndTheHold() {
         addWaitForWiFiBook(path: LaunchArgument.stubPathLowDataMode)
