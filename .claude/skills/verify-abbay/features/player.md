@@ -86,7 +86,8 @@ LibriVox page's Play all open it.
   - it opens scrolled so the current chapter is in view.
   - **closing:** a tap on a row (it also plays that chapter), a tap outside it (on the dim), the
     pill (✕), the handle, the escape gesture, or a drag down that starts on its top (the handle or
-    the header, `ChaptersPanel.closesOnDrag`). A drag on the list scrolls it. Animated with a
+    the header, `ChaptersPanel.closesOnDrag`). A drag on the list scrolls it, even at its top
+    (#229). Animated with a
     spring; Reduce Motion fades it instead of growing it.
   - the list no longer collapses the player: the chapter list's drag-to-collapse from its top
     (`ExpansionListCollapse`, `ListCollapseModifier`, iOS 18+) was deleted. The header still
@@ -212,7 +213,7 @@ component, not applied from the call site.
   past it.
 - **The scrubber is book time, not chapter time.** The mockup's numbers ("17:12 … −28:07") read
   like a chapter scrubber; the spec keeps today's seek behaviour, so the times are the book's and
-  the centre label names the chapter. An owner question, #227.
+  the centre label names the chapter. An owner question, #228.
 
 - **A chapter tap starts playback, even from pause, and can switch books.** Since #166's owner
   decision there is no `isPlaying` gate and no dimming: tapping a row of a book that isn't loaded

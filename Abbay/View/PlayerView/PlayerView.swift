@@ -42,6 +42,13 @@ struct PlayerView: View {
     /// The pills' row, in `Self.layoutSpace`: the chapter panel sits just above it.
     @State
     private var pillsFrame: CGRect = .zero
+    /// A chapter row's height and the panel's handle and header, estimated at the current text
+    /// size, so a short book's panel fits its rows instead of showing empty glass.
+    @ScaledMetric(relativeTo: .subheadline)
+    private var panelRowHeight: CGFloat = 54
+    @ScaledMetric(relativeTo: .headline)
+    private var panelChromeHeight: CGFloat = 84
+    private static let dimReach: CGFloat = 200
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
     static let coordinateSpace = "player.details"
@@ -218,11 +225,17 @@ struct PlayerView: View {
                 let frame = ChaptersPanelLayout.frame(
                     container: proxy.size,
                     pillsTop: pillsFrame.minY,
-                    idealHeight: ChaptersPanelLayout.idealHeight
+                    idealHeight: ChaptersPanelLayout.idealHeight(
+                        chapterCount: model.book.chapters.count,
+                        rowHeight: panelRowHeight,
+                        chromeHeight: panelChromeHeight
+                    )
                 )
                 ZStack(alignment: .topLeading) {
                     // The faint dim behind the panel; a tap outside the panel closes it.
                     Color.black.opacity(0.18)
+                        // Up under the header too (drawn above this screen), so the dim has no edge.
+                        .padding(.top, -Self.dimReach)
                         .contentShape(Rectangle())
                         .onTapGesture { setChapters(open: false) }
                         .accessibilityHidden(true)
@@ -260,12 +273,17 @@ struct PlayerView: View {
 /// just above the pills, spanning most of the width, as tall as about eight rows when the screen
 /// allows. Pure, so it is unit tested.
 enum ChaptersPanelLayout {
-    /// About eight rows and the header at the default text size.
-    static let idealHeight: CGFloat = 440
+    /// About eight rows and the header at the default text size: the most the panel asks for.
+    static let maxHeight: CGFloat = 440
     /// The gap between the panel and the pills, and the panel's least distance from the top.
     static let gap: CGFloat = SpaceConstants.sx12.value
     static let leadingInset: CGFloat = SpaceConstants.sx40.value
     static let trailingInset: CGFloat = SpaceConstants.sx16.value
+
+    /// Tall enough for the book's rows (estimated), up to `maxHeight`; the list scrolls past that.
+    static func idealHeight(chapterCount: Int, rowHeight: CGFloat, chromeHeight: CGFloat) -> CGFloat {
+        min(maxHeight, chromeHeight + CGFloat(max(chapterCount, 1)) * rowHeight)
+    }
 
     static func frame(container: CGSize, pillsTop: CGFloat, idealHeight: CGFloat) -> CGRect {
         // Before the pills report (the first layout pass), assume they sit at the bottom.

@@ -86,6 +86,9 @@ Tapping **Chapters** morphs the pill into a **glass panel** that grows up from t
   - Update the player and mini-player feature-map pages.
 - **LibriVox download states:** per-chapter download status and "Failed · Retry" (`ChapterListView`, `player.chapter.N.retry`) must still appear in these rows.
 - **Implementation:** (a popover is fine now that no collapse gesture has to pass through the panel) a `GlassEffectContainer` with `glassEffectID` morphing between the pill and the panel is the intended look. A popover on iOS 26 (which renders as glass) is an acceptable fallback if the morph fights the expansion overlay's gestures. **Builder's call**; record which one and why.
+  - **Built (G1 + G2):** neither a `glassEffectID` swap nor a popover. The pill stays on screen as ✕ while the panel is open (as the mockup shows), so there is no view to swap identities with. The panel is its own `abbayGlass` surface in the same `AbbayGlassContainer` as the pills, and appears with a spring scale from its bottom-right corner (just above the pill) plus a fade; Reduce Motion fades only. iOS 26 blends the glass of the two as they meet. A popover was not needed: the in-tree panel didn't fight the expansion overlay's gestures (it carries none of them), and it keeps the dim, the sizing and the tests in one view tree.
+  - **Closing by drag:** from the panel's top (handle and header) only, on every iOS version; the list-at-top drag on the rows is #229.
+  - **G1 calls:** no ⋯ button (nothing to put in it); the scrubber stays on book time with the chapter name in the middle (owner question #228); a book without chapters has no Chapters pill.
 
 ### G3. Library ("Your Audiobooks"), "Library B" (`redesign-v1.html`, right phone of section 2)
 Large title, the existing glass toolbar cluster (+ / gear), and the search field at the top (`navigationBarDrawer(.always)`, unchanged). Then:

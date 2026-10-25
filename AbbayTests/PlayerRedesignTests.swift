@@ -53,11 +53,11 @@ final class PlayerRedesignTests: XCTestCase {
         let frame = ChaptersPanelLayout.frame(
             container: CGSize(width: 402, height: 780),
             pillsTop: 720,
-            idealHeight: ChaptersPanelLayout.idealHeight
+            idealHeight: ChaptersPanelLayout.maxHeight
         )
 
         XCTAssertEqual(frame.maxY, 720 - ChaptersPanelLayout.gap)
-        XCTAssertEqual(frame.height, ChaptersPanelLayout.idealHeight)
+        XCTAssertEqual(frame.height, ChaptersPanelLayout.maxHeight)
         XCTAssertEqual(frame.minX, ChaptersPanelLayout.leadingInset)
         XCTAssertEqual(frame.maxX, 402 - ChaptersPanelLayout.trailingInset)
     }
@@ -70,11 +70,19 @@ final class PlayerRedesignTests: XCTestCase {
             let frame = ChaptersPanelLayout.frame(
                 container: CGSize(width: 375, height: height),
                 pillsTop: pillsTop,
-                idealHeight: ChaptersPanelLayout.idealHeight
+                idealHeight: ChaptersPanelLayout.maxHeight
             )
             XCTAssertGreaterThanOrEqual(frame.height, PlayerView.minChapterListHeight, "at \(height) pt")
             XCTAssertGreaterThanOrEqual(frame.minY, ChaptersPanelLayout.gap - 0.5, "at \(height) pt")
         }
+    }
+
+    func test_panelHeight_fitsAShortBook_andCapsALongOne() {
+        XCTAssertEqual(ChaptersPanelLayout.idealHeight(chapterCount: 4, rowHeight: 54, chromeHeight: 84), 300)
+        XCTAssertEqual(
+            ChaptersPanelLayout.idealHeight(chapterCount: 60, rowHeight: 54, chromeHeight: 84),
+            ChaptersPanelLayout.maxHeight
+        )
     }
 
     func test_panel_beforeThePillsReport_assumesTheBottom() {
