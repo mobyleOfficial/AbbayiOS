@@ -49,4 +49,16 @@ final class SiriLogRecordTests: XCTestCase {
             )
         )
     }
+
+    /// #195: a publish clears the index before indexing; a failed clear is logged like a failed index.
+    func test_spotlightClearingFailed_isPublicErrorWithDomainAndCode() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightClearingFailed(domain: "CSIndexErrorDomain", code: -1003).record,
+            SiriLogRecord(
+                level: .error,
+                message: "spotlight clearing failed: CSIndexErrorDomain -1003",
+                privacy: .public
+            )
+        )
+    }
 }
