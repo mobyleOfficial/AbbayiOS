@@ -51,11 +51,9 @@ struct MiniPlayerView: View {
 
     private func bar(_ book: AudioModel) -> some View {
         HStack(spacing: SpaceConstants.sx12.value) {
-            // Real artwork fills the square; the placeholder symbol fits, uncropped.
-            DataImageView(data: book.imageData)
-                .aspectRatio(contentMode: book.imageData == nil ? .fit : .fill)
+            // The bar's radius is fixed: the expansion overlay grows the cover from it.
+            ArtworkView(book: book, cornerRadius: SpaceConstants.sx4.value)
                 .frame(side: Self.coverSide)
-                .clipShape(RoundedRectangle(cornerRadius: SpaceConstants.sx4.value))
                 .accessibilityHidden(true)
             MiniPlayerText(
                 book: book,

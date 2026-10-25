@@ -6,7 +6,8 @@
 import SwiftUI
 
 /// A remote cover: a shimmering `onyx` tile while it loads, then the image fading in. A failed load
-/// leaves the `onyx` tile with a book glyph. Fills the frame it's given (scaled to fill, clipped).
+/// shows the generic book tile (`ArtworkPlaceholder`). Screens use it through `ArtworkView(url:)`,
+/// which adds the corners, stroke and shadow. Fills the frame it's given (scaled to fill, clipped).
 ///
 /// Images come from `AsyncImageLoader`, so a cover that already loaded shows at once, with no
 /// shimmer and no fade. With Reduce Motion the tile doesn't shimmer and the image doesn't fade.
@@ -57,14 +58,7 @@ struct AsyncImageView: View {
                 .scaledToFill()
                 .transition(.opacity)
         case .failed:
-            GeometryReader { proxy in
-                Image(systemName: "book.closed")
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundColor(ColorConstants.spanishGray.value)
-                    .frame(side: min(proxy.size.width, proxy.size.height) * 0.4)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            ArtworkPlaceholder(.book)
         }
     }
 

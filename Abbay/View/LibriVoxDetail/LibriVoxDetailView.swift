@@ -99,9 +99,8 @@ struct LibriVoxDetailView: View {
 
     private func header(_ book: LibriVoxBook) -> some View {
         HStack(alignment: .top, spacing: SpaceConstants.sx16.value) {
-            AsyncImageView(url: book.coverURL)
+            ArtworkView(url: book.coverURL)
                 .frame(side: SpaceConstants.sx84.value)
-                .cornerRadius(SpaceConstants.sx8.value)
             VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
                 Text(book.title)
                     .font(.headline)

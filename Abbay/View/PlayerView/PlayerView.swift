@@ -65,9 +65,7 @@ struct PlayerView: View {
     // MARK: - Cover view
     private var coverView: some View {
         VStack {
-            DataImageView(data: model.book.imageData)
-                .scaledToFit()
-                .cornerRadius(Self.coverRadius)
+            ArtworkView(book: model.book, cornerRadius: Self.coverRadius)
                 // A square of up to `coverSide`, smaller when the height runs short.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .aspectRatio(1, contentMode: .fit)

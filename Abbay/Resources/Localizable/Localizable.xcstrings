@@ -2798,6 +2798,42 @@
           }
         }
       }
+    },
+    "chapterFinished" : {
+      "comment" : "Chapter row: VoiceOver label of the check that marks a chapter already listened to",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finished"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concluído"
+          }
+        }
+      }
+    },
+    "chapterCurrent" : {
+      "comment" : "Chapter row: VoiceOver label of the marker on the chapter that is playing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current chapter"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulo atual"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

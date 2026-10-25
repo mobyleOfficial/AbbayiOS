@@ -113,10 +113,8 @@ private struct LibriVoxBookCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
-            Color.clear
+            ArtworkView(url: book.coverURL)
                 .aspectRatio(1, contentMode: .fit)
-                .overlay { AsyncImageView(url: book.coverURL) }
-                .clipShape(RoundedRectangle(cornerRadius: SpaceConstants.sx8.value))
             Text(book.title)
                 .font(.subheadline)
                 .lineLimit(2)
@@ -132,9 +130,8 @@ struct LibriVoxBookRow: View {
 
     var body: some View {
         HStack(spacing: SpaceConstants.sx12.value) {
-            AsyncImageView(url: book.coverURL)
+            ArtworkView(url: book.coverURL)
                 .frame(side: SpaceConstants.sx48.value)
-                .cornerRadius(SpaceConstants.sx8.value)
             VStack(alignment: .leading) {
                 Text(book.title)
                     .lineLimit(2)
