@@ -137,9 +137,10 @@ struct MediaListView: View {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Three columns; two at the accessibility text sizes, so titles keep a readable width.
+    /// Three columns up to the default text size; two from *xLarge* up, so a two-line title still
+    /// fits at the largest non-accessibility size (*xxxLarge* truncated in three columns).
     private var columns: [GridItem] {
-        let count = dynamicTypeSize.isAccessibilitySize ? 2 : 3
+        let count = dynamicTypeSize >= .xLarge ? 2 : 3
         return Array(
             repeating: GridItem(.flexible(), spacing: SpaceConstants.sx12.value, alignment: .top),
             count: count

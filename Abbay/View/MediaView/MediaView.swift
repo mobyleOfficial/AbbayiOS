@@ -25,6 +25,8 @@ struct MediaView: View {
     private var center
     @Environment(\.downloadStateStore)
     private var downloads
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
 
     // MARK: - Stored properties
     private let book: AudioModel
@@ -67,7 +69,7 @@ struct MediaView: View {
             Text(book.title)
                 .font(.footnote.weight(.semibold))
                 .foregroundColor(detail.isPlaying ? ColorConstants.malachite.value : ColorConstants.white.value)
-                .lineLimit(2, reservesSpace: true)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, SpaceConstants.sx4.value)
