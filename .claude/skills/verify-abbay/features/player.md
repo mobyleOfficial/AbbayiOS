@@ -15,7 +15,10 @@ LibriVox page's Play all open it.
   the screen into the bar, animated. Dragging the grabber, the chevron or the cover down collapses
   it under the finger. The grabber is hidden from VoiceOver (a drag handle only), so the chevron
   is the one *Close player* element; the panel also answers the escape gesture (two-finger Z). Collapse rules are in [mini-player](mini-player.md#sub-features).
-- **cover:** artwork at 288 pt with rounded corners. While the panel grows, the overlay draws a
+- **cover:** artwork at up to 288 pt with rounded corners. On a short screen it shrinks, staying
+  square, so the chapter card keeps at least 224 pt (`PlayerView.minChapterListHeight`: its header
+  and three rows); before #203 the iPhone SE and the iOS 27.1 iPhone Duo showed one row. On an
+  iPhone 17 the card is taller than that anyway, so the cover stays 288 pt. While the panel grows, the overlay draws a
   growing copy of the cover that lands exactly here, and the real cover is hidden until then.
   Below it is the title as a `PlayerTitleView` (`player.title`, sliding while playing).
 - **transport:** three controls in a row: back, play/pause, forward. The skips jump by the
@@ -156,6 +159,11 @@ The progress view is a composite (a `ProgressView`, a drag handle and two `Text`
 identifiers threaded through the component, not applied from the call site.
 
 ## Gotchas
+
+- **A short screen shows three rows.** On the iPhone Duo (iOS 27.1) the card shows rows 0–2, and
+  row 3 exists in the tree but is clipped under the card's edge, so tapping it misses. Scroll first
+  with a slow drag that holds at the end (`test_tappingAChapter_ofABookNotLoaded_loadsIt`); a
+  `swipeUp()` flings a 60-chapter list far past it.
 
 - **A chapter tap starts playback, even from pause, and can switch books.** Since #166's owner
   decision there is no `isPlaying` gate and no dimming: tapping a row of a book that isn't loaded

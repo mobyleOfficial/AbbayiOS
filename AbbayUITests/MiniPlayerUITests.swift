@@ -116,6 +116,19 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertFalse(element(AccessibilityID.MiniPlayer.bar).exists, "nothing should be loaded yet")
 
         let chapter = element(AccessibilityID.Player.chapter(3))
+        // On a shorter screen (the iPhone SE, the iOS 27.1 iPhone Duo) the card shows three rows,
+        // and the fourth is clipped under its bottom edge. Scroll the list up by two rows, slowly
+        // and holding at the end so it doesn't coast: the row lands well inside the card on any
+        // screen. (A swipe would fling 60 rows past it.)
+        let first = element(AccessibilityID.Player.chapter(0))
+        let third = element(AccessibilityID.Player.chapter(2))
+        XCTAssertTrue(first.waitForExistence(timeout: 5) && third.waitForExistence(timeout: 5))
+        third.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.1,
+            thenDragTo: first.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
+            withVelocity: 200,
+            thenHoldForDuration: 0.5
+        )
         XCTAssertTrue(chapter.waitForExistence(timeout: 5))
         chapter.tap()
         element(AccessibilityID.Player.close).tap()
