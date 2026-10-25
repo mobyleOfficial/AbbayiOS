@@ -76,6 +76,12 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
 
 Library tab → gear (top right) → Settings. **Done** closes it; so does a swipe down.
 
+On iOS 27.1 (seen on the iPhone Duo, not on the iPhone 17 / iOS 27.0) the navigation bar hides
+its title and Done while the form is scrolled down, and they come back at the top. That is the
+system's, not the app's: a UI test scrolls back up before tapping `settings.done`
+(`closeSettings()` in `SettingsUITests`). On the Duo the sheet's tree also carries a
+`PopoverDismissRegion`; it is still a sheet (`.sheet` in `AppRootView`), drawn inset by 8 pt.
+
 ## Driving it with abbay-ctl
 
 ```bash

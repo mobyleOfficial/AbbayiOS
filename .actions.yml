@@ -15,7 +15,7 @@ run_tests: true
 run_ui_tests: true
 # run `xcrun simctl list devices` to list devices. Local and CI runs use the same iPhone 17 on the
 # iOS 27.0 runtime (install it with `xcodebuild -downloadPlatform iOS -buildVersion 24A434`). The iOS
-# 27.1 runtime only offers the iPhone Duo, whose layout still fails some UI tests (#203); run it with
-# `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`, and iOS 26.4 with `ABBAY_TEST_DEVICE='iPhone 17 (26.4)'`.
+# 27.1 runtime only offers the iPhone Duo, a shorter screen with a side tab rail (the suites pass there
+# since #203); run it with `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`, and iOS 26.4 with `ABBAY_TEST_DEVICE='iPhone 17 (26.4)'`.
 test_device: iPhone 17 (27.0)
 ci_test_device: iPhone 17 (27.0)
