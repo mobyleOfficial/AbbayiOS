@@ -124,9 +124,13 @@ Spotlight indexing directly.
 
 ## Gotchas
 
-- **Spotlight indexing is slow, and the background task waits for it (#159).** On the iOS 26.4
-  simulator `publish: finished` came ~42 s after `publish: 2 books`; a `BGAppRefreshTask` gets
-  about 30 s, so the task may expire before indexing ends. Device measurement tracked in #173.
+- **Spotlight can be very slow, and the background task waits for it (#159).** On a freshly
+  booted iOS 26.4 simulator, a clear plus re-index of 14 books took 130–282 s (#173's PR; ~42 s
+  for 2 books in #159); on a warm one, 0.3–12 s. A `BGAppRefreshTask` gets about 30 s. Since
+  #173 an unchanged library (the daily background run's usual case) makes no Core Spotlight call,
+  and its publish finished in 1.2–1.5 s cold, which is the synchronous Siri registrations and the
+  main-queue hop. A one-book add or delete took 0.1 s warm; not measured cold, and a rebuild (no
+  record) is as slow as before. Device measurement tracked in #173.
 - **Publishing on every launch is deliberate — do not "optimise" it away.** The comment at
   the comment in `didFinishLaunchingWithOptions` records why: without one successful entity fetch, entity phrases never
   resolve.
@@ -154,7 +158,7 @@ Spotlight indexing directly.
 - **The record trusts the index (#173).** If the system loses the app's items while the record is
   kept (Spotlight's own index reset, or a restore from a backup that carries `UserDefaults`), the
   next publishes see no change and don't re-index. The app doesn't implement
-  `CSSearchableIndexDelegate`'s re-index request; tracked in the issue linked from the #173 PR.
+  `CSSearchableIndexDelegate`'s re-index request; #205.
   Deleting the app removes both. To force a rebuild while testing, delete the app or remove
   `abbay.spotlightIndexRecord.v1` from its defaults (`xcrun simctl spawn <udid> defaults delete
   com.edyuto.Abbay abbay.spotlightIndexRecord.v1`).
