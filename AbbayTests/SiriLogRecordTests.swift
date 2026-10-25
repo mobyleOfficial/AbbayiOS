@@ -32,10 +32,11 @@ final class SiriLogRecordTests: XCTestCase {
         XCTAssertEqual(SiriLogEvent.publishStarted(bookCount: 0).record.message, "publish: 0 books")
     }
 
-    func test_publishFinished_isPublicDebug() {
+    /// #173: the end of a publish carries its duration, at `.info` so a device's log keeps it.
+    func test_publishFinished_isPublicInfoWithTheDuration() {
         XCTAssertEqual(
-            SiriLogEvent.publishFinished.record,
-            SiriLogRecord(level: .debug, message: "publish: finished", privacy: .public)
+            SiriLogEvent.publishFinished(milliseconds: 1234).record,
+            SiriLogRecord(level: .info, message: "publish: finished in 1234 ms", privacy: .public)
         )
     }
 
@@ -131,6 +132,46 @@ final class SiriLogRecordTests: XCTestCase {
         XCTAssertEqual(
             LibrarySnapshotLogEvent.encodeFailed.record,
             SiriLogRecord(level: .error, message: "snapshot WRITE FAILED: JSON encode error", privacy: .public)
+        )
+    }
+
+    // MARK: - Incremental Spotlight (#173)
+
+    /// A publish deletes only the items that left the library.
+    func test_spotlightDeletingFailed_isPublicErrorWithDomainAndCode() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightDeletingFailed(domain: "CSIndexErrorDomain", code: -1003).record,
+            SiriLogRecord(
+                level: .error,
+                message: "spotlight deleting failed: CSIndexErrorDomain -1003",
+                privacy: .public
+            )
+        )
+    }
+
+    /// What each publish did to the index, in counts.
+    func test_spotlightUnchanged_isPublicDebugWithTheCount() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightUnchanged(itemCount: 15).record,
+            SiriLogRecord(level: .debug, message: "spotlight: unchanged, 15 items", privacy: .public)
+        )
+    }
+
+    func test_spotlightUpdated_isPublicInfoWithTheCounts() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightUpdated(indexed: 1, deleted: 2).record,
+            SiriLogRecord(level: .info, message: "spotlight: indexed 1, deleted 2", privacy: .public)
+        )
+    }
+
+    func test_spotlightRebuilt_isPublicInfoWithTheCountAndReason() {
+        XCTAssertEqual(
+            SiriLogEvent.spotlightRebuilt(itemCount: 15, reason: .noRecord).record,
+            SiriLogRecord(level: .info, message: "spotlight: rebuilt, 15 items (no record)", privacy: .public)
+        )
+        XCTAssertEqual(
+            SiriLogEvent.spotlightRebuilt(itemCount: 3, reason: .afterFailure).record.message,
+            "spotlight: rebuilt, 3 items (after a failure)"
         )
     }
 }

@@ -52,6 +52,8 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     private let lastPlayed: LastPlayedStore
     private let log: SiriLogSink
     private let diagnostics: SiriDiagnostics
+    /// Times the publish for `publish: finished in N ms` (#173).
+    private let now: () -> Date
 
     init(
         mediaUserContextDonor: MediaUserContextDonorProtocol = MediaUserContextDonor.shared,
@@ -64,8 +66,10 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         },
         lastPlayed: LastPlayedStore = .shared,
         log: SiriLogSink = OSSiriLogSink(),
-        diagnostics: SiriDiagnostics = .shared
+        diagnostics: SiriDiagnostics = .shared,
+        now: @escaping () -> Date = Date.init
     ) {
+        self.now = now
         self.mediaUserContextDonor = mediaUserContextDonor
         self.spotlightIndexer = spotlightIndexer
         self.vocabulary = vocabulary
@@ -79,6 +83,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     /// `updateAppShortcutParameters()` are synchronous calls with no completion API: whatever
     /// work they hand to the system afterwards can't be waited for.
     func publish(audios: [AudioModel], completion: @escaping () -> Void) {
+        let started = now()
         let indexing = DispatchGroup()
         indexing.enter()
         spotlightIndexer.index(audios: audios) { indexing.leave() }
@@ -89,8 +94,10 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         log.log(.publishStarted(bookCount: audios.count))
         refreshShortcutParameters()
         let log = log
+        let now = now
         indexing.notify(queue: .main) {
-            log.log(.publishFinished)
+            let milliseconds = Int((now().timeIntervalSince(started) * 1000).rounded())
+            log.log(.publishFinished(milliseconds: milliseconds))
             completion()
         }
     }

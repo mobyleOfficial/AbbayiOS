@@ -27,7 +27,7 @@ user-facing, but every title-matching Siri phrase depends on it.
   background, reschedules on every run, publishes with `refreshNow` (ignores the throttle) and
   completes the task once, **after the publish reports completion** (#159) — unsuccessfully if it
   expires first. `SiriLibraryPublisher.publish(audios:completion:)` completes on main once
-  Spotlight's clear and `indexSearchableItems` completion handlers have run. `updateAppShortcutParameters()`,
+  Spotlight's completion handlers have run (none, for an unchanged library, #173). `updateAppShortcutParameters()`,
   `INVocabulary` and `becomeCurrent()` are synchronous with no completion API, so whatever the
   system does after they return can't be waited for. iOS decides when, or whether, it
   runs. Drop it if the device judgement in #127 shows no improvement.
@@ -37,15 +37,29 @@ user-facing, but every title-matching Siri phrase depends on it.
   \<author>".
 - **spotlight:** `LibrarySpotlightIndexer` indexes each book as a `CSSearchableItem` in a named index
   with `completeUntilFirstUserAuthentication` protection, so the system can read it while locked.
-  Skips books with no URL or an empty title. **Each publish replaces the index (#195):** it deletes
-  every item under the domain identifier `com.edyuto.Abbay.library`
-  (`deleteSearchableItems(withDomainIdentifiers:)`), then indexes the books it was given, so a
-  deleted book leaves Spotlight at the next publish, and so do identifiers no longer used (a moved
-  book's pre-#186 resolved URL). An empty library clears and indexes nothing. A failed clear logs
-  `spotlight clearing failed: <domain> <code>` and the books are indexed anyway. One replacement
-  runs at a time: a publish that arrives meanwhile waits, a newer one supersedes it, and every
-  waiting caller completes once the latest library is indexed (so a clear can't land after another
-  publish's index). Unit-tested against a fake index (`LibrarySpotlightIndexerTests`).
+  Skips books with no URL or an empty title; two rows under one URL are one item. **The index
+  mirrors the library (#195), and each publish only sends the change (#173).** The indexer keeps
+  a record, `abbay.spotlightIndexRecord.v1` in the app's own `UserDefaults`
+  (`LocalStorage.preferences`, injected as `store:`), of `[identifier: fingerprint]` for what the
+  index holds. The fingerprint is a SHA-256 of `SpotlightItemContent` (identifier, title, artist,
+  album: everything the item carries; there is no artwork in the item), so the record holds no
+  titles. Each publish diffs the library against the record: items whose book left the library
+  (or lost its title) are deleted with `deleteSearchableItems(withIdentifiers:)`, new and changed
+  ones are indexed, and the record is saved. **An unchanged library makes no Core Spotlight
+  call** (`spotlight: unchanged, N items`, `.debug`); a change logs `spotlight: indexed N, deleted
+  M`. **Rebuild:** with no record (fresh install, first publish after updating to #173, or a
+  failed rebuild) the publish clears the domain `com.edyuto.Abbay.library`
+  (`deleteSearchableItems(withDomainIdentifiers:)`) and indexes every book, which also removes
+  identifiers no longer used (a moved book's pre-#186 resolved URL); logged `spotlight: rebuilt, N
+  items (no record)`. If the incremental delete or index fails (`spotlight deleting failed:` /
+  `spotlight indexing failed: <domain> <code>`), the same publish falls back to that rebuild once
+  (`… (after a failure)`). The rebuild drops the record first and saves it only when both the
+  clear and the index succeed, so a crash or failure midway makes the next publish rebuild again.
+  A failed clear logs `spotlight clearing failed: <domain> <code>` and the books are indexed
+  anyway. An empty library with no record clears; with a record it deletes the remaining items.
+  One update runs at a time: a publish that arrives meanwhile waits, a newer one supersedes it,
+  and every waiting caller completes once the latest library is indexed. Unit-tested against a
+  fake index (`LibrarySpotlightIndexerTests`).
 - **entity-queries:** `AudiobookEntityQuery` (40 suggestions) and `ChapterEntityQuery` (50) back the
   entity parameters. Both implement `EntityStringQuery` so Siri can match a spoken string.
   `ChapterEntity.currentBook()` resolves chapters against whatever is playing.
@@ -75,17 +89,19 @@ $B spotlight query "<title>"                  # planned: CSSearchQuery against o
 
 The refreshes and the background task are not observable from the app's state: they log to the
 `Siri` category (`context refresh (foreground|pause|interruption|carPlay|backgroundTask): N books`,
-`… skipped … throttled`, `publish: N books` (#157, `.info`, count only), `publish: finished`
-(`.debug`), `spotlight indexing failed: <domain> <code>`, `spotlight clearing failed: <domain>
-<code>`, `background refresh: publish finished`,
+`… skipped … throttled`, `publish: N books` (#157, `.info`, count only), `publish: finished in
+N ms` (`.info`, #173: from the publish's start to Spotlight's completion, waiting behind an
+earlier publish included), `spotlight: unchanged, N items` (`.debug`), `spotlight: indexed N,
+deleted M`, `spotlight: rebuilt, N items (no record|after a failure)`, `spotlight indexing failed:
+<domain> <code>`, `spotlight deleting failed: <domain> <code>`, `spotlight clearing failed:
+<domain> <code>`, `background refresh: publish finished`,
 `background refresh: …`). Read `.info`/`.debug` with `log stream --level debug` or `log show --info --debug`. On the simulator `BGTaskScheduler.submit` is refused (logged,
 expected). To fire the task on a device under the debugger, pause and run
 `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.edyuto.Abbay.siriRefresh"]`.
 Unit-tested by `SiriContextRefresherTests`, `SiriBackgroundRefreshTests` (incl. completion order),
 `AppDelegateSiriFreshnessTests`, `PlayerSiriFreshnessTests` (incl. interruptions),
 `CarPlaySceneDelegateTests` and `SiriLibraryPublisherTests`. `SiriLibraryPublisher` and
-`LibrarySpotlightIndexer` log `publish: N books`, `publish: finished`, `spotlight indexing failed`
-and `spotlight clearing failed`
+`LibrarySpotlightIndexer` log the publish and `spotlight …` lines above
 through an injected `SiriLogSink` (`Abbay/Core/SiriLog.swift`): `OSSiriLogSink` writes them to
 `Log.siri` with every field `.public`, and the `SiriLogEvent` cases carry only counts and error
 domains/codes, so titles have nowhere to go. Tests assert on `RecordingSiriLogSink`; no unit test
@@ -125,14 +141,23 @@ Spotlight indexing directly.
 - **`urlString` is the book's identity (#186):** the URL its row was saved under, never where a
   moved file resolves now, so entity ids, donations and Spotlight ids keep matching the row after
   the file moves (`MovedBookIdentityTests`). An item published under a moved book's resolved URL
-  before #186 is cleared by the next publish (#195).
+  before #186 is cleared by the first publish after updating to #173, which has no record and so
+  rebuilds (#195). An item the record doesn't know about is otherwise never seen: only a rebuild
+  clears the whole domain.
 - `LibrarySnapshotWriter` logs through `Log.librarySnapshot` (category `LibrarySnapshot`) with
   `.public` counts. The subsystem is the running bundle's, so a write from the extension (none today)
   would log under `com.edyuto.Abbay.AbbayIntents`, not the app's.
   `$B launch -seedLibrary` logs `snapshot WRITTEN: 2 entries (0 with bookmark),
   suite=group.com.edyuto.abbay` under `[com.edyuto.Abbay:LibrarySnapshot]`.
-- When *every* book is filtered out (an all-untitled library) the indexer clears and indexes
-  nothing, so such a library has no Spotlight items.
+- When *every* book is filtered out (an all-untitled library) the indexer indexes nothing, so such
+  a library has no Spotlight items.
+- **The record trusts the index (#173).** If the system loses the app's items while the record is
+  kept (Spotlight's own index reset, or a restore from a backup that carries `UserDefaults`), the
+  next publishes see no change and don't re-index. The app doesn't implement
+  `CSSearchableIndexDelegate`'s re-index request; tracked in the issue linked from the #173 PR.
+  Deleting the app removes both. To force a rebuild while testing, delete the app or remove
+  `abbay.spotlightIndexRecord.v1` from its defaults (`xcrun simctl spawn <udid> defaults delete
+  com.edyuto.Abbay abbay.spotlightIndexRecord.v1`).
 - Whether a deleted book also leaves the Spotlight *search screen* promptly on a device is part of
   #173's device check. On the simulator the clear was checked by reading the index back in-process
   with `CSSearchQuery` (the PR for #195).
