@@ -15,7 +15,8 @@ LibriVox page's Play all open it.
   the screen into the bar, animated. Dragging the grabber, the chevron or the cover down collapses
   it under the finger. The grabber is hidden from VoiceOver (a drag handle only), so the chevron
   is the one *Close player* element; the panel also answers the escape gesture (two-finger Z). Collapse rules are in [mini-player](mini-player.md#sub-features).
-- **cover:** artwork at up to 288 pt with rounded corners. On a short screen it shrinks, staying
+- **cover:** `ArtworkView(book:)` at up to 288 pt with rounded corners (`PlayerView.coverRadius`),
+  filling the square; no artwork shows the generic tile, as in the [media row](media-row.md). On a short screen it shrinks, staying
   square, so the chapter card keeps at least 224 pt (`PlayerView.minChapterListHeight`: its header
   and three rows); before #203 the iPhone SE and the iOS 27.1 iPhone Duo showed one row. On an
   iPhone 17 the card is taller than that anyway, so the cover stays 288 pt. While the panel grows, the overlay draws a
@@ -50,8 +51,14 @@ LibriVox page's Play all open it.
   reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
 - **chapter-list:** the shared `ChapterListView` (also used by the
   [LibriVox details page](librivox-details.md)): a rounded card with a *"Chapter selection"* header
-  (`player.chapters.title`), then one row per chapter (`player.chapter.<n>`) with a scrolling title
-  and its duration. The current chapter renders in the "playing" style (green). Tapping a chapter
+  (`player.chapters.title`), then one row per chapter (`player.chapter.<n>`), restyled in #166 G6:
+  the number, the title (up to two lines, never truncated into the trailing column) and the
+  duration in minutes ("42m", "1h 5m"; pt-BR "42min"). Chapters before the current one are
+  *finished*: dimmed, with a `checkmark.circle` (VoiceOver *Finished* / *Concluído*) instead of
+  the duration. The current one is malachite on a faint malachite fill, with ▶︎ (*Current
+  chapter*, the row has the selected trait) instead of its number. `ChapterListView` can also show
+  a progress bar and "28m left" on it (`currentProgress`), which this screen doesn't pass yet
+  (G1 + G2). Tapping a chapter
   plays it from its `startTime`. On iOS 18+, a downward drag from the list's top collapses the screen.
 - **no-chapters:** a book with no chapter markers (a plain MP3) shows, under the header, a
   `list.bullet` glyph, *No chapters* and *This book has no chapter markers, so it plays from start

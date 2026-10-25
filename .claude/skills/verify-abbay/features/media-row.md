@@ -7,8 +7,10 @@ root), and sends actions through `MediaViewModel` straight to `PlaybackCenter.pl
 
 ## Sub-features
 
-- **artwork:** `DataImageView(data:)` at 64pt, rounded. Falls back to its own placeholder when
-  `imageData` is nil.
+- **artwork:** `ArtworkView(book:)` at 64 pt: rounded by size (8 pt), a 0.5 pt inner stroke. A
+  book without artwork shows the generic tile (dark gradient, `headphones` for an import,
+  `book.closed` for a LibriVox book), never the `photo` symbol (#166 G6). One image element, so
+  `library.row.<n>.artwork` stays a leaf.
 - **title:** `PlayerTitleView` with `SlidingTextView` underneath — the title scrolls horizontally
   and turns malachite while the row's book is playing. This is the subject of issue #54.
 - **detail:** one line, `author · Ch N/M` for a chaptered book (`Localizable.rowChapter`, 1-based),
