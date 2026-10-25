@@ -66,7 +66,11 @@ picker's own contents are system-owned and carry no identifiers of ours).
 - **`asCopy: false` is the whole risk surface.** The file stays where the user put it, so playback
   depends entirely on the security-scoped bookmark resolving later. `URL+SecurityScoped.swift`
   handles the stale case by recreating the bookmark, which is now saved (see
-  *stale-bookmark-refresh*), and logs through `Log.bookmarks`. A bookmark that no longer resolves now surfaces at Play: the
+  *stale-bookmark-refresh*), and logs through `Log.bookmarks`. A bookmark that resolves to a new
+  path plays from there, but the row stays keyed by the URL it was imported under: the loaded
+  model carries it as `storedURL`, and delete, save and position writes find the row by `rowURL`
+  (#176), so a moved book can still be deleted. Lookups by the resolved URL still miss the row
+  (#186). A bookmark that no longer resolves now surfaces at Play: the
   item fails and the user sees *"Title" was moved or renamed. Import it again…* (see
   [notices](notices.md)).
 - The bookmark is created on first **play**, not on import. A book imported and never played has

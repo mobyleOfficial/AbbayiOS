@@ -37,8 +37,9 @@ extension SiriLibraryPublisherProtocol {
 }
 
 final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
-    /// `var` so tests can rebind.
-    static var shared: SiriLibraryPublisherProtocol = SiriLibraryPublisher()
+    /// The app's publisher. Not rebindable: `LibrarySnapshotWriter` and `SiriContextRefresher`
+    /// take theirs as an init argument, which is where tests inject one (#153).
+    static let shared: SiriLibraryPublisherProtocol = SiriLibraryPublisher()
 
     /// `INVocabulary` replaces the whole set on each call and pays attention to
     /// order, so the list is bounded and most-relevant-first.
@@ -50,6 +51,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
     private let refreshShortcutParameters: () -> Void
     private let lastPlayed: LastPlayedStore
     private let log: SiriLogSink
+    private let diagnostics: SiriDiagnostics
 
     init(
         mediaUserContextDonor: MediaUserContextDonorProtocol = MediaUserContextDonor.shared,
@@ -61,7 +63,8 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
             AbbayAppShortcuts.updateAppShortcutParameters()
         },
         lastPlayed: LastPlayedStore = .shared,
-        log: SiriLogSink = OSSiriLogSink()
+        log: SiriLogSink = OSSiriLogSink(),
+        diagnostics: SiriDiagnostics = .shared
     ) {
         self.mediaUserContextDonor = mediaUserContextDonor
         self.spotlightIndexer = spotlightIndexer
@@ -69,6 +72,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         self.refreshShortcutParameters = refreshShortcutParameters
         self.lastPlayed = lastPlayed
         self.log = log
+        self.diagnostics = diagnostics
     }
 
     /// Only Spotlight reports completion. `INVocabulary`, `INMediaUserContext.becomeCurrent()` and
@@ -80,7 +84,7 @@ final class SiriLibraryPublisher: SiriLibraryPublisherProtocol {
         spotlightIndexer.index(audios: audios) { indexing.leave() }
         mediaUserContextDonor.donate(libraryItemCount: audios.count)
         vocabulary(NSOrderedSet(array: orderedTitles(for: audios)))
-        SiriDiagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
+        diagnostics.record("publish books=\(audios.count) refreshingShortcutParams")
         // The unified-log twin of the diagnostics line (#157). The count only, never titles.
         log.log(.publishStarted(bookCount: audios.count))
         refreshShortcutParameters()

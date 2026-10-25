@@ -9,6 +9,7 @@ import CoreData
 import Foundation
 
 protocol DeleteAudioRepositoryProtocol {
+    /// Deletes the row stored under `url`: pass the book's `rowURL`, not the URL it plays from.
     func execute(url: URL?)
 }
 

@@ -59,16 +59,16 @@ showed *Pause*, so the first tap only paused. Now they show *Play*, and one tap 
 ```bash
 $B launch --reset-library --stub-failing-import      # -resetLibrary -stubFailingImport
 $B tap library.empty.import && $B wait notice.banner  # "Couldn't import 2 files: Missing Book.mp3 and Broken Book.m4b."
-$B launch --seed-library
-$B tap library.row.0.play && $B wait notice.banner    # seeded files don't exist: "... was moved or renamed ..."
+$B launch -seedLibrary -seedMissingFile
+$B tap library.row.<n>.play && $B wait notice.banner  # n = the "Seeded Missing Book" row: "... was moved or renamed ..."
 ```
 
 `-stubFailingImport` makes *Import file* (`library.menu.import` and `library.empty.import`) skip
 the system picker and import two files that don't exist, through the real `FileLoader`.
 
 **Verified** (`NoticeUITests`): `notice.banner` after a failed import (label names the files, and
-it goes away by itself) and after pressing Play on a seeded book (the seeded files don't exist,
-so this is the moved-file notice). After the failure the row and the bar read *Play*, and one
+it goes away by itself) and after pressing Play on *Seeded Missing Book* (`-seedMissingFile`: its
+file doesn't exist, so this is the moved-file notice). After the failure the row and the bar read *Play*, and one
 tap on the bar's Play retries and shows the banner again
 (`test_afterABookFailsToPlay_theButtonsShowPlay_andOneTapRetries`).
 
@@ -79,9 +79,9 @@ removed), and the VoiceOver announcement.
 
 ## Gotchas
 
-- **Every seeded-book Play now shows the moved-file banner**, and Play on the stub LibriVox book
-  shows *Couldn't play this chapter* (its chapter is `/dev/null`). The banner doesn't take
-  touches, so other UI tests are unaffected, but it is in screenshots taken in the first 5 s.
+- **Only *Seeded Missing Book* shows the moved-file banner.** The other seeded books play the
+  Debug fixture since #147, so screenshots of them carry no banner. Play on the stub LibriVox
+  book still shows *Couldn't play this chapter* (its chapter is `/dev/null`).
 - The banner sits over the navigation bar while shown; it never moves content.
 - `fileMissing` vs `playbackFailed` is decided by `checkResourceIsReachable()` on the book's URL
   at the time of the failure.

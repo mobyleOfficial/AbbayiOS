@@ -8,9 +8,11 @@ ordering breaks, and most of it is invisible in the UI.
 - **launch-ordering:** `AppDelegate.didFinishLaunchingWithOptions` runs a deliberately pinned
   sequence (`AppDelegate.didFinishLaunchingWithOptions`): `DependencyContainer.configure()` →
   `DebugOverrides.runLaunchSeeding()` (a no-op in Release) → `downloads.restore()` (re-attach to
-  LibriVox download tasks and restart missing chapters) → audio-session activation → on success `LaunchStateFlag.clear()` + `seeder.seedIfNeeded()`, on failure
-  `LaunchStateFlag.markUnavailable()` → `INPreferences.requestSiriAuthorization` →
-  `SiriLibraryPublisher.publish`. The seams are `lazy var` on purpose: a non-lazy default argument
+  LibriVox download tasks and restart missing chapters) → audio-session activation → on success `LaunchStateFlag.clear()` + `seeder.seedIfNeeded()` (only the
+  last-played migration since #153; the snapshot is the launch write below), on failure
+  `LaunchStateFlag.markUnavailable()` → `INPreferences.requestSiriAuthorization` (skipped when the
+  launch carries any `LaunchArgument`, i.e. a UI test's, in Debug: on a fresh simulator its alert
+  raced the first tap, #163) → `librarySnapshotWriter.refresh()`, which publishes to Siri. The seams are `lazy var` on purpose: a non-lazy default argument
   would touch Core Data before `configure()` ran.
 - **audio-session-flag:** `abbay.audioSessionUnavailable` in the App Group. Set when activation
   throws at launch, cleared on any later success. Every Siri intent and the extension's `decide`
@@ -61,8 +63,8 @@ caused by the audio-session flag sticking.
 ```bash
 $B doctor                                  # required: Xcode, simulator, build freshness, port ownership
 $B launch                                  # terminate + reinstall + relaunch, returns a sessionId
-$B launch -seedLibrary                     # two synthetic books, no playable audio
-$B launch -resetLibrary                    # empty library (Core Data only; the App Group is untouched)
+$B launch -seedLibrary                     # two synthetic books playing the Debug fixture's audio
+$B launch -resetLibrary                    # empty library, even a book whose file moved (#176); Core Data only
 $B launch -stubLibriVox                    # in-memory catalog, no downloads, DEBUG builds only
 $B launch --reset                          # planned abbay-ctl option: clear App Group + Core Data before launch
 $B appgroup get abbay.audioSessionUnavailable

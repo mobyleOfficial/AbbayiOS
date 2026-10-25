@@ -23,6 +23,10 @@ protocol DependencyContainerProtocol {
     var librarySnapshot: LibrarySnapshotReader { get }
     /// Re-publishes the library to Siri on foreground, pause and the daily background task (#127).
     var siriContext: SiriContextRefreshing { get }
+    /// The Siri diagnostics trail (the App Group's) the App Intents and entity queries record to.
+    var diagnostics: SiriDiagnostics { get }
+    /// What App Intents activate the audio session with before they play (#153: was a static).
+    var audioSessionActivator: AudioSessionActivatorProtocol { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -61,6 +65,8 @@ final class DependencyContainer: DependencyContainerProtocol {
     let launchState: LaunchStateFlag = .shared
     let librarySnapshot: LibrarySnapshotReader = .shared
     let siriContext: SiriContextRefreshing
+    let diagnostics: SiriDiagnostics = .shared
+    let audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -99,6 +105,14 @@ final class DependencyContainer: DependencyContainerProtocol {
 
     static var librarySnapshot: LibrarySnapshotReader {
         isConfigured ? shared.librarySnapshot : .shared
+    }
+
+    static var diagnostics: SiriDiagnostics {
+        isConfigured ? shared.diagnostics : .shared
+    }
+
+    static var audioSessionActivator: AudioSessionActivatorProtocol {
+        isConfigured ? shared.audioSessionActivator : AudioSessionActivator()
     }
 
     private static func makeDownloads() -> BookDownloadManagerProtocol {

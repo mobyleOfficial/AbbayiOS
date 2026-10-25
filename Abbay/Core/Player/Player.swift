@@ -242,7 +242,11 @@ final class Player: PlayerProtocol {
            model.bookmarkData == nil,
            let bookmark = bookmarkProvider.createBookmarkData(for: url) {
             model.bookmarkData = bookmark
-            savePlaybackPositionUseCase.execute(url: url, currentTime: model.currentTime, bookmarkData: bookmark)
+            savePlaybackPositionUseCase.execute(
+                url: model.rowURL,
+                currentTime: model.currentTime,
+                bookmarkData: bookmark
+            )
             librarySnapshotWriter.refresh()
         }
 
@@ -414,7 +418,8 @@ final class Player: PlayerProtocol {
     private func saveTime() {
         let currentTime = self.currentTime
         if !currentTime.isNaN, let model = model {
-            savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
+            // Under the row's key, not the URL it plays from: a moved book's differ (#176).
+            savePlaybackPositionUseCase.execute(url: model.rowURL, currentTime: currentTime, bookmarkData: nil)
             lastPositionSave = now()
         }
     }

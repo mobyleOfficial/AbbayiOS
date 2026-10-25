@@ -41,10 +41,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
     /// The last-played pointer the publisher orders by, fresh per test.
     private let lastPlayed = LastPlayedStore.inMemory()
 
-    override func tearDownWithError() throws {
-        SiriLibraryPublisher.shared = SiriLibraryPublisher()
-        try super.tearDownWithError()
-    }
+    /// Each test's diagnostics trail, so a publish never writes the real App Group (#153).
+    private let diagnostics = SiriDiagnostics(store: InMemoryKeyValueStore())
 
     private func audio(title: String, url: String) -> AudioModel {
         var model = AudioModel()
@@ -62,7 +60,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
             mediaUserContextDonor: donor,
             spotlightIndexer: spotlight,
             vocabulary: { vocabulary = $0.compactMap { $0 as? String } },
-            refreshShortcutParameters: { refreshCount += 1 }
+            refreshShortcutParameters: { refreshCount += 1 },
+            diagnostics: diagnostics
         )
 
         publisher.publish(audios: [
@@ -85,7 +84,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
             spotlightIndexer: SpySpotlightIndexer(),
             vocabulary: { _ in },
             refreshShortcutParameters: {},
-            log: log
+            log: log,
+            diagnostics: diagnostics
         )
         let done = expectation(description: "publish completed")
 
@@ -110,7 +110,8 @@ final class SiriLibraryPublisherTests: XCTestCase {
             mediaUserContextDonor: SpyMediaUserContextDonor(),
             spotlightIndexer: spotlight,
             vocabulary: { _ in },
-            refreshShortcutParameters: { refreshCount += 1 }
+            refreshShortcutParameters: { refreshCount += 1 },
+            diagnostics: diagnostics
         )
         var completed = false
         let done = expectation(description: "publish completed")
@@ -213,9 +214,9 @@ final class SiriLibraryPublisherTests: XCTestCase {
 
     func test_snapshotWrite_publishesLibraryToSiri() throws {
         let spy = SpySiriLibraryPublisher()
-        SiriLibraryPublisher.shared = spy
 
-        LibrarySnapshotWriter(store: InMemoryKeyValueStore()).write(audios: [audio(title: "Dune", url: "file:///dune")])
+        LibrarySnapshotWriter(store: InMemoryKeyValueStore(), publisher: spy)
+            .write(audios: [audio(title: "Dune", url: "file:///dune")])
 
         XCTAssertEqual(spy.publishedTitles, [["Dune"]])
     }

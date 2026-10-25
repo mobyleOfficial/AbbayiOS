@@ -30,7 +30,11 @@ final class LibrarySnapshotWriterTests: XCTestCase {
 
     private func makeWriter() throws -> LibrarySnapshotWriter {
         let mock = try XCTUnwrap(mockLoadAllAudios)
-        return LibrarySnapshotWriter(store: try XCTUnwrap(testSuite), loadAllAudios: mock)
+        return LibrarySnapshotWriter(
+            store: try XCTUnwrap(testSuite),
+            loadAllAudios: mock,
+            publisher: NoopSiriLibraryPublisher()
+        )
     }
 
     func test_write_emptyList_writesEmptyAudios() throws {

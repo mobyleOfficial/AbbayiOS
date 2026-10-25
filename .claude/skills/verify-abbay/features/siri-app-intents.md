@@ -26,9 +26,11 @@ half of Siri that Apple's `AppIntentsTesting` framework can validate.
   without them, *"Play \<title> on Abbay"* matched no Abbay phrase and Siri sent it to the default
   music app. `AppShortcutPhraseTests` reads the shipped `Metadata.appintents` to pin the variants and
   keeps the total under Apple's 1,000-phrase cap (entity phrases × 40 books / 50 chapters; 719 now).
-- **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()` and
-  returns *"Audio temporarily unavailable. Try again in a moment."* on failure.
-- **diagnostics:** every intent calls `SiriDiagnostics.record("appintent <Name> fired")` first.
+- **audio-session guard:** every intent begins with `AudioSessionActivator.attemptActivation()`
+  (the container's `audioSessionActivator`, #153) and returns *"Audio temporarily unavailable. Try
+  again in a moment."* on failure.
+- **diagnostics:** every intent calls `DependencyContainer.diagnostics.record("appintent <Name> fired")`
+  first: the App Group trail in the app, an in-memory one under `MockDependencyContainer` (#153).
 
 ## How to get to it (user POV)
 

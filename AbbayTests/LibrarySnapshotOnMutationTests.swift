@@ -12,12 +12,6 @@ import XCTest
 /// for those too.
 final class LibrarySnapshotOnMutationTests: XCTestCase {
     private let urls = (1...3).compactMap { URL(string: "file:///snapshot-on-mutation/\($0).m4a") }
-    private var originalPublisher: SiriLibraryPublisherProtocol?
-
-    override func setUp() {
-        super.setUp()
-        originalPublisher = SiriLibraryPublisher.shared
-    }
 
     override func tearDown() {
         DeleteAudioUseCase(
@@ -25,9 +19,6 @@ final class LibrarySnapshotOnMutationTests: XCTestCase {
             forgetSettings: { _ in },
             snapshotWriter: MockLibrarySnapshotWriter()
         ).execute(urls.map { AudioModel(url: $0) })
-        if let originalPublisher {
-            SiriLibraryPublisher.shared = originalPublisher
-        }
         super.tearDown()
     }
 
@@ -128,9 +119,8 @@ final class LibrarySnapshotOnMutationTests: XCTestCase {
     func test_saveAndDelete_writeTheSnapshotPublishAndNotifyOnceEach() throws {
         let appGroup = InMemoryKeyValueStore()
         let library = MockLoadAllAudiosUseCase()
-        let writer = LibrarySnapshotWriter(store: appGroup, loadAllAudios: library)
         let spy = PublishCountingSpy()
-        SiriLibraryPublisher.shared = spy
+        let writer = LibrarySnapshotWriter(store: appGroup, loadAllAudios: library, publisher: spy)
         let changed = expectation(forNotification: .libraryDidChange, object: nil)
         changed.expectedFulfillmentCount = 2
         changed.assertForOverFulfill = true

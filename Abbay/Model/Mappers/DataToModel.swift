@@ -11,7 +11,7 @@ import Foundation
 struct MappedAudio {
     let model: AudioModel
     /// The row's own fields with the fresh bookmark, under the row's stored URL (the save use
-    /// case finds the row by URL, and the resolved one can differ). Nil when nothing changed.
+    /// case finds the row by `rowURL`, and the resolved one can differ). Nil when nothing changed.
     let refreshedBookmark: AudioModel?
 }
 
@@ -21,6 +21,8 @@ extension AudioDataModel {
     func mapped(resolveBookmark: (Data?) -> ResolvedBookmark?) -> MappedAudio {
         var model = mappedFields()
         let resolved = resolveBookmark(bookmarkData)
+        // Plays from where the bookmark points now; every row operation still finds the row by
+        // the URL it is stored under (`storedURL`, set in `mappedFields`), #176.
         model.url = resolved?.url ?? url
         guard let refreshed = resolved?.refreshedData else {
             return MappedAudio(model: model, refreshedBookmark: nil)
@@ -45,6 +47,7 @@ extension AudioDataModel {
         model.isDownloadPaused = isDownloadPaused
         model.totalBytes = totalBytes
         model.url = url
+        model.storedURL = url
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []
         return model
     }

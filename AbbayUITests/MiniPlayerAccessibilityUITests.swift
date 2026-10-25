@@ -11,8 +11,8 @@ import XCTest
 ///
 /// The actions go through `AccessibilityActions`, which sends what VoiceOver sends: `tap()` is a
 /// synthesized touch and would test the gestures instead. The chapter actions need audio that can
-/// seek, so they use the real m4b of `-seedPlayableBook`; the seeded books without audio never
-/// leave 0 s.
+/// seek from a known point, so they use `-seedPlayableBook`, whose chapters are the m4b's own (the
+/// other seeds play the same audio under made-up chapters, #147).
 extension MiniPlayerUITests {
     // MARK: - Helpers
 
@@ -125,8 +125,8 @@ extension MiniPlayerUITests {
     }
 
     /// The play/pause buttons say which they are (labelled in #144): the bar's, a row's
-    /// and the details screen's, which share `PlayButtonView`. A book without audio can show
-    /// either for a moment, so this checks for a label; `loadPlayableBook` checks it flips.
+    /// and the details screen's, which share `PlayButtonView`. Either may show while the audio
+    /// starts, so this checks for a label; `loadPlayableBook` checks it flips.
     func test_a11y_playPause_isLabelled() throws {
         try loadSeededBook(titled: "Seeded Chaptered Book")
         let labels: Set<String> = ["Play", "Pause"]
@@ -145,7 +145,9 @@ extension MiniPlayerUITests {
         try loadSeededBook(titled: "Seeded Chaptered Book")
 
         XCTAssertEqual(progress.label, "Chapter progress")
-        XCTAssertEqual(progress.value as? String, "0%")
+        // The seed plays from 0 s now (#147): a few seconds into its 100 s first chapter.
+        XCTAssertTrue((progress.value as? String)?.hasSuffix("%") ?? false, "\(String(describing: progress.value))")
+        XCTAssertLessThanOrEqual(try progressPercent(), 15, "\(String(describing: progress.value))")
     }
 
     func test_a11y_progress_valueIsTheChapterFraction() throws {

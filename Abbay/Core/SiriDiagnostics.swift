@@ -16,8 +16,10 @@ import Foundation
 /// Nothing here records what the user said. Only outcome labels and whether the
 /// request carried a title at all.
 ///
-/// The store is injected. The static `record` is a log call, like `os_log`: it writes to
-/// `shared`, the App Group trail, so call sites with nothing to inject don't have to thread one.
+/// The store is injected, and so is the trail itself: every writer takes a `SiriDiagnostics`
+/// (`.shared` by default), and the code the system builds (App Intents, entity queries) reads the
+/// container's, `DependencyContainer.diagnostics`. So no unit test writes the real App Group
+/// (#153). There is no static `record`: it was the one write a test couldn't redirect.
 struct SiriDiagnostics {
     static let key: String = "abbay.diagnostics.v1"
     static let limit: Int = 25
@@ -28,10 +30,6 @@ struct SiriDiagnostics {
 
     init(store: KeyValueStoring = AppGroup.store) {
         self.store = store
-    }
-
-    static func record(_ event: String, now: Date = Date()) {
-        shared.record(event, now: now)
     }
 
     func record(_ event: String, now: Date = Date()) {
