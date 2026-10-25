@@ -25,14 +25,17 @@ enum UITestSeeder {
         loadAll: LoadAllAudiosUseCaseProtocol = LoadAllAudiosUseCase(),
         save: SaveAudioUseCaseProtocol = SaveAudioUseCase(),
         delete: DeleteAudioUseCaseProtocol = DeleteAudioUseCase(),
+        lastPlayed: LastPlayedStore = .shared,
         audio: (String) -> URL = UITestSeeder.liveAudio()
     ) {
         let wantsSeed = arguments.contains(LaunchArgument.seedLibrary)
         let wantsReset = arguments.contains(LaunchArgument.resetLibrary)
         guard wantsSeed || wantsReset else { return }
 
-        // Always start from empty, so repeated runs are deterministic rather than cumulative.
+        // Always start from empty, so repeated runs are deterministic rather than cumulative. Last
+        // played goes too: a Continue card left from an earlier launch would move the grid.
         delete.execute(loadAll.execute())
+        lastPlayed.save(url: nil)
 
         guard wantsSeed else { return }
         var models = seedModels(audio: audio)
@@ -54,7 +57,72 @@ enum UITestSeeder {
         if arguments.contains(LaunchArgument.seedCoverArt) {
             models = models.map(withCoverArt)
         }
+        if arguments.contains(LaunchArgument.seedArtwork) {
+            models = models.map(withArtwork)
+        }
+        if arguments.contains(LaunchArgument.seedLastPlayed), !models.isEmpty {
+            models[0].currentTime = lastPlayedPosition
+            lastPlayed.save(url: models[0].url)
+        }
         try? save.execute(models)
+    }
+
+    // MARK: - Artwork and last played
+
+    /// Where `-seedLastPlayed` leaves *Seeded Chaptered Book*: halfway through its second chapter.
+    static let lastPlayedPosition: Double = 150
+
+    /// The seeds `-seedArtwork` gives a cover, by title, with the cover's two gradient colours.
+    static let artworkColors: [String: (UIColor, UIColor)] = [
+        "Seeded Chaptered Book": (
+            UIColor(red: 0.48, green: 0.23, blue: 0.18, alpha: 1),
+            UIColor(red: 0.82, green: 0.55, blue: 0.31, alpha: 1)
+        ),
+        playableBookTitle: (
+            UIColor(red: 0.12, green: 0.23, blue: 0.37, alpha: 1),
+            UIColor(red: 0.31, green: 0.53, blue: 0.78, alpha: 1)
+        ),
+        longBookTitle: (
+            UIColor(red: 0.18, green: 0.31, blue: 0.23, alpha: 1),
+            UIColor(red: 0.50, green: 0.69, blue: 0.54, alpha: 1)
+        )
+    ]
+
+    static func withArtwork(_ book: AudioModel) -> AudioModel {
+        guard let colors = artworkColors[book.title] else { return book }
+        var book = book
+        book.imageData = artwork(title: book.title, colors: colors)
+        return book
+    }
+
+    /// A 300 px square PNG: a diagonal gradient with the title in a serif face, like a cover.
+    static func artwork(title: String, colors: (UIColor, UIColor)) -> Data {
+        let size = CGSize(width: 300, height: 300)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).pngData { context in
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
+                colors: [colors.0.cgColor, colors.1.cgColor] as CFArray,
+                locations: [0, 1]
+            )
+            if let gradient {
+                context.cgContext.drawLinearGradient(
+                    gradient,
+                    start: .zero,
+                    end: CGPoint(x: size.width, y: size.height),
+                    options: []
+                )
+            }
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont(name: "Georgia-Bold", size: 34) ?? UIFont.boldSystemFont(ofSize: 34),
+                .foregroundColor: UIColor.white
+            ]
+            (title as NSString).draw(
+                in: CGRect(x: 24, y: 150, width: size.width - 48, height: 130),
+                withAttributes: attributes
+            )
+        }
     }
 
     // MARK: - Cover art

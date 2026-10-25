@@ -13,12 +13,14 @@ final class UITestSeederTests: XCTestCase {
     private var loadAll = MockLoadAllAudiosUseCase()
     private var save = MockSaveAudioUseCase()
     private var delete = MockDeleteAudioUseCase()
+    private var lastPlayed = LastPlayedStore(store: InMemoryKeyValueStore(), legacyStore: InMemoryKeyValueStore())
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         loadAll = MockLoadAllAudiosUseCase()
         save = MockSaveAudioUseCase()
         delete = MockDeleteAudioUseCase()
+        lastPlayed = LastPlayedStore(store: InMemoryKeyValueStore(), legacyStore: InMemoryKeyValueStore())
         loadAll.stub = [AudioModel(title: "Existing", url: URL(string: "file:///existing.m4b"))]
     }
 
@@ -29,6 +31,7 @@ final class UITestSeederTests: XCTestCase {
             loadAll: loadAll,
             save: save,
             delete: delete,
+            lastPlayed: lastPlayed,
             audio: UITestSeeder.placeholderAudio
         )
     }
@@ -38,6 +41,32 @@ final class UITestSeederTests: XCTestCase {
 
         XCTAssertTrue(delete.deletedAudios.isEmpty, "a normal launch must never touch the library")
         XCTAssertTrue(save.savedModels.isEmpty)
+    }
+
+    /// A Continue card left from an earlier launch would move the library's grid.
+    func test_seeding_clearsLastPlayed() {
+        lastPlayed.save(url: URL(string: "file:///earlier.m4b"))
+
+        run([LaunchArgument.seedLibrary])
+
+        XCTAssertNil(lastPlayed.lastPlayedURL())
+    }
+
+    func test_seedLastPlayed_makesTheFirstSeedLastPlayed_partway() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedLastPlayed])
+
+        let first = try XCTUnwrap(save.savedModels.first)
+        XCTAssertEqual(lastPlayed.lastPlayedURL(), first.url)
+        XCTAssertEqual(first.currentTime, UITestSeeder.lastPlayedPosition)
+    }
+
+    /// Covers on some seeds and none on *Seeded Plain Book*, so both kinds of cell show.
+    func test_seedArtwork_givesSomeSeedsADecodableCover() throws {
+        run([LaunchArgument.seedLibrary, LaunchArgument.seedArtwork])
+
+        let chaptered = try XCTUnwrap(save.savedModels.first { $0.title == "Seeded Chaptered Book" })
+        XCTAssertNotNil(UIImage(data: try XCTUnwrap(chaptered.imageData)))
+        XCTAssertNil(save.savedModels.first { $0.title == "Seeded Plain Book" }?.imageData)
     }
 
     func test_resetArgument_clearsAndSeedsNothing() {
