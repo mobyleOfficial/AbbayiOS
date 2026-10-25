@@ -206,44 +206,4 @@ final class ExpansionDragTests: XCTestCase {
         bar(-2 - 0.25 * barFrame.minY)
         XCTAssertEqual(presentation.progress, 0.25, accuracy: 0.001)
     }
-
-    // MARK: - Collapse from the chapter list (iOS 18+)
-
-    func test_listCollapse_engagesOnlyAtTheTop_andDownward() {
-        let presentation = openPresentation()
-        let list = ExpansionListCollapse(presentation: presentation)
-
-        list.listOffset = 120
-        list.changed(translation: CGSize(width: 0, height: 60), startLocation: first)
-        XCTAssertFalse(list.isEngaged, "scrolled down: the list scrolls")
-        XCTAssertEqual(presentation.progress, 1)
-        list.ended(velocityY: 0)
-
-        list.listOffset = 0
-        list.changed(translation: CGSize(width: 0, height: -60), startLocation: second)
-        XCTAssertFalse(list.isEngaged, "upward at the top scrolls the list")
-        list.ended(velocityY: 0)
-
-        let third = CGPoint(x: 150, y: 400)
-        list.changed(translation: CGSize(width: 2, height: 12), startLocation: third)
-        XCTAssertTrue(list.isEngaged)
-        list.changed(translation: CGSize(width: 2, height: 12 + 0.2 * barFrame.minY), startLocation: third)
-        XCTAssertEqual(presentation.progress, 0.8, accuracy: 0.001)
-        list.ended(velocityY: 0)
-        XCTAssertFalse(list.isEngaged)
-    }
-
-    func test_listCollapse_decidesOncePerGesture() {
-        let presentation = openPresentation()
-        let list = ExpansionListCollapse(presentation: presentation)
-        list.listOffset = 80
-
-        list.changed(translation: CGSize(width: 0, height: 20), startLocation: first)
-        // The list reaches its top mid-gesture: still scrolling, never a collapse.
-        list.listOffset = 0
-        list.changed(translation: CGSize(width: 0, height: 200), startLocation: first)
-
-        XCTAssertFalse(list.isEngaged)
-        XCTAssertEqual(presentation.progress, 1)
-    }
 }

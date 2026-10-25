@@ -56,6 +56,12 @@ struct ChapterListView: View {
     var chrome: Chrome = .card
     /// Secondary text at the header's trailing edge, e.g. the time left in the book.
     var headerDetail: String?
+    /// The header's title. "Chapter selection" unless the caller names it (the G2 panel says
+    /// "Chapters").
+    var title: String?
+    /// The book's download progress bar and network hint above the rows. The player shows them on
+    /// its own screen (under the scrubber) and turns them off in the chapter panel.
+    var showsBookProgress = true
     var titleIdentifier: String?
     var progressIdentifier: String?
     /// Why the download is waiting on this network, said under the progress bar (see `shownHold`).
@@ -68,8 +74,6 @@ struct ChapterListView: View {
     var onSelect: ((Int) -> Void)?
     /// A failed chapter's status becomes a retry button, with this identifier, only when set.
     var retry: (identifier: (Int) -> String, action: (Int) -> Void)?
-    /// The details screen's collapse from the list's top (iOS 18+, `.list` layout only).
-    var listCollapse: ExpansionListCollapse?
 
     /// The leading column (number or ▶︎), wide enough for "999" at the current text size.
     @ScaledMetric(relativeTo: .subheadline)
@@ -136,6 +140,19 @@ struct ChapterListView: View {
         return state.chapters[index]
     }
 
+    /// The download status a row shows. A *finished* chapter that is downloaded shows nothing:
+    /// its "finished" check already fills the trailing column, and two checks meaning different
+    /// things read as noise (#225). Every other status (downloading, waiting, failed) still shows.
+    static func shownStatus(
+        at index: Int,
+        in state: BookDownloadState?,
+        rowState: RowState
+    ) -> ChapterDownloadState? {
+        let status = status(at: index, in: state)
+        if rowState == .finished, status == .downloaded { return nil }
+        return status
+    }
+
     /// The row shows a retry button: its chapter failed and the screen can retry it.
     static func canRetry(at index: Int, in state: BookDownloadState?, hasRetryAction: Bool) -> Bool {
         hasRetryAction && status(at: index, in: state) == .failed
@@ -145,14 +162,14 @@ struct ChapterListView: View {
     var body: some View {
         VStack {
             header
-            if Self.showsProgress(downloadState), let downloadState {
+            if showsBookProgress, Self.showsProgress(downloadState), let downloadState {
                 ProgressView(value: downloadState.fraction)
                     .tint(ColorConstants.malachite.value)
                     .scaleEffect(x: 1, y: 0.5)
                     .frame(height: SpaceConstants.sx2.value)
                     .accessibilityIdentifier(ifPresent: progressIdentifier)
             }
-            if let shown = Self.shownHold(downloadState, hold: hold) {
+            if showsBookProgress, let shown = Self.shownHold(downloadState, hold: hold) {
                 holdHint(shown)
             }
             if Self.showsEmptyState(chapters) {
@@ -201,7 +218,7 @@ struct ChapterListView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(Localizable.chapterSelectionTitle.localized)
+            Text(title ?? Localizable.chapterSelectionTitle.localized)
                 .foregroundColor(ColorConstants.white.value)
                 .font(.headline)
                 .accessibilityIdentifier(ifPresent: titleIdentifier)
@@ -245,7 +262,6 @@ struct ChapterListView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .modifier(ListCollapseModifier(handler: listCollapse))
         case .stack:
             LazyVStack(spacing: 0) {
                 ForEach(items, id: \.offset) { index, chapter in
@@ -286,7 +302,7 @@ struct ChapterListView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if let status = Self.status(at: index, in: downloadState) {
+            if let status = Self.shownStatus(at: index, in: downloadState, rowState: state) {
                 ChapterDownloadStatusView(
                     state: status,
                     retry: retry.map { retry in (retry.identifier(index), { retry.action(index) }) }
