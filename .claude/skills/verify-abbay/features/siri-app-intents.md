@@ -20,6 +20,17 @@ can validate.
   input-echoing no-match dialog: *"No audiobook matches '\<input>'."*
 - **PlayChapterIntent** — takes a `ChapterEntity`. Seeks if a book is loaded; otherwise resumes the
   last-played book positioned at that chapter by setting `currentTime` before `play`.
+  `ChapterEntityQuery.entities(matching:)` resolves what was said through `matchChapters`
+  (`Abbay/Intents/ChapterMatch.swift`, #206): a spoken position wins (digits: "4", "capítulo 3",
+  "3rd"; or number words next to "chapter"/"capítulo", 1 to 99, cardinal or ordinal, en and pt-BR:
+  "chapter three", "the third chapter", "capítulo vinte e um", "décimo primeiro capítulo"); then
+  the chapter titles by the book-title rules (folding, stop words, word overlap; "chapter" /
+  "capítulo" dropped at either end: "the prologue chapter", "o capítulo prólogo"), every tied
+  chapter in book order; then number words alone ("three", when no title has them); then the one
+  number in an otherwise unmatched request ("play chapter 4 please"). A position past the book
+  falls through to the titles ("1984"). "chapter" or stop words alone match nothing. Positions are
+  one-based places in the book, not the numbers in chapter titles. Cases:
+  `SpokenChapterMatchingTests`, `SiriEntityTests`.
 - **moved books (#186):** every intent finds a book by its identity, the URL its row was saved
   under (last played, entity ids, the library's `url`), so a book whose file moved is resumed,
   played by name or entity and has its chapters found. `MovedBookIdentityTests` drives
@@ -45,8 +56,8 @@ can validate.
   - `AudioDomainBookQuery` is an `EntityQuery` plus `IntentValueQuery` over
     `MediaIntents.AudioSearch`. Siri hands it the request's `criteria`: `.searchQuery(text)` →
     the same fuzzy title rules as the other paths (`matchAll`, which tolerates extra words, an
-    author and pt-BR articles since #201; see [siri-playmedia](siri-playmedia.md) *matching*);
-    `.unspecified` ("play an
+    author and pt-BR articles since #201, and author-only requests since #207; see
+    [siri-playmedia](siri-playmedia.md) *matching*); `.unspecified` ("play an
     audiobook") → the library, last-played first, capped at 40; `.url([URL])` → books whose URL
     or saved row URL matches. The mapping is the pure `AudioDomainMatcher`, unit-tested on every
     runtime.
@@ -97,6 +108,11 @@ iOS 27 simulator, while the app itself stays on iOS 17. **Verified** for the aud
 - `test_audioSearch_withExtraWords_findsOnlyThatBook`: `.searchQuery("the seeded chaptered book
   by Seed Author")` returns exactly *Seeded Chaptered Book*, not the other *Seeded … Book*s by the
   same author (#201).
+- `test_audioSearch_authorOnly_carriesOnWithThatAuthorsLastPlayedBook` (#207): plays *Seeded
+  Plain Book* through `PlayAudioDomainIntent`, then `.searchQuery("something by Seed Author")`,
+  `"um livro do Seed Author"` and `"seed author"` each return exactly that book (author *Seed
+  Author*), and `"something by Nobody Else"` returns nothing. The last-played pointer survives a
+  launch, so the all-of-their-books case (none of theirs played last) is unit-tested only.
 - `test_audioSearch_withNoTitle_offersTheLibrary`: `.unspecified` returns the seeded books.
 
 What it can't cover: Siri's speech recognition and its choice of Abbay over other audio apps. That
