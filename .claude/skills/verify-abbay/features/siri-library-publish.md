@@ -95,12 +95,16 @@ feature one of the better arguments for taking the Xcode 27 upgrade.
   resolve.
 - **LibriVox books publish as ordinary entries, by assumption.** `addLibriVoxBook` rewrites the
   snapshot, so a downloaded book is in `abbay.librarySnapshot.v1` with its `librivox://book/<id>` as
-  `urlString` and a null bookmark (the URL fallback in `IntentRouter.resolveURL` then loads it).
+  `urlString` and a null bookmark (`IntentRouter` loads it by that identifier).
   The publishing, Spotlight and entity-query code is unchanged on this branch and no test builds a
   snapshot from a LibriVox model; resolution of "Play <title> in Abbay" for such a book is unverified.
 - `bookmarkData` is written only when non-empty, and books are only bookmarked on first *play*. A
-  freshly imported library publishes titles with null bookmarks, which still resolve via the URL
-  fallback but are fragile if the file moves.
+  freshly imported library publishes titles with null bookmarks, which still resolve by their
+  identifier but are fragile if the file moves.
+- **`urlString` is the book's identity (#186):** the URL its row was saved under, never where a
+  moved file resolves now, so entity ids, donations and Spotlight ids keep matching the row after
+  the file moves (`MovedBookIdentityTests`). Spotlight items are only ever added, so one published
+  under a moved book's resolved URL before #186 stays in the index (#195).
 - `LibrarySnapshotWriter` logs through `Log.librarySnapshot` (category `LibrarySnapshot`) with
   `.public` counts. The subsystem is the running bundle's, so a write from the extension (none today)
   would log under `com.edyuto.Abbay.AbbayIntents`, not the app's.

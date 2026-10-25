@@ -69,7 +69,9 @@ the row's loaded state appear (that is how `MiniPlayerUITests` loads one) and th
 seeds' chapters and durations are their own, not the file's (14 min). No file behind:
 *Seeded Missing Book* (`-seedMissingFile`, the moved-file banner) and the `-seedTimeLeftEdges`
 books, whose clocks must stay put. Delete and `-resetLibrary` find a book's row by the URL it was
-stored under, so they work after a reinstall moved the bundle (#176).
+stored under, so they work after a reinstall moved the bundle (#176). Since #186 that URL is the
+book's only identity (rows, the loaded-row state, last played, Siri, speeds, CarPlay); only the
+player opens the file where its bookmark resolves now (see [import](import.md) *identity*).
 
 ## Gotchas
 
@@ -83,8 +85,9 @@ stored under, so they work after a reinstall moved the bundle (#176).
 - **The empty state has no search field** (`test_emptyLibrary_hasNoSearchField`).
 - **The CarPlay library has no empty state at all** (#95, still open; see [carplay](carplay.md)),
   unlike this one.
-- **Row taps use `onTapGesture`.** Rows are keyed by `\.url`; two imports resolving to the same
-  URL collapse to one row (`importAudio` de-duplicates on `url`).
+- **Row taps use `onTapGesture`.** Rows are keyed by `\.url` (the row's URL); two imports of the
+  same URL collapse to one row (`importAudio` de-duplicates on `url`). Importing a moved file again
+  from its new place is a new URL, so it adds a second book (#196).
 - `deleteAudio` mutates `audioList` directly rather than reloading; the delete use case has no error
   path.
 - Row order is whatever `LoadAllAudiosUseCase` returns; there is no explicit sort.
