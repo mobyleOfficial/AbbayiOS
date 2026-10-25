@@ -48,7 +48,7 @@ once the book is in the library. The only way to add a LibriVox book.
 - **download-state:** read from the app-wide `DownloadStateStore` entry for this book, not from a
   `statesPublisher` sink of its own, so the download manager keeps one subscriber
   (`SubscriptionBudgetTests`).
-- **chapters:** the shared `ChapterListView` in its stack layout: *Chapters* header, one row per
+- **chapters:** the shared `ChapterListView` in its stack layout: *Chapter selection* header (*Seleção de capítulos*), one row per
   chapter with scrolling title and duration. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
   sits under the header; once complete both disappear. A *Wait for Wi-Fi* book held by Low Data
