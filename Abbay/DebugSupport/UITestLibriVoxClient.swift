@@ -17,7 +17,8 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
 
     let book: LibriVoxBook
     let sectionBytes: [Int64]
-    /// Shown after `book` in Popular and in a "stub" search. Each has one 20-minute chapter.
+    /// Shown after `book` in Popular and in a "stub" search. Each has one 20-minute chapter, except
+    /// the last (*Emma*, 24 chapters), whose page scrolls the big Download button away.
     let extras: [LibriVoxBook]
 
     /// `coverURL` replaces the failing default (`-stubCovers` passes `UITestCoverNetwork.coverURL`).
@@ -48,21 +49,24 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
             let id = "ui-test-extra-\(index + 1)"
             // With `-stubCovers` every archive.org cover is answered; otherwise they all fail.
             let cover = coverURL == nil ? nil : URL(string: "https://archive.org/services/img/\(id)")
+            let sections = (1...entry.chapters).map { number in
+                LibriVoxBook.Section(
+                    title: entry.chapters == 1
+                        ? "Chapter 1"
+                        : "\(number). \(Self.chapterTitles[number % Self.chapterTitles.count])",
+                    seconds: 1200,
+                    listenURL: URL(fileURLWithPath: "/dev/null/\(id)_\(number).mp3")
+                )
+            }
             return LibriVoxBook(
                 id: id,
                 title: entry.title,
                 authors: entry.author,
                 descriptionText: "A public-domain title the UI-test catalog lists after the stub book.",
                 language: entry.language,
-                totalSeconds: 1200,
+                totalSeconds: 1200 * Double(sections.count),
                 coverURL: cover ?? Self.failingCoverURL,
-                sections: [
-                    LibriVoxBook.Section(
-                        title: "Chapter 1",
-                        seconds: 1200,
-                        listenURL: URL(fileURLWithPath: "/dev/null/\(id)_01.mp3")
-                    )
-                ]
+                sections: sections
             )
         }
     }
@@ -71,14 +75,23 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
         let title: String
         let author: String
         let language: String
+        var chapters = 1
     }
+
+    /// The long extra's chapter titles, one long enough to wrap onto a second line.
+    private static let chapterTitles = [
+        "In Which Emma Resolves to Find a Match for Her Friend Harriet Smith",
+        "Mr. Knightley",
+        "A Visit to Randalls",
+        "Box Hill"
+    ]
 
     private static let extraTitles = [
         ExtraTitle(title: "The Adventures of Sherlock Holmes", author: "Arthur Conan Doyle", language: "eng"),
         ExtraTitle(title: "Pride and Prejudice", author: "Jane Austen", language: "eng"),
         ExtraTitle(title: "Frankenstein, or the Modern Prometheus", author: "Mary Shelley", language: "eng"),
         ExtraTitle(title: "Dom Casmurro", author: "Machado de Assis", language: "por"),
-        ExtraTitle(title: "Emma", author: "Jane Austen", language: "eng")
+        ExtraTitle(title: "Emma", author: "Jane Austen", language: "eng", chapters: 24)
     ]
 
     func search(_ query: String) async throws -> [LibriVoxBook] {
@@ -92,7 +105,10 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
             return LibriVoxBookDetails(book: self.book, sectionBytes: sectionBytes)
         }
         guard let extra = extras.first(where: { $0.id == book.id }) else { throw URLError(.unsupportedURL) }
-        return LibriVoxBookDetails(book: extra, sectionBytes: [Self.sectionBytes])
+        return LibriVoxBookDetails(
+            book: extra,
+            sectionBytes: [Int64](repeating: Self.sectionBytes, count: extra.sections.count)
+        )
     }
 
     /// Under the 99 MB cellular threshold, so Download never asks about cellular, and with a

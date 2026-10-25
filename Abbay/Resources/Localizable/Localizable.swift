@@ -23,6 +23,13 @@ enum Localizable: String {
     case searchOffline
     case searchFailed
     case noResults
+    case searchIdleTitle
+    case searchIdleMessage
+    case searchOfflineTitle
+    case searchFailedTitle
+    case searchNoResultsHint
+    case getBook
+    case openBook
     case downloadedTag
     case downloadPaused
     case downloadingProgress

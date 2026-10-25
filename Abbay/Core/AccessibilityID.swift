@@ -94,6 +94,10 @@ enum AccessibilityID {
         static let view = "detail.view"
         static let download = "detail.download"
         static let play = "detail.play"
+        /// The compact Download in the navigation bar, once `download` has scrolled away (#166 G5).
+        static let pinnedDownload = "detail.pinned.download"
+        /// The compact Play in the navigation bar, once `play` has scrolled away.
+        static let pinnedPlay = "detail.pinned.play"
         static let more = "detail.more"
         static let retry = "detail.retry"
         static let progress = "detail.progress"
