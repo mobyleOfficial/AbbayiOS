@@ -17,6 +17,7 @@ final class IntentRouter: IntentRouterProtocol {
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
     private let diagnostics: SiriDiagnostics
+    private let resolveBookmark: (Data?) -> ResolvedBookmark?
 
     init(
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
@@ -25,7 +26,8 @@ final class IntentRouter: IntentRouterProtocol {
         player: @escaping () -> PlayerProtocol = { DependencyContainer.shared.player },
         lastPlayed: LastPlayedStore = .shared,
         launchState: LaunchStateFlag = .shared,
-        diagnostics: SiriDiagnostics = .shared
+        diagnostics: SiriDiagnostics = .shared,
+        resolveBookmark: @escaping (Data?) -> ResolvedBookmark? = URL.resolveBookmarkRefreshing
     ) {
         self.loadAudio = loadAudio
         self.snapshotWriter = snapshotWriter
@@ -34,6 +36,7 @@ final class IntentRouter: IntentRouterProtocol {
         self.lastPlayed = lastPlayed
         self.launchState = launchState
         self.diagnostics = diagnostics
+        self.resolveBookmark = resolveBookmark
     }
 
     func handle(_ intent: INPlayMediaIntent) -> INPlayMediaIntentResponse {
@@ -46,13 +49,10 @@ final class IntentRouter: IntentRouterProtocol {
             return INPlayMediaIntentResponse(code: .failureUnknownMediaType, userActivity: nil)
         }
 
-        // A stale or relocated bookmark resolves to a URL that is no longer the key
-        // the library was stored under, so fall back to the identifier itself
-        // before declaring the book unplayable.
-        let resolvedURL = resolveURL(from: identifier)
-        let fallbackURL = URL(string: identifier)
-        guard var model = loadAudio.execute(url: resolvedURL)
-                ?? loadAudio.execute(url: fallbackURL) else {
+        // The identifier is the book's identity, its row's URL (#186). One donated or published
+        // before that can be where a moved book's file resolved then: find its row by bookmark.
+        guard var model = loadAudio.execute(url: URL(string: identifier))
+                ?? loadAudio.execute(url: rowURL(resolvingTo: identifier)) else {
             diagnostics.record("app handleInApp load failed")
             if let saved = lastPlayed.lastPlayedURL(), saved.absoluteString == identifier {
                 lastPlayed.save(url: nil)
@@ -89,26 +89,15 @@ final class IntentRouter: IntentRouterProtocol {
         return picked?.url?.absoluteString
     }
 
-    private func resolveURL(from identifier: String) -> URL? {
-        let entries = snapshotReader()
-        if let match = entries.first(where: { $0.urlString == identifier }),
-           let bookmark = match.bookmarkData {
-            var isStale = false
-            if let resolved = try? URL(
-                resolvingBookmarkData: bookmark,
-                options: .withoutUI,
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            ) {
-                // If the bookmark is stale, ask LibrarySnapshotWriter to refresh: its library
-                // load saves a fresh bookmark for the book (`StaleBookmarkSaver`, #146), and the
-                // snapshot it writes carries the fresh one.
-                if isStale {
-                    snapshotWriter.refresh()
-                }
-                return resolved
-            }
+    /// The row URL of the snapshot book whose bookmark resolves to `identifier`: a legacy id, where
+    /// a moved book's file resolved when it was donated or published. Only asked on a miss. (A
+    /// stale bookmark needs nothing here: loading the book saves the fresh one, #146.)
+    private func rowURL(resolvingTo identifier: String) -> URL? {
+        guard let wanted = URL(string: identifier) else { return nil }
+        let match = snapshotReader().first { entry in
+            guard entry.urlString != identifier, let bookmark = entry.bookmarkData else { return false }
+            return resolveBookmark(bookmark)?.url == wanted
         }
-        return URL(string: identifier)
+        return match.flatMap { URL(string: $0.urlString) }
     }
 }

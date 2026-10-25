@@ -7,7 +7,7 @@ import Foundation
 
 protocol SavePlaybackPositionUseCaseProtocol {
     /// Writes `currentTime`, and `bookmarkData` when non-nil, on the book already saved under `url`
-    /// (the book's `rowURL`). Does nothing when no book has that url.
+    /// (the book's `url`, not its `fileURL`). Does nothing when no book has that url.
     func execute(url: URL?, currentTime: Double, bookmarkData: Data?)
 }
 

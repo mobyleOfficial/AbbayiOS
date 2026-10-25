@@ -10,8 +10,7 @@ import Foundation
 /// A mapped book, and the copy to save when its bookmark was stale (#146).
 struct MappedAudio {
     let model: AudioModel
-    /// The row's own fields with the fresh bookmark, under the row's stored URL (the save use
-    /// case finds the row by `rowURL`, and the resolved one can differ). Nil when nothing changed.
+    /// The row's own fields with the fresh bookmark, under the row's URL. Nil when nothing changed.
     let refreshedBookmark: AudioModel?
 }
 
@@ -21,16 +20,15 @@ extension AudioDataModel {
     func mapped(resolveBookmark: (Data?) -> ResolvedBookmark?) -> MappedAudio {
         var model = mappedFields()
         let resolved = resolveBookmark(bookmarkData)
-        // Plays from where the bookmark points now; every row operation still finds the row by
-        // the URL it is stored under (`storedURL`, set in `mappedFields`), #176.
-        model.url = resolved?.url ?? url
+        // Keyed by the row's URL everywhere; plays from where the bookmark points now (#176, #186).
+        if let resolvedURL = resolved?.url, resolvedURL != url {
+            model.resolvedURL = resolvedURL
+        }
         guard let refreshed = resolved?.refreshedData else {
             return MappedAudio(model: model, refreshedBookmark: nil)
         }
         model.bookmarkData = refreshed
-        var toSave = model
-        toSave.url = url
-        return MappedAudio(model: model, refreshedBookmark: toSave)
+        return MappedAudio(model: model, refreshedBookmark: model)
     }
 
     private func mappedFields() -> AudioModel {
@@ -47,7 +45,6 @@ extension AudioDataModel {
         model.isDownloadPaused = isDownloadPaused
         model.totalBytes = totalBytes
         model.url = url
-        model.storedURL = url
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []
         return model
     }

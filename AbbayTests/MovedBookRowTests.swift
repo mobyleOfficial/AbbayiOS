@@ -9,7 +9,8 @@ import XCTest
 
 /// #176: a book whose bookmark resolves somewhere other than the URL its row was saved under (the
 /// file moved, or the app was reinstalled and the bundle moved). The loaded model plays from the
-/// resolved URL, but every row operation must find the row by the URL it is stored under, or a
+/// resolved URL (`fileURL`), but every row operation must find the row by the URL it is stored
+/// under (`url`, the book's identity since #186), or a
 /// delete silently does nothing and `-resetLibrary` leaves the book behind.
 ///
 /// The resolver is stubbed (a moved file can't be made on demand); the rows are real Core Data.
@@ -32,19 +33,18 @@ final class MovedBookRowTests: XCTestCase {
 
     // MARK: - Mapping
 
-    func test_load_movedBook_carriesTheStoredURL() throws {
+    func test_load_movedBook_keepsItsRowURL() throws {
         let book = try loadMovedBook()
 
-        XCTAssertEqual(book.url, movedURL, "plays from where the bookmark points")
-        XCTAssertEqual(book.storedURL, storedURL, "and remembers which row it came from")
-        XCTAssertEqual(book.rowURL, storedURL)
+        XCTAssertEqual(book.url, storedURL, "identified by the row it came from (#186)")
+        XCTAssertEqual(book.fileURL, movedURL, "plays from where the bookmark points")
     }
 
-    func test_newModel_rowURL_isItsURL() {
+    func test_newModel_isOpenedAtItsURL() {
         let book = AudioModel(url: movedURL)
 
-        XCTAssertNil(book.storedURL)
-        XCTAssertEqual(book.rowURL, movedURL, "a book not loaded from the store is keyed by its own URL")
+        XCTAssertNil(book.resolvedURL)
+        XCTAssertEqual(book.fileURL, movedURL, "a book not loaded from the store is its own file")
     }
 
     // MARK: - Delete
@@ -60,7 +60,7 @@ final class MovedBookRowTests: XCTestCase {
     /// What `-resetLibrary` does: delete everything `LoadAllAudiosUseCase` returns.
     func test_deleteAll_withAMovedBook_leavesNothingBehind() throws {
         let all = LoadAllAudiosUseCase(resolveBookmark: moved, staleBookmarks: noStaleSaves())
-        let loaded = all.execute().filter { $0.storedURL == storedURL }
+        let loaded = all.execute().filter { $0.url == storedURL }
         XCTAssertEqual(loaded.count, 1)
 
         DeleteAudioUseCase(forgetSettings: { _ in }, snapshotWriter: MockLibrarySnapshotWriter()).execute(loaded)
@@ -85,7 +85,7 @@ final class MovedBookRowTests: XCTestCase {
     func test_savePosition_movedBook_writesItsRow() throws {
         let book = try loadMovedBook()
 
-        SavePlaybackPositionUseCase().execute(url: book.rowURL, currentTime: 42, bookmarkData: nil)
+        SavePlaybackPositionUseCase().execute(url: book.url, currentTime: 42, bookmarkData: nil)
 
         XCTAssertEqual(rowTimes(storedURL), [42])
     }

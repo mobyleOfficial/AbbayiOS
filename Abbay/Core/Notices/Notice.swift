@@ -52,7 +52,7 @@ enum Notice: Equatable {
     /// What a book is called in a message: its title, or its file name when the file had none.
     static func title(of book: AudioModel) -> String {
         if !book.title.isEmpty { return book.title }
-        return book.url?.deletingPathExtension().lastPathComponent ?? String()
+        return book.fileURL?.deletingPathExtension().lastPathComponent ?? String()
     }
 
     /// One file is named on its own; several are counted, then listed up to `listedFileNameLimit`.

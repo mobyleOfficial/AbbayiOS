@@ -50,11 +50,11 @@ extension Notification.Name {
 /// The app's settings, persisted through the storage layer's `KeyValueStoring` and observable, so
 /// the Settings screen, the player's buttons and the speed sheet follow every change.
 ///
-/// Per-book speeds live here too, keyed by the book's URL (the identity Core Data and the player
-/// use), rather than as a new Core Data attribute: see the Settings PR for why. Mutations happen
+/// Per-book speeds live here too, keyed by the book's URL (its identity, `AudioModel.url`, which
+/// Core Data and the player use; never where a moved file resolves, #186), rather than as a new Core Data attribute: see the Settings PR for why. Mutations happen
 /// on the main thread (UI and remote commands); `playbackSpeed(for:)` may be read from any thread.
 @Observable
-final class AppSettings: PlaybackSpeedStoring {
+final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
     enum Key {
         static let skipBackward = "abbay.settings.skipBackward"
         static let skipForward = "abbay.settings.skipForward"
@@ -148,6 +148,27 @@ final class AppSettings: PlaybackSpeedStoring {
             guard let self else { return }
             var speeds = bookSpeeds
             speeds[key] = speed
+            bookSpeeds = speeds
+        }
+    }
+
+    /// A speed saved under the URL a moved book's file resolved to, before #186 keyed books by
+    /// their row: keep it under the row's URL (a speed already there wins) and drop the old key.
+    /// Writes the store at once; the observable copy follows on the main thread, like `setSpeed`.
+    func moveSpeed(from oldURL: URL, to newURL: URL) {
+        let oldKey = oldURL.absoluteString
+        let newKey = newURL.absoluteString
+        var stored = Self.storedBookSpeeds(in: store)
+        guard let speed = stored.removeValue(forKey: oldKey) else { return }
+        if stored[newKey] == nil {
+            stored[newKey] = speed
+        }
+        store.set(stored, forKey: Key.bookSpeeds)
+        Self.onMain { [weak self] in
+            guard let self else { return }
+            var speeds = bookSpeeds
+            speeds[oldKey] = nil
+            speeds[newKey] = stored[newKey]
             bookSpeeds = speeds
         }
     }

@@ -96,6 +96,8 @@ final class Player: PlayerProtocol {
     private var pendingSeek: PendingSeek?
     private var seekGeneration = 0
 
+    /// The loaded book's identity (`AudioModel.url`), not where its file is: what callers compare
+    /// rows, last played and speeds against (#186).
     var url: URL? {
         model?.url
     }
@@ -240,10 +242,11 @@ final class Player: PlayerProtocol {
         // `librivox://` identity URLs aren't files: there is nothing to bookmark.
         if !Self.isLibriVoxURL(url),
            model.bookmarkData == nil,
-           let bookmark = bookmarkProvider.createBookmarkData(for: url) {
+           let fileURL = model.fileURL,
+           let bookmark = bookmarkProvider.createBookmarkData(for: fileURL) {
             model.bookmarkData = bookmark
             savePlaybackPositionUseCase.execute(
-                url: model.rowURL,
+                url: model.url,
                 currentTime: model.currentTime,
                 bookmarkData: bookmark
             )
@@ -268,6 +271,7 @@ final class Player: PlayerProtocol {
         player.play()
         isPlayRequested = true
         Log.player.debug("play: started, timeControlStatus=\(self.player.timeControlStatus.rawValue, privacy: .public)")
+        // The book's identity, which Siri loads it back by; never where its file is now (#186).
         lastPlayed.save(url: url)
         intentDonor.donatePlayMedia(model: model)
     }
@@ -347,7 +351,8 @@ final class Player: PlayerProtocol {
 
     // MARK: - Helpers
     private func updatePlayItem(_ item: AudioModel) {
-        guard let url = item.url else {
+        // Where the file is now: a moved book's differs from its identity, `item.url` (#186).
+        guard let url = item.fileURL else {
             Log.player.error("updatePlayItem: the book has no URL")
             return
         }
@@ -377,7 +382,7 @@ final class Player: PlayerProtocol {
         player.actionAtItemEnd = .pause
         player.removeAllItems()
         player.replaceCurrentItem(with: playerItem)
-        applyBookSpeed(url)
+        applyBookSpeed(item.url)
         playUrlSubject.send(item)
     }
 
@@ -407,7 +412,7 @@ final class Player: PlayerProtocol {
     }
 
     private func stopAccessingCurrentURL() {
-        if hasSecurityAccess, let url = url {
+        if hasSecurityAccess, let url = model?.fileURL {
             url.stopAccessingSecurityScopedResource()
             Log.player.debug("stopped accessing \(url.lastPathComponent, privacy: .private)")
             hasSecurityAccess = false
@@ -418,8 +423,8 @@ final class Player: PlayerProtocol {
     private func saveTime() {
         let currentTime = self.currentTime
         if !currentTime.isNaN, let model = model {
-            // Under the row's key, not the URL it plays from: a moved book's differ (#176).
-            savePlaybackPositionUseCase.execute(url: model.rowURL, currentTime: currentTime, bookmarkData: nil)
+            // Under the book's identity, not where its file is: a moved book's differ (#176).
+            savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
             lastPositionSave = now()
         }
     }
@@ -582,10 +587,10 @@ extension Player {
     /// importing it again fixes that. A file that is there but won't play can't be fixed that way.
     private func fileFailed(_ book: AudioModel, error: Error?) {
         let error = error as NSError?
-        let isReachable = (try? book.url?.checkResourceIsReachable()) == true
+        let isReachable = (try? book.fileURL?.checkResourceIsReachable()) == true
         Log.player.error(
             """
-            item failed: \(book.url?.lastPathComponent ?? "", privacy: .private), \
+            item failed: \(book.fileURL?.lastPathComponent ?? "", privacy: .private), \
             reachable=\(isReachable, privacy: .public), \
             \(error?.domain ?? "", privacy: .public) \(error?.code ?? 0, privacy: .public)
             """

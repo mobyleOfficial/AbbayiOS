@@ -139,8 +139,8 @@ final class PlayerPositionSaveTests: XCTestCase {
         let player = makePlayer()
         let stored = URL(fileURLWithPath: "/position-save/book.m4b")
         let moved = URL(fileURLWithPath: "/position-save/moved/book.m4b")
-        var model = AudioModel(title: "Book", duration: 400, url: moved, bookmarkData: Data([1]))
-        model.storedURL = stored
+        var model = AudioModel(title: "Book", duration: 400, url: stored, bookmarkData: Data([1]))
+        model.resolvedURL = moved
         player.play(&model)
 
         player.pause()

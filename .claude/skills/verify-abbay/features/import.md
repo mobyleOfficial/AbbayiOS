@@ -66,16 +66,25 @@ picker's own contents are system-owned and carry no identifiers of ours).
 - **`asCopy: false` is the whole risk surface.** The file stays where the user put it, so playback
   depends entirely on the security-scoped bookmark resolving later. `URL+SecurityScoped.swift`
   handles the stale case by recreating the bookmark, which is now saved (see
-  *stale-bookmark-refresh*), and logs through `Log.bookmarks`. A bookmark that resolves to a new
-  path plays from there, but the row stays keyed by the URL it was imported under: the loaded
-  model carries it as `storedURL`, and delete, save and position writes find the row by `rowURL`
-  (#176), so a moved book can still be deleted. Lookups by the resolved URL still miss the row
-  (#186). A bookmark that no longer resolves now surfaces at Play: the
-  item fails and the user sees *"Title" was moved or renamed. Import it again…* (see
-  [notices](notices.md)).
+  *stale-bookmark-refresh*), and logs through `Log.bookmarks`.
+- **identity (#176, #186):** a book is identified by the URL its row was saved under,
+  `AudioModel.url`, and nothing else: row reads and writes, last played, the Siri snapshot's
+  `urlString` (entity ids, donations, Spotlight), per-book speeds, CarPlay's playing row and the
+  library's rows all key it by that. A bookmark that resolves to a new path sets
+  `AudioModel.resolvedURL`; `fileURL` (`resolvedURL ?? url`) is used only to reach the file (the
+  player item, its security scope, a new bookmark, the reachability check, a title-less book's
+  name). So a moved book still plays, resumes from Siri, plays by name, keeps its speed, shows as
+  playing in CarPlay and can be deleted. `MovedBookIdentityTests` (stubbed resolver, real Core
+  Data) pins each.
+- **key migration (#186):** before #186 the player saved a moved book's last-played pointer and
+  speed under its resolved URL. `MovedBookKeyMigration` moves both to the row's URL the first time
+  a load (`LoadAudioUseCase`, `LoadAllAudiosUseCase`) returns the book in a launch; a speed already
+  under the row's URL wins. `IntentRouter` loads an identifier as is, and on a miss looks for the
+  snapshot book whose bookmark resolves to it, so a donation from before #186 still plays.
+- A bookmark that no longer resolves surfaces at Play: the item fails and the user sees
+  *"Title" was moved or renamed. Import it again…* (see [notices](notices.md)).
 - The bookmark is created on first **play**, not on import. A book imported and never played has
-  `bookmarkData == nil` in the snapshot, which is why `IntentRouter.resolveURL` falls back to the
-  raw identifier string.
+  `bookmarkData == nil` in the snapshot; Siri still loads it by its identifier.
 - A file with no embedded chapters silently disables next/previous chapter, the chapter list, and
   `PlayChapterIntent` for that book. The test fixture must have real chapters for this reason.
 - `importAudio` is `@MainActor` and awaits metadata loading per file; a large multi-select blocks
