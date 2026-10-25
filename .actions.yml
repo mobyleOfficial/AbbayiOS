@@ -13,9 +13,9 @@ run_swiftlint: true
 # `bundle exec fastlane verify` runs lint plus both suites off a single build, in ~6 minutes.
 run_tests: true
 run_ui_tests: true
-# run `xcrun simctl list devices` to list devices. Locally the default stays on iOS 26.4 (Xcode 27.1
-# runs it): the local iOS 27.1 runtime only offers the iPhone Duo, whose layout still fails six UI
-# tests (#203). Run it with `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`. GitHub's `xcode-27` image only
-# has the iOS 27.0 runtime, so CI uses `ci_test_device`.
-test_device: iPhone 17 (26.4)
+# run `xcrun simctl list devices` to list devices. Local and CI runs use the same iPhone 17 on the
+# iOS 27.0 runtime (install it with `xcodebuild -downloadPlatform iOS -buildVersion 24A434`). The iOS
+# 27.1 runtime only offers the iPhone Duo, whose layout still fails some UI tests (#203); run it with
+# `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`, and iOS 26.4 with `ABBAY_TEST_DEVICE='iPhone 17 (26.4)'`.
+test_device: iPhone 17 (27.0)
 ci_test_device: iPhone 17 (27.0)

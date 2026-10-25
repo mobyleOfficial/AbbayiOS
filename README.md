@@ -15,7 +15,7 @@ This is a lightweight audiobook player that prioritizes your privacy:
 
 This project uses [Xcodegen](https://github.com/yonaskolb/XcodeGen), [Fastlane](https://fastlane.tools/) and [Bundler](https://bundler.io/) to minimize setup time and ensure consistency across development environments. It also uses [Swiftlint](https://realm.github.io/SwiftLint/) to maintain code quality and consistency.
 
-Please use **Xcode 27.1** to run this project. GitHub Actions is pinned to `27.1` on the `xcode-27` image. The app's deployment target stays **iOS 17.0** (iPhone): newer APIs, such as iOS 27's App Intents audio domain, are gated with `@available`. Tests use the simulator named in `.actions.yml`: `iPhone 17 (26.4)` locally and `iPhone 17 (27.0)` on CI (`ci_test_device`, the runtime GitHub's image has). The local iOS 27.1 runtime only offers the iPhone Duo, whose layout still fails six UI tests (#203); run it with `ABBAY_TEST_DEVICE='iPhone Duo (27.1)' bundle exec fastlane verify`. Select Xcode 27.1 first (`sudo xcode-select -s /Applications/Xcode-27.1.0.app`), since the iOS 27 code needs its SDK.
+Please use **Xcode 27.1** to run this project. GitHub Actions is pinned to `27.1` on the `xcode-27` image. The app's deployment target stays **iOS 17.0** (iPhone): newer APIs, such as iOS 27's App Intents audio domain, are gated with `@available`. Tests use the simulator named in `.actions.yml`: `iPhone 17 (27.0)`, locally and on CI (install the runtime with `xcodebuild -downloadPlatform iOS -buildVersion 24A434`). The iOS 27.1 runtime only offers the iPhone Duo, whose layout still fails some UI tests (#203); run it with `ABBAY_TEST_DEVICE='iPhone Duo (27.1)' bundle exec fastlane verify` (or `'iPhone 17 (26.4)'` for iOS 26). Select Xcode 27.1 first (`sudo xcode-select -s /Applications/Xcode-27.1.0.app`), since the iOS 27 code needs its SDK.
 
 If another Xcode is selected with `xcode-select`, run commands with `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer` rather than switching globally. Before merging, the suites also run on the older runtimes the app supports: the full suites on iOS 26.4, and the accessibility and cover UI tests on iOS 18.5 and 17.5.
 
@@ -195,7 +195,7 @@ We use custom GitHub Actions for CI/CD. The configuration can be adjusted via `.
 run_swiftlint: true
 run_tests: false
 run_ui_tests: false
-test_device: iPhone 17 (26.4)
+test_device: iPhone 17 (27.0)
 ci_test_device: iPhone 17 (27.0)
 ```
 

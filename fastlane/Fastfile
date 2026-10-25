@@ -20,8 +20,8 @@ platform :ios do
 
   # The simulator the suites run on, from .actions.yml. CI's image has other runtimes than a
   # developer's Mac, so on CI `ci_test_device` wins when it is set. `ABBAY_TEST_DEVICE` overrides
-  # both, e.g. `ABBAY_TEST_DEVICE='iPhone Duo (27.1)' bundle exec fastlane verify` for the local
-  # iOS 27.1 runtime (its only device, whose layout still fails six UI tests: #203).
+  # both, e.g. `ABBAY_TEST_DEVICE='iPhone Duo (27.1)' bundle exec fastlane verify` for the iOS 27.1
+  # runtime (its only device, whose layout still fails some UI tests: #203).
   def test_device
     return ENV['ABBAY_TEST_DEVICE'] if ENV['ABBAY_TEST_DEVICE'].to_s != ''
 

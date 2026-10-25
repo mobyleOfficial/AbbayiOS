@@ -143,9 +143,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
 - UI tests run from their own scheme via `bundle exec fastlane ui_test_project`, kept out of
   `test_project` so the unit suite stays fast. `run_ui_tests` in `.actions.yml` gates CI.
   `bundle exec fastlane verify` runs lint, unit and UI suites on the `.actions.yml` device
-  (iPhone 17, iOS 26.4, with Xcode 27.1: `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer`
-  if another Xcode is selected). The local iOS 27.1 runtime only offers the iPhone Duo, which has
-  its own layout (side tab rail, one-row chapter card) where a few UI tests fail (#203); run it with
+  (iPhone 17, iOS 27.0, with Xcode 27.1: `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer`
+  if another Xcode is selected). The iOS 27.1 runtime only offers the iPhone Duo, which has its own
+  layout (side tab rail, one-row chapter card) where a few UI tests fail (#203); run it with
   `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`. The tab bar and mini player have two code paths (system
   accessory on 26.1+, hand-built dock below), so also run the UI scheme once on an iOS 18.5
   simulator (`xcodebuild test -scheme AbbayUITests -destination 'platform=iOS Simulator,name=…,OS=18.5'`).
