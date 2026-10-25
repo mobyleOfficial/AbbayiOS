@@ -90,7 +90,8 @@ added. Resolve a row by matching its title label rather than assuming an index.
   - `-stubLibriVox` — answers LibriVox requests from memory (`UITestLibriVoxClient`: Popular is the
     one stub book, which any query containing "stub" also finds; its size is 29,670,000 bytes, so
     it shows a decimal separator) and swaps in a download manager
-    that downloads nothing and never reports state (`UITestDownloadManager`), plus a 50 ms search
+    that downloads nothing and, without `-stubDownloadStates`, never reports state
+    (`UITestDownloadManager`), plus a 50 ms search
     debounce. Combine it with the others; without it search and downloads use the real network.
     The stub book's cover is a `/dev/null` file URL, which the cover host allowlist refuses, so it
     shows `cover.failed`.
@@ -100,6 +101,13 @@ added. Resolve a row by matching its title label rather than assuming an index.
     launch (see [librivox-details](librivox-details.md) *cover-loading*).
   - `-stubCoversOffline` — with `-stubCovers`, every cover request fails and that disk cache is
     kept, so a cover can only come from what an earlier `-stubCovers` launch stored.
+  - `-stubDownloadStates` — with `-stubLibriVox`, the stub book is 120 MB in three chapters (so on a
+    metered path Download asks), and the stub download manager publishes a fixed state for every
+    book it is given: chapter 0 downloaded, 1 waiting, 2 failed; pause, resume and retry change it
+    (see [downloads](downloads.md)).
+  - `-stubPathCellular`, `-stubPathHotspot`, `-stubPathLowDataMode` — the download screens read a
+    fixed network path (`NetworkPathMonitor.app`): cellular, a Personal Hotspot or Low Data Mode
+    Wi-Fi, all online and metered. The player and the real download manager keep the real path.
   - `-stubFailingImport` — *Import file* skips the system picker and imports two files that don't
     exist, so the failed-import banner shows (see [notices](notices.md)).
   - `-resetSettings` — start from default settings kept in memory for that launch only, so a test
@@ -120,9 +128,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
   details screen and the mini player appears, its chapter URL is `/dev/null`, and the banner says
   *Couldn't play this chapter*.
 
-  Not reachable by any launch configuration: real search results, real downloads and their
-  progress/ring/statuses (the stub manager's state stream is empty), the cellular alert (the stub
-  book is 1,000 bytes), and multi-file playback. Those are covered by unit tests only — see
+  Not reachable by any launch configuration: real search results, real downloads (their
+  progress, ring, statuses and the cellular alert are reachable with the stub's fixed states, see
+  `-stubDownloadStates`), and multi-file playback. Those are covered by unit tests only — see
   [downloads](downloads.md).
 - A real chaptered audiobook fixture is committed at `AbbayTests/Fixtures/Christmastide.m4b`
   (public domain; see its README). It is a resource of the **unit** test bundle, so `FileLoader`

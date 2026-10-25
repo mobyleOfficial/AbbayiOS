@@ -67,9 +67,10 @@ LibriVox page's Play all open it.
     (Before the gate, a tap seeked the *loaded* book: the wrong chapter of the wrong book.)
 - **download-status:** for a LibriVox book whose download is **incomplete**, each row also shows ✓,
   `N%`, *Waiting* or *Failed · Retry*, and a thin overall progress bar (`player.download.progress`)
-  sits under the header, with *"Waiting: Low Data Mode is on"* under it (`player.download.lowDataMode`)
-  while a *Wait for Wi-Fi* book is held by Low Data Mode. The failed status is a button (`player.chapter.<n>.retry`, unverified by UI
-  test) that restarts the chapter's download, playing or not; the rest of the row keeps its seek tap. Both vanish when the download completes. Imported books never show them. See
+  sits under the header, with why under it while a *Wait for Wi-Fi* book is held by the network:
+  cellular (`player.download.cellularHold`), a Personal Hotspot (`player.download.hotspotHold`) or
+  Low Data Mode (`player.download.lowDataMode`), see [downloads](downloads.md) *hold-hint*. The
+  failed status is a button (`player.chapter.<n>.retry`) that restarts the chapter's download, playing or not; the rest of the row keeps its seek tap. Both vanish when the download completes. Imported books never show them. See
   [downloads](downloads.md).
 - **multi-file-books:** a LibriVox book is one book made of many files. Time, the scrubber, the
   skips and chapter seeks all use **book time** (chapter `startTime`s are cumulative).
@@ -138,8 +139,9 @@ $B drag player.close down                                 # planned: collapse un
 The screen is reached by a row tap, the bar (tap and drag) and Play on the stub LibriVox book's
 details page.
 
-**Implemented but unverified:** `player.download.progress`, `player.download.lowDataMode`. They
-render only while a download is incomplete, and the stub download manager never reports one.
+`player.download.progress`, `player.download.cellularHold`, `player.download.hotspotHold`,
+`player.download.lowDataMode` and `player.chapter.2.retry` are verified by `DownloadStatusUITests`
+(`-stubDownloadStates` with a `-stubPath*` argument, the stub book opened from the Library).
 
 Speed itself (the requested `rate`/`defaultRate` across pause, seek and files) is unit-tested in
 `PlayerSpeedTests`; the seeded books play real audio since #147, but no UI test measures the rate.

@@ -41,6 +41,17 @@ enum LaunchArgument {
     /// With `stubCovers`: every cover request fails and the stub covers' disk cache is kept, so a
     /// cover can only come from disk (what an earlier `stubCovers` launch stored).
     static let stubCoversOffline = "-stubCoversOffline"
+    /// With `stubLibriVox`: the stub book has three chapters, 120 MB in all (over the cellular
+    /// threshold), and the stub download manager publishes a state for every book it is given
+    /// (first chapter downloaded, last failed, the rest waiting), so the download status ids can
+    /// be reached.
+    static let stubDownloadStates = "-stubDownloadStates"
+    /// The network path is cellular, whatever the Mac's network is.
+    static let stubPathCellular = "-stubPathCellular"
+    /// The network path is a Personal Hotspot: Wi-Fi that is expensive.
+    static let stubPathHotspot = "-stubPathHotspot"
+    /// The network path is Wi-Fi in Low Data Mode.
+    static let stubPathLowDataMode = "-stubPathLowDataMode"
     /// Make *Import file* skip the system picker and import two files that don't exist, so the
     /// failed-import banner shows.
     static let stubFailingImport = "-stubFailingImport"
@@ -54,7 +65,7 @@ enum LaunchArgument {
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
-        resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubFailingImport, resetSettings,
-        forceReduceMotion
+        resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubDownloadStates, stubPathCellular,
+        stubPathHotspot, stubPathLowDataMode, stubFailingImport, resetSettings, forceReduceMotion
     ]
 }

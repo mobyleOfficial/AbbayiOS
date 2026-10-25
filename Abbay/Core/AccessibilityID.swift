@@ -90,6 +90,10 @@ enum AccessibilityID {
         static let progress = "detail.progress"
         /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
         static let lowDataMode = "detail.lowDataMode"
+        /// "Waiting for Wi-Fi: on cellular", the same place, for one held on cellular data.
+        static let cellularHold = "detail.cellularHold"
+        /// "Waiting for Wi-Fi: on a Personal Hotspot", the same place, for one held on a hotspot.
+        static let hotspotHold = "detail.hotspotHold"
         static let chaptersEmpty = "detail.chapters.empty"
         static let cellularContinue = "detail.cellular.continue"
         static let cellularWait = "detail.cellular.wait"
@@ -158,6 +162,10 @@ enum AccessibilityID {
         static let downloadProgress = "player.download.progress"
         /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
         static let downloadLowDataMode = "player.download.lowDataMode"
+        /// "Waiting for Wi-Fi: on cellular", the same place, for one held on cellular data.
+        static let downloadCellularHold = "player.download.cellularHold"
+        /// "Waiting for Wi-Fi: on a Personal Hotspot", the same place, for one held on a hotspot.
+        static let downloadHotspotHold = "player.download.hotspotHold"
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"

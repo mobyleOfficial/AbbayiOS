@@ -19,15 +19,15 @@ final class BookDownloadEntry {
     }
 }
 
-/// Whether the path is Wi-Fi in Low Data Mode (`NetworkPathSnapshot.isLowDataModeWiFi`). Its own
-/// observable, so only the views that explain a hold depend on it.
+/// What the path holds a Wait-for-Wi-Fi book for (`NetworkPathSnapshot.hold`). Its own observable,
+/// so only the views that explain a hold depend on it.
 @Observable
-final class LowDataModeStatus {
-    private(set) var isOn = false
+final class NetworkHoldStatus {
+    private(set) var hold: NetworkHold?
 
-    fileprivate func update(_ isOn: Bool) {
-        guard isOn != self.isOn else { return }
-        self.isOn = isOn
+    fileprivate func update(_ hold: NetworkHold?) {
+        guard hold != self.hold else { return }
+        self.hold = hold
     }
 }
 
@@ -37,13 +37,13 @@ final class LowDataModeStatus {
 @MainActor
 final class DownloadStateStore {
     private let downloads: BookDownloadManagerProtocol
-    /// Read by the screens that show a book's download status, to explain a Low Data Mode hold.
-    let lowDataMode = LowDataModeStatus()
+    /// Read by the screens that show a book's download status, to explain a hold.
+    let networkHold = NetworkHoldStatus()
     // Not observed: asking for an entry must never make a view depend on the whole map.
     @ObservationIgnored private var entries: [String: BookDownloadEntry] = [:]
     @ObservationIgnored private var latest: [String: BookDownloadState] = [:]
     private var cancellable: AnyCancellable?
-    private var lowDataModeCancellable: AnyCancellable?
+    private var holdCancellable: AnyCancellable?
 
     /// `nonisolated` so `DependencyContainer` can build it from any context; deliveries are moved
     /// onto the main actor in `onMain`.
@@ -52,9 +52,9 @@ final class DownloadStateStore {
         cancellable = downloads.statesPublisher.sink { [weak self] states in
             Self.onMain { self?.receive(states) }
         }
-        let lowDataMode = lowDataMode
-        lowDataModeCancellable = path.lowDataModePublisher.sink { isOn in
-            Self.onMain { lowDataMode.update(isOn) }
+        let networkHold = networkHold
+        holdCancellable = path.holdPublisher.sink { hold in
+            Self.onMain { networkHold.update(hold) }
         }
     }
 
@@ -67,24 +67,21 @@ final class DownloadStateStore {
         return entry
     }
 
-    /// The book's download is waiting only because the Wi-Fi is in Low Data Mode: it is a
-    /// Wait-for-Wi-Fi book (`allowsCellular` false), still downloading and not paused. Reads the
-    /// book's entry and `lowDataMode`, so a view calling it follows both.
-    func isHeldByLowDataMode(bookID: String, allowsCellular: Bool) -> Bool {
-        Self.isHeldByLowDataMode(
-            entry(for: bookID).state,
-            allowsCellular: allowsCellular,
-            isLowDataMode: lowDataMode.isOn
-        )
+    /// Why the book's download is waiting on this path, if the path is the reason: it is a
+    /// Wait-for-Wi-Fi book (`allowsCellular` false), still downloading and not paused, and the
+    /// path is cellular, a hotspot or Low Data Mode. Reads the book's entry, and `networkHold` only
+    /// while the book is downloading, so an idle row doesn't follow the path.
+    func hold(bookID: String, allowsCellular: Bool) -> NetworkHold? {
+        Self.hold(entry(for: bookID).state, allowsCellular: allowsCellular) { networkHold.hold }
     }
 
-    nonisolated static func isHeldByLowDataMode(
+    nonisolated static func hold(
         _ state: BookDownloadState?,
         allowsCellular: Bool,
-        isLowDataMode: Bool
-    ) -> Bool {
-        guard let state, !state.isComplete, !state.isPaused else { return false }
-        return isLowDataMode && !allowsCellular
+        pathHold: () -> NetworkHold?
+    ) -> NetworkHold? {
+        guard let state, !state.isComplete, !state.isPaused, !allowsCellular else { return nil }
+        return pathHold()
     }
 
     func pause(bookID: String) { downloads.pause(bookID: bookID) }

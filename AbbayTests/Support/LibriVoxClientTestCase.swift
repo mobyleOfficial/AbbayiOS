@@ -5,6 +5,7 @@
 
 @testable import Abbay
 import NetworkProvider
+import UIKit
 import XCTest
 
 /// Shared setup for the `LibriVoxClient` suites: a throwaway cache directory, a settable clock and
@@ -34,7 +35,17 @@ class LibriVoxClientTestCase: XCTestCase {
         _ handler: @escaping (NetworkRequestProtocol) throws -> Reply
     ) -> (LibriVoxClient, MockNetworkProvider) {
         let network = MockNetworkProvider(handler: handler)
-        return (LibriVoxClient(network: network, cache: cache), network)
+        return (LibriVoxClient(network: network, cache: cache, covers: coverLoader(network)), network)
+    }
+
+    /// The covers' disk cache, in its own folder of the throwaway directory.
+    var coverDisk: CoverDiskCache {
+        CoverDiskCache(directory: directory.appendingPathComponent("covers", isDirectory: true))
+    }
+
+    /// The cover loader the client saves artwork through, over the same mock network.
+    func coverLoader(_ network: MockNetworkProvider) -> AsyncImageLoader {
+        AsyncImageLoader(network: network, cache: NSCache(), diskCache: coverDisk)
     }
 
     func fixture(_ name: String, status: Int = 200) throws -> Reply {

@@ -5,6 +5,7 @@
 
 @testable import Abbay
 import NetworkProvider
+import UIKit
 import XCTest
 
 /// Search, popular and cover. Details are in `LibriVoxClientDetailsTests`.
@@ -197,23 +198,93 @@ final class LibriVoxClientTests: LibriVoxClientTestCase {
 
     // MARK: - Cover
 
+
     func test_coverData_returnsBytesOnSuccess_andNilOnFailure() async throws {
-        let cover = Data([1, 2, 3])
+        let cover = Self.png()
         var succeed = true
         let (sut, network) = makeSUT { _ in
             succeed ? Reply(data: cover) : Reply(statusCode: 404, data: Data())
         }
-        let book = LibriVoxBook.light(
-            id: "alice_in_wonderland_librivox",
-            coverURL: try XCTUnwrap(LibriVoxBook.coverURL(for: "alice_in_wonderland_librivox"))
-        )
+        let other = LibriVoxBook.light(id: "other", coverURL: try XCTUnwrap(LibriVoxBook.coverURL(for: "other")))
 
-        let ok = await sut.coverData(for: book)
+        let ok = await sut.coverData(for: try aliceWithCover())
         succeed = false
-        let failed = await sut.coverData(for: book)
+        let failed = await sut.coverData(for: other)
 
         XCTAssertEqual(ok, cover)
         XCTAssertNil(failed)
         XCTAssertEqual(network.requests.first?.endpoint, "https://archive.org/services/img/alice_in_wonderland_librivox")
+    }
+
+    /// The details page already loaded the cover, so saving the book reads it from the covers'
+    /// disk cache instead of downloading it again (#175).
+    func test_coverData_whenTheCoverIsOnDisk_makesNoRequest() async throws {
+        let book = try aliceWithCover()
+        let cover = Self.png()
+        coverDisk.store(cover, for: book.coverURL)
+        let (sut, network) = makeSUT { request in
+            XCTFail("no request expected, got \(request.endpoint)")
+            return Reply(data: Data())
+        }
+
+        let data = await sut.coverData(for: book)
+
+        XCTAssertEqual(data, cover)
+        XCTAssertEqual(network.requests.count, 0)
+    }
+
+    /// A downloaded cover is stored, so the loader shows it next time without a request.
+    func test_coverData_storesTheDownloadOnDisk() async throws {
+        let book = try aliceWithCover()
+        let cover = Self.png()
+        let (sut, _) = makeSUT { _ in Reply(data: cover) }
+
+        _ = await sut.coverData(for: book)
+
+        XCTAssertEqual(coverDisk.data(for: book.coverURL), cover)
+    }
+
+    /// The host allowlist applies to the saved cover too: anything off it is refused unfetched (#175).
+    func test_coverData_fromADisallowedHost_isNil_withoutARequest() async throws {
+        let refused = [
+            "https://example.com/cover.jpg",
+            "http://archive.org/services/img/alice",
+            "file:///dev/null/cover.jpg"
+        ]
+        let cover = Self.png()
+        let (sut, network) = makeSUT { _ in Reply(data: cover) }
+
+        for string in refused {
+            let book = LibriVoxBook.light(id: "alice", coverURL: try XCTUnwrap(URL(string: string)))
+            let data = await sut.coverData(for: book)
+            XCTAssertNil(data, string)
+        }
+
+        XCTAssertEqual(network.requests.count, 0)
+    }
+
+    func test_coverData_whenTheBodyIsNotAnImage_isNil() async throws {
+        let (sut, _) = makeSUT { _ in Reply(data: Data([1, 2, 3])) }
+
+        let data = await sut.coverData(for: try aliceWithCover())
+
+        XCTAssertNil(data)
+    }
+
+    private func aliceWithCover() throws -> LibriVoxBook {
+        LibriVoxBook.light(
+            id: "alice_in_wonderland_librivox",
+            coverURL: try XCTUnwrap(LibriVoxBook.coverURL(for: "alice_in_wonderland_librivox"))
+        )
+    }
+
+    private static func png() -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4), format: format)
+        return renderer.pngData { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        }
     }
 }

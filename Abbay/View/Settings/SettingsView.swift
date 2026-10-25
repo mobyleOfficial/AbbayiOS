@@ -122,12 +122,36 @@ struct SettingsView: View {
 
     private func downloadsSection(settings: Bindable<AppSettings>) -> some View {
         Section {
-            Picker(Localizable.cellularDownloads.localized, selection: settings.cellularPreference) {
-                Text(Localizable.cellularAsk.localized).tag(CellularDownloadPreference.ask)
-                Text(Localizable.cellularAlways.localized).tag(CellularDownloadPreference.always)
-                Text(Localizable.cellularWifiOnly.localized).tag(CellularDownloadPreference.wifiOnly)
+            // A whole-row `Menu` rather than a menu `Picker`: a Form stacks a menu picker's value
+            // under a label that doesn't fit beside it (#189), and so does `LabeledContent`. Here a
+            // long label wraps and the value stays on the trailing side, the row is as tall as its
+            // neighbours, and a tap anywhere on it opens the options (the picker inside gives them
+            // their checkmark). VoiceOver reads it as label and value.
+            Menu {
+                Picker(Localizable.cellularDownloads.localized, selection: settings.cellularPreference) {
+                    ForEach(CellularDownloadPreference.allCases) { preference in
+                        Text(Self.title(of: preference)).tag(preference)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(Localizable.cellularDownloads.localized)
+                        .foregroundColor(ColorConstants.white.value)
+                        .multilineTextAlignment(.leading)
+                        .layoutPriority(1)
+                    Spacer(minLength: SpaceConstants.sx8.value)
+                    HStack(spacing: SpaceConstants.sx4.value) {
+                        Text(Self.title(of: settings.wrappedValue.cellularPreference))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                    }
+                    .foregroundColor(ColorConstants.malachite.value)
+                    .fixedSize()
+                }
+                .contentShape(Rectangle())
             }
-            .pickerStyle(.menu)
+            .accessibilityLabel(Localizable.cellularDownloads.localized)
+            .accessibilityValue(Self.title(of: settings.wrappedValue.cellularPreference))
             .accessibilityIdentifier(AccessibilityID.Settings.cellular)
             LabeledContent(
                 Localizable.spaceUsed.localized,
@@ -256,6 +280,15 @@ struct SettingsView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(AccessibilityID.Settings.audioStatus)
+    }
+
+    /// The cellular setting's options and its value, in the in-app language.
+    static func title(of preference: CellularDownloadPreference) -> String {
+        switch preference {
+        case .ask: Localizable.cellularAsk.localized
+        case .always: Localizable.cellularAlways.localized
+        case .wifiOnly: Localizable.cellularWifiOnly.localized
+        }
     }
 }
 

@@ -364,6 +364,76 @@ final class AsyncImageLoaderTests: XCTestCase {
     }
 }
 
+/// The bytes path `LibriVoxClient.coverData` saves artwork through (#175).
+extension AsyncImageLoaderTests {
+    // MARK: - Cover bytes (#175)
+
+    func test_coverData_whenOnDisk_returnsTheStoredBytes_withoutARequest() async throws {
+        let url = try XCTUnwrap(url)
+        let data = png()
+        CoverDiskCache(directory: directory).store(data, for: url)
+        let (sut, network) = makeSUT(handler: noRequestExpected)
+
+        let loaded = await sut.coverData(for: url)
+
+        XCTAssertEqual(loaded, data)
+        XCTAssertEqual(network.requests.count, 0)
+    }
+
+    func test_coverData_downloadsAndStoresTheBytes() async throws {
+        let url = try XCTUnwrap(url)
+        let data = png()
+        let (sut, network) = makeSUT { _ in Reply(data: data) }
+
+        let loaded = await sut.coverData(for: url)
+
+        XCTAssertEqual(loaded, data)
+        XCTAssertEqual(network.requests.count, 1)
+        XCTAssertEqual(CoverDiskCache(directory: directory).data(for: url), data)
+    }
+
+    func test_coverData_fromADisallowedHost_isNil_evenWhenOnDisk() async throws {
+        let refused = try XCTUnwrap(URL(string: "https://example.com/cover.jpg"))
+        CoverDiskCache(directory: directory).store(png(), for: refused)
+        let (sut, network) = makeSUT(handler: noRequestExpected)
+
+        let loaded = await sut.coverData(for: refused)
+
+        XCTAssertNil(loaded)
+        XCTAssertEqual(network.requests.count, 0)
+    }
+
+    func test_coverData_whenTheBodyIsNotAnImage_isNil_andNotStored() async throws {
+        let url = try XCTUnwrap(url)
+        let (sut, _) = makeSUT { _ in Reply(data: Data([1, 2, 3])) }
+
+        let loaded = await sut.coverData(for: url)
+
+        XCTAssertNil(loaded)
+        XCTAssertNil(CoverDiskCache(directory: directory).data(for: url))
+    }
+
+    /// Download tapped while the details page's cover is still loading: one request for both.
+    func test_coverData_whileTheImageLoads_sharesItsRequest() async throws {
+        let url = try XCTUnwrap(url)
+        let data = png()
+        let gate = Gate()
+        let (sut, network) = makeSUT { _ in Reply(data: data) }
+        network.beforeReply = { await gate.wait() }
+
+        async let image = sut.image(for: url)
+        async let bytes = sut.coverData(for: url)
+        try await waitUntil { network.requests.count >= 1 }
+        try await Task.sleep(for: .milliseconds(200))
+        await gate.open()
+        let (loadedImage, loadedBytes) = await (image, bytes)
+
+        XCTAssertEqual(network.requests.count, 1)
+        XCTAssertNotNil(loadedImage)
+        XCTAssertEqual(loadedBytes, data)
+    }
+}
+
 /// Holds every waiter until `open()`, then lets them (and any later waiter) through.
 private actor Gate {
     private var isOpen = false

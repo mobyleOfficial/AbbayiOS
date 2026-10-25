@@ -23,8 +23,16 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
     (`preferredIntervals`) and their handlers.
 - **downloads:**
   - **Large downloads on cellular** (`settings.downloads.cellular`): Ask (the per-book prompt, the
-    default) / Always / Wi-Fi only. An input to `CellularDownloadPolicy.decide(...preference:)`;
+    default) / Always / Wi-Fi only (pt-BR *Downloads grandes no celular*: Perguntar / Sempre / Só
+    Wi-Fi). An input to `CellularDownloadPolicy.decide(...preference:)`;
     applies only to books over `largeDownloadThreshold` (99 MB). Read when Download is tapped.
+    The row is a whole-row `Menu` holding the picker, not a menu `Picker`: a Form put a menu
+    picker's value on a line of its own under a label that didn't fit beside it (pt-BR, #189), and
+    `LabeledContent` did the same. Now the value stays on the trailing side and the row is as tall as
+    its neighbours; on an iPhone SE (3rd gen) the pt-BR label wraps onto two lines beside the value,
+    like *Velocidade padrão para novos livros*. VoiceOver: label *Large downloads on cellular*, value
+    the option. Verified by `SettingsUITests.test_cellularPicker_keepsItsValueBesideTheLabel` (en and
+    pt-BR: label, value, and a row under 1.5 times *Space used*'s height).
   - **Space used** (`settings.downloads.spaceUsed`): the size of `LibriVoxIdentity.defaultRoot`,
     measured off the main thread each time the sheet opens (*Calculating…* until then). Sizes here
     (this row, the footer's 99 MB, the delete confirmation) are formatted by `ByteSize.text` in the

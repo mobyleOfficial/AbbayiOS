@@ -99,8 +99,8 @@ final class NetworkPathSnapshotTests: XCTestCase {
         XCTAssertFalse(NetworkPathSnapshot.unknown.isLowDataModeWiFi)
     }
 
-    /// The one hold the app explains (#148): Wi-Fi in Low Data Mode. On cellular or a hotspot a
-    /// Wait-for-Wi-Fi book waits as asked, Low Data Mode or not.
+    /// Wi-Fi in Low Data Mode (#148). On cellular or a hotspot the hold is that instead, Low Data
+    /// Mode or not.
     func testLowDataModeWiFi_onlyOnConstrainedWiFiThatIsOtherwiseUnmetered() {
         XCTAssertTrue(path(wifi: true, constrained: true).isLowDataModeWiFi)
         XCTAssertTrue(path(cellular: true, wifi: true, constrained: true).isLowDataModeWiFi)
@@ -111,6 +111,39 @@ final class NetworkPathSnapshotTests: XCTestCase {
             isSatisfied: false, usesCellular: false, usesWiFi: true, isExpensive: false, isConstrained: true
         )
         XCTAssertFalse(offline.isLowDataModeWiFi)
+    }
+
+    /// Every path that holds a Wait-for-Wi-Fi book names why (#171); cellular first, then a
+    /// hotspot, then Low Data Mode.
+    func testHold_namesWhatHoldsAWaitForWiFiBook() {
+        XCTAssertEqual(path(cellular: true).hold, .cellular)
+        XCTAssertEqual(path(cellular: true, expensive: true).hold, .cellular)
+        XCTAssertEqual(path(cellular: true, expensive: true, constrained: true).hold, .cellular)
+        XCTAssertEqual(path(wifi: true, expensive: true).hold, .personalHotspot)
+        XCTAssertEqual(path(wifi: true, expensive: true, constrained: true).hold, .personalHotspot)
+        XCTAssertEqual(path(wifi: true, constrained: true).hold, .lowDataMode)
+        XCTAssertEqual(path(cellular: true, wifi: true, constrained: true).hold, .lowDataMode)
+    }
+
+    func testHold_isNilOnUnmeteredWiFi_offline_andBeforeTheFirstUpdate() {
+        XCTAssertNil(path(wifi: true).hold)
+        XCTAssertNil(path(cellular: true, wifi: true).hold)
+        XCTAssertNil(NetworkPathSnapshot.unknown.hold)
+        let offlineCellular = NetworkPathSnapshot(
+            isSatisfied: false, usesCellular: true, usesWiFi: false, isExpensive: true, isConstrained: false
+        )
+        XCTAssertNil(offlineCellular.hold)
+    }
+
+    /// A path holds a Wait-for-Wi-Fi book exactly when it is metered and online, so a held book
+    /// always has a reason to show.
+    func testHold_isSetExactlyOnMeteredOnlinePaths() {
+        for bits in 0..<16 {
+            let snapshot = path(
+                cellular: bits & 1 != 0, wifi: bits & 2 != 0, expensive: bits & 4 != 0, constrained: bits & 8 != 0
+            )
+            XCTAssertEqual(snapshot.hold != nil, snapshot.isMetered, "\(snapshot)")
+        }
     }
 
     private func path(

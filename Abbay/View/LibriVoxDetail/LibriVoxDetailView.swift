@@ -22,7 +22,7 @@ struct LibriVoxDetailView: View {
             downloads: DependencyContainer.shared.downloads,
             downloadStates: DependencyContainer.shared.downloadStates,
             saveAudio: SaveAudioUseCase(),
-            path: NetworkPathMonitor.shared,
+            path: NetworkPathMonitor.app,
             cellularPreference: { DependencyContainer.shared.settings.cellularPreference },
             onAdded: onAdded,
             openPlayer: openPlayer
@@ -179,8 +179,8 @@ struct LibriVoxDetailView: View {
             downloadState: model.downloadState,
             layout: .stack,
             progressIdentifier: AccessibilityID.Detail.progress,
-            isHeldByLowDataMode: model.isHeldByLowDataMode,
-            lowDataModeIdentifier: AccessibilityID.Detail.lowDataMode,
+            hold: model.downloadHold,
+            holdIdentifier: \.detailIdentifier,
             emptyIdentifier: AccessibilityID.Detail.chaptersEmpty,
             rowIdentifier: AccessibilityID.Detail.chapter,
             retry: (AccessibilityID.Detail.chapterRetry, { model.retryChapter($0) })

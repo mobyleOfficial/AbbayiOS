@@ -89,6 +89,57 @@ final class SettingsUITests: XCTestCase {
 
     // MARK: - Settings screen
 
+    /// pt-BR's cellular label was too long for its row, and the menu picker then dropped its value
+    /// onto a line of its own under the label (#189): a row nearly twice its neighbour's height.
+    /// Now the value stays beside the label; on the narrowest phone a long label may wrap, which
+    /// adds one line of text, not a line for the value. VoiceOver reads it as label and value.
+    func test_cellularPicker_keepsItsValueBesideTheLabel() {
+        let cases = [
+            ("pt-BR", "pt_BR", "Downloads grandes no celular", "Perguntar"),
+            ("en", "en_US", "Large downloads on cellular", "Ask")
+        ]
+        for (language, locale, label, value) in cases {
+            launch(language: language, locale: locale)
+            openSettings()
+            let row = element(AccessibilityID.Settings.cellular)
+            for _ in 0..<4 where !(row.exists && row.isHittable) {
+                app.swipeUp()
+            }
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            let neighbour = element(AccessibilityID.Settings.spaceUsed)
+            XCTAssertTrue(neighbour.waitForExistence(timeout: 15))
+
+            XCTAssertEqual(row.label, label)
+            XCTAssertEqual(row.value as? String, value)
+            XCTAssertLessThan(
+                row.frame.height,
+                neighbour.frame.height * 1.5,
+                "\(language): the cellular row (\(row.frame)) is much taller than Space used (\(neighbour.frame))"
+            )
+        }
+    }
+
+    /// The row is a `Menu` holding the picker (#189): a tap anywhere on it lists the options, and
+    /// choosing one becomes its value.
+    func test_cellularPicker_choosingAnOption_becomesItsValue() {
+        launch()
+        openSettings()
+        let row = element(AccessibilityID.Settings.cellular)
+        for _ in 0..<4 where !(row.exists && row.isHittable) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+
+        row.tap()
+        let wifiOnly = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Wi-Fi only"))
+        XCTAssertTrue(wifiOnly.firstMatch.waitForExistence(timeout: 5), "the options did not open")
+        wifiOnly.firstMatch.tap()
+
+        let chosen = NSPredicate(format: "value == %@", "Wi-Fi only")
+        let expectation = XCTNSPredicateExpectation(predicate: chosen, object: row)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed, "value: \(String(describing: row.value))")
+    }
+
     func test_gear_opensSettings_withEverySection_andDoneCloses() {
         launch()
 

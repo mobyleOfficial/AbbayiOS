@@ -189,22 +189,40 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
     }
 
     /// "Wait for Wi-Fi" at home with Low Data Mode on: the page says why nothing moves (#148).
-    func test_isHeldByLowDataMode_onlyForTheAddedWiFiOnlyBookWhileLowDataModeIsOn() async {
+    func test_downloadHold_onlyForTheAddedWiFiOnlyBookWhileLowDataModeIsOn() async {
         let sut = await makeSUT(totalBytes: 200_000_000, cellular: false)
         path.isLowDataMode = true
-        XCTAssertFalse(sut.isHeldByLowDataMode, "Not added yet")
+        XCTAssertNil(sut.downloadHold, "Not added yet")
 
         sut.downloadTapped()
         await waitUntil { !downloads.enqueued.isEmpty }
         let waiting = BookDownloadState(chapters: [.waiting, .waiting], expectedBytes: [1, 1], isPaused: false)
         downloads.statesSubject.send([book.id: waiting])
 
-        XCTAssertTrue(sut.isHeldByLowDataMode)
+        XCTAssertEqual(sut.downloadHold, .lowDataMode)
         path.isLowDataMode = false
-        XCTAssertFalse(sut.isHeldByLowDataMode)
+        XCTAssertNil(sut.downloadHold)
     }
 
-    func test_isHeldByLowDataMode_falseForABookAllowedOnCellular() async {
+    /// "Wait for Wi-Fi" chosen on cellular: the page says it waits for Wi-Fi, then a hotspot (#171).
+    func test_downloadHold_onCellularOrAHotspot_saysWhich() async {
+        let sut = await makeSUT(totalBytes: 200_000_000, cellular: false)
+        path.isMetered = true
+        path.hold = .cellular
+
+        sut.downloadTapped()
+        XCTAssertTrue(sut.isShowingCellularAlert)
+        sut.confirmCellular(continue: false)
+        await waitUntil { !downloads.enqueued.isEmpty }
+        let waiting = BookDownloadState(chapters: [.waiting, .waiting], expectedBytes: [1, 1], isPaused: false)
+        downloads.statesSubject.send([book.id: waiting])
+
+        XCTAssertEqual(sut.downloadHold, .cellular)
+        path.hold = .personalHotspot
+        XCTAssertEqual(sut.downloadHold, .personalHotspot)
+    }
+
+    func test_downloadHold_nilForABookAllowedOnCellular() async {
         let sut = await makeSUT(totalBytes: 1000, cellular: false)
         path.isLowDataMode = true
 
@@ -213,7 +231,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         let waiting = BookDownloadState(chapters: [.waiting, .waiting], expectedBytes: [1, 1], isPaused: false)
         downloads.statesSubject.send([book.id: waiting])
 
-        XCTAssertFalse(sut.isHeldByLowDataMode)
+        XCTAssertNil(sut.downloadHold)
     }
 
     func test_retryChapter_forwardsToTheDownloadManager() async {

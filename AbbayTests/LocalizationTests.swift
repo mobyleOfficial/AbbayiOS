@@ -40,6 +40,9 @@ final class LocalizationTests: XCTestCase {
         .waiting,
         .chapterDownloadFailed,
         .lowDataModeWaiting,
+        .cellularHoldWaiting,
+        .hotspotHoldWaiting,
+        .downloadingHeld,
         .detailsFailed,
         .retry,
         .rowChapter,
@@ -148,6 +151,9 @@ final class LocalizationTests: XCTestCase {
         .waiting,
         .chapterDownloadFailed,
         .lowDataModeWaiting,
+        .cellularHoldWaiting,
+        .hotspotHoldWaiting,
+        .downloadingHeld,
         .detailsFailed,
         .retry,
         .rowChapter,
@@ -333,6 +339,24 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(
             Localizable.miniPlayerSubtitle.localized(with: 35, "12 min", 12),
             "Capítulo 35 · 12 min restantes"
+        )
+    }
+}
+
+/// Download holds (#171): the Library ring's label.
+extension LocalizationTests {
+    /// The ring of a held download: its percentage, then why.
+    func test_downloadingHeldFormatsThePercentAndTheReason() {
+        XCTAssertEqual(
+            Localizable.downloadingHeld.localized(with: 33, Localizable.cellularHoldWaiting.localized),
+            "Downloading, 33%. Waiting for Wi-Fi: on cellular"
+        )
+
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+
+        XCTAssertEqual(
+            Localizable.downloadingHeld.localized(with: 33, Localizable.hotspotHoldWaiting.localized),
+            "Baixando, 33%. Aguardando Wi-Fi: em um Acesso Pessoal"
         )
     }
 }

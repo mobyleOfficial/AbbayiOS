@@ -16,7 +16,8 @@ once the book is in the library. The only way to add a LibriVox book.
   the size follow the **in-app** language (`AbbayBundle.locale`), not the device's: English on a
   Portuguese device reads "English" and "29.7 MB", not "inglês" and "29,7 MB" (#152, #166). The
   large-download alert's size uses the same text. With `-stubLibriVox` the size is 29,670,000
-  bytes ("29.7 MB" / "29,7 MB"), so the separator shows which locale formatted it.
+  bytes ("29.7 MB" / "29,7 MB"), so the separator shows which locale formatted it; with
+  `-stubDownloadStates` as well it is 120,000,000 bytes in three chapters ("120 MB").
 - **cover-loading:** `AsyncImageView`, shared with the Search tab's cards and results. While the
   cover loads, an `onyx` tile with a light band sweeping across it (`cover.loading`); then the
   image fades in (`cover.loaded`). A failed load (offline, non-2xx, not an image) leaves the `onyx`
@@ -35,8 +36,10 @@ once the book is in the library. The only way to add a LibriVox book.
 - **description:** three lines, with a **More** button (`detail.more`) that expands it in place. The
   button shows whenever the description is non-empty and collapsed — not only when the text is
   actually truncated.
-- **download:** primary **Download** button (`detail.download`). It saves the book (cover fetched
-  first), hands it to the download manager, adds it to the Library and **stays on the page**; the
+- **download:** primary **Download** button (`detail.download`). It saves the book (cover first,
+  through `AsyncImageLoader.coverData(for:)`: from the covers' disk cache when the page already
+  loaded it, otherwise one download shared with any load in flight and stored; refused off
+  `CoverHostPolicy`; nil, so no artwork, if it isn't an image, #175), hands it to the download manager, adds it to the Library and **stays on the page**; the
   button becomes **Play**. Tapping it twice while saving is ignored.
 - **cellular-warning:** if the book is over 99,000,000 bytes *and* the phone is on a metered network
   (cellular, Personal Hotspot or Low Data Mode, `NetworkPathMonitor.isMetered`), an alert
@@ -58,9 +61,10 @@ once the book is in the library. The only way to add a LibriVox book.
 - **chapters:** the shared `ChapterListView` in its stack layout: *Chapter selection* header (*Seleção de capítulos*), one row per
   chapter with scrolling title and duration. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
-  sits under the header; once complete both disappear. A *Wait for Wi-Fi* book held by Low Data
-  Mode on Wi-Fi also shows *"Waiting: Low Data Mode is on"* under the bar (`detail.lowDataMode`, see
-  [downloads](downloads.md) *low-data-mode-hint*). Rows are not tappable here — Play opens the
+  sits under the header; once complete both disappear. A *Wait for Wi-Fi* book held by the network
+  also says why under the bar: *"Waiting for Wi-Fi: on cellular"* (`detail.cellularHold`), *"…on a
+  Personal Hotspot"* (`detail.hotspotHold`) or *"Waiting: Low Data Mode is on"*
+  (`detail.lowDataMode`); see [downloads](downloads.md) *hold-hint*. Rows are not tappable here — Play opens the
   player, which is where chapters are chosen — but a failed chapter's status is a button
   (`detail.chapter.<n>.retry`) that restarts its download. A book with no sections shows the
   list's *No chapters* empty state (`detail.chapters.empty`; unverified by UI test, the stub book
@@ -94,13 +98,15 @@ $B tap player.close                           # or drag its header down
 `search.result.0`. Play calls the injected `openPlayer`, i.e. `presentation.open`; the page no
 longer presents its own player sheet.
 
+`DownloadStatusUITests` (#171) adds, with `-stubDownloadStates` and a `-stubPath*` argument (the
+stub book is then 120 MB, so on the fixed metered path Download asks): `detail.cellular.wait`,
+`detail.cellular.continue` (no hint follows), `detail.progress`, `detail.cellularHold`,
+`detail.hotspotHold`, `detail.lowDataMode`, `detail.chapter.2.retry` and retrying it (see
+[downloads](downloads.md)).
+
 **Implemented but unverified** (declared in `AccessibilityID.Detail` and attached in the view, but no
-UI test resolves them): `detail.more`, `detail.retry`, `detail.cellular.continue`,
-`detail.cellular.wait`, `detail.progress`, `detail.lowDataMode`, `detail.chapter.<n>`,
-`detail.chapter.<n>.retry`. The stub
-book is 1,000 bytes, so the cellular alert is unreachable by UI; the stub client never fails
-`details`, so Retry is too; and the stub download manager reports no state, so `detail.progress` and
-the chapter retry never appear (see [downloads](downloads.md)).
+UI test resolves them): `detail.more`, `detail.retry`. The stub client never fails `details`, so
+Retry is unreachable.
 The decisions behind them are unit-tested: `CellularDownloadPolicyTests`, `NetworkPathSnapshotTests`,
 `LibriVoxDetailViewModelTests`, `ChapterListViewTests`.
 
