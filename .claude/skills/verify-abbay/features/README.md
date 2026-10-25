@@ -82,6 +82,9 @@ added. Resolve a row by matching its title label rather than assuming an index.
     one hour: once loaded, the mini player reads "Chapter 1 · 1 hr left"), the time-left edge cases
     of #152. No audio (unlike the other seeds), so their clocks stay put: loading the hour book
     also shows the "moved or renamed" notice.
+  - `-seedCoverArt` — with `-seedLibrary`, gives *Seeded Chaptered Book* and *Seeded Playable
+    Book* a generated warm-brown cover, so the cover tint of the mini player and the details
+    screen's gradient (#166 G1) can be seen. *Seeded Plain Book* keeps none (the generic tile).
   - `-forceReduceMotion` — run with Reduce Motion on whatever the system setting says
     (`DebugOverrides.reduceMotion`, read by the `@ReduceMotion` property wrapper every view uses
     instead of `\.accessibilityReduceMotion`), because XCUITest can't switch the setting. It

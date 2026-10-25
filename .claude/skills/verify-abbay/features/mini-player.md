@@ -49,23 +49,25 @@
   and *Restart chapter*, so VoiceOver can do everything the gestures do. The progress line is
   labelled *Chapter progress* and carries a whole-percent value ("39%") and `.updatesFrequently`.
   The play/pause button reads *Play* or *Pause* (`PlayButtonView`, shared with the rows and the
-  details screen; labelled since #144). On the details screen the chevron is *Close player*
+  details screen; labelled since #144). On the details screen the glass ⌄ button is *Close player*
   and the panel's escape action (the two-finger scrub) closes it too.
 - **expansion:** `PlayerExpansionOverlay`, one panel above the tabs. Its frame grows from the bar's
   frame to the full screen as `PlayerPresentation.progress` goes from 0 to 1.
   - The corner radius goes from the bar's to 0.
-  - The cover grows from 40 pt to the details screen's cover.
+  - The background is the details screen's cover-tint gradient (#166 G1), with the bar's flat
+    tint over it fading out with the bar's face: the same colour at the top, so the bar reads as
+    one surface changing size. No `onyx` panel any more.
+  - The cover grows from 40 pt (radius 4) to the details screen's cover (radius 14), its shadow
+    appearing from half-way.
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
   - Opened with nothing visible to grow from (a row tap with nothing loaded), it grows from a
     56 pt strip along the bottom edge.
-- **collapse:** a drag down from the details screen's grabber header, its close chevron
+- **collapse:** a drag down from the details screen's grabber header, its close button
   (`player.close`) or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
-  `player.close` (the chevron) collapses it animated. While the panel is moving, a drag anywhere
-  on it continues the motion.
-  - **iOS 18+:** a downward drag that starts while the chapter list rests at its top also
-    collapses, and the list doesn't scroll for that gesture. Any other list drag scrolls
-    (`onScrollGeometryChange`).
-  - **iOS 17:** only the header and the cover collapse. iOS 17 has no scroll-offset API (Ruling 13).
+  `player.close` collapses it animated. While the panel is moving, a drag anywhere on it continues
+  the motion. On every iOS version these are the only handles: the chapter list moved into the
+  glass chapter panel (#166 G2), which closes itself and never collapses the player, so the
+  list-at-top collapse (iOS 18+, `ExpansionListCollapse`) was deleted.
   - The collapse lands on the bar's resting frame, even after Play loaded the book while the screen
     was open (`test_collapseAfterPlayingInDetails_landsOnTheBar`). Released while the bar is still
     coming back with the tab bar, it follows the bar's frames and lands on the bar, not on the
@@ -117,7 +119,8 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
 - tap to open and hidden-while-open (`test_tappingMiniPlayer_opensDetails`)
 - drag up, short drags settling back, slow drags both ways
 - grabber collapse (dragged from the grabber's position, found from `player.close`: the grabber
-  is hidden from accessibility, see [player](player.md)) and list-at-top collapse (iOS 18+)
+  is hidden from accessibility, see [player](player.md)); with the chapter panel open, a drag at
+  its top closes only the panel and the header still collapses (`ChaptersPanelUITests`)
 - the last row clearing the bar (`-seedFillerBooks`)
 - the bar on both tabs after Play on the stub LibriVox book
   (`test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer`)
@@ -186,5 +189,5 @@ there (#203).
 - **XCUITest has no public API for accessibility actions.** `AccessibilityActions` goes through
   XCTest's private `XCAXClient_iOS` with VoiceOver's AX action numbers (2010 activate, 2013
   escape, 2021 custom). An Xcode update may move them; it throws naming the missing piece.
-- iOS 17 can't collapse from the chapter list. Grab the header or the cover.
-- A device check of the list-at-top bounce interaction on iOS 18+ is left to the owner.
+- Only the header and the cover collapse the player, on every iOS version (the chapter list is in
+  the chapter panel since #166 G2).
