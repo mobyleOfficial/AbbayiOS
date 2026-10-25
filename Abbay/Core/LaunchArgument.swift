@@ -64,6 +64,8 @@ enum LaunchArgument {
     static let stubPathHotspot = "-stubPathHotspot"
     /// The network path is Wi-Fi in Low Data Mode.
     static let stubPathLowDataMode = "-stubPathLowDataMode"
+    /// The network path is offline, whatever the Mac's network is: the Search tab's offline state.
+    static let stubPathOffline = "-stubPathOffline"
     /// Make *Import file* skip the system picker and import two files that don't exist, so the
     /// failed-import banner shows.
     static let stubFailingImport = "-stubFailingImport"
@@ -82,7 +84,7 @@ enum LaunchArgument {
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
         seedCoverArt, seedArtwork, seedLastPlayed, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline,
-        stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubFailingImport,
-        stubMovedImport, resetSettings, forceReduceMotion
+        stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
+        stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
     ]
 }

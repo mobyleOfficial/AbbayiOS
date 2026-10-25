@@ -48,10 +48,12 @@ final class LibriVoxSearchViewModel {
         self.debounce = debounce
     }
 
-    /// The app's instance. UI tests launched with the stub argument never reach the network.
+    /// The app's instance. UI tests launched with the stub argument never reach the network, and a
+    /// stubbed path (`-stubPathOffline`) decides whether it is online.
     static func makeDefault() -> LibriVoxSearchViewModel {
         LibriVoxSearchViewModel(
             client: DebugOverrides.libriVoxClient() ?? LibriVoxClient(),
+            path: NetworkPathMonitor.app,
             debounce: DebugOverrides.searchDebounce() ?? .milliseconds(400)
         )
     }
