@@ -70,6 +70,13 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   - **Open-source licenses** (`settings.about.licenses` → `settings.about.licenses.body`): Abbay
     ships no third-party code (no SPM packages; `Modules/NetworkProvider` is first-party; the
     Gemfile's tools are build-time only).
+  - **About the developer** (`settings.about.developer`): a row that pushes a page with a short
+    note (`settings.about.developer.body`: Abbay is free, no ads, no tracking; say hi) and a
+    *Say hi on LinkedIn* button (`settings.about.linkedIn`) that opens `SettingsView.linkedInURL`
+    (https://www.linkedin.com/in/edyuto) in the same in-app Safari as the privacy policy. pt-BR:
+    *Sobre o desenvolvedor* / *Diga oi no LinkedIn*. Verified by
+    `SettingsUITests.test_developerPage_showsItsTitleBodyAndButton` (button not tapped) and
+    `SettingsValuesTests.test_linkedInURL_isTheDevelopersHTTPSProfile`.
   - **Siri & audio** (`settings.about.audioStatus`): *Working* or *Unavailable*, read from
     `LaunchStateFlag` (#115), with a plain-words explanation that Siri answers "Audio temporarily
     unavailable" until a book plays again.
@@ -98,7 +105,7 @@ $B tap settings.language.portuguese                               # nav title be
 **Verified** (`SettingsUITests`): `library.toolbar.settings` opens it; `settings.done`,
 `settings.playback.{defaultSpeed,skipBack,skipForward}`,
 `settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
-`settings.about.{privacyPolicy,version,librivox,licenses,audioStatus}` and
+`settings.about.{privacyPolicy,version,librivox,licenses,developer,audioStatus}` and
 `settings.about.licenses.body` resolve; changing Skip forward relabels the player's forward
 button; choosing Português switches Settings and the Library without a relaunch; on a pt-BR
 device choosing English relabels both skip pickers to "15 seconds" at once
