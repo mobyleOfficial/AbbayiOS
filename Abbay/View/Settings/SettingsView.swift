@@ -21,6 +21,8 @@ struct SettingsView: View {
     private var webPage: WebPage?
 
     private static let privacyPolicyURL = URL(string: "https://mobyleapps.com/abbay/privacy-policy/")
+    /// The developer's LinkedIn profile, behind About the developer's button.
+    static let linkedInURL = URL(string: "https://www.linkedin.com/in/edyuto")
     private static let libriVoxURL = URL(string: "https://librivox.org")
 
     init(model: @autoclosure @escaping () -> SettingsViewModel) {
@@ -225,6 +227,10 @@ struct SettingsView: View {
                 LicensesView()
             }
             .accessibilityIdentifier(AccessibilityID.Settings.licenses)
+            NavigationLink(Localizable.aboutDeveloper.localized) {
+                DeveloperView(openLinkedIn: { webPage = Self.linkedInURL.map(WebPage.init) })
+            }
+            .accessibilityIdentifier(AccessibilityID.Settings.developer)
             audioStatusRow
         } header: {
             Text(Localizable.settingsAbout.localized)
@@ -303,6 +309,32 @@ private struct DefaultSpeedView: View {
             .padding(SpaceConstants.sx24.value)
         }
         .navigationTitle(Localizable.defaultSpeed.localized)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Who makes Abbay: a short note and a button to the developer's LinkedIn.
+private struct DeveloperView: View {
+    let openLinkedIn: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: SpaceConstants.sx24.value) {
+                Text(Localizable.developerBody.localized)
+                    .foregroundColor(ColorConstants.white.value)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier(AccessibilityID.Settings.developerBody)
+                Button(action: openLinkedIn) {
+                    Text(Localizable.developerLinkedIn.localized)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityAddTraits(.isLink)
+                .accessibilityIdentifier(AccessibilityID.Settings.linkedIn)
+            }
+            .padding(SpaceConstants.sx24.value)
+        }
+        .navigationTitle(Localizable.aboutDeveloper.localized)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

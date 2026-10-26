@@ -122,6 +122,9 @@ enum Localizable: String {
     case privacyPolicy
     case version
     case librivoxAbout
+    case aboutDeveloper
+    case developerBody
+    case developerLinkedIn
     case openSourceLicenses
     case licensesBody
     case licensesContent

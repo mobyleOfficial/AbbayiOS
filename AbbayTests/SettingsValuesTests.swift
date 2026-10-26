@@ -92,4 +92,11 @@ final class SettingsValuesTests: XCTestCase {
         XCTAssertEqual(AppLanguage.english.languageCode, "en")
         XCTAssertEqual(AppLanguage.portuguese.languageCode, "pt-BR")
     }
+
+    // MARK: - About the developer
+
+    func test_linkedInURL_isTheDevelopersHTTPSProfile() {
+        XCTAssertEqual(SettingsView.linkedInURL?.absoluteString, "https://www.linkedin.com/in/edyuto")
+        XCTAssertEqual(SettingsView.linkedInURL?.scheme, "https")
+    }
 }

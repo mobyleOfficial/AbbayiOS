@@ -192,6 +192,23 @@ final class SettingsUITests: XCTestCase {
         assertResolves(AccessibilityID.Settings.licensesBody)
     }
 
+    /// About the developer is a page, not a link: its title, body and button resolve. The button
+    /// is not tapped, as it would open Safari.
+    func test_developerPage_showsItsTitleBodyAndButton() {
+        launch()
+        openSettings()
+        app.swipeUp()
+        app.swipeUp()
+
+        element(AccessibilityID.Settings.developer).tap()
+
+        assertResolves(AccessibilityID.Settings.developerBody)
+        assertResolves(AccessibilityID.Settings.linkedIn)
+        XCTAssertTrue(app.staticTexts["About the developer"].exists, "the page title")
+        XCTAssertTrue(app.buttons["Say hi on LinkedIn"].exists)
+        XCTAssertTrue(element(AccessibilityID.Settings.developerBody).label.contains("no ads and no tracking"))
+    }
+
     // MARK: - Skip intervals
 
     /// Changing the forward amount in Settings changes the player's button: its label (and its

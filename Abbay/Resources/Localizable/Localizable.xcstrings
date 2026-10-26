@@ -2367,6 +2367,60 @@
         }
       }
     },
+    "aboutDeveloper" : {
+      "comment" : "Settings About row and page title: about the developer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About the developer"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sobre o desenvolvedor"
+          }
+        }
+      }
+    },
+    "developerBody" : {
+      "comment" : "About the developer page body",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They say if an app is free, you're the product. Here it's the other way around: I'm the product. Abbay is free, with no ads and no tracking. If you enjoy it, I'd love to hear from you — I'm always happy to meet new people."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dizem que, se um app é grátis, o produto é você. Aqui é o contrário: o produto sou eu. O Abbay é grátis, sem anúncios e sem rastreamento. Se você gostar, adoraria ouvir de você — sempre gosto de conhecer gente nova."
+          }
+        }
+      }
+    },
+    "developerLinkedIn" : {
+      "comment" : "About the developer page button: opens the developer's LinkedIn profile",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say hi on LinkedIn"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diga oi no LinkedIn"
+          }
+        }
+      }
+    },
     "openSourceLicenses" : {
       "comment" : "Settings row and page title: open-source licenses",
       "extractionState" : "manual",
