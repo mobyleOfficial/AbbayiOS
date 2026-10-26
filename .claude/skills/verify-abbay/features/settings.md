@@ -1,6 +1,8 @@
 # Settings
 
-`SettingsView` is a sheet opened by the library toolbar's gear (`library.toolbar.settings`). The root
+`SettingsView` is a sheet opened by the library toolbar's gear (`library.toolbar.settings`). It
+paints no backgrounds of its own (no `scrollContentBackground(.hidden)`, no `onyx` row fills,
+#166 G7), so the system draws its grouped look: glass on iOS 26, the dark grouped list before. The root
 (`AppRootView`) presents it, outside the part of the tree a language change rebuilds, so it stays
 open while the language switches. Its model is `SettingsViewModel`; the settings themselves are
 `AppSettings`, injected through `DependencyContainer.settings` and the SwiftUI environment, and

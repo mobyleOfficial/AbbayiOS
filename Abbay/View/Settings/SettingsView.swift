@@ -38,8 +38,6 @@ struct SettingsView: View {
                 languageSection(settings: $settings)
                 aboutSection
             }
-            .scrollContentBackground(.hidden)
-            .background(ColorConstants.background.value)
             .navigationTitle(Localizable.settingsTitle.localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -94,7 +92,6 @@ struct SettingsView: View {
         } footer: {
             Text(Localizable.skipFooter.localized)
         }
-        .listRowBackground(ColorConstants.onyx.value)
     }
 
     private func skipPicker(
@@ -174,7 +171,6 @@ struct SettingsView: View {
         } footer: {
             Text(downloadsFooter)
         }
-        .listRowBackground(ColorConstants.onyx.value)
     }
 
     private var downloadsFooter: String {
@@ -203,7 +199,6 @@ struct SettingsView: View {
         } footer: {
             Text(Localizable.languageFooter.localized)
         }
-        .listRowBackground(ColorConstants.onyx.value)
     }
 
     /// Each language is named in itself, so it can be found from either language.
@@ -236,7 +231,6 @@ struct SettingsView: View {
         } footer: {
             Text(Localizable.librivoxAbout.localized)
         }
-        .listRowBackground(ColorConstants.onyx.value)
     }
 
     private func linkRow(_ title: String, url: URL?) -> some View {
@@ -308,7 +302,6 @@ private struct DefaultSpeedView: View {
             }
             .padding(SpaceConstants.sx24.value)
         }
-        .background(ColorConstants.background.value)
         .navigationTitle(Localizable.defaultSpeed.localized)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -327,7 +320,6 @@ private struct LicensesView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier(AccessibilityID.Settings.licensesBody)
         }
-        .background(ColorConstants.background.value)
         .navigationTitle(Localizable.openSourceLicenses.localized)
         .navigationBarTitleDisplayMode(.inline)
     }

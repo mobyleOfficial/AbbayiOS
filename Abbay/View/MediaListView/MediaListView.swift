@@ -7,9 +7,13 @@
 
 import SwiftUI
 
-/// The Library tab: the books in the library, a local-only search over them, the empty state and
-/// the toolbar. The root owns the model and the tab's `NavigationStack`; LibriVox lives in the
-/// Search tab.
+/// The Library tab ("Library B", #166 G3): the Continue card for the last played book, then every
+/// book in a three-column cover grid, a local-only search over them, the empty state and the
+/// toolbar. The root owns the model and the tab's `NavigationStack`; LibriVox lives in the Search
+/// tab.
+///
+/// Nothing here paints a background: the system's own lets the scroll edge effect work under the
+/// navigation bar and the tab bar.
 struct MediaListView: View {
     // MARK: - Properties
     @ObservedObject
@@ -21,8 +25,12 @@ struct MediaListView: View {
 
     @Environment(PlayerPresentation.self)
     private var presentation
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
     @State
     private var query = ""
+    /// Where the Continue card finds the last played book.
+    var lastPlayed: LastPlayedStore = .shared
 
     // MARK: - Body
     var body: some View {
@@ -45,7 +53,6 @@ struct MediaListView: View {
                     await model.importAudio(from: urls)
                 })
             }
-            .backgroundColor(ColorConstants.background.value)
             .foregroundColor(ColorConstants.white.value)
     }
 
@@ -72,7 +79,7 @@ struct MediaListView: View {
         if model.audioList.isEmpty {
             emptyView
         } else {
-            listView
+            libraryView
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -82,113 +89,153 @@ struct MediaListView: View {
     }
 
     // MARK: - Empty View
-    @ViewBuilder
     var emptyView: some View {
-        VStack(spacing: SpaceConstants.sx16.value) {
-            Image(systemName: "folder.badge.questionmark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: SpaceConstants.sx32.value)
-            Text(Localizable.emptyLibraryTitle.localized)
-                .accessibilityIdentifier(AccessibilityID.Library.empty)
+        ContentUnavailableView {
+            Label {
+                Text(Localizable.emptyLibraryTitle.localized)
+                    .accessibilityIdentifier(AccessibilityID.Library.empty)
+            } icon: {
+                Image(systemName: "books.vertical")
+                    .accessibilityHidden(true)
+            }
+        } description: {
+            Text(Localizable.emptyLibraryMessage.localized)
+        } actions: {
             Button {
                 onBrowse()
             } label: {
                 Text(Localizable.browseFreeAudiobooks.localized)
+                    .font(.headline)
+                    .foregroundStyle(ColorConstants.background2.value)
+                    .padding(.horizontal, SpaceConstants.sx8.value)
             }
-            .buttonStyle(LibraryActionButtonStyle(isPrimary: true))
+            .abbayGlassProminentButton()
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
             .accessibilityIdentifier(AccessibilityID.Library.emptyBrowse)
             Button {
                 model.startImport()
             } label: {
                 Text(Localizable.importAFile.localized)
+                    .font(.headline)
+                    .padding(.horizontal, SpaceConstants.sx8.value)
             }
-            .buttonStyle(LibraryActionButtonStyle(isPrimary: false))
+            .abbayGlassButton()
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .tint(ColorConstants.white.value)
             .accessibilityIdentifier(AccessibilityID.Library.emptyImport)
         }
-        .padding(.horizontal, SpaceConstants.sx32.value)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - List View
+    // MARK: - Library View
     private var isSearching: Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !trimmedQuery.isEmpty
+    }
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Three columns up to the default text size; two from *xLarge* up, so a two-line title still
+    /// fits at the largest non-accessibility size (*xxxLarge* truncated in three columns).
+    private var columns: [GridItem] {
+        let count = dynamicTypeSize >= .xLarge ? 2 : 3
+        return Array(
+            repeating: GridItem(.flexible(), spacing: SpaceConstants.sx12.value, alignment: .top),
+            count: count
+        )
     }
 
     @ViewBuilder
-    var listView: some View {
+    var libraryView: some View {
         let books = LibraryFilter.filter(model.audioList, query: query)
-        List {
+        if books.isEmpty {
+            // The system's search empty state, built from our strings so it follows the in-app
+            // language (`ContentUnavailableView.search` reads the device's).
+            ContentUnavailableView {
+                Label {
+                    Text(Localizable.noResultsFor.localized(with: trimmedQuery))
+                        .accessibilityIdentifier(AccessibilityID.Library.noResults)
+                } icon: {
+                    Image(systemName: "magnifyingglass")
+                        .accessibilityHidden(true)
+                }
+            } description: {
+                Text(Localizable.noResultsHint.localized)
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
+                    if !isSearching {
+                        ContinueSection(books: model.audioList, lastPlayed: lastPlayed) { book in
+                            presentation.open(book, animated: true)
+                        }
+                        LibrarySectionHeader(title: .libraryAllBooks)
+                    }
+                    grid(books)
+                }
+                .padding(.horizontal, SpaceConstants.sx16.value)
+                .padding(.bottom, SpaceConstants.sx16.value)
+            }
+            .accessibilityIdentifier(AccessibilityID.Library.list)
+        }
+    }
+
+    private func grid(_ books: [AudioModel]) -> some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: SpaceConstants.sx16.value) {
             // `enumerated()` keeps url-based identity while exposing the positional index the
             // accessibility identifiers use.
             ForEach(Array(books.enumerated()), id: \.element.url) { index, file in
-                VStack(alignment: .leading, spacing: 0) {
-                    MediaView(file, namespace: AccessibilityID.Library.row(index))
+                MediaView(
+                    file,
+                    namespace: AccessibilityID.Library.row(index),
                     // As before: while searching, a fully downloaded LibriVox book says so.
-                    if isSearching {
-                        DownloadedTag(book: file)
-                    }
-                }
-                .listRowBackground(ColorConstants.background.value)
-                .listRowInsets(EdgeInsets())
-                .onTapGesture {
-                    presentation.open(file, animated: true)
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        model.deleteAudio(file)
-                    } label: {
-                        Label(Localizable.delete.localized, systemImage: "trash")
-                    }
-                }
-            }
-            if books.isEmpty {
-                Text(Localizable.noResults.localized)
-                    .foregroundColor(ColorConstants.lightSilver.value)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(ColorConstants.background.value)
-                    // A message, not a book: no row separators hanging off the centered text.
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier(AccessibilityID.Library.noResults)
+                    showsDownloadedBadge: isSearching,
+                    onOpen: { presentation.open(file, animated: true) },
+                    onDelete: { model.deleteAudio(file) }
+                )
             }
         }
-        .listStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.Library.list)
     }
 }
 
 // MARK: - Subviews
-/// "Downloaded" under a LibriVox book whose chapters are all on disk. Reads only its own book's
-/// download entry.
-private struct DownloadedTag: View {
-    let book: AudioModel
-
-    @Environment(\.downloadStateStore)
-    private var downloads
+/// A section's title: "Continue", "All books".
+private struct LibrarySectionHeader: View {
+    let title: Localizable
 
     var body: some View {
-        let state = book.librivoxID.flatMap { downloads?.entry(for: $0).state }
-        if LibriVoxIdentity.isFullyDownloaded(book, state: state) {
-            Text(Localizable.downloadedTag.localized)
-                .font(.caption)
-                .foregroundColor(ColorConstants.malachite.value)
-                .padding(.horizontal, SpaceConstants.sx16.value)
-                .padding(.bottom, SpaceConstants.sx8.value)
-        }
+        Text(title.localized)
+            .font(.title3.weight(.bold))
+            .accessibilityAddTraits(.isHeader)
+            .padding(.top, SpaceConstants.sx8.value)
     }
 }
 
-private struct LibraryActionButtonStyle: ButtonStyle {
-    let isPrimary: Bool
+/// "Continue" and its card, or nothing when there is no book to continue (`ContinueCard.book`).
+/// Its own view, so the play / pause and book switches it follows (through `PlaybackState`)
+/// re-run only it, not the grid.
+private struct ContinueSection: View {
+    let books: [AudioModel]
+    let lastPlayed: LastPlayedStore
+    let onOpen: (AudioModel) -> Void
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundColor(isPrimary ? ColorConstants.background2.value : ColorConstants.white.value)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, SpaceConstants.sx16.value)
-            .background(isPrimary ? ColorConstants.malachite.value : ColorConstants.onyx.value)
-            .cornerRadius(SpaceConstants.sx12.value)
-            .opacity(configuration.isPressed ? 0.7 : 1)
+    @Environment(PlaybackState.self)
+    private var playback
+
+    /// Reads `PlaybackState` first, so a play (which saves last played before it reports
+    /// playing) or a book switch re-runs the body, which re-reads last played.
+    private var lastPlayedURL: URL? {
+        _ = playback.loadedBook?.url
+        _ = playback.isPlaying
+        return lastPlayed.lastPlayedURL()
+    }
+
+    var body: some View {
+        if let book = ContinueCard.book(in: books, lastPlayedURL: lastPlayedURL) {
+            LibrarySectionHeader(title: .libraryContinue)
+            ContinueCardView(book: book) { onOpen(book) }
+        }
     }
 }

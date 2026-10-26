@@ -65,7 +65,7 @@ final class MiniPlayerUITests: XCTestCase {
 
     // MARK: - Tests
 
-    /// Loads a seeded book by pressing its row's play button: it plays, and the bar shows it.
+    /// Loads a seeded book with its cell's context-menu Play: it plays, and the bar shows it.
     func loadSeededBook(
         titled title: String,
         arguments: [String] = [LaunchArgument.seedLibrary]
@@ -73,7 +73,7 @@ final class MiniPlayerUITests: XCTestCase {
         launch(arguments)
         assertResolves(AccessibilityID.Library.list)
         let index = try XCTUnwrap(rowIndex(titled: title), "no seeded row titled \"\(title)\"")
-        element(AccessibilityID.Element.play(AccessibilityID.Library.row(index))).tap()
+        LibraryGridActions.togglePlayback(in: app, cell: index)
         assertResolves(AccessibilityID.MiniPlayer.bar)
     }
 
@@ -146,15 +146,15 @@ final class MiniPlayerUITests: XCTestCase {
         XCTAssertEqual(result, .completed, "the bar is not at the tapped chapter: \"\(bar.label)\"")
     }
 
-    /// The bar and the tab bar inset the list: scrolled to the bottom, the last row ends above
-    /// the bar (the spec's anti-goal: the mini player never covers list content).
-    func test_lastRow_isNotCoveredByMiniPlayer() throws {
+    /// The bar and the tab bar inset the grid: scrolled to the bottom, the last cell ends above
+    /// the bar (the spec's anti-goal: the mini player never covers library content).
+    func test_lastCell_isNotCoveredByMiniPlayer() throws {
         try loadSeededBook(
             titled: "Seeded Chaptered Book",
             arguments: [LaunchArgument.seedLibrary, LaunchArgument.seedFillerBooks]
         )
         let list = element(AccessibilityID.Library.list)
-        // Two seeded books and twelve fillers.
+        // Two seeded books and twelve fillers: the last grid row holds cells 12 and 13.
         let lastRow = AccessibilityID.Library.row(13)
         let title = element(AccessibilityID.Element.title(lastRow))
         let detail = element(AccessibilityID.Element.detail(lastRow))
@@ -165,7 +165,7 @@ final class MiniPlayerUITests: XCTestCase {
         // Let the deceleration and any bounce settle.
         sleep(2)
 
-        XCTAssertTrue(title.waitForExistence(timeout: 5), "the last row never appeared")
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "the last cell never appeared")
         let bar = element(AccessibilityID.MiniPlayer.bar)
         let playPause = element(AccessibilityID.MiniPlayer.playPause)
         XCTAssertTrue(bar.exists)

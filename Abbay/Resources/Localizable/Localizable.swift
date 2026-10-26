@@ -49,6 +49,16 @@ enum Localizable: String {
     case libraryTab
     case searchTab
     case librarySearchPrompt
+    // Library grid (#166 G3)
+    case libraryContinue
+    case libraryAllBooks
+    case resume
+    case rowNew
+    case rowFinished
+    case nowPlaying
+    case emptyLibraryMessage
+    case noResultsFor
+    case noResultsHint
     case closePlayer
     case miniPlayerSubtitle
     case chapterProgress

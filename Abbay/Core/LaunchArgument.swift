@@ -33,6 +33,14 @@ enum LaunchArgument {
     /// cover (a warm gradient), so the cover tint behind the mini player and the details screen
     /// (#166 G1) can be seen. *Seeded Plain Book* keeps none, for the generic tile.
     static let seedCoverArt = "-seedCoverArt"
+    /// With `seedLibrary`: give *Seeded Chaptered Book*, *Seeded Playable Book* and *Seeded Long
+    /// Book* generated covers (a gradient with the title), so a library shows covers next to books
+    /// without artwork. *Seeded Plain Book* and the filler books keep none.
+    static let seedArtwork = "-seedArtwork"
+    /// With `seedLibrary`: make the first seeded book (*Seeded Chaptered Book*, 150 s in) the last
+    /// played one, so the library's Continue card shows it. Without it, seeding clears last played,
+    /// so no Continue card is left over from an earlier launch.
+    static let seedLastPlayed = "-seedLastPlayed"
     /// Empty the library, for asserting the empty state.
     static let resetLibrary = "-resetLibrary"
     /// Answer LibriVox requests from an in-memory stub and download nothing, instead of using the
@@ -73,7 +81,8 @@ enum LaunchArgument {
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
-        seedCoverArt, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline, stubDownloadStates, stubPathCellular,
-        stubPathHotspot, stubPathLowDataMode, stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
+        seedCoverArt, seedArtwork, seedLastPlayed, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline,
+        stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubFailingImport,
+        stubMovedImport, resetSettings, forceReduceMotion
     ]
 }

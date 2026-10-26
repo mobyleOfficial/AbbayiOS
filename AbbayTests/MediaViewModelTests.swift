@@ -156,7 +156,7 @@ final class MediaViewModelTests: XCTestCase {
         clock.update(bookTime: 20, currentChapter: 0)
 
         XCTAssertFalse(fired)
-        XCTAssertEqual(RowProgressView.detailLine(book: book, clock: clock), "Artist · Ch 1/3")
+        XCTAssertEqual(RowProgressView.detailLine(book: book, clock: clock), "Ch 1/3")
     }
 
     /// The #116 lesson: a row created while its book is already loaded shows it playing, with no
@@ -184,27 +184,43 @@ final class MediaViewModelTests: XCTestCase {
         XCTAssertFalse(detail.isPlaying)
     }
 
-    func test_detailLine_chapteredBook_showsAuthorAndOneBasedChapter() {
+    func test_detailLine_chapteredBook_showsOneBasedChapter() {
         let book = ViewModelSupport.chaptered(currentTime: 150)
         let detail = MediaView.DetailModel(book: book, state: PlaybackState(), entry: nil)
 
-        XCTAssertEqual(detail.detailLine, "Artist · Ch 2/3")
+        XCTAssertEqual(detail.detailLine, "Ch 2/3")
     }
 
-    func test_detailLine_plainBook_showsAuthorAndTimeLeft() {
-        let book = plainBook(duration: 200, currentTime: 0)
+    func test_detailLine_startedPlainBook_showsTimeLeft() {
+        let book = plainBook(duration: 200, currentTime: 20)
         let detail = MediaView.DetailModel(book: book, state: PlaybackState(), entry: nil)
 
-        XCTAssertTrue(detail.detailLine.hasPrefix("Artist · "), detail.detailLine)
-        XCTAssertTrue(detail.detailLine.contains("left"), detail.detailLine)
-        XCTAssertTrue(detail.detailLine.contains("3"), "200 s is 3 min 20 s: \(detail.detailLine)")
+        XCTAssertEqual(detail.detailLine, "3m left")
     }
 
-    func test_detailLine_withoutAuthor_omitsTheSeparator() {
-        var book = ViewModelSupport.chaptered()
-        book.artist = ""
+    func test_detailLine_unstartedBook_isNew() {
+        XCTAssertEqual(
+            MediaView.DetailModel(book: ViewModelSupport.chaptered(), state: PlaybackState(), entry: nil).detailLine,
+            "New"
+        )
+        XCTAssertEqual(MediaView.DetailModel(book: plainBook(), state: PlaybackState(), entry: nil).detailLine, "New")
+    }
 
-        XCTAssertEqual(MediaView.DetailModel(book: book, state: PlaybackState(), entry: nil).detailLine, "Ch 1/3")
+    /// Within the last 30 s counts as listened to the end, as Settings' *Delete finished* does.
+    func test_detailLine_bookNearItsEnd_isFinished() {
+        let book = ViewModelSupport.chaptered(currentTime: 380)
+
+        XCTAssertEqual(MediaView.DetailModel(book: book, state: PlaybackState(), entry: nil).detailLine, "Finished ✓")
+    }
+
+    /// The bar shows only between the start and the end.
+    func test_progressFraction_onlyWhileStartedAndNotFinished() {
+        let book = ViewModelSupport.chaptered()
+
+        XCTAssertNil(MediaView.progressFraction(book: book, bookTime: 0))
+        XCTAssertEqual(try XCTUnwrap(MediaView.progressFraction(book: book, bookTime: 100)), 0.25, accuracy: 0.001)
+        XCTAssertNil(MediaView.progressFraction(book: book, bookTime: 390))
+        XCTAssertNil(MediaView.progressFraction(book: AudioModel(), bookTime: 10), "no duration, no bar")
     }
 
     func test_downloadState_followsTheBooksEntry() {

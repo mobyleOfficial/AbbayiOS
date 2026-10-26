@@ -14,8 +14,12 @@ as a small card that slides in and dismisses itself. Before this, every failure 
   restarts its timer, so a failure that fires twice (an item's status and its failed-to-end
   notification) is shown and announced once.
 - **auto-dismiss:** 5 s, or 10 s while VoiceOver runs. There is no close button.
-- **placement:** at the top, inside the safe area, above the tabs **and** the details screen, so
-  it never covers the mini player or the tab bar. It does not take touches (`allowsHitTesting(false)`):
+- **look (#166 G7):** a glass capsule (`abbayGlass`, a material on iOS 17–25) with a soft shadow;
+  red is only the warning icon, the text is white.
+- **placement:** near the top, 52 pt below the safe area's top (`NoticeBannerView.topInset`), so
+  it sits under the navigation bar's row and leaves the toolbar (+ / gear, the player's close)
+  visible; above the tabs **and** the details screen, so it never covers the mini player or the
+  tab bar. It does not take touches (`allowsHitTesting(false)`):
   taps go through to the toolbar or the player header underneath.
 - **accessibility:** posted as a high-priority VoiceOver announcement. The banner is one element
   (label = the message) with a *Dismiss* action.
@@ -60,7 +64,7 @@ showed *Pause*, so the first tap only paused. Now they show *Play*, and one tap 
 $B launch --reset-library --stub-failing-import      # -resetLibrary -stubFailingImport
 $B tap library.empty.import && $B wait notice.banner  # "Couldn't import 2 files: Missing Book.mp3 and Broken Book.m4b."
 $B launch -seedLibrary -seedMissingFile
-$B tap library.row.<n>.play && $B wait notice.banner  # n = the "Seeded Missing Book" row: "... was moved or renamed ..."
+$B press library.row.<n>.title && $B tap library.row.<n>.play && $B wait notice.banner  # n = the "Seeded Missing Book" row: "... was moved or renamed ..."
 # Following the banner's advice (#196): with -stubMovedImport, Import file relinks the book, and Play plays.
 $B launch -seedLibrary -seedMissingFile -stubMovedImport
 ```
@@ -84,7 +88,7 @@ removed), and the VoiceOver announcement.
 - **Only *Seeded Missing Book* shows the moved-file banner.** The other seeded books play the
   Debug fixture since #147, so screenshots of them carry no banner. Play on the stub LibriVox
   book still shows *Couldn't play this chapter* (its chapter is `/dev/null`).
-- The banner sits over the navigation bar while shown; it never moves content.
+- The banner sits over the large title (not the toolbar row) while shown; it never moves content.
 - `fileMissing` vs `playbackFailed` is decided by `checkResourceIsReachable()` on the book's URL
   at the time of the failure.
 - Logged only, not reported (pass 2 of #115): bookmark creation and resolution
