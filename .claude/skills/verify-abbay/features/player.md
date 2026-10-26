@@ -31,7 +31,10 @@ LibriVox page's Play all open it.
   [media row](media-row.md). On a short screen it shrinks, staying square, so the title, scrubber,
   transport and pills keep their room. While the panel grows, the overlay draws a growing copy of
   the cover (from the bar's 36 pt slot, radius 8 → 14, the shadow from half-way; or from the whole
-  tapped library cover) that lands exactly here, and the real cover is hidden until then.
+  tapped library cover) that lands exactly here, and the real cover is hidden until then. The
+  player reports the drawn square, not the up-to-360 pt frame around it, so on a screen where the
+  cover is narrower than 360 pt (iPhone 15: 345 pt) it doesn't land too tall and snap (#254). The
+  growing copy decodes its artwork once (`ArtworkView.decoded`), so it doesn't stutter on a device.
 - **title:** left-aligned. The title (`player.title`) in `.title3.bold()`, white, up to two lines
   (it no longer turns green while playing or slides). Under it, `PlayerSubtitle`: *author · Ch N
   of M* (pt-BR *Cap. N de M*), the author alone for a book with no chapters, the position alone
@@ -64,6 +67,7 @@ LibriVox page's Play all open it.
     `PlayerViewModel` (`PlayerDetailsModels`), so reopening book A never shows the previously
     followed book B.
 - **scrubbing:** `PlayerProgressView` over **book** time: a 6 pt capsule track with a white fill
+  clipped to the track's capsule (near the start it hugs the rounded end, no stray line; #256)
   (a white thumb while dragging), and under it the elapsed time, the **current chapter's name**
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the

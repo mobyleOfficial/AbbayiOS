@@ -65,4 +65,20 @@ final class ArtworkViewTests: XCTestCase {
         )
         XCTAssertNotNil(ArtworkView.image(from: png))
     }
+
+    /// The same cover is decoded once: re-rendering (every frame of the player's expansion) gets
+    /// the cached image back, even from a different `Data` with the same bytes (#254).
+    func test_image_isDecodedOnceAndReused() throws {
+        let png = try XCTUnwrap(
+            UIGraphicsImageRenderer(size: CGSize(width: 3, height: 5)).image { context in
+                UIColor.blue.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 3, height: 5))
+            }.pngData()
+        )
+        ArtworkView.decoded.removeAllObjects()
+        let first = try XCTUnwrap(ArtworkView.image(from: png))
+        let again = try XCTUnwrap(ArtworkView.image(from: Data(png)))
+        XCTAssertTrue(first === again)
+        XCTAssertNotNil(ArtworkView.decoded.object(forKey: png as NSData))
+    }
 }

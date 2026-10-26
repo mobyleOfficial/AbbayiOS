@@ -114,13 +114,16 @@ struct PlayerView: View {
             // A square as wide as the screen allows, smaller when the height runs short.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .opacity(hidesCover ? 0 : 1)
+            // Measured on the square that is drawn, not on the `coverSide` frame around it: when
+            // the height runs short, that frame is wider than the square, and the expansion's cover
+            // grew into it and then snapped down to the real cover as it settled (#254).
             .onGeometryChange(for: CGRect.self) { proxy in
                 proxy.frame(in: .named(Self.coordinateSpace))
             } action: { frame in
                 onCoverFrame?(frame)
             }
+            .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityHidden(true)
     }
