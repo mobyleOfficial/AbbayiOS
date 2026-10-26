@@ -20,11 +20,18 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
     /// Shown after `book` in Popular and in a "stub" search. Each has one 20-minute chapter, except
     /// the last (*Emma*, 24 chapters), whose page scrolls the big Download button away.
     let extras: [LibriVoxBook]
+    /// `-stubSlowLibriVox`: details come in two steps (see `details(for:onPreview:)`).
+    let isSlow: Bool
+    /// Long enough to be seen: XCUITest waits for the app to idle around each tap, and a shimmer
+    /// never idles.
+    static let archiveDelay: Duration = .seconds(5)
+    static let libriVoxDelay: Duration = .seconds(5)
 
     /// `coverURL` replaces the failing default (`-stubCovers` passes `UITestCoverNetwork.coverURL`).
     /// `isLarge` (`-stubDownloadStates`) gives the book three chapters and `largeSectionBytes` each,
     /// over the cellular threshold, so Download asks on a metered path and *Wait for Wi-Fi* holds it.
-    init(coverURL: URL? = nil, isLarge: Bool = false) {
+    init(coverURL: URL? = nil, isLarge: Bool = false, isSlow: Bool = false) {
+        self.isSlow = isSlow
         let titles = isLarge ? (1...3).map { "Stub Chapter \($0)" } : ["Stub Chapter"]
         let sections = titles.enumerated().map { index, title in
             LibriVoxBook.Section(
@@ -107,6 +114,37 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
             book: extra,
             sectionBytes: [Int64](repeating: Self.sectionBytes, count: extra.sections.count)
         )
+    }
+
+    /// Slow (`isSlow`): after `archiveDelay`, a preview with file-name titles and no description,
+    /// as archive.org alone gives; after `libriVoxDelay` more, the real details. Else at once.
+    func details(
+        for book: LibriVoxBook,
+        onPreview: @escaping @MainActor (LibriVoxBookDetails) -> Void
+    ) async throws -> LibriVoxBookDetails {
+        guard isSlow else { return try await details(for: book) }
+        let final = try await details(for: book)
+        try await Task.sleep(for: Self.archiveDelay)
+        let fileNamed = final.book.sections.enumerated().map { index, section in
+            LibriVoxBook.Section(
+                title: String(format: "%@_%02d_64kb", final.book.id, index + 1),
+                seconds: section.seconds,
+                listenURL: section.listenURL
+            )
+        }
+        let preview = LibriVoxBook(
+            id: final.book.id,
+            title: final.book.title,
+            authors: final.book.authors,
+            descriptionText: "",
+            language: final.book.language,
+            totalSeconds: final.book.totalSeconds,
+            coverURL: final.book.coverURL,
+            sections: fileNamed
+        )
+        await onPreview(LibriVoxBookDetails(book: preview, sectionBytes: final.sectionBytes))
+        try await Task.sleep(for: Self.libriVoxDelay)
+        return final
     }
 
     /// Under the 99 MB cellular threshold, so Download never asks about cellular, and with a

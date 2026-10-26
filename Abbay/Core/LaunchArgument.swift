@@ -53,6 +53,11 @@ enum LaunchArgument {
     /// With `stubCovers`: every cover request fails and the stub covers' disk cache is kept, so a
     /// cover can only come from disk (what an earlier `stubCovers` launch stored).
     static let stubCoversOffline = "-stubCoversOffline"
+    /// With `stubLibriVox`: a book's details arrive in two steps, like a slow LibriVox (#258).
+    /// "archive.org" answers after `UITestLibriVoxClient.archiveDelay` with file-name chapter titles
+    /// and no description, "LibriVox" `libriVoxDelay` later with the real ones; meanwhile the page
+    /// shimmers.
+    static let stubSlowLibriVox = "-stubSlowLibriVox"
     /// With `stubLibriVox`: the stub book has three chapters, 120 MB in all (over the cellular
     /// threshold), and the stub download manager publishes a state for every book it is given
     /// (first chapter downloaded, last failed, the rest waiting), so the download status ids can
@@ -84,6 +89,7 @@ enum LaunchArgument {
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
         seedCoverArt, seedArtwork, seedLastPlayed, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline,
+        stubSlowLibriVox,
         stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
         stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
     ]
