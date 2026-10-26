@@ -88,13 +88,15 @@ final class NoticeUITests: XCTestCase {
         XCTAssertTrue(banner.waitForExistence(timeout: 10), "no banner for a missing file")
         XCTAssertTrue(barPlay.waitForExistence(timeout: 10))
         assertLabel(of: barPlay, becomes: "Play")
-        XCTAssertEqual(LibraryGridActions.playbackItemLabel(in: app, cell: index), "Play")
         XCTAssertTrue(banner.waitForNonExistence(timeout: 15), "the banner did not dismiss itself")
 
         barPlay.tap()
 
         XCTAssertTrue(banner.waitForExistence(timeout: 10), "one tap on Play did not retry")
         assertLabel(of: barPlay, becomes: "Play")
+        // The cell's menu says Play too. Read last: opening and closing the menu first left the
+        // bar's next tap unanswered.
+        XCTAssertEqual(LibraryGridActions.playbackItemLabel(in: app, cell: index), "Play")
     }
 
     /// #196: what the moved-file banner asks for. `-stubMovedImport` imports *Seeded Missing Book*'s

@@ -57,9 +57,12 @@ enum LibraryGridActions {
         delete.tap()
     }
 
-    /// A tap at the top of the screen, off the menu, closes it.
+    /// A tap at the top of the screen, off the menu, closes it. The menu's dismissal animation
+    /// still holds the next touch for a moment, so this waits it out. Even so, a tap on the mini
+    /// player right after a menu was closed has gone unanswered: tests read a menu last.
     static func dismissMenu(in app: XCUIApplication, item: XCUIElement) {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
         _ = item.waitForNonExistence(timeout: 5)
+        sleep(1)
     }
 }
