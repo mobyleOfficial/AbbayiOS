@@ -58,11 +58,17 @@ struct PlayerProgressView: View {
                 let width = geometry.size.width
                 let fraction = Self.fraction(current: currentTime, total: totalTime)
                 ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(ColorConstants.white.value.opacity(0.2))
-                    Capsule()
-                        .fill(ColorConstants.white.value)
-                        .frame(width: width * fraction)
+                    // The fill is clipped to the track's capsule rather than being a capsule of its
+                    // own: a capsule only a few points wide is a 6 pt tall line, which stood outside
+                    // the track's rounded start near the beginning of a book.
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(ColorConstants.white.value.opacity(0.2))
+                        Rectangle()
+                            .fill(ColorConstants.white.value)
+                            .frame(width: width * fraction)
+                    }
+                    .clipShape(Capsule())
                     Circle()
                         .fill(ColorConstants.white.value)
                         .frame(side: Self.thumbSide)
