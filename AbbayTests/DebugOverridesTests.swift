@@ -111,7 +111,7 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 21, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 22, "a new launch argument belongs in `all`")
     }
 
     // MARK: - Stub download states and network path (#171)
@@ -132,6 +132,30 @@ final class DebugOverridesTests: XCTestCase {
             XCTAssertTrue(path.isOnline)
             XCTAssertTrue(path.isMetered, "Download must ask, so Wait for Wi-Fi can be chosen")
         }
+    }
+
+    func test_networkPath_offline_isNotOnline() throws {
+        let offline = try XCTUnwrap(DebugOverrides.networkPath(arguments: [LaunchArgument.stubPathOffline]))
+
+        XCTAssertEqual((offline as? UITestNetworkPath)?.snapshot, UITestNetworkPath.offline)
+        XCTAssertFalse(offline.isOnline)
+    }
+
+    /// Popular and a "stub" search list the stub book first, then the extras, whose details load.
+    func test_stubCatalog_listsTheStubBookFirst_thenExtrasWithDetails() async throws {
+        let client = try XCTUnwrap(DebugOverrides.libriVoxClient(arguments: [LaunchArgument.stubLibriVox]))
+
+        let popular = try await client.popular()
+        let results = try await client.search("Stub")
+        let none = try await client.search("zzzz")
+
+        XCTAssertEqual(popular.first?.id, "ui-test-stub")
+        XCTAssertGreaterThan(popular.count, 1)
+        XCTAssertEqual(results.map(\.id), popular.map(\.id))
+        XCTAssertTrue(none.isEmpty)
+        let extra = try XCTUnwrap(popular.last)
+        let details = try await client.details(for: extra)
+        XCTAssertEqual(details.book.id, extra.id)
     }
 
     func test_stubBook_withStubDownloadStates_isOverTheCellularThreshold() async throws {

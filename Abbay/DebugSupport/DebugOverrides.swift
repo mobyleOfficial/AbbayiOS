@@ -46,14 +46,15 @@ enum DebugOverrides {
         return nil
     }
 
-    /// A fixed network path, for `-stubPathCellular`, `-stubPathHotspot` or `-stubPathLowDataMode`
-    /// (the first one given wins).
+    /// A fixed network path, for `-stubPathCellular`, `-stubPathHotspot`, `-stubPathLowDataMode` or
+    /// `-stubPathOffline` (the first one given wins).
     static func networkPath(arguments: [String] = ProcessInfo.processInfo.arguments) -> NetworkPathProviding? {
         #if DEBUG
         let paths = [
             (LaunchArgument.stubPathCellular, UITestNetworkPath.cellular),
             (LaunchArgument.stubPathHotspot, UITestNetworkPath.hotspot),
-            (LaunchArgument.stubPathLowDataMode, UITestNetworkPath.lowDataMode)
+            (LaunchArgument.stubPathLowDataMode, UITestNetworkPath.lowDataMode),
+            (LaunchArgument.stubPathOffline, UITestNetworkPath.offline)
         ]
         if let match = paths.first(where: { arguments.contains($0.0) }) {
             return UITestNetworkPath(match.1)

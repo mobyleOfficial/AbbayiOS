@@ -8,8 +8,8 @@ import Combine
 import Foundation
 
 /// A network path that never changes, so a UI test can put the app on cellular, a Personal Hotspot
-/// or Low Data Mode Wi-Fi, which a simulator can't be. Enabled by `LaunchArgument.stubPathCellular`,
-/// `stubPathHotspot` and `stubPathLowDataMode`.
+/// or Low Data Mode Wi-Fi, which a simulator can't be, or offline. Enabled by
+/// `LaunchArgument.stubPathCellular`, `stubPathHotspot`, `stubPathLowDataMode` and `stubPathOffline`.
 final class UITestNetworkPath: NetworkPathProviding {
     let snapshot: NetworkPathSnapshot
 
@@ -25,6 +25,10 @@ final class UITestNetworkPath: NetworkPathProviding {
     )
     static let lowDataMode = NetworkPathSnapshot(
         isSatisfied: true, usesCellular: false, usesWiFi: true, isExpensive: false, isConstrained: true
+    )
+
+    static let offline = NetworkPathSnapshot(
+        isSatisfied: false, usesCellular: false, usesWiFi: false, isExpensive: false, isConstrained: false
     )
 
     var isMetered: Bool { snapshot.isMetered }

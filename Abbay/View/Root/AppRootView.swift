@@ -100,7 +100,7 @@ struct AppRootView: View {
     }
 
     private var searchTab: some View {
-        SearchTab(onAdded: { [model] in model.addLibriVoxBook($0) })
+        SearchTab(library: model, onAdded: { [model] in model.addLibriVoxBook($0) })
     }
 }
 
@@ -251,6 +251,10 @@ private struct TabBarIdentifiers: UIViewRepresentable {
 /// LibriVox search, pushing the details page for a card or a result. The pushed book is state
 /// here, not row-owned, so adding the book can't pop the page.
 private struct SearchTab: View {
+    /// Observed here, not at the root, so only this tab re-renders when the library changes: the
+    /// result rows say Open for a book that is already in it.
+    @ObservedObject
+    var library: MediaListViewModel
     let onAdded: (AudioModel) -> Void
 
     @Environment(PlayerPresentation.self)
@@ -260,7 +264,7 @@ private struct SearchTab: View {
 
     var body: some View {
         NavigationStack {
-            LibriVoxSearchView(onOpen: { openedBook = $0 })
+            LibriVoxSearchView(libraryBookIDs: libraryBookIDs, onOpen: { openedBook = $0 })
                 .modifier(TabBarHiddenWhilePlayerIsOpen())
                 .navigationDestination(item: $openedBook) { book in
                     LibriVoxDetailView(
@@ -271,6 +275,10 @@ private struct SearchTab: View {
                     .modifier(TabBarHiddenWhilePlayerIsOpen())
                 }
         }
+    }
+
+    private var libraryBookIDs: Set<String> {
+        Set(library.audioList.compactMap { LibriVoxIdentity.bookID(from: $0.url) })
     }
 }
 

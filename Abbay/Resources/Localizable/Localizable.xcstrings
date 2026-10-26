@@ -3050,6 +3050,132 @@
           }
         }
       }
+    },
+    "searchIdleTitle" : {
+      "comment" : "Search LibriVox: idle state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free audiobooks"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiolivros gratuitos"
+          }
+        }
+      }
+    },
+    "searchIdleMessage" : {
+      "comment" : "Search LibriVox: idle state message",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search thousands of public-domain audiobooks read by LibriVox volunteers."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busque milhares de audiolivros de domínio público lidos por voluntários do LibriVox."
+          }
+        }
+      }
+    },
+    "searchOfflineTitle" : {
+      "comment" : "Search LibriVox: offline state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem conexão"
+          }
+        }
+      }
+    },
+    "searchFailedTitle" : {
+      "comment" : "Search LibriVox: failure state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LibriVox unavailable"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LibriVox indisponível"
+          }
+        }
+      }
+    },
+    "searchNoResultsHint" : {
+      "comment" : "Search LibriVox: no results message",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the spelling or try a new search."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confira a ortografia ou tente outra busca."
+          }
+        }
+      }
+    },
+    "getBook" : {
+      "comment" : "Search result pill for a book not in the library; opens its page",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GET"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBTER"
+          }
+        }
+      }
+    },
+    "openBook" : {
+      "comment" : "Search result pill for a book already in the library; opens its page",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OPEN"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABRIR"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

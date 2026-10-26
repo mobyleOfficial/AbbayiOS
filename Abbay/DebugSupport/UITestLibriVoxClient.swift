@@ -7,14 +7,19 @@
 import Foundation
 
 /// Answers LibriVox requests from memory, so UI tests that exercise the search never touch the
-/// network. Enabled by `LaunchArgument.stubLibriVox`. Popular is the one book and only a query containing
-/// "stub" finds a book, so every other query still reaches the "no results" state.
+/// network. Enabled by `LaunchArgument.stubLibriVox`. Popular is the stub book first, then a few
+/// public-domain titles of different lengths (`extras`), so the grid's uniform cells can be seen.
+/// Only a query containing "stub" finds books (the stub book first, then the extras), so every other
+/// query still reaches the "no results" state.
 struct UITestLibriVoxClient: LibriVoxClientProtocol {
     /// A file URL, which the cover loader's host allowlist refuses, so the cover fails.
     static let failingCoverURL = URL(fileURLWithPath: "/dev/null/cover.jpg")
 
     let book: LibriVoxBook
     let sectionBytes: [Int64]
+    /// Shown after `book` in Popular and in a "stub" search. Each has one 20-minute chapter, except
+    /// the last (*Emma*, 24 chapters), whose page scrolls the big Download button away.
+    let extras: [LibriVoxBook]
 
     /// `coverURL` replaces the failing default (`-stubCovers` passes `UITestCoverNetwork.coverURL`).
     /// `isLarge` (`-stubDownloadStates`) gives the book three chapters and `largeSectionBytes` each,
@@ -40,17 +45,68 @@ struct UITestLibriVoxClient: LibriVoxClientProtocol {
             sections: sections
         )
         sectionBytes = [Int64](repeating: isLarge ? Self.largeSectionBytes : Self.sectionBytes, count: sections.count)
+        extras = Self.extraTitles.enumerated().map { index, entry in
+            let id = "ui-test-extra-\(index + 1)"
+            // With `-stubCovers` every archive.org cover is answered; otherwise they all fail.
+            let cover = coverURL == nil ? nil : URL(string: "https://archive.org/services/img/\(id)")
+            let sections = (1...entry.chapters).map { number in
+                LibriVoxBook.Section(
+                    title: entry.chapters == 1 ? "Chapter 1" : Self.chapterTitles[number % Self.chapterTitles.count],
+                    seconds: 1200,
+                    listenURL: URL(fileURLWithPath: "/dev/null/\(id)_\(number).mp3")
+                )
+            }
+            return LibriVoxBook(
+                id: id,
+                title: entry.title,
+                authors: entry.author,
+                descriptionText: "A public-domain title the UI-test catalog lists after the stub book.",
+                language: entry.language,
+                totalSeconds: 1200 * Double(sections.count),
+                coverURL: cover ?? Self.failingCoverURL,
+                sections: sections
+            )
+        }
     }
+
+    private struct ExtraTitle {
+        let title: String
+        let author: String
+        let language: String
+        var chapters = 1
+    }
+
+    /// The long extra's chapter titles, one long enough to wrap onto a second line.
+    private static let chapterTitles = [
+        "In Which Emma Resolves to Find a Match for Her Friend Harriet Smith",
+        "Mr. Knightley",
+        "A Visit to Randalls",
+        "Box Hill"
+    ]
+
+    private static let extraTitles = [
+        ExtraTitle(title: "The Adventures of Sherlock Holmes", author: "Arthur Conan Doyle", language: "eng"),
+        ExtraTitle(title: "Pride and Prejudice", author: "Jane Austen", language: "eng"),
+        ExtraTitle(title: "Frankenstein, or the Modern Prometheus", author: "Mary Shelley", language: "eng"),
+        ExtraTitle(title: "Dom Casmurro", author: "Machado de Assis", language: "por"),
+        ExtraTitle(title: "Emma", author: "Jane Austen", language: "eng", chapters: 24)
+    ]
 
     func search(_ query: String) async throws -> [LibriVoxBook] {
-        query.range(of: "stub", options: .caseInsensitive) == nil ? [] : [book]
+        query.range(of: "stub", options: .caseInsensitive) == nil ? [] : [book] + extras
     }
 
-    func popular() async throws -> [LibriVoxBook] { [book] }
+    func popular() async throws -> [LibriVoxBook] { [book] + extras }
 
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails {
-        guard book.id == self.book.id else { throw URLError(.unsupportedURL) }
-        return LibriVoxBookDetails(book: self.book, sectionBytes: sectionBytes)
+        if book.id == self.book.id {
+            return LibriVoxBookDetails(book: self.book, sectionBytes: sectionBytes)
+        }
+        guard let extra = extras.first(where: { $0.id == book.id }) else { throw URLError(.unsupportedURL) }
+        return LibriVoxBookDetails(
+            book: extra,
+            sectionBytes: [Int64](repeating: Self.sectionBytes, count: extra.sections.count)
+        )
     }
 
     /// Under the 99 MB cellular threshold, so Download never asks about cellular, and with a
