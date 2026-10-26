@@ -7,10 +7,14 @@ import Observation
 import SwiftUI
 
 /// The one presentation of the details screen: a single panel above the tabs whose frame grows
-/// from the mini player's frame to the full screen as `PlayerPresentation.progress` goes 0 → 1.
+/// from where it was opened (`PlayerPresentation.origin`: the mini player's frame, or the tapped
+/// library cover, #241) to the full screen as `PlayerPresentation.progress` goes 0 → 1.
 ///
-/// - The corner radius goes from the bar's to 0; the cover grows from the bar's 40 pt to the
-///   details screen's, and moves with the content.
+/// - The corner radius goes from the bar's (or the cover's) to 0; the cover grows from the bar's
+///   36 pt slot, or from the whole tapped cover, to the details screen's, and moves with the
+///   content.
+/// - An open from closed puts the panel on screen at 0 first and springs once it is there
+///   (`PlayerPresentation.stageDidAppear`), so a tap animates like the drag instead of snapping.
 /// - The bar's face fades out over the first 30%; the details screen fades in over the last 70%.
 /// - The bar's drag up (`MiniPlayerView`) and this panel's drag down (its grabber header, its
 ///   cover, or anywhere on it while it's moving) write `progress` live; a release settles with
@@ -112,9 +116,9 @@ struct PlayerExpansionOverlay: View {
 private enum ExpansionMetrics {
     /// The grabber header above the details screen.
     static let headerHeight: CGFloat = SpaceConstants.sx44.value
-    /// The bar's cover and its corner radius, where the growing cover starts.
-    static let barCoverSide: CGFloat = SpaceConstants.sx40.value
-    static let barCoverRadius: CGFloat = SpaceConstants.sx4.value
+    /// The bar's cover radius, where the growing cover starts (its slot is
+    /// `MiniPlayerMetrics.coverSlot`).
+    static let barCoverRadius: CGFloat = MiniPlayerMetrics.coverRadius
     /// The hand-built dock's corner radius (the accessory is a capsule).
     static let dockCornerRadius: CGFloat = SpaceConstants.sx8.value
 }
@@ -293,13 +297,17 @@ private struct ExpansionStage<Details: View>: View {
             screen: screen,
             insets: insets,
             startFrame: ExpansionMath.startFrame(bar: presentation.expansionStart, screen: screen),
-            startsFromBar: presentation.expansionStart != nil,
+            origin: presentation.origin,
             isFullyOpen: presentation.isFullyOpen,
             geometry: geometry,
             presentation: presentation,
             drag: drag,
             details: details
         )
+        .onAppear {
+            // On screen at 0: an open waiting for this starts its spring now.
+            presentation.stageDidAppear()
+        }
     }
 }
 
@@ -315,7 +323,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
     let insets: EdgeInsets
     /// Animatable too: a start taken late (the bar coming back to rest) eases in.
     var startFrame: CGRect
-    let startsFromBar: Bool
+    let origin: ExpansionOrigin
     let isFullyOpen: Bool
     let geometry: ExpansionGeometry
     let presentation: PlayerPresentation
@@ -339,9 +347,15 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
     /// The system tab bar's accessory (iOS 26.1+) is a capsule; the hand-built dock is rounded.
     private var startsInAccessory: Bool {
-        guard startsFromBar else { return false }
+        guard origin.isBar else { return false }
         if #available(iOS 26.1, *) { return true }
         return false
+    }
+
+    /// The panel's corner radius at 0: the tapped cover's, the capsule's or the dock's.
+    private var startRadius: CGFloat {
+        if let radius = origin.coverRadius { return radius }
+        return startsInAccessory ? startFrame.height / 2 : ExpansionMetrics.dockCornerRadius
     }
 
     var body: some View {
@@ -351,7 +365,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             progress: fraction,
             startFrame: startFrame,
             screen: screen,
-            startRadius: startsInAccessory ? startFrame.height / 2 : ExpansionMetrics.dockCornerRadius,
+            startRadius: startRadius,
             reduceMotion: reduceMotion
         )
 
@@ -409,8 +423,8 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
                 // Only once settled: while moving, its off-panel parts must not take touches.
                 .allowsHitTesting(isFullyOpen)
             // Only while visible: its subtitle and progress line read the clock, which must not
-            // tick under the open details screen.
-            if barOpacity > 0 {
+            // tick under the open details screen. Not from a cover: the panel starts as the cover.
+            if barOpacity > 0, origin.coverRadius == nil {
                 MiniPlayerFace(book: art, isAccessory: startsInAccessory)
                     .frame(width: startFrame.width, height: startFrame.height)
                     .offset(x: startFrame.minX - frame.minX)
@@ -442,34 +456,40 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
     // MARK: Cover
 
-    /// The cover, drawn here while the panel moves so it can grow from the bar's 40 pt. Settled
+    /// The cover, drawn here while the panel moves so it can grow from the bar's slot (or the
+    /// tapped cover, which it starts as: the cell's cover flies into the player's). Settled
     /// open, the details screen draws its own (which follows a book switch), and this stays as
     /// a transparent handle over it.
     private func cover(frame: CGRect, startFrame: CGRect, fraction: CGFloat) -> some View {
         let target = geometry.coverFrame ?? defaultCoverFrame
         let art = model.book
-        let side = ExpansionMetrics.barCoverSide
-        let leading = startsInAccessory ? SpaceConstants.sx12.value : SpaceConstants.sx8.value
         // Interpolated in the panel's own coordinates, so the cover rides with the panel's top edge
         // (like the bar's face and the details screen) instead of lagging at the bottom: from the
-        // bar's cover slot to where the details screen lays it out (its x is the screen's).
+        // bar's cover slot (or the whole tapped cover) to where the details screen lays it out (its
+        // x is the screen's).
+        let slot = ExpansionMath.coverSlot(
+            origin: origin,
+            startFrame: startFrame,
+            barSlot: MiniPlayerMetrics.coverSlot(in: startFrame.size)
+        )
         let rect = ExpansionMath.coverFrame(
             progress: fraction,
-            barSlot: CGRect(x: leading, y: (startFrame.height - side) / 2, width: side, height: side),
+            barSlot: slot,
             target: target,
             panelFrame: frame,
             reduceMotion: reduceMotion
         )
         let radius = ExpansionMath.coverRadius(
             progress: fraction,
-            from: ExpansionMetrics.barCoverRadius,
+            from: origin.coverRadius ?? ExpansionMetrics.barCoverRadius,
             to: PlayerView.coverRadius,
             reduceMotion: reduceMotion
         )
         return ZStack {
             if !isFullyOpen {
-                // The shadow arrives with the cover's size, so the bar's small cover has none.
-                ArtworkView(book: art, cornerRadius: radius, shadow: fraction > 0.5)
+                // The shadow arrives with the cover's size, so the bar's small cover has none; a
+                // library cover has its own from the start.
+                ArtworkView(book: art, cornerRadius: radius, shadow: fraction > 0.5 || origin.coverRadius != nil)
             }
             Color.clear
                 .contentShape(Rectangle())
@@ -586,7 +606,7 @@ private struct MiniPlayerFace: View {
         if playback.loadedBook?.url == book.url {
             HStack(spacing: SpaceConstants.sx12.value) {
                 Color.clear
-                    .frame(side: SpaceConstants.sx40.value)
+                    .frame(side: MiniPlayerMetrics.coverSide)
                 VStack(alignment: .leading, spacing: SpaceConstants.sx2.value) {
                     Text(book.title)
                         .font(.system(size: 13, weight: .semibold))
@@ -601,8 +621,8 @@ private struct MiniPlayerFace: View {
                     .frame(side: SpaceConstants.sx20.value)
                     .padding(SpaceConstants.sx12.value)
             }
-            .padding(.leading, isAccessory ? SpaceConstants.sx12.value : SpaceConstants.sx8.value)
-            .padding(.trailing, isAccessory ? SpaceConstants.sx8.value : SpaceConstants.sx4.value)
+            .padding(.leading, MiniPlayerMetrics.leading)
+            .padding(.trailing, MiniPlayerMetrics.trailing(isAccessory: isAccessory))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundColor(ColorConstants.white.value)
             .overlay(alignment: .bottom) {

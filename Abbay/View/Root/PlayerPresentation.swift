@@ -12,10 +12,14 @@ enum RootTab: Hashable {
     case search
 }
 
-/// The one place that presents the details screen (`PlayerView`). A Library row tap, the bar tap
-/// and the LibriVox details page's Play all call `open`; the bar's drag up and the details
-/// screen's drag down go through `beginInteractive` / `updateInteractive` / `endInteractive`.
-/// Nothing presents the player as a sheet.
+/// The one place that presents the details screen (`PlayerView`). A Library cell or Continue card
+/// tap, the bar tap and the LibriVox details page's Play all call `open`; the bar's drag up and the
+/// details screen's drag down go through `beginInteractive` / `updateInteractive` /
+/// `endInteractive`. Nothing presents the player as a sheet.
+///
+/// An open grows from where the tap happened (#241): the tapped cover (`open(_:animated:from:)`
+/// with the cover's `ExpansionSourceID`, whose frame the cover reports), else the bar, else the
+/// bottom strip; the close lands back there (`ExpansionMath.origin`).
 ///
 /// Only the expansion overlay's leaves read `progress` and `expansionStart`. The root that owns
 /// the tabs, and the bar that carries the drag, must not: a drag that writes them would rebuild
@@ -35,11 +39,15 @@ final class PlayerPresentation {
     /// The bar's global frame, written by the bar every time it moves (including each frame of
     /// its insertion transition). The overlay never reads it: it reads `expansionStart`.
     private(set) var barFrame: CGRect?
-    /// Where the expansion grows from and collapses back to: the bar's frame, taken once when an
-    /// open starts while the bar is visible, or nil for the 56 pt strip along the bottom edge.
-    /// Snapshotted rather than tracked, because the bar moves while the screen is open (the
-    /// accessory slides down with the hidden tab bar, about 70 pt).
-    private(set) var expansionStart: CGRect?
+    /// Where the expansion grows from and collapses back to: the tapped cover, the bar's frame
+    /// (taken once when an open starts while the bar is visible), or the 56 pt strip along the
+    /// bottom edge. Snapshotted rather than tracked, because the bar moves while the screen is open
+    /// (the accessory slides down with the hidden tab bar, about 70 pt). A close re-reads the
+    /// cover's frame, and lands on the bar instead once the cover is off screen.
+    private(set) var origin: ExpansionOrigin = .bottomStrip
+
+    /// The origin's frame: nil for the bottom strip.
+    var expansionStart: CGRect? { origin.frame }
 
     /// The progress on screen, written by the overlay on every frame it draws (an animated
     /// `progress` is already at its target in the model). A drag that grabs the screen mid-spring
@@ -77,6 +85,17 @@ final class PlayerPresentation {
     @ObservationIgnored private var restingCheck = 0
     /// How long the bar's frame must stay unchanged to count as resting.
     static let barRestDelay: Duration = .milliseconds(150)
+    /// The covers that can be tapped to open the player, by where they are (a cell, the Continue
+    /// card), with their latest global frames. Written as they scroll, read only when an open or a
+    /// close starts.
+    @ObservationIgnored private var sourceCovers: [ExpansionSourceID: ExpansionCover] = [:]
+    /// The cover this presentation grew from, while the collapse should land on it.
+    @ObservationIgnored private var source: ExpansionSourceID?
+    /// An animated open from closed, waiting for the panel to be on screen at 0 (`stageDidAppear`).
+    @ObservationIgnored private var pendingOpen: Int?
+    /// How long a pending open waits for the panel before it settles anyway (nothing renders it:
+    /// off screen, unit tests).
+    static let pendingOpenFallback: Duration = .milliseconds(100)
     /// The drag in flight, if any, and the progress it started from (for `cancelInteractive`).
     @ObservationIgnored private var interaction: (id: Int, startProgress: CGFloat)?
     /// Tells whether the bar is visible (a book is loaded) when an open starts. Optional so
@@ -99,26 +118,54 @@ final class PlayerPresentation {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    func open(_ book: AudioModel, animated: Bool) {
+    /// Opens the details screen on `book`. `source` is the cover that was tapped (a library cell,
+    /// the Continue card): the screen grows out of it and the close returns to it. Without one (the
+    /// bar, a LibriVox page's Play) it grows from the bar, or the bottom strip.
+    func open(_ book: AudioModel, animated: Bool, from source: ExpansionSourceID? = nil) {
         generation += 1
         interaction = nil
+        pendingOpen = nil
         awaitingRestingBar = false
         landsOnMovingBar = false
-        if presentedBook == nil {
+        let startsPresentation = presentedBook == nil
+        if startsPresentation {
             presentationID += 1
             dismissKeyboard()
+            self.source = source
             snapshotExpansionStart()
         }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
         if presentedBook == nil || presentedBook?.url != book.url { presentedBook = book }
-        settleOpen(animated: animated)
+        guard startsPresentation, animated else {
+            settleOpen(animated: animated)
+            return
+        }
+        // This change inserts the panel. A progress set in the same update would be drawn at its
+        // target straight away, with nothing to animate from: the snap of #241. The panel goes on
+        // screen at 0 and the spring starts once it is there.
+        renderedProgress = 0
+        let current = generation
+        pendingOpen = current
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.pendingOpenFallback)
+            guard let self, pendingOpen == current else { return }
+            startPendingOpen()
+        }
+    }
+
+    /// The panel is on screen (at progress 0): an open waiting for it starts its spring now.
+    func stageDidAppear() {
+        guard pendingOpen != nil, pendingOpen == generation else { return }
+        startPendingOpen()
     }
 
     func close(animated: Bool) {
         generation += 1
         interaction = nil
+        pendingOpen = nil
         let current = generation
         setFullyOpen(false)
+        if retargetCollapse() { awaitingRestingBar = true }
         if awaitingRestingBar { landOnMovingBar() }
         guard animated else {
             set(progress: 0, animated: false, completion: nil)
@@ -138,15 +185,17 @@ final class PlayerPresentation {
     /// the tab bar come back if it was settled open. Nil when there is nothing to present.
     func beginInteractive(_ book: AudioModel? = nil) -> InteractiveStart? {
         generation += 1
+        pendingOpen = nil
         landsOnMovingBar = false
         if presentedBook == nil {
             guard let book else { return nil }
             presentationID += 1
             dismissKeyboard()
+            source = nil
             snapshotExpansionStart()
             presentedBook = book
             renderedProgress = 0
-        } else if expansionStart == nil, playback?.loadedBook != nil {
+        } else if retargetCollapse() || (expansionStart == nil && playback?.loadedBook != nil) {
             // Opened with no bar (the bottom strip), and a book was loaded meanwhile (Play pressed
             // while open): the collapse lands on the real bar. Its last frame counts only if it
             // was reported at rest; otherwise wait for the bar to come back with the tab bar and
@@ -162,7 +211,11 @@ final class PlayerPresentation {
         stop(at: current)
         let start = ExpansionMath.startFrame(bar: expansionStart, screen: screenSize)
         interaction = (generation, current)
-        return InteractiveStart(progress: current, travel: start.minY, id: generation)
+        return InteractiveStart(
+            progress: current,
+            travel: ExpansionMath.travel(startFrame: start, screen: screenSize),
+            id: generation
+        )
     }
 
     /// Whether the interaction `id` is still the one in flight. A drag whose interaction ended
@@ -216,7 +269,7 @@ final class PlayerPresentation {
         barFrameIsResting = !isFullyOpen
         guard awaitingRestingBar, !isFullyOpen else { return }
         if landsOnMovingBar {
-            expansionStart = frame
+            origin = .bar(frame)
         } else {
             scheduleRestingSnapshot()
         }
@@ -224,6 +277,17 @@ final class PlayerPresentation {
 
     func reportScreenSize(_ size: CGSize) {
         if screenSize != size { screenSize = size }
+    }
+
+    /// A tappable cover's global frame (a library cell's, the Continue card's), reported as it
+    /// moves. Not observed: only an open or a close reads it.
+    func reportSourceCover(_ cover: ExpansionCover, for id: ExpansionSourceID) {
+        if sourceCovers[id] != cover { sourceCovers[id] = cover }
+    }
+
+    /// The cover left the screen (a lazy cell scrolled away, the card hidden by a search).
+    func removeSourceCover(for id: ExpansionSourceID) {
+        sourceCovers[id] = nil
     }
 
     // MARK: - Private
@@ -236,11 +300,40 @@ final class PlayerPresentation {
         }
     }
 
-    /// The bar is visible while a book is loaded (the screen isn't settled open when an open
-    /// starts). Without it, the expansion grows from the bottom strip.
+    private func startPendingOpen() {
+        pendingOpen = nil
+        settleOpen(animated: true)
+    }
+
+    /// The bar is visible while a book is loaded and its frame was reported at rest (the screen
+    /// isn't settled open when an open starts).
+    private var restingBar: CGRect? {
+        playback?.loadedBook != nil && barFrameIsResting ? barFrame : nil
+    }
+
+    /// The tapped cover while it is on screen, else the bar, else the bottom strip.
     private func snapshotExpansionStart() {
-        let start = playback?.loadedBook != nil && barFrameIsResting ? barFrame : nil
-        if expansionStart != start { expansionStart = start }
+        let cover = source.flatMap { sourceCovers[$0] }
+        let start = ExpansionMath.origin(cover: cover, bar: restingBar, screen: screenSize)
+        if start.coverRadius == nil { source = nil }
+        if origin != start { origin = start }
+    }
+
+    /// A collapse of a presentation that grew from a cover heads back to it, at its latest frame,
+    /// while it is on screen. Once it is gone (scrolled away, deleted, the Continue card now showing
+    /// another book) the collapse lands on the bar, or the strip. Returns true when it fell back
+    /// to the strip with a book loaded: the bar is coming back with the tab bar, so the caller
+    /// waits for it to rest (as for a presentation opened without a bar).
+    private func retargetCollapse() -> Bool {
+        guard let source else { return false }
+        let target = ExpansionMath.origin(cover: sourceCovers[source], bar: restingBar, screen: screenSize)
+        if target.coverRadius == nil { self.source = nil }
+        if origin != target {
+            withAnimation(.easeOut(duration: 0.25)) {
+                origin = target
+            }
+        }
+        return target == .bottomStrip && playback?.loadedBook != nil
     }
 
     /// Takes the bar's frame as the start once it stops changing (its insertion and the tab bar's
@@ -254,7 +347,7 @@ final class PlayerPresentation {
                   !isFullyOpen, let frame = barFrame else { return }
             awaitingRestingBar = false
             withAnimation(.easeOut(duration: 0.25)) {
-                expansionStart = frame
+                origin = .bar(frame)
             }
         }
     }
@@ -266,7 +359,7 @@ final class PlayerPresentation {
         restingCheck += 1
         guard barFrameIsResting, let frame = barFrame, expansionStart != frame else { return }
         withAnimation(.easeOut(duration: 0.25)) {
-            expansionStart = frame
+            origin = .bar(frame)
         }
     }
 
@@ -288,6 +381,7 @@ final class PlayerPresentation {
 
     private func clearBook() {
         awaitingRestingBar = false
+        source = nil
         landsOnMovingBar = false
         if presentedBook != nil { presentedBook = nil }
     }
