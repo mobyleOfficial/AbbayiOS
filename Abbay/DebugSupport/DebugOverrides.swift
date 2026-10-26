@@ -39,7 +39,8 @@ enum DebugOverrides {
             let stubsCovers = arguments.contains(LaunchArgument.stubCovers)
             return UITestLibriVoxClient(
                 coverURL: stubsCovers ? UITestCoverNetwork.coverURL : nil,
-                isLarge: arguments.contains(LaunchArgument.stubDownloadStates)
+                isLarge: arguments.contains(LaunchArgument.stubDownloadStates),
+                isSlow: arguments.contains(LaunchArgument.stubSlowLibriVox)
             )
         }
         #endif

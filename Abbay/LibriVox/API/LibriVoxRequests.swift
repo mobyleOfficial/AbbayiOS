@@ -19,8 +19,11 @@ enum LibriVoxRequests {
     /// Everything the mapping needs, and nothing else: `extended=1` without `fields` is slow.
     /// `description` is LibriVox's summary, which reads better than archive.org's boilerplate.
     static let feedFields = "{id,url_iarchive,sections,description}"
-    /// The feed only improves chapter titles, so the details page never waits long for it.
-    static let feedTimeout: TimeInterval = 5
+    /// The feed only improves chapter titles and the description. The details page shows
+    /// archive.org's version meanwhile (#258), so this can outwait a slow feed (an author query
+    /// measured 2 to 11 s): an answer that arrives is cached, where a timeout is asked again on
+    /// every open.
+    static let feedTimeout: TimeInterval = 20
 
     /// Most-downloaded first, for both search and popular.
     static func archiveSearch(query: String, rows: Int) -> NetworkRequest {

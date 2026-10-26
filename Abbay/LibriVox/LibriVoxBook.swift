@@ -25,6 +25,9 @@ struct LibriVoxBook: Hashable, Identifiable, Codable {
     /// `https://archive.org/services/img/<id>`
     let coverURL: URL
     let sections: [Section]
+    /// archive.org's first creator, as the LibriVox lookup needs it ("Melville, Herman"); `authors`
+    /// joins every creator, so it can't be split back. Nil in lists cached before 1.0.3.
+    var creator: String?
 
     struct Section: Hashable, Codable {
         let title: String
@@ -73,7 +76,8 @@ extension LibriVoxBook {
             language: doc.languages.first ?? "",
             totalSeconds: 0,
             coverURL: coverURL,
-            sections: []
+            sections: [],
+            creator: doc.creators.first
         )
     }
 }

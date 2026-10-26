@@ -31,6 +31,20 @@ final class MockLibriVoxClient: LibriVoxClientProtocol {
         return try detailsResult.get()
     }
 
+    /// Sent through `onPreview` before the final details, when set (#258).
+    var previewDetails: LibriVoxBookDetails?
+    /// While true, the final details wait, after the preview: LibriVox is still answering.
+    var holdsFinal = false
+
+    func details(
+        for book: LibriVoxBook,
+        onPreview: @escaping @MainActor (LibriVoxBookDetails) -> Void
+    ) async throws -> LibriVoxBookDetails {
+        if let previewDetails { await onPreview(previewDetails) }
+        while holdsFinal { try? await Task.sleep(for: .milliseconds(5)) }
+        return try await details(for: book)
+    }
+
     func coverData(for book: LibriVoxBook) async -> Data? {
         coverResult
     }

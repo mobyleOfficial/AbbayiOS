@@ -9,6 +9,12 @@ import os
 @MainActor
 final class LibriVoxDetailViewModel: ObservableObject {
     @Published private(set) var details: LibriVoxBookDetails?
+    /// True while the page shows archive.org's version and LibriVox's chapter titles and
+    /// description are still on their way (#258): those shimmer meanwhile.
+    @Published private(set) var isAwaitingLibriVox = false
+    /// Download was tapped while `isAwaitingLibriVox`: it starts once the final chapters are in,
+    /// so the saved book never keeps the file-name titles LibriVox was about to replace.
+    @Published private(set) var isDownloadPending = false
     @Published private(set) var loadFailed = false
     /// Non-nil once Download was confirmed and the book was saved.
     @Published private(set) var addedBook: AudioModel?
@@ -74,18 +80,34 @@ final class LibriVoxDetailViewModel: ObservableObject {
     /// The size shown on the page and used by the cellular policy.
     var totalBytes: Int64 { details?.totalBytes ?? 0 }
 
+    /// Shows archive.org's version as soon as it arrives, then LibriVox's.
     func load() async {
         loadFailed = false
+        defer {
+            isAwaitingLibriVox = false
+            if isDownloadPending {
+                isDownloadPending = false
+                if details != nil { downloadTapped() }
+            }
+        }
         do {
-            details = try await client.details(for: book)
+            details = try await client.details(for: book) { [weak self] preview in
+                guard let self else { return }
+                details = preview
+                isAwaitingLibriVox = true
+            }
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, details == nil else { return }
             loadFailed = true
         }
     }
 
     func downloadTapped() {
         guard let details, addedBook == nil, !isStarting else { return }
+        if isAwaitingLibriVox {
+            isDownloadPending = true
+            return
+        }
         let decision = CellularDownloadPolicy.decide(
             totalBytes: details.totalBytes,
             isMetered: path.isMetered,

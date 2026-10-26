@@ -50,6 +50,7 @@ enum Localizable: String {
     case hotspotHoldWaiting
     case downloadingHeld
     case detailsFailed
+    case loading
     case retry
     case rowChapter
     case rowTimeLeft

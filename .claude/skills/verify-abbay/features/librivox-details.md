@@ -6,10 +6,22 @@ once the book is in the library. The only way to add a LibriVox book.
 
 ## Sub-features
 
-- **load:** `.task` calls `client.details(for:)` (archive.org item metadata, plus chapter titles from
-  the LibriVox API when the item matches one). While loading it shows a `ProgressView`; on failure
-  *"Couldn't load this book."* and a glass **Retry** button (`abbayGlassButton()`, `detail.retry`)
-  that reloads.
+- **load (#258):** `.task` calls `client.details(for:onPreview:)`. The page fills in three phases.
+  1. **At once,** from the search result: cover, title and author. Everything else shimmers (`ShimmerBar`, a still `onyx` bar with Reduce Motion):
+     - the size line (`detail.metadata.loading`);
+     - the description (`detail.description.loading`);
+     - a card of six placeholder rows (`detail.chapters.loading`);
+     - Download is disabled.
+  2. **archive.org answered** (item metadata, about 1 s): the duration, chapter count, size and Download are final. LibriVox's part still shimmers:
+     - the chapter titles (`detail.chapter.<n>.titleLoading`; numbers and durations are shown);
+     - the description.
+  3. **LibriVox answered:** its chapter titles and description replace the shimmer.
+  How the requests behave:
+  - **Parallel lookup:** the LibriVox lookup starts with the archive.org request, from the search result's `creator`, not after it.
+  - **Timeout:** the LibriVox feed's timeout is 20 s (was 5 s, which made Dickens or Twain pages time out and retry on every open). An answer is cached for 7 days.
+  - **Without LibriVox:** if it can't be reached, the file-name titles stay.
+  - **Download while waiting:** tapping it shows a spinner, and the download starts with LibriVox's titles once they arrive.
+  - **On failure** (archive.org): *"Couldn't load this book."* and a glass **Retry** button (`abbayGlassButton()`, `detail.retry`) that reloads.
 - **background (#166 G5):** the cover's tint (`CoverTint.color(for:)` on the cover's bytes from
   `AsyncImageLoader.coverData(for:)`, the same load the artwork uses) at the top, fading into the
   app background by about the middle of the screen. It stays put while the page scrolls. A cover
@@ -166,6 +178,22 @@ $B wait cover.loading && $B wait cover.loaded
 $B launch -seedLibrary -stubLibriVox -stubCovers -stubCoversOffline   # only disk can answer
 $B tap root.tab.search && $B tap search.card.0 && $B wait cover.loaded
 ```
+
+The slow-LibriVox phases (#258). `-stubSlowLibriVox` makes the stub answer "archive.org" after 5 s with
+file-name titles and no description, then "LibriVox" 5 s later:
+
+```bash
+$B launch -seedLibrary -stubLibriVox -stubSlowLibriVox
+$B tap root.tab.search && $B tap search.card.0
+$B wait detail.metadata.loading && $B wait detail.chapters.loading       # phase 1
+$B wait detail.chapter.0.titleLoading && $B wait detail.description.loading   # phase 2
+$B tap detail.download                                                    # waits, spinner
+$B wait detail.play                                                       # phase 3, then added
+```
+
+`LibriVoxSearchUITests.test_bookPage_onASlowLibriVox_shimmersUntilItsTitlesArrive` checks this.
+XCUITest waits for the app to idle around a tap, and a shimmer never idles, so each phase is several
+seconds long in the stub.
 
 Shared downloads, the disk cache's size bound and the allowlist's host matching are unit-tested in
 `AsyncImageLoaderTests` and `CoverDiskCacheTests`. The Popular card's and search row's covers have

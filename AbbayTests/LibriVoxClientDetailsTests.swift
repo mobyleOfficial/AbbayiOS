@@ -204,7 +204,8 @@ final class LibriVoxClientDetailsTests: LibriVoxClientTestCase {
 
         let feed = network.requests.filter { $0.endpoint == LibriVoxRequests.feedEndpoint }
         XCTAssertEqual(feed.count, 1)
-        XCTAssertEqual(feed.first?.timeoutInterval, 5)
+        // Long enough to outwait a slow feed: the page shows archive.org's version meanwhile (#258).
+        XCTAssertEqual(feed.first?.timeoutInterval, 20)
 
         XCTAssertEqual(details.book.sections.first?.title, "wonderland_ch_01")
         let detailsKey = LibriVoxClient.detailsKey("alice_in_wonderland_librivox")

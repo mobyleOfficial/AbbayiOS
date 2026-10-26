@@ -74,6 +74,11 @@ struct ChapterListView: View {
     var onSelect: ((Int) -> Void)?
     /// A failed chapter's status becomes a retry button, with this identifier, only when set.
     var retry: (identifier: (Int) -> String, action: (Int) -> Void)?
+    /// The titles are about to change (the LibriVox page, while LibriVox answers, #258): each
+    /// title is a shimmering bar; the numbers and durations stay.
+    var titlesLoading = false
+    /// The shimmering title's identifier, by row, while `titlesLoading`.
+    var titleLoadingIdentifier: ((Int) -> String)?
 
     /// The leading column (number or ▶︎), wide enough for "999" at the current text size.
     @ScaledMetric(relativeTo: .subheadline)
@@ -291,12 +296,7 @@ struct ChapterListView: View {
         return HStack(alignment: .firstTextBaseline, spacing: SpaceConstants.sx12.value) {
             leadingMark(index, state: state)
             VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
-                Text(chapter.title)
-                    .font(.subheadline.weight(state == .current ? .semibold : .regular))
-                    .foregroundColor(Self.titleColor(state))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                title(chapter, at: index, state: state)
                 if state == .current, let currentProgress {
                     progressBar(currentProgress)
                 }
@@ -361,8 +361,11 @@ struct ChapterListView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(ColorConstants.malachite.value)
             case .upcoming:
-                Text(Self.durationText(chapter.duration))
-                    .foregroundColor(Self.secondary)
+                // A placeholder row (no duration yet, while loading) shows none.
+                if !(titlesLoading && chapter.duration <= 0) {
+                    Text(Self.durationText(chapter.duration))
+                        .foregroundColor(Self.secondary)
+                }
             }
         }
         .font(.footnote.monospacedDigit())
@@ -428,6 +431,39 @@ private extension View {
             onTapGesture(perform: action)
         } else {
             self
+        }
+    }
+}
+
+// MARK: - Title
+
+extension ChapterListView {
+    /// Loading bars of a few lengths, so the list reads as titles rather than a grid.
+    static func loadingTitleWidth(at index: Int) -> CGFloat {
+        [140, 190, 110, 170][index % 4]
+    }
+
+    /// The chapter's title, or while `titlesLoading` a shimmering bar on a blank line of the title's
+    /// font, which keeps the row's height and baseline.
+    @ViewBuilder
+    func title(_ chapter: Item, at index: Int, state: RowState) -> some View {
+        if titlesLoading {
+            ZStack(alignment: .leading) {
+                Text(verbatim: " ")
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityHidden(true)
+                ShimmerBar()
+                    .frame(width: Self.loadingTitleWidth(at: index))
+                    .accessibilityIdentifier(titleLoadingIdentifier?(index) ?? "")
+            }
+        } else {
+            Text(chapter.title)
+                .font(.subheadline.weight(state == .current ? .semibold : .regular))
+                .foregroundColor(Self.titleColor(state))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

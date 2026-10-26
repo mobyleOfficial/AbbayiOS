@@ -93,10 +93,13 @@ struct LibriVoxDetailView: View {
 
     // MARK: - Content
 
+    /// archive.org's version of the book as soon as it arrives, with LibriVox's titles and
+    /// description shimmering until they follow (#258). Before that, the search result's cover,
+    /// title and author, with the rest shimmering.
     @ViewBuilder
     private var content: some View {
         if let details = model.details {
-            loaded(details)
+            loaded(details.book, isPlaceholder: false)
         } else if model.loadFailed {
             VStack(spacing: SpaceConstants.sx16.value) {
                 Text(Localizable.detailsFailed.localized)
@@ -111,21 +114,30 @@ struct LibriVoxDetailView: View {
             }
             .padding(SpaceConstants.sx32.value)
         } else {
-            ProgressView()
+            loaded(model.book, isPlaceholder: true)
         }
     }
 
-    private func loaded(_ details: LibriVoxBookDetails) -> some View {
-        let book = details.book
-        return ScrollView {
+    /// `isPlaceholder`: archive.org hasn't answered, so `book` is the light search result.
+    private func loaded(_ book: LibriVoxBook, isPlaceholder: Bool) -> some View {
+        ScrollView {
             VStack(spacing: SpaceConstants.sx20.value) {
-                hero(book)
+                hero(book, isPlaceholder: isPlaceholder)
                 actionButton
+                    .disabled(isPlaceholder)
                     .onGeometryChange(for: Bool.self) { proxy in
                         Self.isScrolledAway(maxY: proxy.frame(in: .named(Metrics.scrollSpace)).maxY)
                     } action: { isActionScrolledAway = $0 }
-                descriptionView(book)
-                chapterCard(book)
+                if isPlaceholder || model.isAwaitingLibriVox {
+                    descriptionPlaceholder
+                } else {
+                    descriptionView(book)
+                }
+                if isPlaceholder {
+                    chapterPlaceholder
+                } else {
+                    chapterCard(book)
+                }
                 Text(Localizable.librivoxCredit.localized)
                     .font(.caption)
                     .foregroundColor(ColorConstants.lightSilver.value)
@@ -145,7 +157,7 @@ struct LibriVoxDetailView: View {
 
     // MARK: - Hero
 
-    private func hero(_ book: LibriVoxBook) -> some View {
+    private func hero(_ book: LibriVoxBook, isPlaceholder: Bool) -> some View {
         VStack(spacing: SpaceConstants.sx8.value) {
             ArtworkView(url: book.coverURL, shadow: true)
                 .frame(side: Metrics.cover)
@@ -159,12 +171,51 @@ struct LibriVoxDetailView: View {
                 .font(.subheadline)
                 .foregroundColor(ColorConstants.lightSilver.value)
                 .multilineTextAlignment(.center)
-            Text(Self.metadataText(book: book, totalBytes: model.totalBytes))
-                .font(.footnote)
-                .foregroundColor(ColorConstants.lightSilver.value)
-                .multilineTextAlignment(.center)
+            if isPlaceholder {
+                ShimmerBar()
+                    .frame(width: Metrics.metadataPlaceholderWidth)
+                    .padding(.vertical, SpaceConstants.sx2.value)
+                    .accessibilityIdentifier(AccessibilityID.Detail.metadataLoading)
+            } else {
+                Text(Self.metadataText(book: book, totalBytes: model.totalBytes))
+                    .font(.footnote)
+                    .foregroundColor(ColorConstants.lightSilver.value)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Three shimmering lines where the description goes, the last one shorter.
+    private var descriptionPlaceholder: some View {
+        VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
+            ShimmerBar()
+            ShimmerBar()
+            ShimmerBar()
+                .frame(width: Metrics.descriptionLastLineWidth)
+        }
+        .padding(.vertical, SpaceConstants.sx4.value)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Localizable.loading.localized)
+        .accessibilityIdentifier(AccessibilityID.Detail.descriptionLoading)
+    }
+
+    /// The chapter card with shimmering rows and no durations, before archive.org answers.
+    private var chapterPlaceholder: some View {
+        ChapterListView(
+            chapters: Array(repeating: ChapterListView.Item(title: "", duration: 0), count: Metrics.placeholderRows),
+            layout: .stack,
+            chrome: .plain,
+            rowIdentifier: AccessibilityID.Detail.chapter,
+            titlesLoading: true
+        )
+        .padding(.bottom, SpaceConstants.sx4.value)
+        .abbayGlass(in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Localizable.loading.localized)
+        .accessibilityIdentifier(AccessibilityID.Detail.chaptersLoading)
     }
 
     /// "3h 5m · 12 chapters · 296.7 MB", in the app's language ("3h 5min · 12 capítulos · 296,7 MB").
@@ -212,11 +263,19 @@ struct LibriVoxDetailView: View {
         }
     }
 
+    /// While a Download waits for LibriVox's chapter titles (`isDownloadPending`), a spinner.
+    @ViewBuilder
     private var actionLabel: some View {
-        Label(
-            isAdded ? Localizable.play.localized : Localizable.download.localized,
-            systemImage: isAdded ? "play.fill" : "arrow.down"
-        )
+        if model.isDownloadPending {
+            ProgressView()
+                .tint(ColorConstants.background2.value)
+                .accessibilityLabel(Localizable.loading.localized)
+        } else {
+            Label(
+                isAdded ? Localizable.play.localized : Localizable.download.localized,
+                systemImage: isAdded ? "play.fill" : "arrow.down"
+            )
+        }
     }
 
     /// One full-width malachite button: Download, then Play once the book is in the library (it
@@ -272,7 +331,9 @@ struct LibriVoxDetailView: View {
             holdIdentifier: \.detailIdentifier,
             emptyIdentifier: AccessibilityID.Detail.chaptersEmpty,
             rowIdentifier: AccessibilityID.Detail.chapter,
-            retry: (AccessibilityID.Detail.chapterRetry, { model.retryChapter($0) })
+            retry: (AccessibilityID.Detail.chapterRetry, { model.retryChapter($0) }),
+            titlesLoading: model.isAwaitingLibriVox,
+            titleLoadingIdentifier: AccessibilityID.Detail.chapterTitleLoading
         )
         .padding(.bottom, SpaceConstants.sx4.value)
         .abbayGlass(in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
@@ -283,5 +344,8 @@ struct LibriVoxDetailView: View {
         static let cardRadius: CGFloat = 26
         static let tintFadeEnd: CGFloat = 0.55
         static let scrollSpace = "detail.scroll"
+        static let metadataPlaceholderWidth: CGFloat = 180
+        static let descriptionLastLineWidth: CGFloat = 200
+        static let placeholderRows = 6
     }
 }
