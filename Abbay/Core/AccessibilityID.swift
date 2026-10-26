@@ -109,6 +109,12 @@ enum AccessibilityID {
         /// "Waiting for Wi-Fi: on a Personal Hotspot", the same place, for one held on a hotspot.
         static let hotspotHold = "detail.hotspotHold"
         static let chaptersEmpty = "detail.chapters.empty"
+        /// The shimmering description while LibriVox's is on its way (#258).
+        static let descriptionLoading = "detail.description.loading"
+        /// The shimmering "3h 5min · 12 chapters · 296.7 MB" line before archive.org has answered.
+        static let metadataLoading = "detail.metadata.loading"
+        /// The chapter card of shimmering rows before archive.org has answered.
+        static let chaptersLoading = "detail.chapters.loading"
         static let cellularContinue = "detail.cellular.continue"
         static let cellularWait = "detail.cellular.wait"
 
@@ -119,6 +125,11 @@ enum AccessibilityID {
         /// A failed chapter's "Failed · Retry" status button.
         static func chapterRetry(_ index: Int) -> String {
             "detail.chapter.\(index).retry"
+        }
+
+        /// A chapter's shimmering title, while LibriVox's titles are on their way (#258).
+        static func chapterTitleLoading(_ index: Int) -> String {
+            "detail.chapter.\(index).titleLoading"
         }
     }
 

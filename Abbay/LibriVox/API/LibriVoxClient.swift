@@ -13,7 +13,24 @@ protocol LibriVoxClientProtocol {
     func popular() async throws -> [LibriVoxBook]
     /// The full book: chapters, durations and sizes.
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails
+    /// The same, plus `onPreview` as soon as archive.org has answered: the book from archive.org
+    /// alone (file-name chapter titles), or an expired cached copy, while LibriVox is still being
+    /// asked for its titles and description. Not called for a fresh cache hit.
+    func details(
+        for book: LibriVoxBook,
+        onPreview: @escaping @MainActor (LibriVoxBookDetails) -> Void
+    ) async throws -> LibriVoxBookDetails
     func coverData(for book: LibriVoxBook) async -> Data?
+}
+
+extension LibriVoxClientProtocol {
+    /// Without a preview: the final details only.
+    func details(
+        for book: LibriVoxBook,
+        onPreview: @escaping @MainActor (LibriVoxBookDetails) -> Void
+    ) async throws -> LibriVoxBookDetails {
+        try await details(for: book)
+    }
 }
 
 enum LibriVoxClientError: Error, Equatable {
@@ -129,19 +146,48 @@ final class LibriVoxClient: LibriVoxClientProtocol {
     /// When LibriVox can't be reached, the book is built from archive.org's files but not cached,
     /// so the clean chapter titles come back on the next open.
     func details(for book: LibriVoxBook) async throws -> LibriVoxBookDetails {
+        try await details(for: book, onPreview: { _ in })
+    }
+
+    /// archive.org and the LibriVox lookup run at the same time when the book already names its
+    /// creator (a search or popular result does), so the page waits for archive.org alone: about a
+    /// second, where LibriVox's author feed takes 2 to 11 (#258).
+    func details(
+        for book: LibriVoxBook,
+        onPreview: @escaping @MainActor (LibriVoxBookDetails) -> Void
+    ) async throws -> LibriVoxBookDetails {
         let key = Self.detailsKey(book.id)
         let cached = cache.read(LibriVoxBookDetails.self, key: key, maxAge: Policy.detailsMaxAge)
         if let cached, cached.isFresh { return cached.value }
-        let fetched: (details: LibriVoxBookDetails, isComplete: Bool)
+
+        // Records no miss: until archive.org confirms the creator, a miss may be the wrong author's.
+        let early = book.creator.map { creator in
+            Task { await self.libriVoxEntry(identifier: book.id, creator: creator, recordsMiss: false) }
+        }
+        let item: ArchiveItem
         do {
-            fetched = try await fetchDetails(identifier: book.id)
+            item = try await fetchArchiveItem(identifier: book.id)
         } catch {
+            early?.cancel()
             if let cached { return cached.value }
             throw error
         }
-        guard fetched.isComplete else { return cached?.value ?? fetched.details }
-        cache.write(fetched.details, key: key)
-        return fetched.details
+        if let preview = cached?.value ?? (try? item.details(with: .noMatch)) {
+            await onPreview(preview)
+        }
+
+        let lookup: MappingLookup
+        if let early, item.creator == book.creator {
+            lookup = await early.value
+            if case .noMatch = lookup { cache.write(Mapping(librivoxID: nil), key: Self.mappingKey(book.id)) }
+        } else {
+            early?.cancel()
+            lookup = await libriVoxEntry(identifier: book.id, creator: item.creator)
+        }
+        let fetched = try item.details(with: lookup)
+        guard !lookup.isUnavailable else { return cached?.value ?? fetched }
+        cache.write(fetched, key: key)
+        return fetched
     }
 
     /// The artwork saved with a downloaded book, through the cover loader rather than a request of
@@ -153,6 +199,55 @@ final class LibriVoxClient: LibriVoxClientProtocol {
 }
 
 // MARK: - Private
+
+/// An archive.org item's metadata, turned into the book once the LibriVox lookup has answered.
+private struct ArchiveItem {
+    let identifier: String
+    let metadata: ArchiveMetadataDTO.Metadata
+    let files: [ArchiveMetadataDTO.File]
+    let coverURL: URL
+
+    var creator: String? { metadata.creators.first }
+
+    /// The chapters are LibriVox's when it matched, else the item's chapter files.
+    func details(with lookup: MappingLookup) throws -> LibriVoxBookDetails {
+        var sizes = [String: Int64]()
+        var lengths = [String: Double]()
+        for file in files {
+            guard let name = file.name else { continue }
+            sizes[name] = file.size.flatMap { Int64($0) } ?? 0
+            lengths[name] = ArchiveCatalog.seconds(fromLength: file.length)
+        }
+
+        var sections = [LibriVoxBook.Section]()
+        var summary = metadata.description
+        if case let .matched(match) = lookup,
+           let mapped = LibriVoxClient.sections(from: match.sections ?? [], lengths: lengths) {
+            sections = mapped
+            if let description = match.description, !description.strippingHTML.isEmpty { summary = description }
+        } else {
+            sections = ArchiveCatalog.chapterFiles(files).compactMap {
+                ArchiveCatalog.fallbackSection($0, identifier: identifier)
+            }
+        }
+        guard !sections.isEmpty else { throw LibriVoxClientError.notAnAudiobook }
+
+        let sum = sections.reduce(0) { $0 + $1.seconds }
+        let book = LibriVoxBook(
+            id: identifier,
+            title: ArchiveCatalog.cleanTitle(metadata.title ?? identifier, creator: creator),
+            authors: metadata.creators.joined(separator: ", "),
+            descriptionText: (summary ?? "").strippingHTML,
+            language: metadata.languages.first ?? "",
+            totalSeconds: sum > 0 ? sum : ArchiveCatalog.seconds(fromLength: metadata.runtime) ?? 0,
+            coverURL: coverURL,
+            sections: sections,
+            creator: creator
+        )
+        let sectionBytes = sections.map { sizes[$0.listenURL.lastPathComponent] ?? 0 }
+        return LibriVoxBookDetails(book: book, sectionBytes: sectionBytes)
+    }
+}
 
 private enum MappingLookup {
     case matched(LibriVoxBookDTO)
@@ -184,8 +279,7 @@ private extension LibriVoxClient {
             .filter { seen.insert($0.id).inserted }
     }
 
-    /// `isComplete` is false when LibriVox couldn't be asked, so the chapters may be the fallback.
-    func fetchDetails(identifier: String) async throws -> (details: LibriVoxBookDetails, isComplete: Bool) {
+    func fetchArchiveItem(identifier: String) async throws -> ArchiveItem {
         let response: NetworkResponse<ArchiveMetadataDTO> = try await network.makeRequest(
             LibriVoxRequests.archiveMetadata(identifier: identifier)
         )
@@ -195,43 +289,7 @@ private extension LibriVoxClient {
               metadata.mediatype == nil || metadata.mediatype == "audio",
               let coverURL = LibriVoxBook.coverURL(for: identifier)
         else { throw LibriVoxClientError.notAnAudiobook }
-
-        let files = item.files ?? []
-        var sizes = [String: Int64]()
-        var lengths = [String: Double]()
-        for file in files {
-            guard let name = file.name else { continue }
-            sizes[name] = file.size.flatMap { Int64($0) } ?? 0
-            lengths[name] = ArchiveCatalog.seconds(fromLength: file.length)
-        }
-
-        let creator = metadata.creators.first
-        let lookup = await libriVoxEntry(identifier: identifier, creator: creator)
-        var sections = [LibriVoxBook.Section]()
-        var summary = metadata.description
-        if case let .matched(match) = lookup, let mapped = Self.sections(from: match.sections ?? [], lengths: lengths) {
-            sections = mapped
-            if let description = match.description, !description.strippingHTML.isEmpty { summary = description }
-        } else {
-            sections = ArchiveCatalog.chapterFiles(files).compactMap {
-                ArchiveCatalog.fallbackSection($0, identifier: identifier)
-            }
-        }
-        guard !sections.isEmpty else { throw LibriVoxClientError.notAnAudiobook }
-
-        let sum = sections.reduce(0) { $0 + $1.seconds }
-        let book = LibriVoxBook(
-            id: identifier,
-            title: ArchiveCatalog.cleanTitle(metadata.title ?? identifier, creator: creator),
-            authors: metadata.creators.joined(separator: ", "),
-            descriptionText: (summary ?? "").strippingHTML,
-            language: metadata.languages.first ?? "",
-            totalSeconds: sum > 0 ? sum : ArchiveCatalog.seconds(fromLength: metadata.runtime) ?? 0,
-            coverURL: coverURL,
-            sections: sections
-        )
-        let sectionBytes = sections.map { sizes[$0.listenURL.lastPathComponent] ?? 0 }
-        return (LibriVoxBookDetails(book: book, sectionBytes: sectionBytes), !lookup.isUnavailable)
+        return ArchiveItem(identifier: identifier, metadata: metadata, files: item.files ?? [], coverURL: coverURL)
     }
 
     /// Nil when a section has no usable URL, so the whole book falls back to archive.org's files.
@@ -261,7 +319,7 @@ private extension LibriVoxClient {
     /// last-name rule can't use (missing, or "Various"). The first author page is read alone,
     /// since most authors fit in it; the rest of the capped pages are read together. A network
     /// failure or timeout records no miss, so a flaky connection doesn't hide a real match for a week.
-    func libriVoxEntry(identifier: String, creator: String?) async -> MappingLookup {
+    func libriVoxEntry(identifier: String, creator: String?, recordsMiss: Bool = true) async -> MappingLookup {
         let key = Self.mappingKey(identifier)
         if let known = cache.read(Mapping.self, key: key, maxAge: Policy.missedMappingMaxAge) {
             if let id = known.value.librivoxID {
@@ -284,7 +342,7 @@ private extension LibriVoxClient {
         case let .matched(match):
             cache.write(Mapping(librivoxID: match.id), key: key)
         case .noMatch:
-            cache.write(Mapping(librivoxID: nil), key: key)
+            if recordsMiss { cache.write(Mapping(librivoxID: nil), key: key) }
         case .unavailable:
             break
         }

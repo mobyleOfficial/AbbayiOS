@@ -1575,6 +1575,24 @@
         }
       }
     },
+    "loading" : {
+      "comment" : "VoiceOver label of a shimmering placeholder while text (a description, a chapter title) is still loading",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carregando"
+          }
+        }
+      }
+    },
     "localeIdentifier" : {
       "comment" : "Not displayed. The locale of this translation, read by AbbayBundle.locale so formatters (durations) follow the app's language. Must be this localization's own identifier.",
       "extractionState" : "manual",

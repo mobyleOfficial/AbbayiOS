@@ -105,6 +105,32 @@ final class LibriVoxSearchUITests: XCTestCase {
 
     // MARK: - Book page
 
+    /// A slow LibriVox (#258, `-stubSlowLibriVox`): the page shows the search result's cover, title
+    /// and author with the rest shimmering, then archive.org's chapters and size with the titles
+    /// and description shimmering, then LibriVox's. A Download tapped meanwhile waits for them.
+    func test_bookPage_onASlowLibriVox_shimmersUntilItsTitlesArrive() {
+        launch([LaunchArgument.stubSlowLibriVox])
+        assertResolves(AccessibilityID.Search.card(0))
+        element(AccessibilityID.Search.card(0)).tap()
+
+        assertResolves(AccessibilityID.Detail.metadataLoading, timeout: 3)
+        assertResolves(AccessibilityID.Detail.chaptersLoading, timeout: 1)
+        XCTAssertFalse(element(AccessibilityID.Detail.download).isEnabled)
+
+        assertResolves(AccessibilityID.Detail.chapterTitleLoading(0), timeout: 10)
+        assertResolves(AccessibilityID.Detail.descriptionLoading, timeout: 1)
+        XCTAssertFalse(element(AccessibilityID.Detail.metadataLoading).exists)
+        element(AccessibilityID.Detail.download).tap()
+
+        let titlesGone = NSPredicate(format: "exists == false")
+        expectation(for: titlesGone, evaluatedWith: element(AccessibilityID.Detail.chapterTitleLoading(0)))
+        waitForExpectations(timeout: 15)
+        XCTAssertFalse(element(AccessibilityID.Detail.descriptionLoading).exists)
+        XCTAssertTrue(app.staticTexts["Stub Chapter"].waitForExistence(timeout: 5))
+        // The Download tapped while waiting went through once LibriVox answered.
+        assertResolves(AccessibilityID.Detail.play)
+    }
+
     /// The stub catalog's last Popular book (*Emma*) has 24 chapters, so its page scrolls the big
     /// button away: the compact one appears in the navigation bar and does the same thing.
     func test_bookPage_pinsTheActionOnceItScrollsAway() {

@@ -111,7 +111,7 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 22, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 23, "a new launch argument belongs in `all`")
     }
 
     // MARK: - Stub download states and network path (#171)
