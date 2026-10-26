@@ -35,6 +35,7 @@ enum AccessibilityID {
         static let empty = "library.empty"
         static let toolbarAdd = "library.toolbar.add"
         static let menuImport = "library.menu.import"
+        static let menuDownload = "library.add.download"
         static let emptyBrowse = "library.empty.browse"
         static let emptyImport = "library.empty.import"
         static let noResults = "library.search.noResults"

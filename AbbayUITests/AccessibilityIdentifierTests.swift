@@ -107,15 +107,18 @@ final class AccessibilityIdentifierTests: XCTestCase {
         assertResolves(AccessibilityID.Library.toolbarSettings)
     }
 
-    /// The Search tab replaced "Browse LibriVox": the ＋ menu only imports a file.
-    func test_addMenu_offersImportOnly() {
+    /// The ＋ menu offers Import file and Download; Download only switches to the Search tab.
+    func test_addMenu_downloadOpensSearchTab() {
         launch([LaunchArgument.resetLibrary])
         assertResolves(AccessibilityID.Library.toolbarAdd)
 
         element(AccessibilityID.Library.toolbarAdd).tap()
 
         assertResolves(AccessibilityID.Library.menuImport)
-        XCTAssertFalse(element("library.menu.browse").exists)
+        assertResolves(AccessibilityID.Library.menuDownload)
+        element(AccessibilityID.Library.menuDownload).tap()
+
+        XCTAssertTrue(searchField(prompt: libriVoxPrompt).waitForExistence(timeout: 15))
     }
 
     func testEmptyLibrary_showsBothAddButtons() {

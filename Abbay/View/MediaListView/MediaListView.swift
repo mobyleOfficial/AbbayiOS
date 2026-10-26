@@ -18,7 +18,7 @@ struct MediaListView: View {
     // MARK: - Properties
     @ObservedObject
     var model: MediaListViewModel
-    /// Switches to the Search tab (the empty state's primary button).
+    /// Switches to the Search tab (the empty state's primary button and the + menu's Download).
     let onBrowse: () -> Void
     /// Opens the Settings sheet, which the root presents.
     var onSettings: VoidCallback?
@@ -57,7 +57,7 @@ struct MediaListView: View {
     }
 
     // MARK: - Toolbar
-    /// Only Import file: the Search tab replaced "Browse LibriVox".
+    /// Import file, and Download, which only switches to the Search tab (where LibriVox lives).
     var addMenu: some View {
         Menu {
             Button {
@@ -66,6 +66,12 @@ struct MediaListView: View {
                 Label(Localizable.importFile.localized, systemImage: "folder.badge.plus")
             }
             .accessibilityIdentifier(AccessibilityID.Library.menuImport)
+            Button {
+                onBrowse()
+            } label: {
+                Label(Localizable.download.localized, systemImage: "arrow.down.circle")
+            }
+            .accessibilityIdentifier(AccessibilityID.Library.menuDownload)
         } label: {
             Image(systemName: "plus")
         }

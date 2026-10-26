@@ -38,8 +38,9 @@ search and the [details page](librivox-details.md) live in the Search tab.
   swipe). Removes from Core Data, drops it from `audioList`, rewrites the
   snapshot. Deleting the loaded book unloads it from the player (`PlaybackCenter.unload()`), so the
   mini player disappears; deleting the book the details screen shows closes it.
-- **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with only **Import file**
-  (`library.menu.import`), plus the `gearshape` button (`library.toolbar.settings`, label
+- **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with **Import file**
+  (`library.menu.import`) and **Download** (`library.add.download`, only switches to the Search
+  tab, like *Browse free audiobooks*), plus the `gearshape` button (`library.toolbar.settings`, label
   *Settings*), which opens the [Settings](settings.md) sheet.
 - **mini-player:** when a book is loaded (`PlaybackState.loadedBook`), the
   [mini player](mini-player.md) docks above the tab bar on both tabs, and the grid's last cell ends
@@ -70,7 +71,7 @@ $B tap root.tab.search                       # → Search tab
 
 **Verified** (`AccessibilityIdentifierTests`): `library.list`, `library.empty`,
 `library.empty.browse` (opens the Search tab), `library.empty.import`, `library.toolbar.add`,
-`library.menu.import`, `library.toolbar.settings`, `library.search.noResults`,
+`library.menu.import`, `library.add.download` (opens the Search tab), `library.toolbar.settings`, `library.search.noResults`,
 `library.row.<n>.{artwork,title,detail}` and, with the menu open, `.{play,delete}` (see
 [media-row](media-row.md)). `LibraryGridUITests`: the Continue card (`library.continue`,
 `.detail`, `.resume` flipping to *Pause*, tap opens the player, absent without
