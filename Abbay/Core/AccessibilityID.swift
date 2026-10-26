@@ -140,6 +140,9 @@ enum AccessibilityID {
         static let licenses = "settings.about.licenses"
         static let licensesBody = "settings.about.licenses.body"
         static let audioStatus = "settings.about.audioStatus"
+        static let developer = "settings.about.developer"
+        static let developerBody = "settings.about.developer.body"
+        static let linkedIn = "settings.about.linkedIn"
 
         /// One option of the language picker; `language` is an `AppLanguage` raw value.
         static func language(_ language: String) -> String {
