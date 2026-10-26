@@ -17,7 +17,10 @@
     hand-built tab bar. It slides in from the bottom.
   - On both paths the list content ends above the bar (`test_lastRow_isNotCoveredByMiniPlayer`).
 - **content:**
-  - the cover (40 pt)
+  - the cover: 36 pt, inset from the bar's edges (12 pt from the leading edge, about 6 pt above and
+    below in the 48 pt capsule, 10 pt in the 56 pt dock) with all four corners rounded 8 pt (#242).
+    Its slot is `MiniPlayerMetrics`, shared with the expansion overlay, so the bar → player cover
+    animation starts exactly on it.
   - the title
   - *Chapter N · X min left* (`miniPlayerSubtitle`), or the time left in the book when it has no
     chapters. Whole minutes rounded up; zero units are dropped, so exactly one hour reads
@@ -30,7 +33,11 @@
   The background is tinted from the cover (`CoverTintBackground`). The tint is computed off the
   main thread the first time a book shows, and cached per book (by URL, or by artwork for a book
   without one). Until it lands, a frame or two, the background is `onyx`.
-- **tap:** opens the details screen on the loaded book (`presentation.open`).
+- **tap:** opens the details screen on the loaded book (`presentation.open`) with the same spring
+  expansion as the drag (#241; before, a tap snapped to the end state: the panel was inserted with
+  its progress already at 1). An open from closed puts the panel on screen at 0 and starts the
+  spring once it appears (`PlayerPresentation.stageDidAppear`, with a 100 ms fallback when nothing
+  renders it).
 - **drag up:** a vertical drag expands the details screen under the finger, starting from the bar's
   frame. Released past 30% of the travel, it settles open; otherwise back into the bar. A flick
   of at least 800 pt/s decides by its own direction, even against the drag's: up opens, down
@@ -51,17 +58,22 @@
   The play/pause button reads *Play* or *Pause* (`PlayButtonView`, shared with the rows and the
   details screen; labelled since #144). On the details screen the glass ⌄ button is *Close player*
   and the panel's escape action (the two-finger scrub) closes it too.
-- **expansion:** `PlayerExpansionOverlay`, one panel above the tabs. Its frame grows from the bar's
-  frame to the full screen as `PlayerPresentation.progress` goes from 0 to 1.
+- **expansion:** `PlayerExpansionOverlay`, one panel above the tabs. Its frame grows from its
+  origin (`PlayerPresentation.origin`, decided by `ExpansionMath.origin`) to the full screen as
+  `PlayerPresentation.progress` goes from 0 to 1. The origin is the tapped library cover (a grid
+  cell or the Continue card, see [library](library.md)) while at least half of it is on screen,
+  else the bar's frame, else the bottom strip. From a cover, the panel starts as that cover (its
+  frame and radius) and the cover flies into the player's large cover; the bar's face isn't drawn.
   - The corner radius goes from the bar's to 0.
   - The background is the details screen's cover-tint gradient (#166 G1), with the bar's flat
     tint over it fading out with the bar's face: the same colour at the top, so the bar reads as
     one surface changing size. No `onyx` panel any more.
-  - The cover grows from 40 pt (radius 4) to the details screen's cover (radius 14), its shadow
-    appearing from half-way.
+  - The cover grows from the bar's 36 pt slot (radius 8) to the details screen's cover (radius 14),
+    its shadow appearing from half-way. From a library cover it grows from that whole cover (its
+    radius: 10 for a cell, 8 for the Continue card).
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
-  - Opened with nothing visible to grow from (a row tap with nothing loaded), it grows from a
-    56 pt strip along the bottom edge.
+  - Opened with nothing visible to grow from (a LibriVox page's Play with nothing loaded), it
+    grows from a 56 pt strip along the bottom edge.
 - **collapse:** a drag down from the details screen's grabber header, its close button
   (`player.close`) or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
   `player.close` collapses it animated. While the panel is moving, a drag anywhere on it continues
@@ -71,6 +83,10 @@
   handle is drawn by the overlay above the details screen, so while the chapter panel is open
   over the cover it stops taking touches (`ExpansionGeometry.isChaptersOpen`, reported by
   `PlayerView`'s `onChaptersOpen`); otherwise it swallowed the panel's taps and drags there.
+  - Opened from a library cover, the collapse (⌄ or a drag) lands back on that cover at its latest
+    frame while it is still on screen; once it is gone (scrolled away, deleted, the Continue card
+    showing another book) it lands on the bar, or the strip. A drag's travel is at least half the
+    screen, so a cover near the top isn't hair-trigger (`ExpansionMath.travel`).
   - The collapse lands on the bar's resting frame, even after Play loaded the book while the screen
     was open (`test_collapseAfterPlayingInDetails_landsOnTheBar`). Released while the bar is still
     coming back with the tab bar, it follows the bar's frames and lands on the bar, not on the
@@ -119,7 +135,9 @@ $B launch -seedLibrary -forceReduceMotion                # the cross-fade expans
 **Verified** (`MiniPlayerUITests`, `AccessibilityIdentifierTests`):
 - `miniPlayer.bar`, `miniPlayer.playPause` and `miniPlayer.progress`
   (`test_miniPlayer_identifiersResolve`; the bar's label carries the title and *Chapter 1*)
-- tap to open and hidden-while-open (`test_tappingMiniPlayer_opensDetails`)
+- tap to open and hidden-while-open (`test_tappingMiniPlayer_opensDetails`); a library cell and the
+  Continue card open and close back (`LibraryGridUITests.test_cellTap_*`,
+  `test_continueCard_tapOpensThePlayer_andCloseReturnsToTheCard`)
 - drag up, short drags settling back, slow drags both ways
 - grabber collapse (dragged from the grabber's position, found from `player.close`: the grabber
   is hidden from accessibility, see [player](player.md)); with the chapter panel open, a drag at
@@ -151,7 +169,10 @@ there (#203).
 - swipes and their no-op haptic (`MiniPlayerActionsTests`)
 - the subtitle and progress maths
 - the settle thresholds and the release-velocity window (`ExpansionMathTests`, `ExpansionDragTests`)
-- presentation state (`PlayerPresentationTests`)
+- presentation state (`PlayerPresentationTests`): the pending open that starts at 0 and springs once
+  the panel appears (#241)
+- the origin decision, cover vs bar vs strip, on open and on close (`ExpansionOriginTests`,
+  `PlayerPresentationOriginTests`), including Reduce Motion from a cover (a cross-fade)
 - `-forceReduceMotion` itself (`DebugOverridesTests`), and the playable seed's chapters against
   the file (`UITestSeederTests`)
 - the Reduce Motion cross-fade (`ExpansionAppearanceTests`): `ExpansionLayout` takes the panel's
@@ -163,6 +184,8 @@ there (#203).
   applies `-forceReduceMotion` without depending on the environment (#185).
 
 **Not automated:**
+- the expansion from a tapped cover on screen: checked by eye from screen recordings (#241's PR:
+  frames mid-open and mid-close from a cell, the Continue card and the bar).
 - the cross-fade on screen: XCUITest only reads the screen once it is idle, so the rendered
   panel mid-transition is checked by eye. Snapping `simctl io screenshot` while
   `test_a11y_reduceMotion_dragsOpenCollapseAndSettle` runs on 18.5 shows a full-screen,
