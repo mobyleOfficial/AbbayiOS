@@ -15,7 +15,8 @@ search and the [details page](librivox-details.md) live in the Search tab.
 - **continue-card:** above the grid, under a *Continue* header, while the search is empty:
   `ContinueCard.book(in:lastPlayedURL:)` picks the last played book (`LastPlayedStore`) if it is
   still in the library and not finished (within 30 s of the end), else there is no card. Cover
-  (94 pt, scaled), title (`library.continue`, the tap handle: opens the player),
+  (94 pt, scaled), title (`library.continue`, the tap handle: opens the player, grown out of the
+  card's cover and closing back onto it, #241),
   *Chapter 3 · 28 min left* (`library.continue.detail`, the mini player's subtitle), a malachite
   **Resume** / **Pause** capsule (`library.continue.resume`, plays or pauses without opening) and the
   book's progress. The fill is the cover's tint (`CoverTint`) shading to black; content, not glass.
@@ -32,8 +33,12 @@ search and the [details page](librivox-details.md) live in the Search tab.
   cover. No matches shows a search `ContentUnavailableView` (*No results for “…”*, *Check the
   spelling or try a new search.*) whose title is `library.search.noResults`; it is built from our
   strings, not `ContentUnavailableView.search`, so it follows the in-app language.
-- **cell-tap:** `presentation.open(book)` — the one player presentation (see [player](player.md)).
-  Play / Pause is in the cell's context menu (there is no play button on a cell).
+- **cell-tap:** `presentation.open(book, animated: true, from: .cell(book))`, the one player
+  presentation (see [player](player.md)). The player grows out of the cell's cover and the cover
+  flies into the player's large cover, whether or not that book is the one playing; the close lands
+  back on the cell while it is on screen, else on the bar (#241). Each cell's cover reports its
+  global frame (`expansionSource`, an unobserved store, so nothing re-renders). Play / Pause is in
+  the cell's context menu (there is no play button on a cell).
 - **delete:** the cell's context menu, *Delete* (`library.row.<n>.delete`; it replaced the trailing
   swipe). Removes from Core Data, drops it from `audioList`, rewrites the
   snapshot. Deleting the loaded book unloads it from the player (`PlaybackCenter.unload()`), so the
@@ -58,7 +63,7 @@ The first tab on launch (`root.tab.library`). See [tabs](tabs.md) for the tab ba
 ```bash
 $B launch -seedLibrary -stubLibriVox
 $B wait library.list
-$B tap library.row.0.title                   # → details screen (grows up); close with player.close
+$B tap library.row.0.title                   # → details screen, grown out of the cell's cover; player.close lands back on it
 $B press library.row.0.title && $B tap library.row.0.play && $B wait miniPlayer.bar   # plays from the menu
 $B launch -seedLibrary -seedLastPlayed -seedArtwork      # Continue card for Seeded Chaptered Book, with covers
 $B tap library.continue.resume && $B wait miniPlayer.bar
@@ -74,8 +79,8 @@ $B tap root.tab.search                       # → Search tab
 `library.menu.import`, `library.add.download` (opens the Search tab), `library.toolbar.settings`, `library.search.noResults`,
 `library.row.<n>.{artwork,title,detail}` and, with the menu open, `.{play,delete}` (see
 [media-row](media-row.md)). `LibraryGridUITests`: the Continue card (`library.continue`,
-`.detail`, `.resume` flipping to *Pause*, tap opens the player, absent without
-`-seedLastPlayed`, hidden while searching) and delete from the menu.
+`.detail`, `.resume` flipping to *Pause*, tap opens the player and the close returns to the card, absent without
+`-seedLastPlayed`, hidden while searching), a cell tap opening the player on a book that isn't playing (or with nothing loaded) and closing back to the grid (`test_cellTap_*`), and delete from the menu.
 
 **Not addressable:** `library.row.<n>` on its own (leaf-only rule). The search field has no
 identifier: `.searchable` exposes no way to set one, so find it by placeholder (*Search your library*).

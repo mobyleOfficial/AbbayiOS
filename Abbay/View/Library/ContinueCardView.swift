@@ -51,6 +51,8 @@ struct ContinueCardView: View {
         HStack(alignment: .top, spacing: SpaceConstants.sx12.value) {
             ArtworkView(book: book, shadow: true)
                 .frame(side: min(coverSide, 140))
+                // The player grows out of this cover and collapses back onto it (#241).
+                .expansionSource(.continueCard(book))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
                 Text(book.title)

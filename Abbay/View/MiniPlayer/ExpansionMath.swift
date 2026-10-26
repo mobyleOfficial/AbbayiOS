@@ -78,6 +78,39 @@ enum ExpansionMath {
         return CGRect(x: 0, y: screen.height - bottomStripHeight, width: screen.width, height: bottomStripHeight)
     }
 
+    // MARK: - Origin (#241)
+
+    /// Where an open grows from, or a close lands: the tapped cover (a library cell or the Continue
+    /// card) while it is still on screen, else the mini player bar while it is visible, else the
+    /// bottom strip. `cover` and `bar` are global frames; `bar` is nil when no bar is visible.
+    static func origin(cover: ExpansionCover?, bar: CGRect?, screen: CGSize) -> ExpansionOrigin {
+        if let cover, isOnScreen(cover.frame, screen: screen) { return .cover(cover) }
+        if let bar { return .bar(bar) }
+        return .bottomStrip
+    }
+
+    /// A cover counts as on screen when at least half of it is inside the window: a cell scrolled
+    /// mostly out of view, or one that is gone (an empty frame), is not somewhere to land.
+    static func isOnScreen(_ frame: CGRect, screen: CGSize) -> Bool {
+        guard frame.width > 0, frame.height > 0, screen.width > 0, screen.height > 0 else { return false }
+        let visible = frame.intersection(CGRect(origin: .zero, size: screen))
+        guard !visible.isNull else { return false }
+        return visible.width * visible.height >= frame.width * frame.height / 2
+    }
+
+    /// The distance a drag covers for 0…1: from the start frame's top to the screen's top, but at
+    /// least half the screen, so a collapse toward a cover near the top isn't hair-trigger.
+    static func travel(startFrame: CGRect, screen: CGSize) -> CGFloat {
+        max(startFrame.minY, screen.height / 2)
+    }
+
+    /// The growing cover's slot at progress 0, in the start frame's coordinates: the bar's cover
+    /// slot, or the whole frame when the expansion starts from a cover.
+    static func coverSlot(origin: ExpansionOrigin, startFrame: CGRect, barSlot: CGRect) -> CGRect {
+        if case .cover = origin { return CGRect(origin: .zero, size: startFrame.size) }
+        return barSlot
+    }
+
     /// The bar's content fades out over the first 30%.
     static func barContentOpacity(_ progress: CGFloat) -> CGFloat {
         clamp(1 - progress / openThreshold)
@@ -154,6 +187,42 @@ enum ExpansionMath {
 
     static func clamp(_ value: CGFloat) -> CGFloat {
         min(max(value, 0), 1)
+    }
+}
+
+/// A tapped cover the expansion can grow from: its global frame and its corner radius.
+struct ExpansionCover: Equatable {
+    let frame: CGRect
+    let cornerRadius: CGFloat
+}
+
+/// Where the expansion grows from and collapses back to (#241).
+enum ExpansionOrigin: Equatable {
+    /// The 56 pt strip along the bottom edge: no bar is visible.
+    case bottomStrip
+    /// The mini player bar's global frame.
+    case bar(CGRect)
+    /// A tapped cover: a library cell's or the Continue card's.
+    case cover(ExpansionCover)
+
+    /// The start frame, or nil for the bottom strip (`ExpansionMath.startFrame` fills it in).
+    var frame: CGRect? {
+        switch self {
+        case .bottomStrip: nil
+        case let .bar(frame): frame
+        case let .cover(cover): cover.frame
+        }
+    }
+
+    var isBar: Bool {
+        if case .bar = self { return true }
+        return false
+    }
+
+    /// The cover's corner radius, or nil for the bar and the strip.
+    var coverRadius: CGFloat? {
+        if case let .cover(cover) = self { return cover.cornerRadius }
+        return nil
     }
 }
 

@@ -57,7 +57,7 @@ struct MediaView: View {
         MediaViewModel(book, player: center?.player, downloads: downloads)
     }
 
-    private static let coverRadius: CGFloat = 10
+    static let coverRadius: CGFloat = 10
 
     // MARK: - Body
     var body: some View {
@@ -116,6 +116,8 @@ struct MediaView: View {
     private func cover(_ detail: DetailModel) -> some View {
         ArtworkView(book: book, cornerRadius: Self.coverRadius, shadow: true)
             .aspectRatio(1, contentMode: .fit)
+            // The player grows out of this cover and collapses back onto it (#241).
+            .expansionSource(.cell(book), cornerRadius: Self.coverRadius)
             .accessibilityIdentifier(AccessibilityID.Element.artwork(namespace))
             .overlay(alignment: .bottomTrailing) {
                 if let state = detail.downloadState {
@@ -287,5 +289,6 @@ struct MediaView_Previews: PreviewProvider {
         .frame(width: 110)
         .environment(PlaybackState())
         .environment(PlaybackClock())
+        .environment(PlayerPresentation())
     }
 }
