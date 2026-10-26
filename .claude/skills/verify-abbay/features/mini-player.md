@@ -67,7 +67,10 @@
   `player.close` collapses it animated. While the panel is moving, a drag anywhere on it continues
   the motion. On every iOS version these are the only handles: the chapter list moved into the
   glass chapter panel (#166 G2), which closes itself and never collapses the player, so the
-  list-at-top collapse (iOS 18+, `ExpansionListCollapse`) was deleted.
+  list-at-top collapse (iOS 18+, `ExpansionListCollapse`) was deleted. The cover's collapse
+  handle is drawn by the overlay above the details screen, so while the chapter panel is open
+  over the cover it stops taking touches (`ExpansionGeometry.isChaptersOpen`, reported by
+  `PlayerView`'s `onChaptersOpen`); otherwise it swallowed the panel's taps and drags there.
   - The collapse lands on the bar's resting frame, even after Play loaded the book while the screen
     was open (`test_collapseAfterPlayingInDetails_landsOnTheBar`). Released while the bar is still
     coming back with the tab bar, it follows the bar's frames and lands on the bar, not on the
