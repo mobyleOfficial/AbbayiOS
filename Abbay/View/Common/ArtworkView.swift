@@ -128,8 +128,32 @@ struct ArtworkView: View {
     }
 
     /// The decoded artwork, or `nil` for the generic tile.
+    ///
+    /// Decoded once per distinct cover and kept, prepared for display: `body` calls this on every
+    /// render, and the player's expansion re-renders the growing cover on every animation frame,
+    /// so decoding here each time stuttered the transition on a device (#254).
     static func image(from data: Data?) -> UIImage? {
-        data.flatMap(UIImage.init(data:))
+        guard let data else { return nil }
+        let key = data as NSData
+        if let cached = decoded.object(forKey: key) { return cached }
+        guard let image = UIImage(data: data) else { return nil }
+        let prepared = image.preparingForDisplay() ?? image
+        decoded.setObject(prepared, forKey: key, cost: Self.cost(of: prepared))
+        return prepared
+    }
+
+    /// Decoded covers, keyed by their bytes (an `NSData` key compares by content). Bounded by
+    /// decoded size; `NSCache` is thread-safe and empties itself under memory pressure.
+    static let decoded: NSCache<NSData, UIImage> = {
+        let cache = NSCache<NSData, UIImage>()
+        cache.totalCostLimit = 64 * 1024 * 1024
+        return cache
+    }()
+
+    /// Bytes the decoded bitmap occupies (4 per pixel).
+    private static func cost(of image: UIImage) -> Int {
+        let pixels = image.size.width * image.scale * image.size.height * image.scale
+        return Int(pixels) * 4
     }
 }
 
