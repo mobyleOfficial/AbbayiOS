@@ -121,3 +121,84 @@ final class ChapterListViewTests: XCTestCase {
         XCTAssertNil(ChapterListView.status(at: -1, in: partial))
     }
 }
+
+/// The restyled rows (#166 G6): finished / current / upcoming, durations in minutes, and the
+/// current chapter's time left, in the app's language.
+final class ChapterRowTests: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        AbbayBundle.languageCode = "en"
+    }
+
+    override func tearDownWithError() throws {
+        AbbayBundle.languageCode = nil
+        try super.tearDownWithError()
+    }
+
+    // MARK: - Row state
+
+    func test_rowState_isFinishedBeforeTheCurrentChapter_currentAtIt_upcomingAfter() {
+        XCTAssertEqual(ChapterListView.rowState(at: 0, currentIndex: 2), .finished)
+        XCTAssertEqual(ChapterListView.rowState(at: 1, currentIndex: 2), .finished)
+        XCTAssertEqual(ChapterListView.rowState(at: 2, currentIndex: 2), .current)
+        XCTAssertEqual(ChapterListView.rowState(at: 3, currentIndex: 2), .upcoming)
+    }
+
+    /// The LibriVox page has no current chapter: nothing is finished or current.
+    func test_rowState_isUpcomingEverywhere_withoutACurrentChapter() {
+        for index in 0..<5 {
+            XCTAssertEqual(ChapterListView.rowState(at: index, currentIndex: nil), .upcoming)
+        }
+    }
+
+    func test_rowState_firstChapterCurrent_hasNothingFinished() {
+        XCTAssertEqual(ChapterListView.rowState(at: 0, currentIndex: 0), .current)
+        XCTAssertEqual(ChapterListView.rowState(at: 1, currentIndex: 0), .upcoming)
+    }
+
+    // MARK: - Duration
+
+    func test_durationText_isMinutes_orHoursAndMinutes() {
+        XCTAssertEqual(ChapterListView.durationText(42 * 60), "42m")
+        XCTAssertEqual(ChapterListView.durationText(3900), "1h 5m")
+        XCTAssertEqual(ChapterListView.durationText(3600), "1h")
+    }
+
+    /// Rounded up, so a short chapter never reads "0m".
+    func test_durationText_roundsUpToTheNextMinute() {
+        XCTAssertEqual(ChapterListView.durationText(30), "1m")
+        XCTAssertEqual(ChapterListView.durationText(41 * 60 + 1), "42m")
+    }
+
+    func test_durationText_survivesZeroNegativeAndNonFiniteDurations() {
+        XCTAssertEqual(ChapterListView.durationText(0), "0m")
+        XCTAssertEqual(ChapterListView.durationText(-5), "0m")
+        XCTAssertEqual(ChapterListView.durationText(.nan), "0m")
+    }
+
+    func test_durationText_followsTheAppLanguage() {
+        AbbayBundle.languageCode = "pt-BR"
+        let text = ChapterListView.durationText(3900)
+        XCTAssertTrue(text.hasPrefix("1h 5"), text)
+        XCTAssertTrue(text.contains("min"), text)
+    }
+
+    // MARK: - Time left
+
+    func test_timeLeftText_isTheRestOfTheChapter() {
+        XCTAssertEqual(ChapterListView.timeLeftText(duration: 45 * 60, progress: 0.38), "28m left")
+        XCTAssertEqual(ChapterListView.timeLeftText(duration: 45 * 60, progress: 0), "45m left")
+    }
+
+    func test_timeLeftText_clampsTheProgress() {
+        XCTAssertEqual(ChapterListView.timeLeftText(duration: 600, progress: 1.5), "0m left")
+        XCTAssertEqual(ChapterListView.timeLeftText(duration: 600, progress: -1), "10m left")
+    }
+
+    func test_timeLeftText_agreesInPortuguese() {
+        AbbayBundle.languageCode = "pt-BR"
+        let text = ChapterListView.timeLeftText(duration: 45 * 60, progress: 0.38)
+        XCTAssertTrue(text.hasSuffix("restantes"), text)
+        XCTAssertTrue(text.hasPrefix("28"), text)
+    }
+}

@@ -65,7 +65,7 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
   the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
   ✓ / `N%` / *Waiting* / *Failed · Retry* (pt-BR *Falhou · Repetir*; statuses are one line at full
-  width, the title scrolls) through the shared `ChapterListView`. The failed status is
+  width, the title wraps to two lines) through the shared `ChapterListView`. The failed status is
   a button (`player.chapter.<n>.retry`, `detail.chapter.<n>.retry`); a row showing it is an
   accessibility container rather than one combined element, so the button stays reachable. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.

@@ -9,7 +9,7 @@ once the book is in the library. The only way to add a LibriVox book.
 - **load:** `.task` calls `client.details(for:)` (archive.org item metadata, plus chapter titles from
   the LibriVox API when the item matches one). While loading it shows a `ProgressView`; on failure
   *"Couldn't load this book."* and a **Retry** button (`detail.retry`) that reloads.
-- **header:** cover (`AsyncImageView`, see *cover-loading* below), title, author, then
+- **header:** cover (`ArtworkView(url:)` over `AsyncImageView`, see *cover-loading* below), title, author, then
   `<length> · <N> chapters · <language>` (length as `2h 58m`, or `58m` under an hour; the count
   is a plural variant, `1 chapter` / `1 capítulo`, `0 capítulos` in pt-BR, #180) and the
   whole-book download size (`ByteSize.text`, summed over the chapter files). The language name and
@@ -20,8 +20,9 @@ once the book is in the library. The only way to add a LibriVox book.
   `-stubDownloadStates` as well it is 120,000,000 bytes in three chapters ("120 MB").
 - **cover-loading:** `AsyncImageView`, shared with the Search tab's cards and results. While the
   cover loads, an `onyx` tile with a light band sweeping across it (`cover.loading`); then the
-  image fades in (`cover.loaded`). A failed load (offline, non-2xx, not an image) leaves the `onyx`
-  tile with a `book.closed` glyph (`cover.failed`). Covers load through `NetworkProvider`
+  image fades in (`cover.loaded`). A failed load (offline, non-2xx, not an image) shows the generic
+  tile, a dark gradient with a `book.closed` glyph (`cover.failed`). Screens draw it through
+  `ArtworkView(url:)`, which adds the rounded corners and the 0.5 pt stroke (#166 G6). Covers load through `NetworkProvider`
   (`AsyncImageLoader`) and are kept in memory per URL (`NSCache`, 100 covers), so a cover that
   already loaded, on this page or a Search card, shows at once with no shimmer and no fade.
   Their bytes are also kept on disk (`CoverDiskCache`, `Caches/LibriVoxCovers`, 30 MB, least
@@ -59,7 +60,8 @@ once the book is in the library. The only way to add a LibriVox book.
   `statesPublisher` sink of its own, so the download manager keeps one subscriber
   (`SubscriptionBudgetTests`).
 - **chapters:** the shared `ChapterListView` in its stack layout: *Chapter selection* header (*Seleção de capítulos*), one row per
-  chapter with scrolling title and duration. While the download is **incomplete** each row also
+  chapter with its number, title (up to two lines) and duration ("42m", "1h 5m"); no row is
+  current or finished here. While the download is **incomplete** each row also
   shows ✓ / `N%` / *Waiting* / *Failed · Retry* and a thin overall progress bar (`detail.progress`)
   sits under the header; once complete both disappear. A *Wait for Wi-Fi* book held by the network
   also says why under the bar: *"Waiting for Wi-Fi: on cellular"* (`detail.cellularHold`), *"…on a

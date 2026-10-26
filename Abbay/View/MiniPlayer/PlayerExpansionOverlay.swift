@@ -585,9 +585,7 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         )
         return ZStack {
             if !isFullyOpen {
-                DataImageView(data: art.imageData)
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: radius))
+                ArtworkView(book: art, cornerRadius: radius)
             }
             Color.clear
                 .contentShape(Rectangle())

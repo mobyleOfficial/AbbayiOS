@@ -44,11 +44,9 @@ struct MediaView: View {
         let hold = book.librivoxID.flatMap { downloads?.hold(bookID: $0, allowsCellular: book.allowsCellularDownload) }
         let detail = DetailModel(book: book, state: playback, entry: entry, hold: hold)
         HStack {
-            DataImageView(data: book.imageData)
-                .accessibilityIdentifier(AccessibilityID.Element.artwork(namespace))
+            ArtworkView(book: book)
                 .frame(side: SpaceConstants.sx64.value)
-                .foregroundColor(ColorConstants.white.value)
-                .cornerRadius(SpaceConstants.sx8.value)
+                .accessibilityIdentifier(AccessibilityID.Element.artwork(namespace))
             VStack(alignment: .leading, spacing: SpaceConstants.sx4.value) {
                 PlayerTitleView(isPlaying: .constant(detail.isPlaying), text: book.title)
                     .font(.system(size: SpaceConstants.sx16.value))
