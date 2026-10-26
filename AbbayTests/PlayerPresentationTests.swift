@@ -26,14 +26,57 @@ final class PlayerPresentationTests: XCTestCase {
         XCTAssertEqual(sut.progress, 0)
     }
 
-    func test_open_setsBookAndTargetsFullProgress() {
+    /// #241: an animated open from closed inserts the panel at 0 and springs only once it is on
+    /// screen. Set in the same update as the insertion, the target was drawn at once: the snap.
+    func test_open_fromClosed_startsAtZero_andSpringsOnceTheStageAppears() {
         let sut = PlayerPresentation()
         let book = ViewModelSupport.chaptered()
 
         sut.open(book, animated: true)
 
         XCTAssertEqual(sut.presentedBook?.url, book.url)
+        XCTAssertEqual(sut.progress, 0, "on screen at 0 first")
+        sut.stageDidAppear()
+        XCTAssertEqual(sut.progress, 1, "the spring's target")
+        sut.stageDidAppear()
+        XCTAssertEqual(sut.progress, 1, "a second appearance changes nothing")
+    }
+
+    /// With nothing rendering the panel (off screen, these tests), the open settles anyway.
+    func test_open_fromClosed_withoutTheStage_settlesAfterTheFallback() async {
+        let sut = PlayerPresentation()
+
+        sut.open(ViewModelSupport.chaptered(), animated: true)
+        await waitUntil { sut.isFullyOpen }
+
         XCTAssertEqual(sut.progress, 1)
+        XCTAssertTrue(sut.isFullyOpen)
+    }
+
+    /// Already presented (another book from the details page), or not animated: no waiting.
+    func test_open_whilePresented_orNotAnimated_targetsFullProgressAtOnce() {
+        let sut = PlayerPresentation()
+        sut.open(ViewModelSupport.chaptered(), animated: false)
+        XCTAssertEqual(sut.progress, 1)
+
+        sut.open(other, animated: true)
+
+        XCTAssertEqual(sut.presentedBook?.url, other.url)
+        XCTAssertEqual(sut.progress, 1)
+    }
+
+    /// A close before the stage appeared cancels the pending open: it never springs open.
+    func test_closeBeforeTheStageAppears_cancelsThePendingOpen() async throws {
+        let sut = PlayerPresentation()
+        sut.open(ViewModelSupport.chaptered(), animated: true)
+
+        sut.close(animated: true)
+        sut.stageDidAppear()
+        try await Task.sleep(for: .milliseconds(800))
+
+        XCTAssertEqual(sut.progress, 0)
+        XCTAssertNil(sut.presentedBook)
+        XCTAssertFalse(sut.isFullyOpen)
     }
 
     /// The details screen opens in the same hierarchy as the Library search field, so a keyboard
@@ -339,6 +382,7 @@ final class PlayerPresentationTests: XCTestCase {
         let book = ViewModelSupport.chaptered()
         let sut = loadedPresentation(book)
         sut.open(book, animated: true)
+        sut.stageDidAppear()
         XCTAssertEqual(sut.progress, 1, "the target")
         sut.renderedProgress = 0.6
 

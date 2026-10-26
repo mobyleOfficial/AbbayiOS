@@ -3,8 +3,9 @@
 `PlayerView` is the full-screen details screen, "Player A" of the Liquid Glass redesign (#166 G1):
 a large cover, a left-aligned title block, the scrubber, the transport, and two glass pills (speed
 and chapters). The chapters open as a glass panel over the cover (G2). It is **no longer a sheet**.
-It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of the
-[mini player](mini-player.md) and collapses back into it. The overlay paints the background (the
+It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of where it
+was opened (the tapped [library](library.md) cover, or the [mini player](mini-player.md)) and
+collapses back there (#241). The overlay paints the background (the
 book's cover tint fading to near-black) and adds a header on top with a grabber (`player.grabber`,
 hidden from accessibility) and a glass close button (`player.close`).
 There is one presentation for the whole app (`PlayerPresentation`). Library rows, the bar and a
@@ -29,8 +30,8 @@ LibriVox page's Play all open it.
   margins (up to 360 pt), square, with a soft shadow; no artwork shows the generic tile, as in the
   [media row](media-row.md). On a short screen it shrinks, staying square, so the title, scrubber,
   transport and pills keep their room. While the panel grows, the overlay draws a growing copy of
-  the cover (radius 4 → 14, the shadow from half-way) that lands exactly here, and the real cover
-  is hidden until then.
+  the cover (from the bar's 36 pt slot, radius 8 → 14, the shadow from half-way; or from the whole
+  tapped library cover) that lands exactly here, and the real cover is hidden until then.
 - **title:** left-aligned. The title (`player.title`) in `.title3.bold()`, white, up to two lines
   (it no longer turns green while playing or slides). Under it, `PlayerSubtitle`: *author · Ch N
   of M* (pt-BR *Cap. N de M*), the author alone for a book with no chapters, the position alone
@@ -149,7 +150,7 @@ on its own (a tap outside, its ✕ pill, a drag down from its top) and never clo
 
 ```bash
 $B launch -seedLibrary -seedCoverArt                     # two seeds get a warm cover, for the tint
-$B tap library.row.0.title && $B wait player.close       # grows up from the bottom (nothing loaded)
+$B tap library.row.0.title && $B wait player.close       # grows out of the cell's cover (#241)
 $B tap player.transport.play                              # a seeded book loads and plays (the Debug fixture's audio)
 $B tap player.transport.forward && $B snapshot
 $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed value "1.5×"

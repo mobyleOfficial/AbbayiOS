@@ -175,7 +175,8 @@ struct MediaListView: View {
                 VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
                     if !isSearching {
                         ContinueSection(books: model.audioList, lastPlayed: lastPlayed) { book in
-                            presentation.open(book, animated: true)
+                            // Grows out of the card's cover (#241).
+                            presentation.open(book, animated: true, from: .continueCard(book))
                         }
                         LibrarySectionHeader(title: .libraryAllBooks)
                     }
@@ -198,7 +199,8 @@ struct MediaListView: View {
                     namespace: AccessibilityID.Library.row(index),
                     // As before: while searching, a fully downloaded LibriVox book says so.
                     showsDownloadedBadge: isSearching,
-                    onOpen: { presentation.open(file, animated: true) },
+                    // Grows out of the cell's cover (#241).
+                    onOpen: { presentation.open(file, animated: true, from: .cell(file)) },
                     onDelete: { model.deleteAudio(file) }
                 )
             }

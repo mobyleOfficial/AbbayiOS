@@ -84,13 +84,78 @@ final class LibraryGridUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [pause], timeout: 10), .completed, "resume reads \"\(resume.label)\"")
     }
 
-    func test_continueCard_tapOpensThePlayer() {
-        launch([LaunchArgument.seedLibrary, LaunchArgument.seedLastPlayed])
+    /// The card's tap grows the player out of its cover (#241); closing lands back on the card.
+    func test_continueCard_tapOpensThePlayer_andCloseReturnsToTheCard() {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedArtwork, LaunchArgument.seedLastPlayed])
         assertResolves(AccessibilityID.Library.continueTitle)
+        let card = element(AccessibilityID.Library.continueTitle)
 
-        element(AccessibilityID.Library.continueTitle).tap()
+        card.tap()
 
         assertResolves(AccessibilityID.Player.close)
+        XCTAssertEqual(element(AccessibilityID.Player.title).label, "Seeded Chaptered Book")
+        waitForPlayerToArrive()
+        closePlayer()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.isHittable, "the card takes touches again")
+    }
+
+    // MARK: - Cell tap (#241)
+
+    /// A cell whose book isn't the one playing still opens the player on that book, grown out of
+    /// its cover; closing lands back on the grid with the bar still showing the playing book.
+    func test_cellTap_ofABookNotPlaying_opensItsPlayer_andCloseReturnsToTheGrid() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedArtwork])
+        assertResolves(AccessibilityID.Library.list)
+        let playing = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
+        LibraryGridActions.togglePlayback(in: app, cell: playing)
+        assertResolves(AccessibilityID.MiniPlayer.bar)
+        let plain = try XCTUnwrap(rowIndex(titled: "Seeded Plain Book"))
+        let cell = element(AccessibilityID.Element.title(AccessibilityID.Library.row(plain)))
+
+        cell.tap()
+
+        assertResolves(AccessibilityID.Player.close)
+        XCTAssertEqual(element(AccessibilityID.Player.title).label, "Seeded Plain Book")
+        waitForPlayerToArrive()
+        closePlayer()
+        XCTAssertTrue(cell.waitForExistence(timeout: 5))
+        XCTAssertTrue(cell.isHittable, "the cell takes touches again")
+        let bar = element(AccessibilityID.MiniPlayer.bar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        XCTAssertTrue(bar.label.contains("Seeded Chaptered Book"), "the bar shows \"\(bar.label)\"")
+    }
+
+    /// With nothing loaded, a cell tap opens the player and the close leaves no bar behind.
+    func test_cellTap_withNothingLoaded_opensThePlayer_andCloses() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedArtwork])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Chaptered Book"))
+        let cell = element(AccessibilityID.Element.title(AccessibilityID.Library.row(index)))
+
+        cell.tap()
+
+        assertResolves(AccessibilityID.Player.close)
+        XCTAssertEqual(element(AccessibilityID.Player.title).label, "Seeded Chaptered Book")
+        waitForPlayerToArrive()
+        closePlayer()
+        XCTAssertTrue(cell.isHittable, "the cell takes touches again")
+        XCTAssertFalse(element(AccessibilityID.MiniPlayer.bar).exists, "nothing was played")
+    }
+
+    private func closePlayer(file: StaticString = #filePath, line: UInt = #line) {
+        let close = element(AccessibilityID.Player.close)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 10), "the player did not close", file: file, line: line)
+    }
+
+    /// The player grows into place; wait until its header is near the top.
+    private func waitForPlayerToArrive() {
+        let close = element(AccessibilityID.Player.close)
+        let deadline = Date().addingTimeInterval(5)
+        while close.frame.minY > app.frame.height / 4, Date() < deadline {
+            usleep(100_000)
+        }
     }
 
     /// Seeding clears last played, so a library nobody has played from has no card.

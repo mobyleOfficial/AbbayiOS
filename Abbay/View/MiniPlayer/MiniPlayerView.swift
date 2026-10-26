@@ -41,7 +41,6 @@ struct MiniPlayerView: View {
     var isAccessory = false
 
     static let height: CGFloat = SpaceConstants.sx56.value
-    private static let coverSide: CGFloat = SpaceConstants.sx40.value
 
     var body: some View {
         if let book = playback.loadedBook {
@@ -51,9 +50,10 @@ struct MiniPlayerView: View {
 
     private func bar(_ book: AudioModel) -> some View {
         HStack(spacing: SpaceConstants.sx12.value) {
-            // The bar's radius is fixed: the expansion overlay grows the cover from it.
-            ArtworkView(book: book, cornerRadius: SpaceConstants.sx4.value)
-                .frame(side: Self.coverSide)
+            // Inset from the bar's edges, all four corners rounded (#242). The size and radius are
+            // fixed: the expansion overlay grows the cover from exactly this slot.
+            ArtworkView(book: book, cornerRadius: MiniPlayerMetrics.coverRadius)
+                .frame(side: MiniPlayerMetrics.coverSide)
                 .accessibilityHidden(true)
             MiniPlayerText(
                 book: book,
@@ -76,8 +76,8 @@ struct MiniPlayerView: View {
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.playPause)
         }
         // In the capsule, the cover clears the rounded ends.
-        .padding(.leading, isAccessory ? SpaceConstants.sx12.value : SpaceConstants.sx8.value)
-        .padding(.trailing, isAccessory ? SpaceConstants.sx8.value : SpaceConstants.sx4.value)
+        .padding(.leading, MiniPlayerMetrics.leading)
+        .padding(.trailing, MiniPlayerMetrics.trailing(isAccessory: isAccessory))
         .frame(maxWidth: .infinity)
         .frame(height: isAccessory ? nil : Self.height)
         .frame(maxHeight: isAccessory ? .infinity : nil)
@@ -165,6 +165,37 @@ struct MiniPlayerView: View {
     private static var screenHeight: CGFloat {
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         return scene?.screen.bounds.height ?? 0
+    }
+}
+
+// MARK: - Metrics
+
+/// The bar's cover slot (#242), shared with the expansion overlay, which draws the bar's face and
+/// grows the cover out of the same slot: change it here and the expansion still starts exactly on
+/// the bar's cover.
+enum MiniPlayerMetrics {
+    /// 36 pt: about 6 pt of room above and below in the accessory's 48 pt capsule, 10 pt in the
+    /// 56 pt dock (it was 40 pt, almost touching the edges).
+    static let coverSide: CGFloat = SpaceConstants.sx36.value
+    /// All four corners, on `ArtworkView.cornerRadius(forSide:)`'s 8 pt step.
+    static let coverRadius: CGFloat = SpaceConstants.sx8.value
+
+    /// From the bar's leading edge to the cover, in the capsule (where it clears the rounded end)
+    /// and the dock alike (it was 8 pt there).
+    static let leading: CGFloat = SpaceConstants.sx12.value
+
+    static func trailing(isAccessory: Bool) -> CGFloat {
+        isAccessory ? SpaceConstants.sx8.value : SpaceConstants.sx4.value
+    }
+
+    /// The cover's frame in a bar of `size`: vertically centred, as the bar's `HStack` lays it out.
+    static func coverSlot(in size: CGSize) -> CGRect {
+        CGRect(
+            x: leading,
+            y: (size.height - coverSide) / 2,
+            width: coverSide,
+            height: coverSide
+        )
     }
 }
 
