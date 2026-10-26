@@ -438,10 +438,18 @@ final class AccessibilityIdentifierTests: XCTestCase {
         XCTAssertTrue(detail.label.contains("left"), "expected the time left, got \"\(detail.label)\"")
         XCTAssertFalse(detail.label.contains("Ch "), "a book without chapters has no counter: \"\(detail.label)\"")
     }
+}
 
+// MARK: - Player chapters
+
+extension AccessibilityIdentifierTests {
+    /// The Chapters pill, then the panel it opens (#166 G2): its handle, header and rows.
     func test_player_chapterIdentifiersResolve() throws {
         _ = try openPlayer(forBookTitled: "Seeded Chaptered Book")
 
+        assertResolves(AccessibilityID.Player.chapters)
+        element(AccessibilityID.Player.chapters).tap()
+        assertResolves(AccessibilityID.Player.chaptersPanel)
         assertResolves(AccessibilityID.Player.chaptersTitle)
         // The seeded chaptered book has three chapters.
         assertResolves(AccessibilityID.Player.chapter(0))

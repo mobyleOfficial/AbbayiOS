@@ -156,9 +156,14 @@ enum AccessibilityID {
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
         static let grabber = "player.grabber"
         static let title = "player.title"
+        /// The chapter panel's "Chapters" header (#166 G2).
         static let chaptersTitle = "player.chapters.title"
-        /// The chapter list's "No chapters" message, for a book with no chapter markers.
-        static let chaptersEmpty = "player.chapters.empty"
+        /// The Chapters pill: opens the chapter panel, and closes it (✕) while open. Absent for a
+        /// book with no chapters.
+        static let chapters = "player.chapters"
+        /// The open chapter panel's handle at its top (a leaf): VoiceOver's "Close chapters", and
+        /// where a drag down closes the panel.
+        static let chaptersPanel = "player.chapters.panel"
         static let downloadProgress = "player.download.progress"
         /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
         static let downloadLowDataMode = "player.download.lowDataMode"

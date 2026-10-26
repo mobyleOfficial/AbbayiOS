@@ -43,9 +43,10 @@ extension MiniPlayerUITests {
         waitForPlayerToArrive()
         XCTAssertEqual(transportPlay.label, "Play", "the shown book should start paused")
 
+        openChaptersPanel()
         let chapter = element(AccessibilityID.Player.chapter(3))
         // On a shorter screen (the iPhone Duo, the iOS 27.1 runtime's only device) the fourth row
-        // starts below the fold, and the lazy list hasn't built it yet: scroll to it.
+        // can start below the panel's fold, and the lazy list hasn't built it yet: scroll to it.
         if !chapter.waitForExistence(timeout: 5) {
             element(AccessibilityID.Player.chapter(0)).swipeUp()
         }

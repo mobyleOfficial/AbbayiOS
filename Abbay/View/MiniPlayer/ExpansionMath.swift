@@ -33,12 +33,6 @@ enum ExpansionMath {
         return wasOpening ? progress >= openThreshold : progress > 1 - openThreshold
     }
 
-    /// A collapse starts from the header or grabber anywhere, and from the chapter list only when
-    /// it is scrolled to the top; otherwise the list scrolls.
-    static func canStartCollapse(listOffset: CGFloat, fromHeader: Bool) -> Bool {
-        fromHeader || listOffset <= 0
-    }
-
     /// The bar's one drag is the expansion when it starts more vertical than horizontal, and a
     /// chapter swipe otherwise.
     static func isVerticalDrag(_ translation: CGSize) -> Bool {

@@ -38,24 +38,27 @@ final class EmptyStateUITests: XCTestCase {
     private func openPlayer(for title: String) throws {
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 15))
         try XCTUnwrap(rowTitle(title), "no seeded row titled \"\(title)\"").tap()
-        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 10))
+        XCTAssertTrue(element(AccessibilityID.Player.speed).waitForExistence(timeout: 10))
     }
 
     // MARK: - Tests
 
-    func test_playerChapterList_forABookWithNoChapters_saysSo() throws {
+    /// #166 G1: a book with no chapters has no Chapters pill (and so no "No chapters" message on
+    /// the player); the speed pill is still there.
+    func test_player_forABookWithNoChapters_hasNoChaptersPill() throws {
         try openPlayer(for: "Seeded Plain Book")
 
-        let empty = element(AccessibilityID.Player.chaptersEmpty)
-        XCTAssertTrue(empty.waitForExistence(timeout: 5), "no empty state in the chapter list")
-        XCTAssertTrue(empty.label.contains("No chapters"), "unexpected: \"\(empty.label)\"")
+        XCTAssertTrue(element(AccessibilityID.Player.speed).exists)
+        XCTAssertFalse(element(AccessibilityID.Player.chapters).exists, "a book without chapters shows the pill")
         XCTAssertFalse(element(AccessibilityID.Player.chapter(0)).exists)
     }
 
-    func test_playerChapterList_forABookWithChapters_showsRowsAndNoEmptyState() throws {
+    func test_player_forABookWithChapters_opensTheirPanel() throws {
         try openPlayer(for: "Seeded Chaptered Book")
 
+        let pill = element(AccessibilityID.Player.chapters)
+        XCTAssertTrue(pill.waitForExistence(timeout: 5), "no Chapters pill")
+        pill.tap()
         XCTAssertTrue(element(AccessibilityID.Player.chapter(0)).waitForExistence(timeout: 5))
-        XCTAssertFalse(element(AccessibilityID.Player.chaptersEmpty).exists)
     }
 }

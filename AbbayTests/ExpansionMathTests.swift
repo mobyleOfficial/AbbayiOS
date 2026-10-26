@@ -63,14 +63,6 @@ final class ExpansionMathTests: XCTestCase {
         XCTAssertEqual(ExpansionMath.flickVelocity, 800)
     }
 
-    // MARK: - Collapse
-
-    func test_collapseGesture_onlyStartsWhenListIsAtTop() {
-        XCTAssertFalse(ExpansionMath.canStartCollapse(listOffset: 120, fromHeader: false))
-        XCTAssertTrue(ExpansionMath.canStartCollapse(listOffset: 0, fromHeader: false))
-        XCTAssertTrue(ExpansionMath.canStartCollapse(listOffset: 120, fromHeader: true))
-    }
-
     /// The bar's drag: mostly vertical expands, mostly horizontal is a chapter swipe.
     func test_isVerticalDrag_splitsTheBarsDrag() {
         XCTAssertTrue(ExpansionMath.isVerticalDrag(CGSize(width: 5, height: -13)))

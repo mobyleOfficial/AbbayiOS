@@ -63,9 +63,12 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   directory. The player's position saves are update-only, so a deleted book that was loaded in the
   player is not re-inserted.
 - **status-display:** a book's state is non-nil only while it is **incomplete**. The Library row shows
-  the ring; the details screen and the LibriVox page show the overall progress bar and per-chapter
+  the ring; the LibriVox page shows the overall progress bar and per-chapter
   ✓ / `N%` / *Waiting* / *Failed · Retry* (pt-BR *Falhou · Repetir*; statuses are one line at full
-  width, the title wraps to two lines) through the shared `ChapterListView`. The failed status is
+  width, the title wraps to two lines) through the shared `ChapterListView`. The details screen
+  shows the overall progress line under its scrubber, and the per-chapter statuses in its chapter
+  panel (#166 G2). A *finished* chapter (before the current one) that is downloaded shows only its
+  finished check, not a second ✓ (#225, `ChapterListView.shownStatus`). The failed status is
   a button (`player.chapter.<n>.retry`, `detail.chapter.<n>.retry`); a row showing it is an
   accessibility container rather than one combined element, so the button stays reachable. Imported books never show any of it.
   Library search rows tag a fully downloaded LibriVox book *Downloaded*.

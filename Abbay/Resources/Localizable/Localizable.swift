@@ -71,6 +71,9 @@ enum Localizable: String {
     case noChaptersMessage
     case chapterFinished
     case chapterCurrent
+    case chaptersTitle
+    case chapterPosition
+    case closeChapters
     // Settings
     case settingsTitle
     case done
