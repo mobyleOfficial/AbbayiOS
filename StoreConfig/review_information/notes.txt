@@ -1,0 +1,2 @@
+No account needed. To test: open the Search tab, pick any LibriVox book, tap Download, then play it from the Library tab. Importing your own files: Library → + → Import. Searching and downloading need an internet connection; imported files play offline.
+The app also supports CarPlay audio and Siri / App Shortcuts for playing books in the library.
