@@ -77,6 +77,14 @@ anything above None there would make the app 18+. The expected result is 13+.
 
 Screenshots must have no alpha channel: upload JPEGs, or PNGs flattened to RGB.
 
-The order is library (with Continue), player, chapter list, LibriVox search, then book detail,
-captured in both languages from the release build with the demo library from the landing-page
-footage. They aren't in the repo yet (#252).
+The images are in `screenshots/<language>/`, named `<slot>_<n>-<screen>.jpg`:
+
+- `iphone-6.3`: upload to "iPhone with Dynamic Island (medium display)"
+- `iphone-6.9`: upload to "iPhone with Dynamic Island (large display)"
+- `duo-outer`: upload to the iPhone Duo outer display. `en-US` only for now: the pt-BR set and a
+  retake after the clipped-grid fix are tracked in #251.
+- `duo-inner`: upload to the iPhone Duo inner display
+
+The order is library (with Continue), player, chapter list, LibriVox search, then book detail. They
+were captured from the 1.0.1 release build with the demo library from the landing-page footage.
+The capture tooling isn't in the repo yet (#252).
