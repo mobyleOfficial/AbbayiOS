@@ -2,6 +2,7 @@
 # rubocop:disable Style/MultilineOperationIndentation, Style/StringConcatenation, Metrics/BlockLength
 
 require 'yaml'
+require_relative 'build_number'
 
 default_platform(:ios)
 
@@ -15,6 +16,18 @@ platform :ios do
 
   def error(message)
     UI.error("❌ #{message}")
+  end
+
+  # The simulator the suites run on, from .actions.yml. CI's image has other runtimes than a
+  # developer's Mac, so on CI `ci_test_device` wins when it is set. `ABBAY_TEST_DEVICE` overrides
+  # both, e.g. `ABBAY_TEST_DEVICE='iPhone Duo (27.1)' bundle exec fastlane verify` for the iOS 27.1
+  # runtime (its only device: a shorter screen with a side tab rail, which the suites pass on since #203).
+  def test_device
+    return ENV['ABBAY_TEST_DEVICE'] if ENV['ABBAY_TEST_DEVICE'].to_s != ''
+
+    config = YAML.load_file('../.actions.yml')
+    device = ENV['CI'] && config['ci_test_device'] ? config['ci_test_device'] : config['test_device']
+    device.to_s
   end
 
   desc "Generates the project
@@ -47,21 +60,93 @@ platform :ios do
     generate_project(open: false)
     message('Running tests')
 
-    actions_config = YAML.load_file('../.actions.yml')
-
     begin
       # https://docs.fastlane.tools/actions/run_tests/#parameters
       setup_ci if ENV['CI']
       run_tests(
         project: "#{project_name}.xcodeproj",
         scheme: project_name.to_s,
-        device: actions_config['test_device'].to_s,
+        device: test_device,
         derived_data_path: './build_data',
         result_bundle_path: 'TestResults.xcresult'
       )
     ensure
       sh 'open ../TestResults.xcresult' if options[:open].nil? || options[:open]
     end
+  end
+
+  desc "Runs the UI test suite
+
+Drives the real app in the simulator. Kept in its own lane and its own scheme because UI tests
+boot the app and are far slower than the unit suite -- `test_project` must stay quick.
+
+#### Optional parameters
+  * open: true - Open the test results after running tests"
+  lane :ui_test_project do |options|
+    generate_project(open: false)
+    message('Running UI tests')
+
+    begin
+      setup_ci if ENV['CI']
+      run_tests(
+        project: "#{project_name}.xcodeproj",
+        scheme: "#{project_name}UITests",
+        device: test_device,
+        derived_data_path: './build_data',
+        result_bundle_path: 'UITestResults.xcresult',
+        # UI tests drive a real simulator, so they are sensitive to host load in a way the unit
+        # suite is not. Retry rather than let a shared-runner hiccup block a merge.
+        number_of_retries: 2
+      )
+    ensure
+      sh 'open ../UITestResults.xcresult' if options[:open].nil? || options[:open]
+    end
+  end
+
+  desc "Full pre-merge verification: SwiftLint, unit tests, UI tests
+
+CI does not run the test suites (see .actions.yml), so this is the gate before merging. It
+generates the project once and reuses that build for both suites, rather than letting
+`test_project` and `ui_test_project` each clean and rebuild."
+  lane :verify do
+    Dir.chdir('..') do
+      message('SwiftLint (strict)')
+      sh 'bundle exec Scripts/swiftlint --strict --quiet'
+
+      # Outside the bundle: minitest ships with Ruby but is not in the Gemfile.
+      message('Release build-number tests')
+      Bundler.with_unbundled_env { sh 'ruby fastlane/test/build_number_test.rb' }
+    end
+
+    generate_project(open: false)
+    device = test_device
+
+    # Remove the result bundle first: xcodebuild hard-fails with "Existing file at
+    # -resultBundlePath" rather than overwriting, which made this lane non-idempotent whenever a
+    # previous run left a bundle behind (an interrupted run, or a stray process recreating one
+    # after clean_project had already run).
+    message('Unit tests')
+    sh 'rm -rf ../TestResults.xcresult'
+    run_tests(
+      project: "#{project_name}.xcodeproj",
+      scheme: project_name.to_s,
+      device: device,
+      derived_data_path: './build_data',
+      result_bundle_path: 'TestResults.xcresult'
+    )
+
+    message('UI tests')
+    sh 'rm -rf ../UITestResults.xcresult'
+    run_tests(
+      project: "#{project_name}.xcodeproj",
+      scheme: "#{project_name}UITests",
+      device: device,
+      derived_data_path: './build_data',
+      result_bundle_path: 'UITestResults.xcresult',
+      number_of_retries: 2
+    )
+
+    message('verify passed: lint, unit suite and UI suite are all green')
   end
 
   desc "Generate app (xcarchive)
@@ -90,6 +175,161 @@ platform :ios do
     sh "open #{archive_path}" if options[:open].nil? || options[:open]
   end
 
+  # App Store Connect API key from the environment, or nil when none is configured. A partial
+  # configuration is an error rather than a silent skip: in CI it means a secret is missing.
+  def app_store_connect_key_env
+    vars = {
+      key_id: ENV.fetch('APP_STORE_CONNECT_API_KEY_ID', ''),
+      issuer_id: ENV.fetch('APP_STORE_CONNECT_API_KEY_ISSUER_ID', ''),
+      key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_KEY', ''),
+      key_filepath: ENV.fetch('APP_STORE_CONNECT_API_KEY_PATH', '')
+    }
+    have_key = !vars[:key_content].empty? || !vars[:key_filepath].empty?
+    return nil if vars[:key_id].empty? && vars[:issuer_id].empty? && !have_key
+    unless !vars[:key_id].empty? && !vars[:issuer_id].empty? && have_key
+      UI.user_error!('Incomplete App Store Connect API key: set APP_STORE_CONNECT_API_KEY_ID, ' \
+                     'APP_STORE_CONNECT_API_KEY_ISSUER_ID and either APP_STORE_CONNECT_API_KEY_KEY ' \
+                     '(the .p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (path to the .p8)')
+    end
+    vars.reject { |_, value| value.empty? }
+  end
+
+  # The fastlane API key hash for App Store Connect actions (TestFlight lookup and upload).
+  def testflight_api_key(key)
+    source = key[:key_filepath] ? { key_filepath: key[:key_filepath] } : { key_content: key[:key_content] }
+    app_store_connect_api_key(key_id: key[:key_id], issuer_id: key[:issuer_id], **source)
+  end
+
+  # The build number for this release (see fastlane/build_number.rb). With a key it asks
+  # TestFlight for the latest build across all versions (read-only); an app with no builds yet
+  # reads as 0. Never writes the version file.
+  def release_build_plan(api_key, requested)
+    version_build = File.read('../version').split[1]
+    latest = api_key && latest_testflight_build_number(api_key: api_key, initial_build_number: 0)
+    BuildNumber.plan(version_file_build: version_build, testflight_latest: latest, requested: requested)
+  rescue BuildNumber::Error => e
+    UI.user_error!(e.message)
+  end
+
+  desc "Archives a Release build, checks it, exports an App Store .ipa and uploads it to TestFlight
+
+1. Picks the build number (fastlane/build_number.rb, #183): with an API key,
+   max(latest TestFlight build, `version` file) + 1; without one, the `version` file's number
+   (no upload, so nothing to collide with). Generates the project, stamps the marketing version
+   from `version` and that build number into the generated project. `version` is never written.
+2. Archives Release for `generic/platform=iOS` to build/Abbay.xcarchive.
+3. Runs Scripts/check-app-binary on the archived .app: load paths (#142), entitlements, no
+   Debug-only resources.
+4. Exports build/export/Abbay.ipa with fastlane/ExportOptions-AppStore.plist and checks it again (the
+   export re-signs with the distribution profile, which is what users get).
+5. Uploads to TestFlight with an App Store Connect API key. Without the key env vars the lane
+   stops after the .ipa with a message, so it is runnable locally.
+
+Env: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID, and
+APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path).
+
+#### Optional parameters
+  * dry_run: false - Resolve the key and the build number, print the plan, stop before building
+  * build_number: <n> - Use this build number; with a key it must be above TestFlight's latest"
+  lane :release do |options|
+    key = app_store_connect_key_env # before the build, so a missing secret fails fast
+    api_key = key && testflight_api_key(key)
+    build_plan = release_build_plan(api_key, options[:build_number])
+    message(build_plan.explanation)
+
+    if options[:dry_run].to_s == 'true'
+      marketing_version = File.read('../version').split[0]
+      message("Dry run: would archive #{project_name} #{marketing_version} (#{build_plan.build_number}), " \
+              "check it, export #{project_name}.ipa and " +
+              (api_key ? 'upload it to TestFlight' : 'stop before uploading (no API key)'))
+      message('Dry run: nothing built, the version file is unchanged')
+      next
+    end
+
+    generate_project(open: false)
+    setup_ci if ENV['CI']
+
+    project_dir = File.expand_path('..', Dir.pwd)
+    increment_build_number(
+      build_number: build_plan.build_number.to_s,
+      xcodeproj: "#{project_dir}/#{project_name}.xcodeproj"
+    )
+    build_dir = "#{project_dir}/build"
+    archive_path = "#{build_dir}/#{project_name}.xcarchive"
+    ipa_name = "#{project_name}.ipa"
+    check_script = "#{project_dir}/Scripts/check-app-binary"
+
+    key_file = nil
+    signing_args = ''
+    if key
+      # xcodebuild needs the key as a file to fetch or create signing assets itself
+      # (-allowProvisioningUpdates). Written under build/, which clean_project removes.
+      key_file = key[:key_filepath]
+      if key_file.nil?
+        FileUtils.mkdir_p(build_dir)
+        key_file = "#{build_dir}/AuthKey_#{key[:key_id]}.p8"
+        File.write(key_file, key[:key_content])
+        File.chmod(0o600, key_file)
+      end
+      signing_args = '-allowProvisioningUpdates ' \
+                     "-authenticationKeyPath #{key_file.shellescape} " \
+                     "-authenticationKeyID #{key[:key_id].shellescape} " \
+                     "-authenticationKeyIssuerID #{key[:issuer_id].shellescape}"
+    end
+
+    begin
+      message('Archiving Release for generic/platform=iOS')
+      build_app(
+        project: "#{project_name}.xcodeproj",
+        scheme: project_name.to_s,
+        configuration: 'Release',
+        destination: 'generic/platform=iOS',
+        derived_data_path: './build_data',
+        archive_path: archive_path,
+        xcargs: signing_args,
+        skip_package_ipa: true
+      )
+
+      message('Checking the archived app')
+      sh "#{check_script.shellescape} #{archive_path.shellescape}"
+
+      # xcodebuild directly, not build_app: gym (through fastlane 2.240) rejects the
+      # `app-store-connect` method that Xcode 15.3+ uses in place of the deprecated `app-store`.
+      message('Exporting the App Store .ipa')
+      export_dir = "#{build_dir}/export"
+      export_options = "#{project_dir}/fastlane/ExportOptions-AppStore.plist"
+      # The export may always create the distribution certificate and App Store profiles: with
+      # the API key when there is one, otherwise with the account signed in to Xcode. Without a
+      # key the archive does not ask for updates; it signs with the local development profiles.
+      export_args = signing_args.empty? ? '-allowProvisioningUpdates' : signing_args
+      sh 'xcodebuild -exportArchive ' \
+         "-archivePath #{archive_path.shellescape} " \
+         "-exportPath #{export_dir.shellescape} " \
+         "-exportOptionsPlist #{export_options.shellescape} #{export_args}"
+      ipa_path = "#{export_dir}/#{ipa_name}"
+      UI.user_error!("Export finished but #{ipa_path} is missing") unless File.exist?(ipa_path)
+
+      message('Checking the exported .ipa (distribution-signed)')
+      sh "#{check_script.shellescape} --require-distribution #{ipa_path.shellescape}"
+
+      if key.nil?
+        UI.important('Skipping TestFlight upload: no App Store Connect API key in the environment. ' \
+                     'Set APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID and ' \
+                     "APP_STORE_CONNECT_API_KEY_KEY or APP_STORE_CONNECT_API_KEY_PATH. IPA: #{ipa_path}")
+        next
+      end
+
+      message("Uploading build #{build_plan.build_number} to TestFlight")
+      upload_to_testflight(
+        api_key: api_key,
+        ipa: ipa_path,
+        skip_waiting_for_build_processing: true
+      )
+    ensure
+      File.delete(key_file) if key && key[:key_filepath].nil? && key_file && File.exist?(key_file)
+    end
+  end
+
   desc 'Clean build artifacts'
   lane :clean_project do
     Dir.chdir('..') do
@@ -98,7 +338,7 @@ platform :ios do
       sh "find . -maxdepth 3 -type d -name '*.xcworkspace' -exec rm -rf {} +"
       sh "find . -maxdepth 3 -type d -name 'DerivedData' -exec rm -rf {} +"
       sh 'rm -rf DerivedData build build_data'
-      sh 'rm -rf TestResults TestResults.xcresult'
+      sh 'rm -rf TestResults TestResults.xcresult UITestResults.xcresult'
     end
   end
 

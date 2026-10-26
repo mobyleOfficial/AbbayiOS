@@ -1,5 +1,13 @@
 name: Release .app
 
+# Runs on every push to `main`. With the App Store Connect secrets set it runs the `release`
+# lane (Release device archive, Scripts/check-app-binary, App Store export, TestFlight upload)
+# and attaches the .ipa and dSYMs to a GitHub Release. Without them it falls back to the old
+# simulator archive so the workflow still produces something, and says so in a warning.
+#
+# Secrets: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID,
+# APP_STORE_CONNECT_API_KEY_KEY (the .p8 file contents). See README "Releasing".
+
 on:
   push:
     branches:
@@ -10,10 +18,14 @@ jobs:
     name: Run release
     permissions:
       contents: write
-    runs-on: macos-14
+    runs-on: xcode-27
+    env:
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get tag
         id: get_tag
@@ -21,41 +33,59 @@ jobs:
           TAG=$(head -n 1 version)
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
+      - name: Check for App Store Connect secrets
+        id: secrets
+        run: |
+          if [ -n "$APP_STORE_CONNECT_API_KEY_ID" ] && [ -n "$APP_STORE_CONNECT_API_KEY_ISSUER_ID" ] && [ -n "$APP_STORE_CONNECT_API_KEY_KEY" ]; then
+            echo "upload=true" >> $GITHUB_OUTPUT
+          else
+            echo "upload=false" >> $GITHUB_OUTPUT
+            echo "::warning::App Store Connect secrets are not set: building the simulator archive only, nothing is uploaded to TestFlight."
+          fi
+
+      - name: Setup Ruby and bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          bundler-cache: true
+
       - name: Setup Xcode version
         uses: maxim-lobanov/setup-xcode@v1.5.1
         with:
-          xcode-version: '16.2'
+          xcode-version: '27.1'
 
-      - name: Run build
+      - name: Release to TestFlight
+        if: steps.secrets.outputs.upload == 'true'
         run: |
           bundle install
-          bundle exec fastlane generate_app open:false
+          bundle exec fastlane release
 
-      - name: Zip build files
+      - name: Collect release assets
+        if: steps.secrets.outputs.upload == 'true'
         run: |
           PROJECT_NAME=`grep '^name:' project.yml | sed 's/^name: //'`
           mkdir App
-          mv build/$PROJECT_NAME-iossimulator.xcarchive/Products/Applications/$PROJECT_NAME.app App
-          mv build/$PROJECT_NAME-iossimulator.xcarchive/dSYMs/$PROJECT_NAME.app.dSYM App
-          zip -r App.zip App
+          mv build/export/$PROJECT_NAME.ipa App/
+          (cd build/$PROJECT_NAME.xcarchive && zip -qr ../../App/dSYMs.zip dSYMs)
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build simulator archive (no secrets)
+        if: steps.secrets.outputs.upload != 'true'
+        run: |
+          bundle install
+          bundle exec fastlane generate_app open:false
+          PROJECT_NAME=`grep '^name:' project.yml | sed 's/^name: //'`
+          mkdir -p App/App
+          mv build/$PROJECT_NAME-iossimulator.xcarchive/Products/Applications/$PROJECT_NAME.app App/App
+          mv build/$PROJECT_NAME-iossimulator.xcarchive/dSYMs/$PROJECT_NAME.app.dSYM App/App
+          (cd App && zip -qr App.zip App && rm -rf App)
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
-          release_name: Release ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
-
-      - name: Upload assets to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: App.zip
-          asset_name: App.zip
-          asset_content_type: application/zip
+          files: App/*
+          fail_on_unmatched_files: true

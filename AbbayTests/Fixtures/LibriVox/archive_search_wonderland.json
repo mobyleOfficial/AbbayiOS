@@ -1,0 +1,56 @@
+{
+ "responseHeader": {
+  "status": 0,
+  "QTime": 38,
+  "params": {
+   "query": "collection:librivoxaudio AND mediatype:audio AND (title:wonderland* OR creator:wonderland*)",
+   "qin": "collection:librivoxaudio AND mediatype:audio AND (title:(wonderland*) OR creator:(wonderland*))",
+   "fields": "identifier,title,creator,language,mediatype",
+   "wt": "json",
+   "sort": "downloads desc",
+   "rows": 50,
+   "start": 0
+  }
+ },
+ "response": {
+  "numFound": 18,
+  "start": 0,
+  "docs": [
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "alice_in_wonderland_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland, by Lewis Carroll"
+   },
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "alices_adventures_1003",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland"
+   },
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "aliceinwonderland_1102_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland (dramatic reading)"
+   },
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "alice_wonderland_0711_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland"
+   },
+   {
+    "creator": "Lewis Carroll",
+    "identifier": "alices_adventures_1005_librivox",
+    "language": "eng",
+    "mediatype": "audio",
+    "title": "Alice's Adventures in Wonderland"
+   }
+  ]
+ }
+}

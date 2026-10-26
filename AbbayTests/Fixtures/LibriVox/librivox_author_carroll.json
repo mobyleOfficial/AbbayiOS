@@ -1,0 +1,370 @@
+{
+ "books": [
+  {
+   "id": "200",
+   "description": "In this children's classic, a girl named Alice follows falls down a rabbit-hole into a fantasy realm full of talking creatures. She attends a never-ending tea party and plays croquet at the court of the anthropomorphic playing cards. (Summary written by Gesine)<br /><br />\"I loved all the voices in this project and probably wouldn’t have put the time into checking into this book without this LibriVox version of it. Great project and well done by all. What people can do really amazes me from time to time. This reminds me of how beautiful the world can be.\" — skinned mink",
+   "url_iarchive": "https://www.archive.org/details/alice_in_wonderland_librivox",
+   "sections": [
+    {
+     "id": "123439",
+     "section_number": "1",
+     "title": "Chapter 1",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_01_64kb.mp3",
+     "language": "English",
+     "playtime": "640",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "89",
+       "display_name": "Kristen McQuillin"
+      }
+     ]
+    },
+    {
+     "id": "123440",
+     "section_number": "2",
+     "title": "Chapter 2",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_02_64kb.mp3",
+     "language": "English",
+     "playtime": "735",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "260",
+       "display_name": "Brad Bush"
+      }
+     ]
+    },
+    {
+     "id": "123441",
+     "section_number": "3",
+     "title": "Chapter 3",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_03_64kb.mp3",
+     "language": "English",
+     "playtime": "1063",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "737",
+       "display_name": "Roger W. Barnett"
+      }
+     ]
+    },
+    {
+     "id": "123442",
+     "section_number": "4",
+     "title": "Chapter 4",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_04_64kb.mp3",
+     "language": "English",
+     "playtime": "1192",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "584",
+       "display_name": "miette"
+      }
+     ]
+    },
+    {
+     "id": "123443",
+     "section_number": "5",
+     "title": "Chapter 5",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_05_64kb.mp3",
+     "language": "English",
+     "playtime": "809",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "459",
+       "display_name": "Mark Bradford"
+      }
+     ]
+    },
+    {
+     "id": "123444",
+     "section_number": "6",
+     "title": "Chapter 6",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_06_64kb.mp3",
+     "language": "English",
+     "playtime": "809",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "738",
+       "display_name": "Raza Shah"
+      }
+     ]
+    },
+    {
+     "id": "123445",
+     "section_number": "7",
+     "title": "Chapter 7",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_07_64kb.mp3",
+     "language": "English",
+     "playtime": "1046",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "19",
+       "display_name": "Kara Shallenberg (1969-2023)"
+      }
+     ]
+    },
+    {
+     "id": "123446",
+     "section_number": "8",
+     "title": "Chapter 8",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_08_64kb.mp3",
+     "language": "English",
+     "playtime": "798",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "89",
+       "display_name": "Kristen McQuillin"
+      }
+     ]
+    },
+    {
+     "id": "123447",
+     "section_number": "9",
+     "title": "Chapter 9",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_09_64kb.mp3",
+     "language": "English",
+     "playtime": "15",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "739",
+       "display_name": "MarinaMechanical"
+      }
+     ]
+    },
+    {
+     "id": "123448",
+     "section_number": "10",
+     "title": "Chapter 10",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_10_64kb.mp3",
+     "language": "English",
+     "playtime": "1368",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "737",
+       "display_name": "Roger W. Barnett"
+      }
+     ]
+    },
+    {
+     "id": "123449",
+     "section_number": "11",
+     "title": "Chapter 11",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_11_64kb.mp3",
+     "language": "English",
+     "playtime": "619",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "740",
+       "display_name": "R. Francis Smith"
+      }
+     ]
+    },
+    {
+     "id": "123450",
+     "section_number": "12",
+     "title": "Chapter 12",
+     "listen_url": "https://www.archive.org/download/alice_in_wonderland_librivox/wonderland_ch_12_64kb.mp3",
+     "language": "English",
+     "playtime": "772",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "168",
+       "display_name": "Chris Goringe"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "423",
+   "description": "This is a whimsical poem that takes the reader on a sailing hunt for the mythical Snark. The Bellman, the Butcher, the Baker, the Beaver and others named and unnamed provide a fast-paced, almost maniacal, romp to find the elusive Snark. In the reading, you begin to suspect that Dr. Seuss may have found some inspiration from Carroll. The reading is a fast ride of thirty minutes and is suitable for children and adults alike. (Review written by Robert Garrison)",
+   "url_iarchive": "https://www.archive.org/details/hunting_of_the_snark_librivox",
+   "sections": [
+    {
+     "id": "126971",
+     "section_number": "1",
+     "title": "The Hunting of the Snark",
+     "listen_url": "https://www.archive.org/download/hunting_of_the_snark_librivox/the_hunting_of_the_snark_64kb.mp3",
+     "language": "English",
+     "playtime": "1764",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "439",
+       "display_name": "Robert Garrison"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "443",
+   "description": "Through the Looking Glass, the sequel to Lewis Carroll's Alice's Adventures in Wonderland, was written in 1872 and it finds Alice in a land when she walks through a mirror into the Looking-Glass House. The land is full of mythological creatures and characters and nursery rhyme characters. Alice makes a guest appearance in a bizarre game of chess with Humpty Dumpty! A charming, witty story!  (Summary by Aldark)",
+   "url_iarchive": "https://www.archive.org/details/looking-glass_librivox",
+   "sections": [
+    {
+     "id": "127363",
+     "section_number": "1",
+     "title": "01 - Looking-Glass House",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_01_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1104",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "260",
+       "display_name": "Brad Bush"
+      }
+     ]
+    },
+    {
+     "id": "127364",
+     "section_number": "2",
+     "title": "02 - The Garden of Live Flowers",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_02_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1209",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "19",
+       "display_name": "Kara Shallenberg (1969-2023)"
+      }
+     ]
+    },
+    {
+     "id": "127365",
+     "section_number": "3",
+     "title": "03 - Looking-Glass Insects",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_03_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1179",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "32",
+       "display_name": "Betsie Bush"
+      }
+     ]
+    },
+    {
+     "id": "127366",
+     "section_number": "4",
+     "title": "04 - Tweedledum and Tweedledee",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_04_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1113",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "36",
+       "display_name": "Chip"
+      }
+     ]
+    },
+    {
+     "id": "127367",
+     "section_number": "5",
+     "title": "05 - Wool and Water",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_05_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "986",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "89",
+       "display_name": "Kristen McQuillin"
+      }
+     ]
+    },
+    {
+     "id": "127368",
+     "section_number": "6",
+     "title": "06 - Humpty Dumpty",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_06_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1737",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "277",
+       "display_name": "Alessia"
+      }
+     ]
+    },
+    {
+     "id": "127369",
+     "section_number": "7",
+     "title": "07 - The Lion and the Unicorn",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_07_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1111",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "215",
+       "display_name": "Alice Elizabeth Still"
+      }
+     ]
+    },
+    {
+     "id": "127370",
+     "section_number": "8",
+     "title": "08 - 'It's my own Invention'",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_08_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1538",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "439",
+       "display_name": "Robert Garrison"
+      }
+     ]
+    },
+    {
+     "id": "127371",
+     "section_number": "9",
+     "title": "09 - Queen Alice and 10 - Shaking ",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_09_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "1641",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "82",
+       "display_name": "Marlo Dianne"
+      }
+     ]
+    },
+    {
+     "id": "127372",
+     "section_number": "10",
+     "title": "11 - Waking and 12 - Which Dreamed it?",
+     "listen_url": "https://www.archive.org/download/looking-glass_librivox/lookingglass_10_carroll_64kb.mp3",
+     "language": "English",
+     "playtime": "359",
+     "file_name": null,
+     "readers": [
+      {
+       "reader_id": "167",
+       "display_name": "Peter Yearsley"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

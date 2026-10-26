@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+# https://docs.fastlane.tools/advanced/Appfile/
+#
+# The release lane authenticates with an App Store Connect API key (see README "Releasing"), so
+# an Apple ID is not needed. Set FASTLANE_APPLE_ID only for actions that still want one; it is
+# read from the environment so no personal address is committed.
+
+app_identifier('com.edyuto.Abbay')
+team_id('2X5PWXY74F')
+apple_id(ENV.fetch('FASTLANE_APPLE_ID', nil)) if ENV['FASTLANE_APPLE_ID']

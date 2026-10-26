@@ -1,0 +1,85 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "display-p3:0.231,0.235,0.255,1.00000",
+      "display-p3:0.106,0.106,0.118,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 0
+      },
+      "stop": {
+        "x": 0.5,
+        "y": 1
+      }
+    }
+  },
+  "groups": [
+    {
+      "name": "Badge",
+      "layers": [
+        {
+          "name": "wave",
+          "image-name": "wave.svg",
+          "glass": true
+        },
+        {
+          "name": "disc",
+          "image-name": "disc.svg",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.3
+      }
+    },
+    {
+      "name": "Front pages",
+      "layers": [
+        {
+          "name": "front-pages",
+          "image-name": "front-pages.svg",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.4
+      }
+    },
+    {
+      "name": "Back sheets",
+      "layers": [
+        {
+          "name": "back-sheets",
+          "image-name": "back-sheets.svg",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

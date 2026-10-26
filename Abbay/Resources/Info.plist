@@ -6,24 +6,87 @@
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Abbay</string>
+	<key>CFBundleSpokenName</key>
+	<string>Abbay</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.utilities</string>
+	<string>public.app-category.books</string>
+	<!-- Abbay uses no non-exempt encryption: no network layer, no crypto beyond what the OS
+	     does for the Keychain and file protection. Declaring it here means App Store Connect
+	     stops asking the export-compliance questions on every single upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbey</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Abbay Audiobooks</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>abbey audio books</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>A Bay</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>a bay</string>
+		</dict>
+	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryAudiobooks</string>
+		<string>INMediaCategoryGeneral</string>
+	</array>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Abbay needs media access so Siri can start audiobook playback from your library.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>Abbay uses Siri to play your audiobooks and control playback when you say things like 'Play Harry Potter on Abbay' or 'Pause Abbay'.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UISceneConfigurations</key>
-		<dict/>
+		<dict>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
 	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<!-- The daily Siri context refresh, a BGAppRefreshTask (#127, SiriBackgroundRefresh). -->
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.edyuto.Abbay.siriRefresh</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

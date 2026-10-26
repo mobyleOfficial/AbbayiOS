@@ -1,0 +1,115 @@
+# Siri — INPlayMediaIntent
+
+The legacy SiriKit media path. Abbay handles `INPlayMediaIntent` in **two** places, and which one
+iOS picks is not fully under the app's control. This is the murkiest part of the app.
+
+## Sub-features
+
+- **extension path:** `AbbayIntents` is an intents-service app extension
+  (`NSExtensionPointIdentifier: com.apple.intents-service`). `IntentHandler.handler(for:)` returns
+  `PlayMediaIntentHandler`, whose `decide(for:)` returns a `ResolveOutcome`: `unavailable`,
+  `emptyLibrary`, `noMatch`, `singleMatch`, `disambiguation` (2-5 items) or `fallbackBest` (>5).
+- **in-app path:** the app also declares `INIntentsSupported`, so iOS can dispatch straight to
+  `AppDelegate.application(_:handlerFor:)` → `InAppPlayMediaHandler`, which runs the full
+  resolve → confirm → handle lifecycle. Supplying only `application(_:handle:)` makes Siri speak a
+  generic error even when playback succeeds, which is why the handler object exists.
+- **routing:** `IntentRouter.handle` is the shared tail. It bails on
+  `LaunchStateFlag.isUnavailable()`, finds an identifier (from the resolved media item if the
+  extension already matched, otherwise by matching `mediaSearch.mediaName` itself), loads the
+  model, and plays.
+- **url-resolution (#186):** the identifier is the book's identity, its row's URL, so it is loaded
+  as is (a moved book plays from where its file is now; see [import](import.md) *identity*). On a
+  miss, `rowURL(resolvingTo:)` looks for the snapshot book whose bookmark resolves to the
+  identifier: a donation from before #186 named a moved book by its resolved URL. A stale bookmark
+  needs nothing here: loading the book saves the fresh one (#146).
+- **matching:** `MediaSearchResolver.candidates` over `FuzzyMatch`, biased toward
+  `LastPlayedStore.lastPlayedURL()` so a titleless "play" resumes the right book. `matchAll` is the
+  one matcher for every Siri path (this one, the App Shortcuts entity query and the iOS 27 audio
+  domain) and takes the media name as spoken (#201): words compared case- and
+  diacritic-insensitively, en and pt-BR stop words dropped ("the goblet of fire" finds *Harry
+  Potter and the Goblet of Fire*), "\<title> by/por/de \<author>" tried as a title plus an author
+  (the snapshot's `artist` breaks a tie between same-titled books), "audiobook"/"livro" at either
+  end ignored, and the query may contain the title or the title the query. Tiers: whole title >
+  same words > title starts with the query > title contains it > query contains the title > the
+  same words out of order (every word said is in the title, or every title word was said). A
+  series book that isn't in the library is never replaced by another one ("harry potter goblet"
+  doesn't play *Chamber of Secrets*). Short words never
+  match part of a longer one ("go" isn't *Goblet*); a query of stop words alone matches nothing.
+  Books tied at the top go to disambiguation as before. Rules and cases: `SpokenQueryMatchingTests`.
+- **author-only requests (#207):** "something by Jane Austen", "um livro do Machado de Assis"
+  (only request words such as something, anything, a book, livro, algo, alguma coisa before
+  by/from/por/de/do/da) ask for the books whose artist has every word of the author (one of three
+  letters or more). Tried before the titles, but a title by that same author still wins ("Book One
+  by Stephen King"), and someone else's title never does ("a book by Bram Stoker" isn't *The
+  Jungle Book*). A bare name ("jane austen", "machado") is read as an author only when no title
+  matches. What plays: the last-played book when it is that author's, alone (so "play something by
+  X" carries on with X); otherwise all their books in library order, which the extension offers as
+  a disambiguation (2-5) or `fallbackBest` (>5), and the in-app path plays the first. An author
+  with no book in the library matches nothing. SiriKit can also carry the author apart, in
+  `INMediaSearch.artistName`: `MediaSearchResolver.candidates(mediaName:artistName:…)` reads a
+  title plus artist as "\<title> by \<artist>", and an artist alone as an author-only request, never
+  as title-less (no resume of someone else's book). Every path that matches a spoken title gets
+  this (extension, in-app, `IntentRouter`, `AudiobookEntityQuery`, `PlayBookByNameIntent`'s second
+  turn, the iOS 27 audio domain); the App Shortcut phrases can't carry an author (their parameter is
+  an entity). The extension's diagnostics line is `ext decide entered titleless=<bool>
+  artist=<bool>`. Cases: `SpokenAuthorMatchingTests`, `PlayMediaIntentHandlerTests`,
+  `InAppPlayMediaHandlerTests`, `AudioDomainIntentTests`.
+- **stuck-state guards:** a dead pointer clears `LastPlayedStore` only when the dead URL *is* the
+  saved one, then refreshes the snapshot.
+- **recency donations (#127, experiment):** `IntentDonor.donatePlayMedia` donates an
+  `INPlayMediaIntent` interaction with the book as an `INMediaItem` at play start (`Player.play`),
+  on `Player.pause()` (every pause path: app, lock screen, CarPlay, Siri, book end) and when a
+  playing tick lands in a different chapter than the last one (`Player.noteChapter`, which also
+  catches chapter skips). A repeat for the same book inside `IntentDonor.repeatWindow` (2 minutes)
+  is dropped and doesn't restart the window. An `AVAudioSession` interruption (call, Siri, another
+  app's audio) that begins while the user had asked to play donates too (#160): `Player` tracks the
+  play request itself (`isPlayRequested`), since the system has already paused the queue player when
+  the notification arrives. Donations pass a completion handler; a failure logs
+  `donation failed: <domain> <code>` to the `Siri` category at `.error`, never the title (#157).
+  The line goes through an injected `SiriLogSink` (`OSSiriLogSink` → `Log.siri` in the app); its
+  `SiriLogEvent` carries only the domain and code, so a title can't reach it. `IntentDonorLoggingTests`
+  assert on a recording sink, not the unified log (#181); `SiriLogRecordTests` pin the exact text,
+  level and `.public` privacy `OSSiriLogSink` writes (#190).
+- **cross-process state:** the extension cannot touch Core Data. It reads
+  `abbay.librarySnapshot.v1` from the App Group, which the app writes on every library mutation.
+  `LibrarySnapshotWriter` compiles a no-op `LoadAllAudios` under `ABBAY_INTENTS_EXTENSION`.
+
+## How to get to it (user POV)
+
+*"Play \<title> on Abbay"*, *"Play Abbay"*, or any media-domain phrase Siri routes to the app.
+
+## Driving it with abbay-ctl
+
+`verified-unreachable` for the voice path. The reachable assertions:
+
+```bash
+$B appgroup get abbay.librarySnapshot.v1      # the extension's only view of the library
+$B diagnostics                                # "ext decide entered" vs "app handleInApp received"
+                                              # tells you WHICH path handled the request
+$B appgroup get abbay.audioSessionUnavailable
+```
+
+`SiriDiagnostics` is the single most useful tool here: the extension records `ext …` and the in-app
+handler records `app …`, so one log read establishes which of the two paths iOS chose. The
+unified log adds per-step detail: the extension logs each `decide` step through
+`Log.playMediaIntent` (subsystem `com.edyuto.Abbay.AbbayIntents`, category `PlayMediaIntent`), with
+the spoken name and last-played URL `.private` and counts and the flag `.public`. These are
+`.info` entries, so read them with `--info`, e.g.
+`xcrun simctl spawn booted log show --last 5m --info --predicate 'subsystem BEGINSWITH "com.edyuto.Abbay"'`.
+Note that `AppIntentsTesting` does **not** cover this — it is App Intents only. This path stays unit-tested
+(`InAppPlayMediaHandlerTests`, `IntentRouterTests`, `SiriEntityTests`).
+
+## Gotchas
+
+- **Two handlers for one intent type is the most likely source of #90.** Siri routing between the
+  extension and the in-app handler differs by context, and CarPlay may resolve differently from the
+  phone. `docs/superpowers/research/2026-09-12-siri-routing-diagnosis.md` has prior findings.
+- The extension sees **only** the App Group snapshot. If the snapshot is stale or empty, the
+  extension reports `emptyLibrary` while the app's own library is fine. Every library mutation must
+  go through `LibrarySnapshotWriter.write`.
+- A book imported but never played has no bookmark in the snapshot, so the extension can only offer
+  the raw URL string and resolution depends on the fallback.
+- Apple now documents SiriKit / Intents / IntentsUI as **legacy**, pointing at App Intents. Any
+  rework should move toward the App Intents path rather than deepening this one — relevant to #81.
+- `INPreferences.requestSiriAuthorization` must have been granted or iOS refuses extension dispatch
+  entirely, answering "Abbay hasn't added support for that with Siri".

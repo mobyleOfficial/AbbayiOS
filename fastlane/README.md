@@ -45,6 +45,32 @@ Tests the project
 #### Optional parameters
   * open: true - Open the test results after running tests
 
+### ios ui_test_project
+
+```sh
+[bundle exec] fastlane ios ui_test_project
+```
+
+Runs the UI test suite
+
+Drives the real app in the simulator. Kept in its own lane and its own scheme because UI tests
+boot the app and are far slower than the unit suite -- `test_project` must stay quick.
+
+#### Optional parameters
+  * open: true - Open the test results after running tests
+
+### ios verify
+
+```sh
+[bundle exec] fastlane ios verify
+```
+
+Full pre-merge verification: SwiftLint, unit tests, UI tests
+
+CI does not run the test suites (see .actions.yml), so this is the gate before merging. It
+generates the project once and reuses that build for both suites, rather than letting
+`test_project` and `ui_test_project` each clean and rebuild.
+
 ### ios generate_app
 
 ```sh
@@ -55,6 +81,33 @@ Generate app (xcarchive)
 
 #### Optional parameters
   * open: true - Open the archive after generation
+
+### ios release
+
+```sh
+[bundle exec] fastlane ios release
+```
+
+Archives a Release build, checks it, exports an App Store .ipa and uploads it to TestFlight
+
+1. Picks the build number (fastlane/build_number.rb, #183): with an API key,
+   max(latest TestFlight build, `version` file) + 1; without one, the `version` file's number
+   (no upload, so nothing to collide with). Generates the project, stamps the marketing version
+   from `version` and that build number into the generated project. `version` is never written.
+2. Archives Release for `generic/platform=iOS` to build/Abbay.xcarchive.
+3. Runs Scripts/check-app-binary on the archived .app: load paths (#142), entitlements, no
+   Debug-only resources.
+4. Exports build/export/Abbay.ipa with fastlane/ExportOptions-AppStore.plist and checks it again (the
+   export re-signs with the distribution profile, which is what users get).
+5. Uploads to TestFlight with an App Store Connect API key. Without the key env vars the lane
+   stops after the .ipa with a message, so it is runnable locally.
+
+Env: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_KEY_ISSUER_ID, and
+APP_STORE_CONNECT_API_KEY_KEY (.p8 contents) or APP_STORE_CONNECT_API_KEY_PATH (.p8 path).
+
+#### Optional parameters
+  * dry_run: false - Resolve the key and the build number, print the plan, stop before building
+  * build_number: <n> - Use this build number; with a key it must be above TestFlight's latest
 
 ### ios clean_project
 

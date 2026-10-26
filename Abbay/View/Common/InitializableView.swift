@@ -34,8 +34,6 @@ struct InitializableView_Previews: PreviewProvider {
     static var previews: some View {
         InitializableView {
             Text("InitializableView")
-        } didInitCallback: {
-            print("did init")
-        }
+        } didInitCallback: {}
     }
 }

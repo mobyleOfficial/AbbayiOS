@@ -1,4 +1,21 @@
 run_swiftlint: true
+# These two enable the macOS jobs, but the jobs ALSO require the PR's base branch to be `main`
+# (see validate-branch.yml). Together that means:
+#
+#   PR into develop -> SwiftLint only. Cheap, and where nearly all traffic goes.
+#   PR into main    -> SwiftLint + unit suite + UI suite. Release-bound and rare, and the point
+#                      at which a pipeline break is most expensive.
+#
+# A full run is ~11 min per macOS job and GitHub bills macOS at 10x the Linux rate, hence not
+# running them on every develop PR. Set either flag to `false` as a kill switch.
+#
+# Because develop PRs get no suite run, the suites are a LOCAL gate for day-to-day work:
+# `bundle exec fastlane verify` runs lint plus both suites off a single build, in ~6 minutes.
 run_tests: true
-# run `xcrun simctl list devices` to list devices
-test_device: iPhone 16
+run_ui_tests: true
+# run `xcrun simctl list devices` to list devices. Local and CI runs use the same iPhone 17 on the
+# iOS 27.0 runtime (install it with `xcodebuild -downloadPlatform iOS -buildVersion 24A434`). The iOS
+# 27.1 runtime only offers the iPhone Duo, a shorter screen with a side tab rail (the suites pass there
+# since #203); run it with `ABBAY_TEST_DEVICE='iPhone Duo (27.1)'`, and iOS 26.4 with `ABBAY_TEST_DEVICE='iPhone 17 (26.4)'`.
+test_device: iPhone 17 (27.0)
+ci_test_device: iPhone 17 (27.0)

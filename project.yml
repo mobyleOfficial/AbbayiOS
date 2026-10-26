@@ -4,7 +4,7 @@ options:
   defaultConfig: Release
   postGenCommand: Scripts/postinstall
   deploymentTarget:
-    iOS: 15.0
+    iOS: 17.0
 
 configs:
   Debug: debug
@@ -22,12 +22,19 @@ settings:
     PRODUCT_NAME: $(TARGET_NAME)
 
     # Target
-    IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
     TARGET_DEVICE_FAMILY: '1'
 
     # Signing
+    #
+    # No CODE_SIGN_IDENTITY here on purpose. With automatic signing Xcode resolves the identity
+    # itself -- Apple Development for Debug, Apple Distribution for Release -- so pinning it is
+    # redundant and risks pinning the wrong one.
+    #
+    # It used to read `CODE_SIGN_IDENTITY: iPhone Developer` at this base level, which applied to
+    # Release as well, where an App Store archive needs a distribution identity. That is the bug
+    # this removal fixes; a deprecated identity name was the lesser half of it.
     CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: iPhone Developer
     DEVELOPMENT_TEAM: 2X5PWXY74F
     PROVISIONING_PROFILE:
     PROVISIONING_PROFILE_SPECIFIER:
@@ -44,7 +51,16 @@ targets:
   Abbay:
     type: application
     platform: iOS
-    sources: [Abbay]
+    sources:
+      - path: Abbay
+        excludes: [Resources/AppIcon.icon]
+      # Icon Composer bundle: XcodeGen 2.32 doesn't know .icon, so add it as one file.
+      - path: Abbay/Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
+      # The UI tests' one playable book (`-seedPlayableBook`). Debug only: Release excludes it below.
+      - path: AbbayTests/Fixtures/Christmastide.m4b
+        buildPhase: resources
     postBuildScripts:
       - script: chmod +x ./Scripts/lint-checker
         name: Lint permissions
@@ -57,9 +73,23 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         INFOPLIST_FILE: Abbay/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Abbay/Resources/Abbay.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
+      configs:
+        # UI-test stand-ins stay out of the shipped binary. XcodeGen's `excludes` can't vary by
+        # configuration, so this is the build setting instead. DebugOverrides.swift is not
+        # listed: it compiles in Release, where every override returns nil. The seeded audio
+        # fixture is left out the same way.
+        Release:
+          EXCLUDED_SOURCE_FILE_NAMES: "$(SRCROOT)/Abbay/DebugSupport/UITest*.swift $(SRCROOT)/AbbayTests/Fixtures/Christmastide.m4b"
     dependencies:
       - sdk: AVFoundation.framework
+      - sdk: CarPlay.framework
+      - sdk: Intents.framework
+      - target: AbbayIntents
+        embed: true
+      - target: NetworkProvider
+        embed: true
 
   AbbayTests:
     type: bundle.unit-test
@@ -71,6 +101,11 @@ targets:
         excludes:
           - "ReferenceImages/*"
           - "FailureDiffs/*"
+          - "Fixtures/**"
+      # Real audiobook fixture (public domain, see Fixtures/README.md). Declared as a
+      # resource so it lands in the test bundle and tests can read it by name.
+      - path: AbbayTests/Fixtures
+        buildPhase: resources
     settings:
       base:
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: 'YES'
@@ -78,19 +113,149 @@ targets:
         GENERATE_INFOPLIST_FILE: 'YES'
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Abbay.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Abbay
 
+  AbbayIntents:
+    type: app-extension
+    platform: iOS
+    sources:
+      - AbbayIntents
+      - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/Data/KeyValueStore.swift
+      - path: Abbay/Core/LaunchStateFlag.swift
+      - path: Abbay/Core/LastPlayedStore.swift
+      - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/Log.swift
+      - path: Abbay/Core/SiriDiagnostics.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
+      - path: Abbay/Model/AudioModel.swift
+      - path: Abbay/Model/ChapterModel.swift
+      - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
+    settings:
+      base:
+        INFOPLIST_FILE: AbbayIntents/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AbbayIntents/AbbayIntents.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.Abbay.AbbayIntents
+    dependencies:
+      - sdk: Intents.framework
+
+  AbbayIntentsTests:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - target: AbbayIntents
+    sources:
+      - path: AbbayIntentsTests
+      # Source-shared with the extension target. The test bundle cannot link
+      # against an app-extension binary, so we compile the same source files
+      # into the test target. `@testable import AbbayIntents` still works for
+      # internal access because Swift module names match by source.
+      - path: AbbayIntents/IntentHandler.swift
+      - path: AbbayIntents/PlayMediaIntentHandler.swift
+      - path: Abbay/Core/AppGroup.swift
+      - path: Abbay/Core/Data/KeyValueStore.swift
+      - path: Abbay/Core/LaunchStateFlag.swift
+      - path: Abbay/Core/LastPlayedStore.swift
+      - path: Abbay/Core/LibrarySnapshotWriter.swift
+      - path: Abbay/Core/LibrarySnapshotReader.swift
+      - path: Abbay/Core/Log.swift
+      - path: Abbay/Core/SiriDiagnostics.swift
+      - path: Abbay/Intents/FuzzyMatch.swift
+      - path: Abbay/Intents/MediaSearchResolver.swift
+      - path: Abbay/Model/AudioModel.swift
+      - path: Abbay/Model/ChapterModel.swift
+      - path: Abbay/Model/UseCases/LoadAllAudiosUseCaseProtocol.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ABBAY_INTENTS_EXTENSION"
+
+  NetworkProvider:
+    type: framework
+    platform: iOS
+    sources:
+      - Modules/NetworkProvider/Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        PRODUCT_BUNDLE_IDENTIFIER: com.edyuto.NetworkProvider
+        # An embedded framework must be found through the app's runpath
+        # (@executable_path/Frameworks). Without these, Xcode falls back to INSTALL_PATH
+        # (/Library/Frameworks): the app links against an absolute path that doesn't exist on a
+        # device and crashes at launch, while simulator and test builds still load the framework
+        # from the build folder and pass. SKIP_INSTALL keeps it out of the archive's Products.
+        DYLIB_INSTALL_NAME_BASE: '@rpath'
+        SKIP_INSTALL: 'YES'
+
+  NetworkProviderTests:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - target: NetworkProvider
+    sources:
+      - Modules/NetworkProvider/Tests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+
+  AbbayUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    dependencies:
+      - target: Abbay
+    sources:
+      - path: AbbayUITests
+      # Identifier constants are shared with the app. A UI test bundle runs out of process and
+      # cannot `import Abbay`, so the file is compiled into both targets rather than duplicated.
+      - path: Abbay/Core/AccessibilityID.swift
+      - path: Abbay/Core/LaunchArgument.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        TEST_TARGET_NAME: Abbay
+
+  # iOS 27's App Intents audio domain, driven through `AppIntentsTesting` (#129). Its own bundle,
+  # with an iOS 27 deployment target, because `AppIntentsTesting` needs iOS 27 frameworks at load
+  # time: in `AbbayUITests` (iOS 17) the whole bundle failed to load on the iOS 26 simulator, even
+  # weak-linked. The app itself stays on iOS 17.
+  AbbayAudioDomainUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: '27.0'
+    dependencies:
+      - target: Abbay
+    sources:
+      - path: AbbayAudioDomainUITests
+      - path: Abbay/Core/AccessibilityID.swift
+      - path: Abbay/Core/LaunchArgument.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: 'YES'
+        TEST_TARGET_NAME: Abbay
+
 schemes:
   Abbay:
     build:
       targets:
         Abbay: all
         AbbayTests: [test]
+        AbbayIntents: all
+        AbbayIntentsTests: [test]
+        NetworkProviderTests: [test]
     test:
       gatherCoverageData: YES
       coverageTargets:
         - Abbay
       targets:
         - name: AbbayTests
-          paralelizable: true
+          parallelizable: true
+        - name: AbbayIntentsTests
+          parallelizable: true
+        # URLProtocolMock keeps shared static state behind a semaphore, so no parallel runs.
+        - name: NetworkProviderTests
+          parallelizable: false
       environmentVariables:
         - variable: FB_REFERENCE_IMAGE_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/ReferenceImages
@@ -98,3 +263,16 @@ schemes:
         - variable: IMAGE_DIFF_DIR
           value: $(SOURCE_ROOT)/$(PROJECT_NAME)Tests/FailureDiffs
           isEnabled: YES
+
+  # Separate scheme on purpose: UI tests boot the app in the simulator and are far slower than
+  # the unit suite, so `test_project` must not pull them in. Driven by `ui_test_project`.
+  AbbayUITests:
+    build:
+      targets:
+        Abbay: all
+        AbbayUITests: [test]
+        AbbayAudioDomainUITests: [test]
+    test:
+      targets:
+        - name: AbbayUITests
+        - name: AbbayAudioDomainUITests

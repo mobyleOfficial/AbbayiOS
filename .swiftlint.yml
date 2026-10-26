@@ -1,6 +1,159 @@
+# Paths to include during linting
 included:
-    - Abbay
+  - Abbay
+  - AbbayTests
+  - AbbayUITests
+  - AbbayAudioDomainUITests
+  - Modules
 
+# Paths to exclude during linting
+excluded:
+  - Abbay/Resources
+  - AbbayTests/ReferenceImages
+  - AbbayTests/FailureDiffs
+
+# Rules to disable
 disabled_rules:
-    - vertical_whitespace
-    - vertical_whitespace_between_cases
+  - vertical_whitespace
+  - vertical_whitespace_between_cases
+  - todo # Allow TODO comments during development
+  - trailing_whitespace # Can be auto-fixed by editor
+
+# Opt-in rules (not enabled by default but recommended)
+opt_in_rules:
+  # Code Quality
+  - force_unwrapping # Catch dangerous force unwraps
+  - implicitly_unwrapped_optional # Avoid IUOs when possible
+  - explicit_init # Prefer .init() over explicit initializer
+  - let_var_whitespace # Consistent spacing
+  - modifier_order # Consistent modifier ordering
+  - operator_usage_whitespace # Consistent operator spacing
+  - redundant_type_annotation # Remove unnecessary type annotations
+  - sorted_imports # Keep imports alphabetically sorted
+
+  # Performance
+  - contains_over_filter_count # Use contains instead of filter().count
+  - contains_over_filter_is_empty # Use contains instead of filter().isEmpty
+  - contains_over_first_not_nil # Use contains instead of first != nil
+  - contains_over_range_nil_comparison # More efficient contains usage
+  - empty_count # Use isEmpty instead of count == 0
+  - first_where # Use first(where:) instead of filter().first
+  - last_where # Use last(where:) instead of filter().last
+
+  # Style & Readability
+  - closure_spacing # Consistent closure spacing
+  - empty_string # Use isEmpty instead of == ""
+  - multiline_arguments # Better multiline formatting
+  - multiline_parameters # Better multiline formatting
+  - number_separator # Use _ in large numbers (e.g., 1_000_000)
+  - prefer_self_type_over_type_of_self # Cleaner self references
+  - prefer_zero_over_explicit_init # Use .zero instead of CGPoint(x: 0, y: 0)
+  - toggle_bool # Use toggle() instead of = !
+  - vertical_parameter_alignment_on_call # Consistent parameter alignment
+
+  # Documentation
+  - missing_docs # Require documentation for public APIs
+
+  # Naming
+  - lower_acl_than_parent # Consistent access control hierarchy
+
+# Analyzer rules (require 'swiftlint analyze' to run)
+analyzer_rules:
+  - unused_declaration # Catch unused code
+  - unused_import # Remove unused imports
+
+# Rule Configurations
+
+# Force unwrapping is an error
+force_unwrapping: error
+
+# Line length
+line_length:
+  warning: 120
+  error: 150
+  ignores_comments: true
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_interpolated_strings: true
+
+# File length
+file_length:
+  warning: 500
+  error: 800
+  ignore_comment_only_lines: true
+
+# Function body length
+function_body_length:
+  warning: 50
+  error: 100
+
+# Type body length
+type_body_length:
+  warning: 300
+  error: 500
+
+# Function parameter count
+function_parameter_count:
+  warning: 5
+  error: 8
+
+# Cyclomatic complexity
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+  ignores_case_statements: true
+
+# Nesting depth
+nesting:
+  type_level: 2
+
+# Identifier naming
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - z
+    - i
+    - j
+    - k
+
+# Type name
+type_name:
+  min_length: 3
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - ID
+
+# Missing docs configuration (only for public APIs)
+missing_docs:
+  warning: open
+  error: public
+  excludes_extensions: true
+  excludes_inherited_types: true
+
+# Number separator configuration
+number_separator:
+  minimum_length: 5
+
+# Multiline arguments
+multiline_arguments:
+  first_argument_location: next_line
+  only_enforce_after_first_closure_on_first_line: true
+
+# Project rules
+custom_rules:
+  reduce_motion_through_wrapper:
+    name: "Reduce Motion through @ReduceMotion"
+    regex: '\\\._?accessibilityReduceMotion'
+    excluded: 'Abbay/View/Common/ReduceMotion\.swift'
+    message: "Read Reduce Motion with `@ReduceMotion`: it applies `-forceReduceMotion` on every surface, the environment value doesn't on iOS 17/18 (#185)."
+    severity: error

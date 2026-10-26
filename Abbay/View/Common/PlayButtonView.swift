@@ -30,6 +30,12 @@ struct PlayButtonView: View {
         .foregroundColor(
             !isPlaying ? playColor : pauseColor
         )
+        // The glyph alone gave VoiceOver (and UI tests) no label: say what a tap does.
+        .accessibilityLabel(Self.label(isPlaying: isPlaying))
+    }
+
+    static func label(isPlaying: Bool) -> String {
+        isPlaying ? Localizable.pause.localized : Localizable.play.localized
     }
 }
 
