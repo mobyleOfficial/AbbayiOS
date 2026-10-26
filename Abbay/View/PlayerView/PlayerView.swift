@@ -30,6 +30,9 @@ struct PlayerView: View {
     private var hidesCover
     /// Where the cover is laid out, in `coordinateSpace`: the growing cover's destination.
     private let onCoverFrame: ((CGRect) -> Void)?
+    /// Told when the chapter panel opens or closes: the expansion's cover handle sits above this
+    /// screen, under the panel, and stands aside while it is open.
+    private let onChaptersOpen: ((Bool) -> Void)?
     /// Skip amounts and speeds. Changes only from Settings or the speed sheet, never on a tick.
     @Environment(AppSettings.self)
     private var settings
@@ -65,9 +68,14 @@ struct PlayerView: View {
     private static let margin = SpaceConstants.sx24.value
 
     // MARK: - Inits
-    init(model: PlayerViewModel, onCoverFrame: ((CGRect) -> Void)? = nil) {
+    init(
+        model: PlayerViewModel,
+        onCoverFrame: ((CGRect) -> Void)? = nil,
+        onChaptersOpen: ((Bool) -> Void)? = nil
+    ) {
         self.model = model
         self.onCoverFrame = onCoverFrame
+        self.onChaptersOpen = onChaptersOpen
     }
 
     // MARK: - Body
@@ -90,6 +98,12 @@ struct PlayerView: View {
             .padding(.top, SpaceConstants.sx8.value)
             .padding(.bottom, SpaceConstants.sx12.value)
             .overlay { chaptersOverlay }
+            .onChange(of: isShowingChapters) { _, open in
+                onChaptersOpen?(open)
+            }
+            // A new screen (another book, a new presentation) starts with the panel closed.
+            .onAppear { onChaptersOpen?(false) }
+            .onDisappear { onChaptersOpen?(false) }
             .coordinateSpace(.named(Self.layoutSpace))
         }
     }
@@ -240,11 +254,16 @@ struct PlayerView: View {
                         .onTapGesture { setChapters(open: false) }
                         .accessibilityHidden(true)
                         .transition(.opacity)
-                    ChaptersPanel(model: model) {
-                        setChapters(open: false)
-                    }
+                    ChaptersPanel(
+                        model: model,
+                        isPresented: $isShowingChapters,
+                        closeAnimation: panelAnimation
+                    )
                     .frame(width: frame.width, height: frame.height)
-                    .offset(x: frame.minX, y: frame.minY)
+                    // Laid out there (not offset), so its SwiftUI gestures hit-test where it draws.
+                    .padding(.leading, frame.minX)
+                    .padding(.top, frame.minY)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(panelTransition)
                 }
             }
@@ -259,9 +278,13 @@ struct PlayerView: View {
             : .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity)
     }
 
+    private var panelAnimation: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.82)
+    }
+
     private func setChapters(open: Bool) {
         guard isShowingChapters != open else { return }
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.82)) {
+        withAnimation(panelAnimation) {
             isShowingChapters = open
         }
     }

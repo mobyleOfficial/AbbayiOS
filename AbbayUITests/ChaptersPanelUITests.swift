@@ -56,9 +56,19 @@ extension MiniPlayerUITests {
 
         // Scroll the panel's list until chapter 11 shows, then tap it.
         let target = element(AccessibilityID.Player.chapter(10))
-        for _ in 0..<6 where !(target.exists && target.isHittable) {
-            if first.exists { first.swipeUp(velocity: .slow) } else { app.swipeUp(velocity: .slow) }
+        // Slow drags inside the panel's rows, holding at the end so the list doesn't coast.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        for _ in 0..<8 where !(target.exists && target.isHittable) {
+            let top = element(AccessibilityID.Player.chaptersPanel).frame.maxY + 80
+            let bottom = element(AccessibilityID.Player.chapters).frame.minY - 50
+            origin.withOffset(CGVector(dx: app.frame.midX, dy: bottom)).press(
+                forDuration: 0.05,
+                thenDragTo: origin.withOffset(CGVector(dx: app.frame.midX, dy: top)),
+                withVelocity: 600,
+                thenHoldForDuration: 0.3
+            )
         }
+        sleep(1)
         XCTAssertTrue(target.isHittable, "chapter 11 never came into view")
         target.tap()
         XCTAssertTrue(

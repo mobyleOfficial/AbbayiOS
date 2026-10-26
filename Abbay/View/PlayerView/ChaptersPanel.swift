@@ -20,7 +20,10 @@ import SwiftUI
 /// only when what they show changes (`ChaptersPanelContent` is `Equatable`).
 struct ChaptersPanel: View {
     let model: PlayerViewModel
-    let onClose: () -> Void
+    /// The player's own state: closing writes it, so the panel never holds a stale callback
+    /// (its content is `Equatable`, and SwiftUI keeps the first instance's closures).
+    @Binding var isPresented: Bool
+    let closeAnimation: Animation
 
     @Environment(PlaybackClock.self)
     private var clock
@@ -29,6 +32,8 @@ struct ChaptersPanel: View {
     static let dragHandleHeight: CGFloat = SpaceConstants.sx64.value
     /// How far down such a drag must go to close it.
     static let closeDistance: CGFloat = SpaceConstants.sx48.value
+    /// The band at the very top where a tap closes the panel (the handle's).
+    static let handleTapHeight: CGFloat = SpaceConstants.sx24.value
     static let cornerRadius: CGFloat = 26
 
     var body: some View {
@@ -37,7 +42,8 @@ struct ChaptersPanel: View {
         let time = model.bookTime(in: clock)
         ChaptersPanelContent(
             model: model,
-            onClose: onClose,
+            isPresented: $isPresented,
+            closeAnimation: closeAnimation,
             bookURL: book.url,
             currentIndex: index,
             progress: Self.chapterProgress(chapters: book.chapters, index: index, time: time),
@@ -75,7 +81,8 @@ struct ChaptersPanel: View {
 /// it (most ticks) doesn't redraw the list.
 private struct ChaptersPanelContent: View, Equatable {
     let model: PlayerViewModel
-    let onClose: () -> Void
+    @Binding var isPresented: Bool
+    let closeAnimation: Animation
     let bookURL: URL?
     let currentIndex: Int
     let progress: Double?
@@ -88,6 +95,10 @@ private struct ChaptersPanelContent: View, Equatable {
             && lhs.progress == rhs.progress
             && lhs.headerDetail == rhs.headerDetail
             && lhs.downloadState == rhs.downloadState
+    }
+
+    private func onClose() {
+        withAnimation(closeAnimation) { isPresented = false }
     }
 
     private var shape: RoundedRectangle {
@@ -122,18 +133,37 @@ private struct ChaptersPanelContent: View, Equatable {
                 }
             }
         }
+        // The panel's top (handle and header) is its drag handle: a strip over it that owns the
+        // drag, so the list's own scrolling never competes with it (a gesture on the whole panel
+        // didn't fire over the list's header, and could hold up the list's pan).
         .abbayGlass(in: shape, tint: Color.black.opacity(0.35))
         .clipShape(shape)
         .contentShape(shape)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: SpaceConstants.sx12.value)
-                .onEnded { value in
-                    if ChaptersPanel.closesOnDrag(startY: value.startLocation.y, translation: value.translation) {
-                        onClose()
-                    }
-                }
-        )
+        // Over the glass, not inside it: the strip's own gesture then owns touches on the top.
+        .overlay(alignment: .top) { dragStrip }
         .accessibilityAction(.escape) { onClose() }
+    }
+
+    /// Transparent, over the handle and the header. One gesture: a drag down closes the panel,
+    /// and so does a tap on the handle's own band (the handle under it is VoiceOver's button).
+    private var dragStrip: some View {
+        Color.clear
+            .frame(height: ChaptersPanel.dragHandleHeight)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onEnded { value in
+                        let tapped = abs(value.translation.height) < 4 && abs(value.translation.width) < 4
+                            && value.startLocation.y <= ChaptersPanel.handleTapHeight
+                        if tapped || ChaptersPanel.closesOnDrag(
+                            startY: value.startLocation.y,
+                            translation: value.translation
+                        ) {
+                            onClose()
+                        }
+                    }
+            )
+            .accessibilityHidden(true)
     }
 
     /// A small grabber at the top: the panel's handle, and VoiceOver's "Close chapters" button.

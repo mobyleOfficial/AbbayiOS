@@ -94,7 +94,11 @@ struct PlayerExpansionOverlay: View {
             // The status bar, then the grabber header (drawn above, in `ExpansionLayout`).
             Color.clear
                 .frame(height: insets.top + ExpansionMetrics.headerHeight)
-            PlayerView(model: model, onCoverFrame: { [geometry] in geometry.setCoverFrame($0) })
+            PlayerView(
+                model: model,
+                onCoverFrame: { [geometry] in geometry.setCoverFrame($0) },
+                onChaptersOpen: { [geometry] in geometry.setChaptersOpen($0) }
+            )
             .id(book.url)
         }
         .padding(.bottom, insets.bottom)
@@ -124,8 +128,16 @@ private enum ExpansionMetrics {
 final class ExpansionGeometry {
     private(set) var coverFrame: CGRect?
 
+    /// The chapter panel (G2) floats over the cover: while it is open, the cover's collapse handle
+    /// (drawn above the details screen) must not take the panel's touches.
+    private(set) var isChaptersOpen = false
+
     func setCoverFrame(_ frame: CGRect) {
         if coverFrame != frame { coverFrame = frame }
+    }
+
+    func setChaptersOpen(_ open: Bool) {
+        if isChaptersOpen != open { isChaptersOpen = open }
     }
 }
 
@@ -462,6 +474,8 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             Color.clear
                 .contentShape(Rectangle())
                 .gesture(panelDrag)
+                // Under the open chapter panel, the panel's rows and handle take the touches.
+                .allowsHitTesting(!geometry.isChaptersOpen)
         }
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)

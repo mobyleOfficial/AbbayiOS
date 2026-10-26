@@ -130,6 +130,8 @@ final class MiniPlayerUITests: XCTestCase {
             withVelocity: 200,
             thenHoldForDuration: 0.5
         )
+        // Let the list settle: a tap on a moving list stops it instead of selecting the row.
+        sleep(1)
         XCTAssertTrue(chapter.waitForExistence(timeout: 5))
         chapter.tap()
         // The tap also closes the panel.
