@@ -19,7 +19,7 @@ Please use **Xcode 27.1** to run this project. GitHub Actions is pinned to `27.1
 
 If another Xcode is selected with `xcode-select`, run commands with `DEVELOPER_DIR=/Applications/Xcode-27.1.0.app/Contents/Developer` rather than switching globally. Before merging, the suites also run on the older runtimes the app supports: the full suites on iOS 26.4, and the accessibility and cover UI tests on iOS 18.5 and 17.5.
 
-Ruby is pinned to **3.2.0** via `.ruby-version`. The app version lives in the `version` file (currently `1.0.2` / build `4`); `Scripts/updateversion.rb` stamps it into the app, the Siri extension and the embedded `NetworkProvider` framework. The app and extension `Info.plist`s read `$(MARKETING_VERSION)` and `$(CURRENT_PROJECT_VERSION)`.
+Ruby is pinned to **3.2.0** via `.ruby-version`. The app version lives in the `version` file (currently `1.0.2` / build `5`); `Scripts/updateversion.rb` stamps it into the app, the Siri extension and the embedded `NetworkProvider` framework. The app and extension `Info.plist`s read `$(MARKETING_VERSION)` and `$(CURRENT_PROJECT_VERSION)`.
 
 ### Why those tools?
 
