@@ -16,10 +16,15 @@
 #      app extension must carry the App Group: `AppGroup.swift` calls `fatalError` when the group
 #      is missing, so a provisioning mismatch is a crash on launch, not a degraded feature (#111).
 #      When the bundle has an `embedded.mobileprovision`, the profile must grant the same.
-#   3. Debug-only resources. UI-test fixtures (`Christmastide.m4b`, #168) must not ship in Release.
+#   3. Bundle metadata. The app, every extension and every embedded framework must carry a
+#      resolved CFBundleShortVersionString and CFBundleVersion, extensions must match the app's
+#      version, and CFBundlePackageType must be APPL / XPC! / FMWK. App Store validation rejects
+#      the upload otherwise (1.0.1 build 2 was rejected for a missing app package type and a
+#      framework without version keys).
+#   4. Debug-only resources. UI-test fixtures (`Christmastide.m4b`, #168) must not ship in Release.
 #      Pass `--allow-debug-resources` for Debug builds such as the OTA test builds, which carry
 #      the fixture on purpose.
-#   4. With `--require-distribution` (the release lane passes it for the exported .ipa): the app
+#   5. With `--require-distribution` (the release lane passes it for the exported .ipa): the app
 #      and every extension must be distribution-signed -- `get-task-allow` not true and no
 #      device list in the embedded profile. A development-signed archive is a normal input
 #      otherwise.
@@ -195,7 +200,39 @@ while IFS= read -r -d '' appex; do
 done < <(find "$app/PlugIns" -maxdepth 1 -name '*.appex' -type d -print0 2>/dev/null)
 [ $extensions -gt 0 ] || fail "no app extension found (expected AbbayIntents.appex)"
 
-# --- 3. Debug-only resources ------------------------------------------------------------------
+# --- 3. Bundle metadata ------------------------------------------------------------------------
+# What App Store validation checks first (it rejected 1.0.1 build 2 for these): every bundle
+# carries a version, the app is APPL, an extension XPC!, a framework FMWK, and the app's
+# extensions match its version.
+
+echo "Bundle metadata"
+plist_value() { /usr/libexec/PlistBuddy -c "Print :$2" "$1/Info.plist" 2>/dev/null; }
+app_version="$(plist_value "$app" CFBundleShortVersionString)"
+app_build="$(plist_value "$app" CFBundleVersion)"
+check_metadata() { # bundle label expected-package-type must-match-app(1/0)
+    local bundle="$1" label="$2" type="$3" match="$4" version build package
+    version="$(plist_value "$bundle" CFBundleShortVersionString)"
+    build="$(plist_value "$bundle" CFBundleVersion)"
+    package="$(plist_value "$bundle" CFBundlePackageType)"
+    if [ -z "$version" ] || [ -z "$build" ] || [[ "$version$build" == *'$('* ]]; then
+        fail "$label: missing or unresolved CFBundleShortVersionString/CFBundleVersion ('$version' / '$build')"
+    elif [ "$match" -eq 1 ] && { [ "$version" != "$app_version" ] || [ "$build" != "$app_build" ]; }; then
+        fail "$label: version $version ($build) differs from the app's $app_version ($app_build)"
+    else
+        pass "$label: version $version ($build)"
+    fi
+    if [ "$package" = "$type" ]; then pass "$label: CFBundlePackageType $type"
+    else fail "$label: CFBundlePackageType is '${package:-missing}', expected $type"; fi
+}
+check_metadata "$app" "$(basename "$app")" APPL 0
+while IFS= read -r -d '' appex; do
+    check_metadata "$appex" "PlugIns/$(basename "$appex")" 'XPC!' 1
+done < <(find "$app/PlugIns" -maxdepth 1 -name '*.appex' -type d -print0 2>/dev/null)
+while IFS= read -r -d '' fw; do
+    check_metadata "$fw" "Frameworks/$(basename "$fw")" FMWK 0
+done < <(find "$app/Frameworks" -maxdepth 1 -name '*.framework' -type d -print0 2>/dev/null)
+
+# --- 4. Debug-only resources ------------------------------------------------------------------
 
 echo "Debug-only resources"
 if [ $allow_debug_resources -eq 1 ]; then
