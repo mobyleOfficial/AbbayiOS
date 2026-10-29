@@ -143,10 +143,31 @@ final class AdaptiveLayoutUITests: XCTestCase {
         defer { XCUIDevice.shared.orientation = .portrait }
         sleep(2)
         shot("5-landscape-library")
+        // Opened in portrait, then turned: what a phone user does, and what left the chapter panel
+        // placed for portrait (below the pills, off the screen's bottom).
+        XCUIDevice.shared.orientation = .portrait
+        sleep(1)
         try openPlayer(titled: "Seeded Chaptered Book")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        sleep(2)
         let play = element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
         XCTAssertTrue(play.isHittable, "no play button")
         shot("6-landscape-player")
+        // The chapters (the panel in one pane, the pane when split) leave the pills reachable.
+        element(AccessibilityID.Player.chapters).tap()
+        let row = element(AccessibilityID.Player.chapter(0))
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "the chapters did not open")
+        sleep(1)
+        shot("7-landscape-chapters")
+        let speed = element(AccessibilityID.Player.speed)
+        XCTAssertTrue(speed.isHittable, "the chapters cover the speed pill")
+        let handle = element(AccessibilityID.Player.chaptersPanel)
+        if handle.frame.maxY > 0, !playerIsBesideLibrary {
+            XCTAssertLessThanOrEqual(handle.frame.minY, speed.frame.minY, "the panel starts below the pills")
+        }
+        element(AccessibilityID.Player.chapters).tap()
+        let closed = element(AccessibilityID.Player.chapter(0)).waitForNonExistence(timeout: 5)
+        XCTAssertTrue(closed, "the chapters did not close")
         element(AccessibilityID.Player.close).tap()
         XCTAssertTrue(element(AccessibilityID.Player.title).waitForNonExistence(timeout: 5), "the player did not close")
     }

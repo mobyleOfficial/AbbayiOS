@@ -79,7 +79,9 @@ LibriVox page's Play all open it.
 - **landscape (#270):** at a compact height (an iPhone in landscape), the cover fills the height on
   the leading side, and the title, scrubber, transport and pills stack on the trailing side
   (`verticalSizeClass == .compact`). The expansion's cover lands on that cover frame, and the chapter
-  panel floats above the pills as in portrait.
+  panel floats above the pills as in portrait. The panel is placed from the pills on screen (an
+  anchor preference, `PillsAnchorKey`), not a stored frame: after turning the phone with the player
+  open, a stored portrait frame put it over the pills and off the screen (#275).
 - **adaptive (#255):** on a split window ([adaptive-layout](adaptive-layout.md)) the same `PlayerView`
   is a pane beside browsing under a ✕ (`player.close`), with no grabber or expansion, and its
   Chapters pill opens the chapters as a pane in browsing's place instead of the panel. Whether the
