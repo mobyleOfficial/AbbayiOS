@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Library tab ("Library B", #166 G3): the Continue card for the last played book, then every
 /// book in a three-column cover grid, a local-only search over them, the empty state and the
@@ -27,6 +28,7 @@ struct MediaListView: View {
     private var presentation
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+
     @State
     private var query = ""
     /// The grid's own width: its columns follow the room it has (#255, #251), not the screen's.
@@ -51,11 +53,18 @@ struct MediaListView: View {
                     .accessibilityIdentifier(AccessibilityID.Library.toolbarSettings)
                 }
             }
-            .sheet(isPresented: $model.isShowingFilePicker) {
-                DocumentPickerView(onImport: { urls in
-                    await model.importAudio(from: urls)
-                })
+            // The system presents its own picker (open in place, several audio files). On a regular
+            // width it is a centred form sheet; on iOS 27.1 the Files picker still draws its first
+            // frame at phone width against the left edge, however it is presented (full screen too).
+            .fileImporter(
+                isPresented: $model.isShowingFilePicker,
+                allowedContentTypes: [.audio],
+                allowsMultipleSelection: true
+            ) { result in
+                guard case let .success(urls) = result, !urls.isEmpty else { return }
+                Task { await model.importAudio(from: urls) }
             }
+
             .foregroundColor(ColorConstants.white.value)
     }
 

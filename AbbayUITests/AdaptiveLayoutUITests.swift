@@ -68,12 +68,13 @@ final class AdaptiveLayoutUITests: XCTestCase {
     /// `app.screenshot()` both return the dark outer one), so it writes `<name>.request` and waits
     /// while a script on the Mac takes the shot with `simctl io screenshot` and deletes the
     /// request. Does nothing without the directory.
-    private func shot(_ name: String) {
+    private func shot(_ name: String, waits: Bool = true) {
         let env = ProcessInfo.processInfo.environment
         guard let directory = env["ABBAY_SHOTS_DIR"], !directory.isEmpty else { return }
         let prefix = env["ABBAY_SHOTS_PREFIX"].map { "\($0)-" } ?? ""
         let request = URL(fileURLWithPath: directory).appendingPathComponent("\(prefix)\(name).request")
         try? Data().write(to: request)
+        guard waits else { return }
         let deadline = Date().addingTimeInterval(20)
         while FileManager.default.fileExists(atPath: request.path), Date() < deadline {
             usleep(200_000)
@@ -145,6 +146,23 @@ final class AdaptiveLayoutUITests: XCTestCase {
         shot("6-landscape-player")
         element(AccessibilityID.Player.close).tap()
         XCTAssertTrue(element(AccessibilityID.Player.title).waitForNonExistence(timeout: 5), "the player did not close")
+    }
+
+    /// Evidence only (it runs when `ABBAY_SHOTS_DIR` is set): the import picker as it opens. On a
+    /// regular width the old sheet-wrapped picker was first laid out against the left edge (#255).
+    func test_importPicker_opening() throws {
+        guard ProcessInfo.processInfo.environment["ABBAY_SHOTS_DIR"] != nil else {
+            throw XCTSkip("screenshots only")
+        }
+        launch()
+        element(AccessibilityID.Library.toolbarAdd).tap()
+        let item = element(AccessibilityID.Library.menuImport)
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "no Import file item")
+        // A burst of screenshots from the Mac, asked for just before the tap, catches the opening.
+        shot("7-import-burst", waits: false)
+        item.tap()
+        sleep(4)
+        shot("8-import-open")
     }
 
     /// Every library cell fits the window: none runs past the trailing edge or under the system's
