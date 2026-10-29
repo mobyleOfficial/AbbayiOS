@@ -219,10 +219,15 @@ final class AdaptiveLayoutUITests: XCTestCase {
         XCTAssertTrue(window.contains(value.frame), "the speed value is outside the window")
         sleep(1)
         shot("11-speed")
-        // A tap on the dimmed edge closes a form sheet (a swipe on it can land on the slider); a
-        // phone's sheet closes with a swipe down, as in SettingsUITests.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.2)).tap()
-        if !value.waitForNonExistence(timeout: 3) { app.swipeDown(velocity: .fast) }
+        // Closed the way a user does it on any window: a drag down from the sheet's top edge,
+        // above its title (a swipe on the sheet's middle lands on the slider; a tap outside
+        // doesn't close the unfolded Duo's bottom sheet).
+        // Relative to an element: on the unfolded iPhone Duo, `app.coordinate` points don't land
+        // where they do on other screens, while an element's own coordinates do.
+        let top = value.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -50))
+        top.press(forDuration: 0.1, thenDragTo: top.withOffset(CGVector(dx: 0, dy: 500)))
+        sleep(1)
+        shot("11b-speed-after-drag")
         XCTAssertTrue(value.waitForNonExistence(timeout: 5), "the speed sheet did not close")
         element(AccessibilityID.Player.close).tap()
 
