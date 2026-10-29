@@ -7,8 +7,8 @@ import SwiftUI
 
 /// A tab's content when the window is split (#255): browsing, with the player pane on its trailing
 /// side once a book is presented (A). While the chapters are open (B), the player moves to the
-/// leading side and the chapters take the trailing one, in browsing's room (#271, as the spec's
-/// mockup). In one pane it is the tab's content alone, and the expansion overlay presents the player.
+/// leading side, taking the larger share, and the chapters take the trailing side at the pane width
+/// (#271, as the spec's mockup). In one pane it is the tab's content alone, and the expansion overlay presents the player.
 ///
 /// Applied inside each tab, around its `NavigationStack`, so the system's tab bar (top on an iPad,
 /// a side strip on the iPhone Duo) keeps its own place in the window. Only the selected tab hosts
@@ -37,11 +37,14 @@ struct BrowsingPanes: ViewModifier {
         let showsChapters = book != nil && presentation.isShowingChapters
         // Browsing keeps its slot (the middle one) in every state, so it is never rebuilt: under the
         // chapters it is only hidden.
+        // In B the player takes the larger share and the chapters the narrower pane width (the
+        // owner's call): browsing's room shrinks to that width, hidden under the chapters.
         HStack(spacing: 0) {
-            if showsChapters, let book, let width = layout.playerWidth {
-                playerPane(book, width: width)
+            if showsChapters, let book {
+                playerPane(book, width: nil)
             }
             content
+                .frame(width: showsChapters ? layout.playerWidth : nil)
                 .environment(\.isBrowsingCovered, showsChapters)
                 .opacity(showsChapters ? 0 : 1)
                 .allowsHitTesting(!showsChapters)
@@ -60,9 +63,11 @@ struct BrowsingPanes: ViewModifier {
         .animation(animation, value: showsChapters)
     }
 
-    private func playerPane(_ book: AudioModel, width: CGFloat) -> some View {
+    /// `width` nil: the player fills what the chapters leave (B).
+    private func playerPane(_ book: AudioModel, width: CGFloat?) -> some View {
         PlayerPane(book: book, models: models)
             .frame(width: width)
+            .frame(maxWidth: width == nil ? .infinity : nil)
             .matchedGeometryEffect(id: "player", in: panes, isSource: true)
             .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
     }

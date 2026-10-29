@@ -196,6 +196,60 @@ final class AdaptiveLayoutUITests: XCTestCase {
         )
     }
 
+    /// #265: the sheets and alerts a user meets, on whatever window this runs (an iPad shows them as
+    /// form sheets): Settings, the player's speed sheet and LibriVox's large-download alert. Each
+    /// opens with its controls inside the window, and closes.
+    func test_sheets_openInsideTheWindow() throws {
+        launch()
+        let window = app.windows.firstMatch.frame
+
+        element(AccessibilityID.Library.toolbarSettings).tap()
+        let done = element(AccessibilityID.Settings.done)
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "Settings did not open")
+        XCTAssertTrue(window.contains(done.frame), "Settings' Done is outside the window")
+        sleep(1)
+        shot("10-settings")
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5), "Settings did not close")
+
+        try openPlayer(titled: "Seeded Chaptered Book")
+        element(AccessibilityID.Player.speed).tap()
+        let value = element(AccessibilityID.Speed.value)
+        XCTAssertTrue(value.waitForExistence(timeout: 10), "the speed sheet did not open")
+        XCTAssertTrue(window.contains(value.frame), "the speed value is outside the window")
+        sleep(1)
+        shot("11-speed")
+        // A tap on the dimmed edge closes a form sheet (a swipe on it can land on the slider); a
+        // phone's sheet closes with a swipe down, as in SettingsUITests.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.2)).tap()
+        if !value.waitForNonExistence(timeout: 3) { app.swipeDown(velocity: .fast) }
+        XCTAssertTrue(value.waitForNonExistence(timeout: 5), "the speed sheet did not close")
+        element(AccessibilityID.Player.close).tap()
+
+        app.terminate()
+        app.launchArguments = [
+            LaunchArgument.stubLibriVox,
+            LaunchArgument.resetLibrary,
+            LaunchArgument.resetSettings,
+            LaunchArgument.stubDownloadStates,
+            LaunchArgument.stubPathCellular
+        ]
+        app.launch()
+        element(AccessibilityID.Root.tabSearch).tap()
+        let card = element(AccessibilityID.Search.card(0))
+        XCTAssertTrue(card.waitForExistence(timeout: 15), "no Popular card")
+        card.tap()
+        let download = element(AccessibilityID.Detail.download)
+        XCTAssertTrue(download.waitForExistence(timeout: 15), "no Download")
+        download.tap()
+        let wait = element(AccessibilityID.Detail.cellularWait)
+        XCTAssertTrue(wait.waitForExistence(timeout: 10), "no large-download alert")
+        XCTAssertTrue(window.contains(wait.frame), "the alert is outside the window")
+        sleep(1)
+        shot("12-download-alert")
+        wait.tap()
+    }
+
     /// Every library cell fits the window: none runs past the trailing edge or under the system's
     /// side strip (#251), at any width.
     func test_libraryGrid_fitsTheWindow() throws {

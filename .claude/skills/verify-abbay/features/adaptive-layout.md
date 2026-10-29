@@ -26,9 +26,9 @@ app is given and the text size, never the device model.
   - **A, player open:** split, the player is a pane on browsing's trailing side (`BrowsingPanes`, hosted inside
     each tab so the system tab bar keeps its place: top on an iPad, a side strip on the Duo). In one
     pane, the full-screen player covers browsing, as before.
-  - **B, chapters open:** split, the player slides to the leading side and the chapters
-    (`ChaptersPanel` `.pane` style) take the trailing side, in browsing's room (#271, as the spec's
-    mockup). Browsing stays alive underneath (hidden, not removed), so its scroll position,
+  - **B, chapters open:** split, the player slides to the leading side and takes the larger
+    share, and the chapters (`ChaptersPanel` `.pane` style) take the trailing side at the pane width
+    (`playerWidth`: 360–460 pt) (#271, as the spec's mockup). Browsing stays alive underneath (hidden, not removed), so its scroll position,
     query and pushed LibriVox page are still there when the chapters close. Its navigation bar is
     hidden meanwhile (`HiddenNavigationBarWhileCovered`, `\.isBrowsingCovered`): at the window's
     trailing edge the system would otherwise show the hidden page's toolbar (`+`, gear) in the Duo's
