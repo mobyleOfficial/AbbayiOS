@@ -76,6 +76,11 @@ LibriVox page's Play all open it.
   chapter panel; while it is open it shows *✕* and its label is *Close chapters*. **A book with no
   chapter markers (a plain MP3) has no pill**, so there is no "No chapters" message on this screen
   any more (`player.chapters.empty` is gone).
+- **adaptive (#255):** on a split window ([adaptive-layout](adaptive-layout.md)) the same `PlayerView`
+  is a pane beside browsing under a ✕ (`player.close`), with no grabber or expansion, and its
+  Chapters pill opens the chapters as a pane in browsing's place instead of the panel. Whether the
+  chapters are open is `PlayerPresentation.isShowingChapters`, so it survives a fold or a resize. The
+  full-screen player pads its content by the window's side insets (the folded Duo's status strip).
 - **chapter-panel:** (#166 G2, `ChaptersPanel`) a glass panel (`abbayGlass` in a 26 pt rounded
   rectangle, tinted 35% black) that grows from the pill's corner and floats over the cover, above
   the pills, with a faint dim behind it. Nothing else on the screen moves. It spans the width less

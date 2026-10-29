@@ -190,6 +190,7 @@ substitute: it records every intent firing across processes and survives app dea
 
 ### Shell and library
 
+- [adaptive-layout](adaptive-layout.md): one pane or browsing beside the player and chapters, by the window's room; iPhone Duo, iPad, library columns.
 - [app-shell](app-shell.md): launch ordering, audio-session activation, scene routing, the root and its one playback source, Siri authorisation.
 - [tabs](tabs.md): the Library and Search tabs, both searches, the system vs hand-built tab bar, the keyboard.
 - [library](library.md): the audiobook list, empty state, delete, toolbar, local-only search.

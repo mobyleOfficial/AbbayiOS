@@ -5,9 +5,12 @@ security-scoped bookmark that makes the file playable again after relaunch.
 
 ## Sub-features
 
-- **picker:** `DocumentPickerView` wraps `UIDocumentPickerViewController(forOpeningContentTypes:
-  [UTType.audio], asCopy: false)`. Multi-select is delegate-driven; files are referenced **in
-  place**, never copied into the sandbox.
+- **picker:** SwiftUI's `.fileImporter` on the Library (`[UTType.audio]`, multiple selection):
+  the system presents its own picker, a centred form sheet on a regular width. Files are referenced
+  **in place**, never copied into the sandbox; `FileLoader` takes their security scope. Known: on
+  iOS 27.1 the Files picker draws its first frame at phone width against the left edge before it
+  fills its sheet (the unfolded iPhone Duo), however it is presented; full screen it does the same
+  (#268).
 - **metadata-extraction:** `FileLoader.load(urls:)` reads duration, title, album, artist and
   artwork from the asset, then chapter groups via `loadChapterMetadata`.
 - **chapter-parsing:** `AVTimedMetadataGroup`s become `[ChapterModel]` (`title`, `startTime`,

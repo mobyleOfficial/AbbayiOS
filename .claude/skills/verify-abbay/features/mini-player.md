@@ -8,6 +8,8 @@
 
 - **presence:** shown while a book is loaded and the details screen isn't settled open. It is
   hidden once the screen has settled open, and back as soon as a close or a collapse drag starts.
+  On a split window ([adaptive-layout](adaptive-layout.md)) it stays unless the player pane shows the
+  loaded book, and a tap or a drag up opens the pane (`MiniPlayerVisibility`).
   Playback started anywhere shows it: a row, the details screen, a LibriVox page's Play, Siri or
   CarPlay. Deleting the loaded book removes it (`PlaybackCenter.unload()`).
 - **placement:**

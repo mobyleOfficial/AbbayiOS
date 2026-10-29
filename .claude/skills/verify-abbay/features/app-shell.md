@@ -33,7 +33,9 @@ ordering breaks, and most of it is invisible in the UI.
   by a small UIKit probe, since SwiftUI can't. iOS 17.0–26.0: the hand-built `RootTabs` bar with
   `MiniPlayerDock` above it. Above the tabs, `PlayerExpansionOverlay` presents the details screen
   ([player](player.md)) for `presentation.presentedBook`, growing it out of the mini player under
-  the finger and collapsing it back. Nothing presents the player as a sheet.
+  the finger and collapsing it back. Nothing presents the player as a sheet. On a split window the
+  overlay draws nothing and each tab hosts the player beside browsing instead
+  ([adaptive-layout](adaptive-layout.md)); `AdaptiveLayoutReader` around it all decides the split.
 - **root-reads:** the root body reads only the selected tab. `LoadedBookObserver`, the overlay, the
   dock / accessory modifier and the tab-bar-hiding modifiers read playback and presentation state as
   small leaves, and the library model is held without being observed, so a tick, a book switch or a
