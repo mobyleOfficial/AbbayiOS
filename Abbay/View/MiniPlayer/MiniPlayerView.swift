@@ -330,21 +330,28 @@ struct MiniPlayerProgressLine: View {
 // MARK: - Docked bar (iOS 17.0–26.0)
 
 /// The bar above the hand-built tab bar: shown while a book is loaded and the details screen
-/// isn't settled open. Reads only `loadedBook` and `isFullyOpen`, each changing once per switch or
-/// per open/close, so it never re-renders per tick or per drag frame.
+/// isn't settled open (split, while the player pane doesn't show the loaded book:
+/// `MiniPlayerVisibility`). Reads only `loadedBook` and `isFullyOpen` (and, split, `presentedBook`),
+/// each changing once per switch or per open/close, so it never re-renders per tick or per drag frame.
 struct MiniPlayerDock: View {
     @Environment(PlaybackState.self)
     private var playback
     @Environment(PlayerPresentation.self)
     private var presentation
+    @Environment(\.paneLayout)
+    private var paneLayout
 
     var body: some View {
-        if playback.loadedBook != nil, !presentation.isFullyOpen {
+        if isShown {
             MiniPlayerView()
                 .padding(.horizontal, SpaceConstants.sx8.value)
                 .padding(.bottom, SpaceConstants.sx4.value)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    private var isShown: Bool {
+        MiniPlayerVisibility.isShown(playback: playback, presentation: presentation, layout: paneLayout)
     }
 }
 
@@ -359,12 +366,47 @@ struct MiniPlayerAccessory: ViewModifier {
     private var playback
     @Environment(PlayerPresentation.self)
     private var presentation
+    @Environment(\.paneLayout)
+    private var paneLayout
 
     func body(content: Content) -> some View {
         content
-            .tabViewBottomAccessory(isEnabled: playback.loadedBook != nil && !presentation.isFullyOpen) {
+            .tabViewBottomAccessory(isEnabled: isShown) {
                 MiniPlayerView(isAccessory: true)
             }
+    }
+
+    private var isShown: Bool {
+        MiniPlayerVisibility.isShown(playback: playback, presentation: presentation, layout: paneLayout)
+    }
+}
+
+// MARK: - Visibility
+
+/// When the bar shows: while a book is loaded, and the player isn't already showing it. In one
+/// pane that is until the details screen has settled open; split (#255), the player pane sits
+/// beside browsing, so the bar stays unless that pane shows the loaded book (a pane previewing
+/// another book leaves the loaded one in the bar).
+enum MiniPlayerVisibility {
+    static func isShown(loaded: URL?, presented: URL?, isFullyOpen: Bool, isSplit: Bool) -> Bool {
+        guard let loaded else { return false }
+        guard isSplit else { return !isFullyOpen }
+        return presented != loaded
+    }
+
+    /// Reads `presentedBook` only when split: in one pane a drag up on the bar presents a book,
+    /// and a bar that re-rendered then would lose its own gesture.
+    @MainActor
+    static func isShown(
+        playback: PlaybackState,
+        presentation: PlayerPresentation,
+        layout: PaneLayout
+    ) -> Bool {
+        let loaded = playback.loadedBook?.url
+        guard layout.isSplit else {
+            return isShown(loaded: loaded, presented: nil, isFullyOpen: presentation.isFullyOpen, isSplit: false)
+        }
+        return isShown(loaded: loaded, presented: presentation.presentedBook?.url, isFullyOpen: false, isSplit: true)
     }
 }
 

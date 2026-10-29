@@ -29,6 +29,9 @@ struct MediaListView: View {
     private var dynamicTypeSize
     @State
     private var query = ""
+    /// The grid's own width: its columns follow the room it has (#255, #251), not the screen's.
+    @State
+    private var gridWidth: CGFloat = 0
     /// Where the Continue card finds the last played book.
     var lastPlayed: LastPlayedStore = .shared
 
@@ -143,10 +146,10 @@ struct MediaListView: View {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Three columns up to the default text size; two from *xLarge* up, so a two-line title still
-    /// fits at the largest non-accessibility size (*xxxLarge* truncated in three columns).
+    /// As many columns as fit the grid's width at this text size (`LibraryGridLayout`): three on a
+    /// phone at the default size, more in a wide pane or window.
     private var columns: [GridItem] {
-        let count = dynamicTypeSize >= .xLarge ? 2 : 3
+        let count = LibraryGridLayout.columnCount(width: gridWidth, dynamicTypeSize: dynamicTypeSize)
         return Array(
             repeating: GridItem(.flexible(), spacing: SpaceConstants.sx12.value, alignment: .top),
             count: count
@@ -190,7 +193,7 @@ struct MediaListView: View {
     }
 
     private func grid(_ books: [AudioModel]) -> some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: SpaceConstants.sx16.value) {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryGridLayout.rowSpacing) {
             // `enumerated()` keeps url-based identity while exposing the positional index the
             // accessibility identifiers use.
             ForEach(Array(books.enumerated()), id: \.element.url) { index, file in
@@ -205,6 +208,42 @@ struct MediaListView: View {
                 )
             }
         }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            gridWidth = width
+        }
+    }
+}
+
+// MARK: - Grid layout
+
+/// How many cover columns the library grid has. Pure, so it is unit tested. A cover needs about
+/// `minCellWidth` for its two-line title at the default text size; more at larger sizes (two
+/// columns on a phone from *xLarge* up, as before). Wide grids ask for larger covers, so an iPad or
+/// the unfolded iPhone Duo shows bigger covers rather than a long row of thumbnails.
+enum LibraryGridLayout {
+    static let columnSpacing: CGFloat = SpaceConstants.sx12.value
+    static let rowSpacing: CGFloat = SpaceConstants.sx16.value
+    /// Past this width the covers grow (`wideCellWidth`).
+    static let wideGridWidth: CGFloat = 600
+    static let minCellWidth: CGFloat = 104
+    static let wideCellWidth: CGFloat = 150
+
+    /// Before the grid has been measured (`width` 0) it assumes a phone's three columns.
+    static func columnCount(width: CGFloat, dynamicTypeSize: DynamicTypeSize) -> Int {
+        guard width > 0 else { return dynamicTypeSize >= .xLarge ? 2 : 3 }
+        let base = width > wideGridWidth ? wideCellWidth : minCellWidth
+        let cell = base * cellScale(dynamicTypeSize)
+        let fits = Int((width + columnSpacing) / (cell + columnSpacing))
+        return max(fits, 1)
+    }
+
+    /// *xLarge* to *xxxLarge* titles need about a third more; accessibility sizes half again.
+    static func cellScale(_ size: DynamicTypeSize) -> CGFloat {
+        if size.isAccessibilitySize { return 1.5 }
+        if size >= .xLarge { return 1.4 }
+        return 1
     }
 }
 

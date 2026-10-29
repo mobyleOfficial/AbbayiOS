@@ -40,8 +40,22 @@ struct PlayerView: View {
     private var reduceMotion
     @State
     private var isShowingSpeed = false
-    @State
-    private var isShowingChapters = false
+    /// Whether the chapters are open: shared state (`PlayerPresentation.isShowingChapters`), so a
+    /// fold or a resize keeps them open in the other form.
+    @Environment(PlayerPresentation.self)
+    private var presentation
+    /// Split (#255), the chapters are a pane in browsing's place (`ChaptersPane`) and this screen
+    /// draws no panel over itself.
+    @Environment(\.paneLayout)
+    private var paneLayout
+    private var isShowingChapters: Bool { presentation.isShowingChapters }
+    /// The panel's binding to the shared state.
+    private var chaptersBinding: Binding<Bool> {
+        Binding(
+            get: { [presentation] in presentation.isShowingChapters },
+            set: { [presentation] in presentation.setChapters(open: $0) }
+        )
+    }
     /// The pills' row, in `Self.layoutSpace`: the chapter panel sits just above it.
     @State
     private var pillsFrame: CGRect = .zero
@@ -98,11 +112,10 @@ struct PlayerView: View {
             .padding(.top, SpaceConstants.sx8.value)
             .padding(.bottom, SpaceConstants.sx12.value)
             .overlay { chaptersOverlay }
-            .onChange(of: isShowingChapters) { _, open in
+            .onChange(of: showsPanel) { _, open in
                 onChaptersOpen?(open)
             }
-            // A new screen (another book, a new presentation) starts with the panel closed.
-            .onAppear { onChaptersOpen?(false) }
+            .onAppear { onChaptersOpen?(showsPanel) }
             .onDisappear { onChaptersOpen?(false) }
             .coordinateSpace(.named(Self.layoutSpace))
         }
@@ -235,9 +248,14 @@ struct PlayerView: View {
 
     // MARK: - Chapters panel (G2)
 
+    /// The compact panel is up: the chapters are open and the window is one pane.
+    private var showsPanel: Bool {
+        isShowingChapters && !paneLayout.isSplit
+    }
+
     @ViewBuilder
     private var chaptersOverlay: some View {
-        if isShowingChapters {
+        if showsPanel {
             GeometryReader { proxy in
                 let frame = ChaptersPanelLayout.frame(
                     container: proxy.size,
@@ -259,7 +277,7 @@ struct PlayerView: View {
                         .transition(.opacity)
                     ChaptersPanel(
                         model: model,
-                        isPresented: $isShowingChapters,
+                        isPresented: chaptersBinding,
                         closeAnimation: panelAnimation
                     )
                     .frame(width: frame.width, height: frame.height)
@@ -288,7 +306,7 @@ struct PlayerView: View {
     private func setChapters(open: Bool) {
         guard isShowingChapters != open else { return }
         withAnimation(panelAnimation) {
-            isShowingChapters = open
+            presentation.setChapters(open: open)
         }
     }
 }
@@ -501,5 +519,6 @@ struct PlayerView_Previews: PreviewProvider {
         ))
         .environment(PlaybackClock())
         .environment(AppSettings(store: InMemoryKeyValueStore()))
+        .environment(PlayerPresentation())
     }
 }

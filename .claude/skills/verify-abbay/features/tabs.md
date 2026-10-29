@@ -23,7 +23,9 @@ above the tab bar on both tabs.
   position, query and pushed page kept). The Search tab is built on its first visit, so launch
   doesn't load Popular.
 - **tab-bar-hidden-while-open:** the tab bar (either kind) is hidden only once the details screen
-  has settled open, and shown again as soon as a close or a drag starts (Ruling 6).
+  has settled open, and shown again as soon as a close or a drag starts (Ruling 6). On a split
+  window it stays: the player is a pane beside browsing, and a tab switch while the chapters stand in
+  browsing's place closes them ([adaptive-layout](adaptive-layout.md)).
 - **keyboard:** typing doesn't lift the tab bar above the keyboard. The system bar stays under it,
   and the hand-built bar does too (`.ignoresSafeArea(.keyboard, edges: .bottom)` on `RootTabs`).
   Each tab's pages still avoid the keyboard
