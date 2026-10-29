@@ -95,6 +95,15 @@ final class AdaptiveLayoutTests: XCTestCase {
         XCTAssertEqual(columns(1000), 6, "a full iPad")
     }
 
+    /// #267: past the first row, a column change brings the top book back; in the first row the top
+    /// of the library (Continue, the header) stays in view.
+    func test_topBook_isRestoredOnlyPastTheFirstRow() {
+        XCTAssertFalse(LibraryGridLayout.restoresTopBook(at: 0, oldColumnCount: 5))
+        XCTAssertFalse(LibraryGridLayout.restoresTopBook(at: 4, oldColumnCount: 5))
+        XCTAssertTrue(LibraryGridLayout.restoresTopBook(at: 5, oldColumnCount: 5))
+        XCTAssertTrue(LibraryGridLayout.restoresTopBook(at: 3, oldColumnCount: 3))
+    }
+
     func test_unmeasuredGrid_assumesAPhone() {
         XCTAssertEqual(columns(0), 3)
         XCTAssertEqual(columns(0, .xLarge), 2)

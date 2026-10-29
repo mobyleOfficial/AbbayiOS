@@ -38,6 +38,9 @@ struct PlayerView: View {
     private var settings
     @ReduceMotion
     private var reduceMotion
+    /// Compact height (an iPhone in landscape): the cover sits beside the controls (#270).
+    @Environment(\.verticalSizeClass)
+    private var verticalSizeClass
     @State
     private var isShowingSpeed = false
     /// Whether the chapters are open: shared state (`PlayerPresentation.isShowingChapters`), so a
@@ -56,9 +59,6 @@ struct PlayerView: View {
             set: { [presentation] in presentation.setChapters(open: $0) }
         )
     }
-    /// The pills' row, in `Self.layoutSpace`: the chapter panel sits just above it.
-    @State
-    private var pillsFrame: CGRect = .zero
     /// A chapter row's height and the panel's handle and header, estimated at the current text
     /// size, so a short book's panel fits its rows instead of showing empty glass.
     @ScaledMetric(relativeTo: .subheadline)
@@ -95,23 +95,35 @@ struct PlayerView: View {
     // MARK: - Body
     var body: some View {
         AbbayGlassContainer {
-            VStack(spacing: SpaceConstants.sx16.value) {
-                // The cover is offered space first, but only what is left once the rest has its
-                // own: it shrinks (staying square) on a short screen.
-                coverView
-                    .layoutPriority(1)
-                titleBlock
-                VStack(spacing: SpaceConstants.sx8.value) {
-                    PlayerTimeline(model: model)
-                    PlayerDownloadLine(model: model)
+            Group {
+                if verticalSizeClass == .compact {
+                    // Landscape on a phone: the cover fills the height on the leading side, the
+                    // rest stacks on the trailing side.
+                    HStack(spacing: SpaceConstants.sx24.value) {
+                        coverView
+                        VStack(spacing: SpaceConstants.sx12.value) {
+                            Spacer(minLength: 0)
+                            controls(compact: true)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    VStack(spacing: SpaceConstants.sx16.value) {
+                        // The cover is offered space first, but only what is left once the rest
+                        // has its own: it shrinks (staying square) on a short screen.
+                        coverView
+                            .layoutPriority(1)
+                        controls(compact: false)
+                    }
                 }
-                playerButtonsView
-                pills
             }
             .padding(.horizontal, Self.margin)
             .padding(.top, SpaceConstants.sx8.value)
             .padding(.bottom, SpaceConstants.sx12.value)
-            .overlay { chaptersOverlay }
+            .overlayPreferenceValue(PillsAnchorKey.self) { pills in
+                chaptersOverlay(pills: pills)
+            }
             .onChange(of: showsPanel) { _, open in
                 onChaptersOpen?(open)
             }
@@ -119,6 +131,18 @@ struct PlayerView: View {
             .onDisappear { onChaptersOpen?(false) }
             .coordinateSpace(.named(Self.layoutSpace))
         }
+    }
+
+    /// The title, the scrubber with the download line, the transport and the pills.
+    @ViewBuilder
+    private func controls(compact: Bool) -> some View {
+        titleBlock
+        VStack(spacing: SpaceConstants.sx8.value) {
+            PlayerTimeline(model: model)
+            PlayerDownloadLine(model: model)
+        }
+        playerButtonsView
+        pills(compact: compact)
     }
 
     // MARK: - Cover view
@@ -131,11 +155,9 @@ struct PlayerView: View {
             // Measured on the square that is drawn, not on the `coverSide` frame around it: when
             // the height runs short, that frame is wider than the square, and the expansion's cover
             // grew into it and then snapped down to the real cover as it settled (#254).
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .named(Self.coordinateSpace))
-            } action: { frame in
+            .modifier(FrameReporter(space: Self.coordinateSpace) { frame in
                 onCoverFrame?(frame)
-            }
+            })
             .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityHidden(true)
@@ -190,7 +212,10 @@ struct PlayerView: View {
 
     // MARK: - Pills
     /// Speed on the left, Chapters on the right. A book with no chapters has no Chapters pill.
-    private var pills: some View {
+    /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
+    /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
+    /// panel off the bottom of the landscape screen, over the pills (#270).
+    private func pills(compact: Bool) -> some View {
         HStack {
             speedPill
             Spacer()
@@ -198,11 +223,7 @@ struct PlayerView: View {
                 chaptersPill
             }
         }
-        .onGeometryChange(for: CGRect.self) { proxy in
-            proxy.frame(in: .named(Self.layoutSpace))
-        } action: { frame in
-            pillsFrame = frame
-        }
+        .anchorPreference(key: PillsAnchorKey.self, value: .bounds) { $0 }
     }
 
     private var speedPill: some View {
@@ -254,12 +275,12 @@ struct PlayerView: View {
     }
 
     @ViewBuilder
-    private var chaptersOverlay: some View {
+    private func chaptersOverlay(pills: Anchor<CGRect>?) -> some View {
         if showsPanel {
             GeometryReader { proxy in
                 let frame = ChaptersPanelLayout.frame(
                     container: proxy.size,
-                    pillsTop: pillsFrame.minY,
+                    pillsTop: pills.map { proxy[$0].minY } ?? 0,
                     idealHeight: ChaptersPanelLayout.idealHeight(
                         chapterCount: model.book.chapters.count,
                         rowHeight: panelRowHeight,
@@ -341,6 +362,34 @@ enum ChaptersPanelLayout {
 }
 
 // MARK: - Leaves
+
+/// Where the pills are, for the chapter panel above them. The last one reported wins: the layout
+/// on screen.
+private struct PillsAnchorKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
+/// Reports a view's frame in a named space: its first value as well as every change, so a layout
+/// that appears already in place after a rotation (#270) reports where its cover is.
+private struct FrameReporter: ViewModifier {
+    let space: String
+    let action: (CGRect) -> Void
+
+    func body(content: Content) -> some View {
+        content.background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.frame(in: .named(space)), initial: true) { _, frame in
+                        action(frame)
+                    }
+            }
+        }
+    }
+}
 
 /// A glass capsule with a label, the look of the speed and chapters pills.
 private struct PlayerPill: View {

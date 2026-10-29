@@ -103,6 +103,7 @@ struct AppRootView: View {
         NavigationStack {
             MediaListView(model: model, onBrowse: { selectTab(.search) }, onSettings: { isShowingSettings = true })
                 .modifier(TabBarHiddenWhilePlayerIsOpen())
+                .modifier(HiddenNavigationBarWhileCovered())
         }
         .modifier(BrowsingPanes(isSelected: selectedTab == .library, models: models.details))
     }
@@ -289,6 +290,7 @@ private struct SearchTab: View {
         NavigationStack {
             LibriVoxSearchView(libraryBookIDs: libraryBookIDs, onOpen: { openedBook = $0 })
                 .modifier(TabBarHiddenWhilePlayerIsOpen())
+                .modifier(HiddenNavigationBarWhileCovered())
                 .navigationDestination(item: $openedBook) { book in
                     LibriVoxDetailView(
                         book: book,
@@ -296,6 +298,7 @@ private struct SearchTab: View {
                         openPlayer: { [presentation] in presentation.open($0, animated: true) }
                     )
                     .modifier(TabBarHiddenWhilePlayerIsOpen())
+                    .modifier(HiddenNavigationBarWhileCovered())
                 }
         }
     }

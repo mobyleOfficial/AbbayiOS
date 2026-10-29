@@ -34,6 +34,19 @@ struct MediaListView: View {
     /// The grid's own width: its columns follow the room it has (#255, #251), not the screen's.
     @State
     private var gridWidth: CGFloat = 0
+    /// The book at the top of the grid's visible area (its cells' ids are their URLs), kept as the
+    /// user scrolls, so a change in the column count can bring it back (#267).
+    @State
+    private var topBook: URL??
+    /// `topBook` as it was before the grid started changing width. While the width animates (the
+    /// player pane sliding in, a fold), every frame moves the cells and `topBook` with them.
+    @State
+    private var anchorBook: URL??
+    /// The column count when the current resize began; nil while the width is settled.
+    @State
+    private var resizeStartColumns: Int?
+    @State
+    private var resizeGeneration = 0
     /// Where the Continue card finds the last played book.
     var lastPlayed: LastPlayedStore = .shared
 
@@ -158,11 +171,14 @@ struct MediaListView: View {
     /// As many columns as fit the grid's width at this text size (`LibraryGridLayout`): three on a
     /// phone at the default size, more in a wide pane or window.
     private var columns: [GridItem] {
-        let count = LibraryGridLayout.columnCount(width: gridWidth, dynamicTypeSize: dynamicTypeSize)
-        return Array(
+        Array(
             repeating: GridItem(.flexible(), spacing: SpaceConstants.sx12.value, alignment: .top),
-            count: count
+            count: columnCount
         )
+    }
+
+    private var columnCount: Int {
+        LibraryGridLayout.columnCount(width: gridWidth, dynamicTypeSize: dynamicTypeSize)
     }
 
     @ViewBuilder
@@ -183,19 +199,47 @@ struct MediaListView: View {
                 Text(Localizable.noResultsHint.localized)
             }
         } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
-                    if !isSearching {
-                        ContinueSection(books: model.audioList, lastPlayed: lastPlayed) { book in
-                            // Grows out of the card's cover (#241).
-                            presentation.open(book, animated: true, from: .continueCard(book))
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
+                        if !isSearching {
+                            ContinueSection(books: model.audioList, lastPlayed: lastPlayed) { book in
+                                // Grows out of the card's cover (#241).
+                                presentation.open(book, animated: true, from: .continueCard(book))
+                            }
+                            LibrarySectionHeader(title: .libraryAllBooks)
                         }
-                        LibrarySectionHeader(title: .libraryAllBooks)
+                        grid(books)
                     }
-                    grid(books)
+                    .padding(.horizontal, SpaceConstants.sx16.value)
+                    .padding(.bottom, SpaceConstants.sx16.value)
                 }
-                .padding(.horizontal, SpaceConstants.sx16.value)
-                .padding(.bottom, SpaceConstants.sx16.value)
+                // The grid's width is the scroll view's minus the margins: measured on the scroll
+                // view, which doesn't depend on the grid. Measured on the grid (whose width follows
+                // its own columns), iOS 17 kept a narrow first value: one column of phone-wide
+                // covers on the iPhone SE (#278).
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onChange(of: geometry.size.width, initial: true) { _, width in
+                                widthChanged(to: max(width - 2 * SpaceConstants.sx16.value, 0))
+                            }
+                    }
+                }
+                .scrollPosition(id: $topBook)
+                .onChange(of: topBook) {
+                    if resizeStartColumns == nil { anchorBook = topBook }
+                }
+                // A fold, a rotation, a resize or the player pane opening changes the column count,
+                // which moves every cell: once the width settles, the book that was at the top
+                // before the resize goes back there (#267).
+                .onChange(of: resizeStartColumns) { start, settled in
+                    guard settled == nil, let start, start != columnCount,
+                          let anchorBook, let id = anchorBook,
+                          let index = books.firstIndex(where: { $0.url == id }),
+                          LibraryGridLayout.restoresTopBook(at: index, oldColumnCount: start) else { return }
+                    proxy.scrollTo(id, anchor: .top)
+                }
             }
             .accessibilityIdentifier(AccessibilityID.Library.list)
         }
@@ -217,10 +261,18 @@ struct MediaListView: View {
                 )
             }
         }
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width
-        } action: { width in
-            gridWidth = width
+        .scrollTargetLayout()
+    }
+
+    /// Marks a resize in progress, and its end once the width has held still for a moment.
+    private func widthChanged(to width: CGFloat) {
+        if resizeStartColumns == nil { resizeStartColumns = columnCount }
+        gridWidth = width
+        resizeGeneration += 1
+        let generation = resizeGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + LibraryGridLayout.resizeSettleDelay) {
+            guard generation == resizeGeneration else { return }
+            resizeStartColumns = nil
         }
     }
 }
@@ -246,6 +298,17 @@ enum LibraryGridLayout {
         let cell = base * cellScale(dynamicTypeSize)
         let fits = Int((width + columnSpacing) / (cell + columnSpacing))
         return max(fits, 1)
+    }
+
+    /// Whether a column change should scroll the top book back into place: only once the user has
+    /// scrolled past the first row. In the first row, the top of the library (the Continue card,
+    /// the header) stays in view instead.
+    /// How long the grid's width must hold still before a resize counts as over (a pane's spring
+    /// takes about 0.35 s).
+    static let resizeSettleDelay: TimeInterval = 0.45
+
+    static func restoresTopBook(at index: Int, oldColumnCount: Int) -> Bool {
+        index >= oldColumnCount
     }
 
     /// *xLarge* to *xxxLarge* titles need about a third more; accessibility sizes half again.
