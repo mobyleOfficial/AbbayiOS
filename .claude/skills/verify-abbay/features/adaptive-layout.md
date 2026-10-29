@@ -23,12 +23,16 @@ app is given and the text size, never the device model.
   the other form.
   - **C, browsing:** Library or Search fills the window. The [mini player](mini-player.md) shows while
     a book is loaded.
-  - **A, player open:** split, the player is a pane beside browsing (`BrowsingPanes`, hosted inside
+  - **A, player open:** split, the player is a pane on browsing's trailing side (`BrowsingPanes`, hosted inside
     each tab so the system tab bar keeps its place: top on an iPad, a side strip on the Duo). In one
     pane, the full-screen player covers browsing, as before.
-  - **B, chapters open:** split, the chapters replace browsing beside the player (`ChaptersPanel`
-    `.pane` style). Browsing stays alive underneath (hidden, not removed), so its scroll position,
-    query and pushed LibriVox page are still there when the chapters close. In one pane, the chapters
+  - **B, chapters open:** split, the player slides to the leading side and the chapters
+    (`ChaptersPanel` `.pane` style) take the trailing side, in browsing's room (#271, as the spec's
+    mockup). Browsing stays alive underneath (hidden, not removed), so its scroll position,
+    query and pushed LibriVox page are still there when the chapters close. Its navigation bar is
+    hidden meanwhile (`HiddenNavigationBarWhileCovered`, `\.isBrowsingCovered`): at the window's
+    trailing edge the system would otherwise show the hidden page's toolbar (`+`, gear) in the Duo's
+    side strip. In one pane, the chapters
     are the glass panel over the player ([player](player.md) *chapter-panel*).
 - **actions (split):**
   - A library cell, the Continue card body, or the mini player opens the player pane. There is no
@@ -46,6 +50,11 @@ app is given and the text size, never the device model.
   - Browsing (C) never opens the player because there is more room.
   - Playback, the book, the speed and downloads are untouched. The player pane and the full-screen
     player share one `PlayerViewModel` (`PlayerDetailsModels`, owned by the root).
+- **scroll-anchor (#267):** `MediaListView` follows the top visible book with `scrollPosition(id:)`.
+  While the grid's width is changing (the player pane's spring, a fold), that value is frozen. Once
+  the width has held still for 0.45 s (`LibraryGridLayout.resizeSettleDelay`), and if the column
+  count changed, the book that was at the top scrolls back there. In the first row nothing moves,
+  so the Continue card and the header stay in view (`LibraryGridLayout.restoresTopBook`).
 - **library-columns:** `LibraryGridLayout.columnCount` fits the grid's own measured width:
   - Default text: covers of at least 104 pt. That is three columns on every phone in portrait, as
     before, two on the narrowest. Past a 600 pt grid, covers of at least 150 pt.
@@ -65,7 +74,7 @@ app is given and the text size, never the device model.
 ## How to get to it (user POV)
 
 Unfold an iPhone Duo, or open the app on an iPad. The library fills the screen. Tap a book: its player
-opens beside the library. Tap **Chapters**: the chapters take the library's side. Fold the Duo with
+opens on the library's right. Tap **Chapters**: the player moves left and the chapters open on its right. Fold the Duo with
 the player open: it becomes the full-screen player, with the chapter panel if the chapters were open.
 
 ## Driving it with abbay-ctl
@@ -84,8 +93,8 @@ $B tap player.chapters.panel                          # closes the chapters (eit
 $B tap player.close                                   # back to browsing
 ```
 
-Evidence: on a split window, `player.title`'s frame starts right of `library.list`'s (A) or of the
-chapter rows (B); on one pane it covers them. `AdaptiveLayoutUITests` asserts this on whichever
+Evidence: on a split window, `player.title`'s frame starts right of `library.list`'s (A), and the
+chapter rows start right of `player.title` (B); on one pane the player covers them. `AdaptiveLayoutUITests` asserts this on whichever
 simulator it runs, and writes screenshot requests when `TEST_RUNNER_ABBAY_SHOTS_DIR` is set (see the
 test's `shot`).
 

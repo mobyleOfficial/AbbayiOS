@@ -5,9 +5,10 @@
 
 import SwiftUI
 
-/// A tab's content when the window is split (#255): browsing, with the player pane beside it once a
-/// book is presented (A), and the chapters in browsing's place while they are open (B). In one pane
-/// it is the tab's content alone, and the expansion overlay presents the player.
+/// A tab's content when the window is split (#255): browsing, with the player pane on its trailing
+/// side once a book is presented (A). While the chapters are open (B), the player moves to the
+/// leading side and the chapters take the trailing one, in browsing's room (#271, as the spec's
+/// mockup). In one pane it is the tab's content alone, and the expansion overlay presents the player.
 ///
 /// Applied inside each tab, around its `NavigationStack`, so the system's tab bar (top on an iPad,
 /// a side strip on the iPhone Duo) keeps its own place in the window. Only the selected tab hosts
@@ -25,14 +26,23 @@ struct BrowsingPanes: ViewModifier {
     private var presentation
     @ReduceMotion
     private var reduceMotion
+    /// The player pane slides between its A and B sides instead of fading out and in.
+    @Namespace
+    private var panes
 
     func body(content: Content) -> some View {
         // Read only when split: in one pane, a drag up on the bar presents a book, and nothing
         // here should re-render under it.
         let book = layout.isSplit && isSelected ? presentation.presentedBook : nil
         let showsChapters = book != nil && presentation.isShowingChapters
+        // Browsing keeps its slot (the middle one) in every state, so it is never rebuilt: under the
+        // chapters it is only hidden.
         HStack(spacing: 0) {
+            if showsChapters, let book, let width = layout.playerWidth {
+                playerPane(book, width: width)
+            }
             content
+                .environment(\.isBrowsingCovered, showsChapters)
                 .opacity(showsChapters ? 0 : 1)
                 .allowsHitTesting(!showsChapters)
                 .accessibilityHidden(showsChapters)
@@ -42,18 +52,50 @@ struct BrowsingPanes: ViewModifier {
                             .transition(.opacity)
                     }
                 }
-            if let book, let width = layout.playerWidth {
-                PlayerPane(book: book, models: models)
-                    .frame(width: width)
-                    .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+            if !showsChapters, let book, let width = layout.playerWidth {
+                playerPane(book, width: width)
             }
         }
         .animation(animation, value: book?.url)
         .animation(animation, value: showsChapters)
     }
 
+    private func playerPane(_ book: AudioModel, width: CGFloat) -> some View {
+        PlayerPane(book: book, models: models)
+            .frame(width: width)
+            .matchedGeometryEffect(id: "player", in: panes, isSource: true)
+            .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+    }
+
     private var animation: Animation {
         reduceMotion ? .easeInOut(duration: 0.2) : PlayerPresentation.animation
+    }
+}
+
+// MARK: - Covered browsing
+
+private struct BrowsingCoveredKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// The chapters stand in browsing's place (B). Browsing is only hidden, so its navigation bar
+    /// would still show where the system puts it (the unfolded iPhone Duo's side strip, when
+    /// browsing is at the window's trailing edge): `HiddenNavigationBarWhileCovered` removes it.
+    var isBrowsingCovered: Bool {
+        get { self[BrowsingCoveredKey.self] }
+        set { self[BrowsingCoveredKey.self] = newValue }
+    }
+}
+
+/// Hides a browsing page's navigation bar (and its toolbar items) while the chapters cover it.
+/// Applied inside each tab's `NavigationStack`, on every page, like `TabBarHiddenWhilePlayerIsOpen`.
+struct HiddenNavigationBarWhileCovered: ViewModifier {
+    @Environment(\.isBrowsingCovered)
+    private var isCovered
+
+    func body(content: Content) -> some View {
+        content.toolbar(isCovered ? .hidden : .automatic, for: .navigationBar)
     }
 }
 

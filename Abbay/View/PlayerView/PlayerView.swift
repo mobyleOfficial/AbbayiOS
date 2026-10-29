@@ -38,6 +38,9 @@ struct PlayerView: View {
     private var settings
     @ReduceMotion
     private var reduceMotion
+    /// Compact height (an iPhone in landscape): the cover sits beside the controls (#270).
+    @Environment(\.verticalSizeClass)
+    private var verticalSizeClass
     @State
     private var isShowingSpeed = false
     /// Whether the chapters are open: shared state (`PlayerPresentation.isShowingChapters`), so a
@@ -95,18 +98,28 @@ struct PlayerView: View {
     // MARK: - Body
     var body: some View {
         AbbayGlassContainer {
-            VStack(spacing: SpaceConstants.sx16.value) {
-                // The cover is offered space first, but only what is left once the rest has its
-                // own: it shrinks (staying square) on a short screen.
-                coverView
-                    .layoutPriority(1)
-                titleBlock
-                VStack(spacing: SpaceConstants.sx8.value) {
-                    PlayerTimeline(model: model)
-                    PlayerDownloadLine(model: model)
+            Group {
+                if verticalSizeClass == .compact {
+                    // Landscape on a phone: the cover fills the height on the leading side, the
+                    // rest stacks on the trailing side.
+                    HStack(spacing: SpaceConstants.sx24.value) {
+                        coverView
+                        VStack(spacing: SpaceConstants.sx12.value) {
+                            Spacer(minLength: 0)
+                            controls
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    VStack(spacing: SpaceConstants.sx16.value) {
+                        // The cover is offered space first, but only what is left once the rest
+                        // has its own: it shrinks (staying square) on a short screen.
+                        coverView
+                            .layoutPriority(1)
+                        controls
+                    }
                 }
-                playerButtonsView
-                pills
             }
             .padding(.horizontal, Self.margin)
             .padding(.top, SpaceConstants.sx8.value)
@@ -119,6 +132,18 @@ struct PlayerView: View {
             .onDisappear { onChaptersOpen?(false) }
             .coordinateSpace(.named(Self.layoutSpace))
         }
+    }
+
+    /// The title, the scrubber with the download line, the transport and the pills.
+    @ViewBuilder
+    private var controls: some View {
+        titleBlock
+        VStack(spacing: SpaceConstants.sx8.value) {
+            PlayerTimeline(model: model)
+            PlayerDownloadLine(model: model)
+        }
+        playerButtonsView
+        pills
     }
 
     // MARK: - Cover view
