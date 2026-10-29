@@ -214,6 +214,18 @@ struct MediaListView: View {
                     .padding(.horizontal, SpaceConstants.sx16.value)
                     .padding(.bottom, SpaceConstants.sx16.value)
                 }
+                // The grid's width is the scroll view's minus the margins: measured on the scroll
+                // view, which doesn't depend on the grid. Measured on the grid (whose width follows
+                // its own columns), iOS 17 kept a narrow first value: one column of phone-wide
+                // covers on the iPhone SE (#278).
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onChange(of: geometry.size.width, initial: true) { _, width in
+                                widthChanged(to: max(width - 2 * SpaceConstants.sx16.value, 0))
+                            }
+                    }
+                }
                 .scrollPosition(id: $topBook)
                 .onChange(of: topBook) {
                     if resizeStartColumns == nil { anchorBook = topBook }
@@ -250,11 +262,6 @@ struct MediaListView: View {
             }
         }
         .scrollTargetLayout()
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width
-        } action: { width in
-            widthChanged(to: width)
-        }
     }
 
     /// Marks a resize in progress, and its end once the width has held still for a moment.
