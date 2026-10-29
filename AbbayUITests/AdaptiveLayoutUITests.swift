@@ -103,11 +103,14 @@ final class AdaptiveLayoutUITests: XCTestCase {
         shot("3-chapters")
         if wide {
             XCTAssertTrue(element(AccessibilityID.Player.title).isHittable, "the chapters hid the player")
-            XCTAssertLessThan(
-                row.frame.maxX,
-                element(AccessibilityID.Player.title).frame.minX,
-                "the chapters are not beside the player"
+            // #271: the player on the left, the chapters on its right.
+            XCTAssertGreaterThan(
+                row.frame.minX,
+                element(AccessibilityID.Player.title).frame.maxX,
+                "the chapters are not on the player's right"
             )
+            let add = element(AccessibilityID.Library.toolbarAdd)
+            XCTAssertFalse(add.exists && add.isHittable, "the covered library's toolbar is still showing")
             // A chapter tap keeps the chapters open beside the player.
             row.tap()
             sleep(1)
@@ -163,6 +166,88 @@ final class AdaptiveLayoutUITests: XCTestCase {
         item.tap()
         sleep(4)
         shot("8-import-open")
+    }
+
+    /// #267: on a split window, opening the player beside the grid changes its column count; the
+    /// book that was at the top of the scrolled grid stays in view. Skipped in one pane.
+    func test_scrolledGrid_keepsItsTopBook_whenThePlayerOpensBeside() throws {
+        launch([LaunchArgument.seedLongBook])
+        let list = element(AccessibilityID.Library.list)
+        for _ in 0..<3 { list.swipeUp(velocity: .slow) }
+        sleep(1)
+        let cellTitle = NSPredicate(format: "identifier BEGINSWITH 'library.row.' AND identifier ENDSWITH '.title'")
+        let titles = app.descendants(matching: .any).matching(cellTitle).allElementsBoundByIndex
+        let visible = titles.filter { $0.frame.minY > list.frame.minY + 60 && $0.frame.maxY < list.frame.maxY }
+        let top = try XCTUnwrap(visible.min { $0.frame.minY < $1.frame.minY }, "no visible cell")
+        let topTitle = top.label
+        let openTarget = try XCTUnwrap(visible.last, "no cell to open")
+        openTarget.tap()
+        XCTAssertTrue(element(AccessibilityID.Player.title).waitForExistence(timeout: 10))
+        guard playerIsBesideLibrary else { throw XCTSkip("one pane: the player covers the grid") }
+        sleep(1)
+        shot("9-scroll-anchor")
+        let kept = app.descendants(matching: .any).matching(cellTitle)
+            .matching(NSPredicate(format: "label == %@", topTitle))
+            .firstMatch
+        XCTAssertTrue(kept.exists, "the top book is gone")
+        XCTAssertTrue(
+            kept.frame.maxY > list.frame.minY && kept.frame.minY < list.frame.maxY,
+            "\(topTitle) left the visible grid"
+        )
+    }
+
+    /// #265: the sheets and alerts a user meets, on whatever window this runs (an iPad shows them as
+    /// form sheets): Settings, the player's speed sheet and LibriVox's large-download alert. Each
+    /// opens with its controls inside the window, and closes.
+    func test_sheets_openInsideTheWindow() throws {
+        launch()
+        let window = app.windows.firstMatch.frame
+
+        element(AccessibilityID.Library.toolbarSettings).tap()
+        let done = element(AccessibilityID.Settings.done)
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "Settings did not open")
+        XCTAssertTrue(window.contains(done.frame), "Settings' Done is outside the window")
+        sleep(1)
+        shot("10-settings")
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5), "Settings did not close")
+
+        try openPlayer(titled: "Seeded Chaptered Book")
+        element(AccessibilityID.Player.speed).tap()
+        let value = element(AccessibilityID.Speed.value)
+        XCTAssertTrue(value.waitForExistence(timeout: 10), "the speed sheet did not open")
+        XCTAssertTrue(window.contains(value.frame), "the speed value is outside the window")
+        sleep(1)
+        shot("11-speed")
+        // A tap on the dimmed edge closes a form sheet (a swipe on it can land on the slider); a
+        // phone's sheet closes with a swipe down, as in SettingsUITests.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.2)).tap()
+        if !value.waitForNonExistence(timeout: 3) { app.swipeDown(velocity: .fast) }
+        XCTAssertTrue(value.waitForNonExistence(timeout: 5), "the speed sheet did not close")
+        element(AccessibilityID.Player.close).tap()
+
+        app.terminate()
+        app.launchArguments = [
+            LaunchArgument.stubLibriVox,
+            LaunchArgument.resetLibrary,
+            LaunchArgument.resetSettings,
+            LaunchArgument.stubDownloadStates,
+            LaunchArgument.stubPathCellular
+        ]
+        app.launch()
+        element(AccessibilityID.Root.tabSearch).tap()
+        let card = element(AccessibilityID.Search.card(0))
+        XCTAssertTrue(card.waitForExistence(timeout: 15), "no Popular card")
+        card.tap()
+        let download = element(AccessibilityID.Detail.download)
+        XCTAssertTrue(download.waitForExistence(timeout: 15), "no Download")
+        download.tap()
+        let wait = element(AccessibilityID.Detail.cellularWait)
+        XCTAssertTrue(wait.waitForExistence(timeout: 10), "no large-download alert")
+        XCTAssertTrue(window.contains(wait.frame), "the alert is outside the window")
+        sleep(1)
+        shot("12-download-alert")
+        wait.tap()
     }
 
     /// Every library cell fits the window: none runs past the trailing edge or under the system's
