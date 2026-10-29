@@ -18,7 +18,11 @@ import Foundation
 /// transcribes again. All access goes through one serial queue, so the transcriber, the player and
 /// Settings can touch it from any thread.
 final class ReadAlongStore {
-    static let shared = ReadAlongStore(root: defaultRoot)
+    /// The one store the app uses: the player's sessions, the off switch (`LiveSettingsEffects`) and
+    /// deleting a book all go through it, so they always agree. Under `-seedReadAlong` it is a
+    /// temporary one emptied at launch, so canned text never lands among the user's transcripts and
+    /// each UI-test launch starts with none.
+    static let shared = DebugOverrides.readAlongStore() ?? ReadAlongStore(root: defaultRoot)
 
     static var defaultRoot: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -26,7 +30,7 @@ final class ReadAlongStore {
         return base.appendingPathComponent("ReadAlong", isDirectory: true)
     }
 
-    private let root: URL
+    let root: URL
     private let queue = DispatchQueue(label: "abbay.readalong.store")
     private let fileManager = FileManager.default
 

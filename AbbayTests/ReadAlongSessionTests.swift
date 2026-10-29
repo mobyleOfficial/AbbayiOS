@@ -479,6 +479,31 @@ final class ReadAlongSessionLanguageTests: ReadAlongSessionTestCase {
         XCTAssertEqual(stub.transcribeStarts, [50])
     }
 
+    /// The text is hidden: a chapter arriving or the time moving starts no detection, no model
+    /// download and no run. Showing it again does.
+    func test_afterStop_downloadsAndTimeChanges_startNothing_untilShownAgain() async throws {
+        let book = libriVoxBook()
+        stub.installed = []
+        let session = makeSession()
+        session.show(book, at: 150)
+        await waitUntil { session.state == .needsDownload }
+
+        session.stop()
+        try download(book.chapters[1])
+        session.downloadsChanged(book)
+        session.timeChanged(160)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(stub.transcribeStarts, [])
+        XCTAssertEqual(stub.installCalls, [])
+        XCTAssertNil(settings.readAlongLanguage(for: book.url), "no detection while hidden")
+
+        session.show(book, at: 160)
+        await waitUntil { session.state == .ready }
+        XCTAssertEqual(session.state, .ready)
+        XCTAssertEqual(stub.transcribeStarts, [160])
+    }
+
     func test_importedFileMissing_saysTheFileIsMissing() async throws {
         let book = try importedBook(onDevice: false)
         let session = makeSession()

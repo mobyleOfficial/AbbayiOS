@@ -95,6 +95,8 @@ final class DependencyContainer: DependencyContainerProtocol {
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)
         // Sessions stop themselves when Read-along is turned off, which deletes every transcript.
+        // `.shared` is also the store the off switch and book deletion use (a temporary one under
+        // `-seedReadAlong`).
         self.readAlong = ReadAlongCenter(
             transcriber: Self.makeReadAlongTranscriber(),
             store: .shared,

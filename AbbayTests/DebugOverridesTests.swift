@@ -212,6 +212,29 @@ final class DebugOverridesTests: XCTestCase {
         XCTAssertTrue(transcriber is StubReadAlongTranscriber)
     }
 
+    /// Canned text goes to a store of the launch's own, never the user's, and the next launch starts
+    /// without it.
+    func test_readAlongStore_withSeedReadAlong_isATemporaryOne_emptiedAtLaunch() throws {
+        let arguments = [LaunchArgument.seedReadAlong]
+        let store = try XCTUnwrap(DebugOverrides.readAlongStore(arguments: arguments))
+        let book = try XCTUnwrap(URL(string: "librivox://seeded"))
+        store.save(ReadAlongTranscript(language: "en-US"), bookURL: book)
+        XCTAssertNotNil(store.load(bookURL: book))
+
+        let nextLaunch = try XCTUnwrap(DebugOverrides.readAlongStore(arguments: arguments))
+
+        XCTAssertNotEqual(store.root, ReadAlongStore.defaultRoot)
+        XCTAssertTrue(store.root.path.hasPrefix(FileManager.default.temporaryDirectory.path))
+        XCTAssertEqual(nextLaunch.root, store.root)
+        XCTAssertNil(nextLaunch.load(bookURL: book), "emptied at launch")
+        nextLaunch.deleteAll()
+    }
+
+    func test_readAlongStore_withoutTheArgument_isTheRealOne() {
+        XCTAssertNil(DebugOverrides.readAlongStore(arguments: [LaunchArgument.resetSettings]))
+        XCTAssertEqual(ReadAlongStore.shared.root, ReadAlongStore.defaultRoot)
+    }
+
     /// The UI tests reach the player's Text pill without a trip to Settings.
     func test_seedReadAlong_withResetSettings_turnsReadAlongOn() throws {
         let store = try XCTUnwrap(DebugOverrides.settingsStore(

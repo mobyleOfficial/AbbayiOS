@@ -119,6 +119,21 @@ enum DebugOverrides {
         return nil
     }
 
+    /// A transcript store in the temporary directory, emptied here, at launch, for `-seedReadAlong`:
+    /// the canned text is this launch's only, like the settings under `-resetSettings`.
+    static func readAlongStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> ReadAlongStore? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.seedReadAlong) {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("UITestReadAlong", isDirectory: true)
+            let store = ReadAlongStore(root: root)
+            store.deleteAll()
+            return store
+        }
+        #endif
+        return nil
+    }
+
     /// The canned-text transcriber, for `-seedReadAlong`.
     static func readAlongTranscriber(
         arguments: [String] = ProcessInfo.processInfo.arguments

@@ -85,6 +85,9 @@ final class ReadAlongSession {
     @ObservationIgnored private var book: AudioModel?
     @ObservationIgnored private var source: ReadAlongAudioSource?
     @ObservationIgnored private var shownTime = 0.0
+    /// Between `show` and `stop`. Nothing runs, detects or downloads while the text is hidden, even
+    /// when the time or the downloads change: those only matter once it is shown again.
+    @ObservationIgnored private var isShown = false
     /// Language resolved, model installed, saved text loaded: runs can start.
     @ObservationIgnored private var isPrepared = false
     @ObservationIgnored private var preparation: Task<Void, Never>?
@@ -130,6 +133,7 @@ final class ReadAlongSession {
             return
         }
         if let current = self.book, current.url == book.url {
+            isShown = true
             shownTime = time
             if hasFailed || (!isPrepared && preparation == nil && !isWaitingForAudio) {
                 hasFailed = false
@@ -144,17 +148,19 @@ final class ReadAlongSession {
         self.book = book
         source = makeSource(book)
         shownTime = time
+        isShown = true
         prepare()
     }
 
     /// The shown time moved: playback, a seek, or the scrubber.
     func timeChanged(_ time: Double) {
-        guard book != nil, settings.readAlongEnabled else { return }
+        guard book != nil, isShown, settings.readAlongEnabled else { return }
         shownTime = time
         evaluate()
     }
 
-    /// The book's downloads changed: a chapter may have arrived (or gone).
+    /// The book's downloads changed: a chapter may have arrived (or gone). While the text is hidden
+    /// the new files are only noted; the next `show` acts on them.
     func downloadsChanged(_ book: AudioModel) {
         guard let current = self.book, current.url == book.url, settings.readAlongEnabled else { return }
         self.book = book
@@ -163,7 +169,8 @@ final class ReadAlongSession {
         evaluate()
     }
 
-    /// The user picked a language: kept for the book, and its text starts over in it.
+    /// The user picked a language: kept for the book, and its text starts over in it (at the next
+    /// `show`, if the text is hidden).
     func setLanguage(_ locale: String) {
         guard let url = book?.url, locale != language else { return }
         settings.setReadAlongLanguage(locale, for: url)
@@ -175,11 +182,13 @@ final class ReadAlongSession {
         isPrepared = false
         hasFailed = false
         exhausted = nil
+        state = .preparing
         prepare()
     }
 
     /// The text left the screen: the run stops, and what it transcribed is saved.
     func stop() {
+        isShown = false
         cancelWork()
         saveNow()
     }
@@ -206,6 +215,7 @@ extension ReadAlongSession {
         exhausted = nil
         hasUnsavedText = false
         lastSave = nil
+        isShown = false
         state = .preparing
     }
 
@@ -217,7 +227,7 @@ extension ReadAlongSession {
     }
 
     private func prepare() {
-        guard let transcriber, let book, let url = book.url else { return }
+        guard isShown, let transcriber, let book, let url = book.url else { return }
         preparation?.cancel()
         generation += 1
         let generation = generation
@@ -366,7 +376,7 @@ extension ReadAlongSession {
 extension ReadAlongSession {
     /// Brings the state and the run in line with the shown time.
     private func evaluate() {
-        guard let source else { return }
+        guard isShown, let source else { return }
         guard isPrepared, let transcript else {
             // Detection waits for the audio: it may be here now.
             if preparation == nil, isWaitingForAudio, source.isOnDevice(at: shownTime) {
@@ -417,7 +427,7 @@ extension ReadAlongSession {
 
     private func startRun(at start: Double) {
         cancelRun()
-        guard let transcriber, let source, let language, let transcript else { return }
+        guard isShown, let transcriber, let source, let language, let transcript else { return }
         runCount += 1
         let id = runCount
         // Audio an earlier run covered: its lines win, and this run stops on reaching it.
