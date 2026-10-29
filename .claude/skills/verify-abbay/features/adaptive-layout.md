@@ -55,7 +55,7 @@ app is given and the text size, never the device model.
   the width has held still for 0.45 s (`LibraryGridLayout.resizeSettleDelay`), and if the column
   count changed, the book that was at the top scrolls back there. In the first row nothing moves,
   so the Continue card and the header stay in view (`LibraryGridLayout.restoresTopBook`).
-- **library-columns:** `LibraryGridLayout.columnCount` fits the grid's own measured width:
+- **library-columns:** `LibraryGridLayout.columnCount` fits the grid's width, measured on the scroll view minus its 16 pt margins (measured on the grid itself, iOS 17 kept a narrow first value and showed one column, #278):
   - Default text: covers of at least 104 pt. That is three columns on every phone in portrait, as
     before, two on the narrowest. Past a 600 pt grid, covers of at least 150 pt.
   - Larger text: ×1.4 from *xLarge* (two columns on a phone, as before) and ×1.5 at accessibility
