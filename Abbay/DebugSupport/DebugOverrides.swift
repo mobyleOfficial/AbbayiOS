@@ -104,11 +104,28 @@ enum DebugOverrides {
         return nil
     }
 
-    /// A fresh in-memory settings store, for `-resetSettings`.
+    /// A fresh in-memory settings store, for `-resetSettings`; with `-seedReadAlong`, Read-along is
+    /// on in it. Never the real preferences: a UI test must not leave the feature on for the user.
     static func settingsStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> KeyValueStoring? {
         #if DEBUG
         if arguments.contains(LaunchArgument.resetSettings) {
-            return InMemoryKeyValueStore()
+            let store = InMemoryKeyValueStore()
+            if arguments.contains(LaunchArgument.seedReadAlong) {
+                store.set(true, forKey: AppSettings.Key.readAlongEnabled)
+            }
+            return store
+        }
+        #endif
+        return nil
+    }
+
+    /// The canned-text transcriber, for `-seedReadAlong`.
+    static func readAlongTranscriber(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> ReadAlongTranscribing? {
+        #if DEBUG
+        if arguments.contains(LaunchArgument.seedReadAlong) {
+            return StubReadAlongTranscriber()
         }
         #endif
         return nil

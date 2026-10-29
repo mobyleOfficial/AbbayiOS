@@ -27,6 +27,8 @@ protocol DependencyContainerProtocol {
     var diagnostics: SiriDiagnostics { get }
     /// What App Intents activate the audio session with before they play (#153: was a static).
     var audioSessionActivator: AudioSessionActivatorProtocol { get }
+    /// Read-along's engine, store and settings (#192); unavailable below iOS 26.
+    var readAlong: ReadAlongCenter { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -67,6 +69,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     let siriContext: SiriContextRefreshing
     let diagnostics: SiriDiagnostics = .shared
     let audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
+    let readAlong: ReadAlongCenter
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -91,6 +94,12 @@ final class DependencyContainer: DependencyContainerProtocol {
         // Built here, on main: `configure()` runs from the AppDelegate's launch.
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)
+        // Sessions stop themselves when Read-along is turned off, which deletes every transcript.
+        self.readAlong = ReadAlongCenter(
+            transcriber: Self.makeReadAlongTranscriber(),
+            store: .shared,
+            settings: settings
+        )
     }
 
     /// The App Group stores for code that can run before launch configured the container (entity
@@ -117,5 +126,16 @@ final class DependencyContainer: DependencyContainerProtocol {
 
     private static func makeDownloads() -> BookDownloadManagerProtocol {
         DebugOverrides.downloadManager() ?? BookDownloadManager.shared
+    }
+
+    /// The canned stub under `-seedReadAlong`, else the speech engine where iOS has it.
+    private static func makeReadAlongTranscriber() -> ReadAlongTranscribing? {
+        if let stub = DebugOverrides.readAlongTranscriber() {
+            return stub
+        }
+        if #available(iOS 26, *) {
+            return SpeechReadAlongTranscriber()
+        }
+        return nil
     }
 }

@@ -111,7 +111,7 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 23, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 24, "a new launch argument belongs in `all`")
     }
 
     // MARK: - Stub download states and network path (#171)
@@ -198,6 +198,33 @@ final class DebugOverridesTests: XCTestCase {
         XCTAssertEqual(latest["ui-test-stub"]?.chapters, [.downloaded, .waiting, .waiting])
         XCTAssertEqual(latest["ui-test-stub"]?.isPaused, false)
         cancellable.cancel()
+    }
+
+    // MARK: - Read-along
+
+    func test_readAlongTranscriber_withoutTheArgument_isTheRealOne() {
+        XCTAssertNil(DebugOverrides.readAlongTranscriber(arguments: [LaunchArgument.seedLibrary]))
+    }
+
+    func test_readAlongTranscriber_withSeedReadAlong_isTheStub() {
+        let transcriber = DebugOverrides.readAlongTranscriber(arguments: [LaunchArgument.seedReadAlong])
+
+        XCTAssertTrue(transcriber is StubReadAlongTranscriber)
+    }
+
+    /// The UI tests reach the player's Text pill without a trip to Settings.
+    func test_seedReadAlong_withResetSettings_turnsReadAlongOn() throws {
+        let store = try XCTUnwrap(DebugOverrides.settingsStore(
+            arguments: [LaunchArgument.resetSettings, LaunchArgument.seedReadAlong]
+        ))
+
+        XCTAssertTrue(AppSettings(store: store).readAlongEnabled)
+    }
+
+    func test_resetSettings_alone_leavesReadAlongOff() throws {
+        let store = try XCTUnwrap(DebugOverrides.settingsStore(arguments: [LaunchArgument.resetSettings]))
+
+        XCTAssertFalse(AppSettings(store: store).readAlongEnabled)
     }
 
     /// Three chapters, like the stub book with `-stubDownloadStates`.

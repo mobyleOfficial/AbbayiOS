@@ -4,6 +4,7 @@
 //
 
 @testable import Abbay
+import Foundation
 
 final class MockDependencyContainer: DependencyContainerProtocol {
     let player: PlayerProtocol
@@ -19,6 +20,7 @@ final class MockDependencyContainer: DependencyContainerProtocol {
     let siriContext: SiriContextRefreshing = NoopSiriContextRefresher()
     let diagnostics: SiriDiagnostics
     var audioSessionActivator: AudioSessionActivatorProtocol
+    let readAlong: ReadAlongCenter
 
     /// The App Group stores default to one fresh in-memory store, so nothing a test does through
     /// the container reaches the real App Group. Pass `appGroup` to seed or inspect it.
@@ -41,6 +43,14 @@ final class MockDependencyContainer: DependencyContainerProtocol {
         self.downloads = downloads
         self.downloadStates = DownloadStateStore(downloads: downloads)
         self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
+        // No engine, and a store of its own: nothing a test does reaches the real transcripts.
+        let readAlongRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ReadAlong-\(UUID().uuidString)", isDirectory: true)
+        self.readAlong = ReadAlongCenter(
+            transcriber: nil,
+            store: ReadAlongStore(root: readAlongRoot),
+            settings: settings
+        )
     }
 }
 

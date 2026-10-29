@@ -84,6 +84,11 @@ enum LaunchArgument {
     /// Run with Reduce Motion on, whatever the system setting says: XCUITest can't switch the
     /// setting itself.
     static let forceReduceMotion = "-forceReduceMotion"
+    /// A stub transcriber with canned lines for every book, and Read-along on; use with
+    /// `resetSettings` (the setting is turned on in its in-memory store). The text is "Seeded line
+    /// N of the read-along text", a line every 4 s of book time, so no speech model, real
+    /// recognition or iOS 26 is needed.
+    static let seedReadAlong = "-seedReadAlong"
 
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
@@ -91,6 +96,6 @@ enum LaunchArgument {
         seedCoverArt, seedArtwork, seedLastPlayed, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline,
         stubSlowLibriVox,
         stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
-        stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
+        stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion, seedReadAlong
     ]
 }

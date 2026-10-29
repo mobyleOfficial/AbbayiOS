@@ -28,12 +28,14 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Injects the app-wide playback and download sources. `PlaybackState` and `PlaybackClock` go
-    /// in as observable objects, so a view depends only on the properties it actually reads.
+    /// Injects the app-wide playback, download and read-along sources. `PlaybackState`,
+    /// `PlaybackClock` and `ReadAlongCenter` go in as observable objects, so a view depends only on
+    /// the properties it actually reads.
     @MainActor
     func playbackEnvironment(_ container: DependencyContainerProtocol) -> some View {
         environment(container.playback.state)
             .environment(container.playback.clock)
+            .environment(container.readAlong)
             .environment(\.playbackCenter, container.playback)
             .environment(\.downloadStateStore, container.downloadStates)
     }

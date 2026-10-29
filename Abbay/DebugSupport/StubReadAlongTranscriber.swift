@@ -23,11 +23,15 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
         var statuses: [String: ReadAlongModelStatus] = [:]
         var confidences: [String: Double] = ["en-US": 0.9]
         var installError: Error?
+        var installDelay: Duration?
+        var confidenceErrors: Set<String> = []
+        var runError: Error?
         var chunkDelay: Duration?
         var chunkSeconds = 60.0
         var lines: LineGenerator = { StubReadAlongTranscriber.seededLines(from: $0, to: $1) }
         var transcribeStarts: [Double] = []
         var installCalls: [String] = []
+        var cancelledStarts: [Double] = []
     }
 
     private let lock = NSLock()
@@ -66,6 +70,24 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
         set { locked { $0.installError = newValue } }
     }
 
+    /// Waited before `installModel` returns, so a test can see the session downloading.
+    var installDelay: Duration? {
+        get { locked { $0.installDelay } }
+        set { locked { $0.installDelay = newValue } }
+    }
+
+    /// Locales whose `confidence` throws, as the real engine may for a model that isn't installed.
+    var confidenceErrors: Set<String> {
+        get { locked { $0.confidenceErrors } }
+        set { locked { $0.confidenceErrors = newValue } }
+    }
+
+    /// Thrown by every run after its first chunk: a run failing part way.
+    var runError: Error? {
+        get { locked { $0.runError } }
+        set { locked { $0.runError = newValue } }
+    }
+
     /// Waited before each chunk, so a test can catch a run in progress. Nil: no wait.
     var chunkDelay: Duration? {
         get { locked { $0.chunkDelay } }
@@ -89,6 +111,8 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
     var transcribeStarts: [Double] { locked { $0.transcribeStarts } }
     /// The locale of every `installModel` call, in order.
     var installCalls: [String] { locked { $0.installCalls } }
+    /// The `startTime` of every run that stopped because it was cancelled, in order.
+    var cancelledStarts: [Double] { locked { $0.cancelledStarts } }
 
     // MARK: ReadAlongTranscribing
 
@@ -105,6 +129,7 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
     }
 
     func installModel(locale: String) async throws {
+        if let delay = installDelay { try await Task.sleep(for: delay) }
         let error: Error? = locked { state in
             state.installCalls.append(locale)
             guard state.installError == nil else { return state.installError }
@@ -117,9 +142,9 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
 
     func transcribe(_ source: ReadAlongAudioSource, from startTime: Double, locale: String)
         -> AsyncThrowingStream<ReadAlongChunk, Error> {
-        let (delay, step, generate) = locked { state in
+        let (delay, step, generate, runError) = locked { state in
             state.transcribeStarts.append(startTime)
-            return (state.chunkDelay, max(state.chunkSeconds, 0.001), state.lines)
+            return (state.chunkDelay, max(state.chunkSeconds, 0.001), state.lines, state.runError)
         }
         let readings = source.readings(from: startTime)
         return AsyncThrowingStream { continuation in
@@ -136,11 +161,15 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
                                 covered: ReadAlongSpan(start: reading.bookStart, end: to)
                             ))
                             from = to
+                            if let runError { throw runError }
                         }
                     }
                     continuation.finish()
-                } catch {
+                } catch is CancellationError {
+                    self.locked { $0.cancelledStarts.append(startTime) }
                     continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -153,7 +182,9 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
         seconds: Double,
         locale: String
     ) async throws -> Double {
-        locked { $0.confidences[locale] ?? 0 }
+        let (score, fails) = locked { ($0.confidences[locale] ?? 0, $0.confidenceErrors.contains(locale)) }
+        if fails { throw ReadAlongTranscriberError.unsupportedLocale(locale) }
+        return score
     }
 
     // MARK: Canned text
