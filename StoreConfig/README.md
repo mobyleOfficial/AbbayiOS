@@ -81,10 +81,18 @@ The images are in `screenshots/<language>/`, named `<slot>_<n>-<screen>.jpg`:
 
 - `iphone-6.3`: upload to "iPhone with Dynamic Island (medium display)"
 - `iphone-6.9`: upload to "iPhone with Dynamic Island (large display)"
-- `duo-outer`: upload to the iPhone Duo outer display. `en-US` only for now: the pt-BR set and a
-  retake after the clipped-grid fix are tracked in #251.
+- `duo-outer`: upload to the iPhone Duo outer display. A retake after the clipped-grid fix is
+  tracked in #251.
 - `duo-inner`: upload to the iPhone Duo inner display
 
-The order is library (with Continue), player, chapter list, LibriVox search, then book detail. They
-were captured from the 1.0.1 release build with the demo library from the landing-page footage.
+The order is library (with Continue), player, chapter list, LibriVox search, then book detail.
+
+- **en-US:** captured from the 1.0.1 release build with the English classics from the landing-page footage (*Pride and Prejudice* playing, *Dracula*'s page).
+- **pt-BR:** captured from the 1.0.3 release build with a library of Brazilian books, the same as the landing page's Portuguese clips:
+  - Machado de Assis, José de Alencar, Lima Barreto, Euclides da Cunha, Aluísio Azevedo, Raul Pompéia;
+  - *Dom Casmurro* playing;
+  - a search for "Machado de Assis";
+  - *O Alienista*'s page.
+
+  The 6.3" set is native (iPhone 17); the 6.9" and Duo sets are from the same library copied to those simulators.
 The capture tooling isn't in the repo yet (#252).

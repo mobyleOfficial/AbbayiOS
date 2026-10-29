@@ -33,6 +33,7 @@ final class PlayerViewCoverFrameTests: XCTestCase {
         )
         .environment(PlaybackClock())
         .environment(AppSettings(store: InMemoryKeyValueStore()))
+        .environment(PlayerPresentation())
         .coordinateSpace(.named(PlayerView.coordinateSpace))
         .frame(width: size.width, height: size.height)
 

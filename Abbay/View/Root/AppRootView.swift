@@ -16,6 +16,11 @@ import SwiftUI
 /// `HiddenWhilePlayerIsOpen`), so a tick, a book switch or a drag never rebuilds the tab view.
 /// The library model is held, not observed: only `MediaListView` observes it, so an import or a
 /// delete re-renders the Library list, not the root.
+///
+/// Adaptive (#255): `AdaptiveLayoutReader` decides from the room the app is given whether the
+/// window is split (`PaneLayout`). Split, each tab hosts the player and chapter panes beside
+/// browsing (`BrowsingPanes`) and the overlay draws nothing; in one pane, the overlay presents the
+/// player as before. Both read the same `PlayerPresentation`, so a fold keeps what is open.
 struct AppRootView: View {
     private let container: DependencyContainerProtocol
     private let notices: NoticeCenter
@@ -38,9 +43,11 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        ZStack {
-            tabs
-            PlayerExpansionOverlay()
+        AdaptiveLayoutReader(presentation: presentation) {
+            ZStack {
+                tabs
+                PlayerExpansionOverlay(models: models.details)
+            }
         }
         // Strings are read when a body runs, so a language switch rebuilds the tabs and the player
         // (their models live above, in `models`, and survive). The Settings sheet is presented
@@ -80,9 +87,9 @@ struct AppRootView: View {
     @ViewBuilder
     private var tabs: some View {
         if #available(iOS 26.1, *) {
-            SystemTabs(selection: $selectedTab, library: libraryTab, search: searchTab)
+            SystemTabs(selection: tabSelection, library: libraryTab, search: searchTab)
         } else {
-            RootTabs(selection: $selectedTab) {
+            RootTabs(selection: tabSelection) {
                 libraryTab
             } search: {
                 searchTab
@@ -94,13 +101,27 @@ struct AppRootView: View {
 
     private var libraryTab: some View {
         NavigationStack {
-            MediaListView(model: model, onBrowse: { selectedTab = .search }, onSettings: { isShowingSettings = true })
+            MediaListView(model: model, onBrowse: { selectTab(.search) }, onSettings: { isShowingSettings = true })
                 .modifier(TabBarHiddenWhilePlayerIsOpen())
         }
+        .modifier(BrowsingPanes(isSelected: selectedTab == .library, models: models.details))
     }
 
     private var searchTab: some View {
         SearchTab(library: model, onAdded: { [model] in model.addLibriVoxBook($0) })
+            .modifier(BrowsingPanes(isSelected: selectedTab == .search, models: models.details))
+    }
+
+    /// Switching tabs while the chapters stand in browsing's place brings browsing back (on the
+    /// chosen tab) beside the player. In one pane the chapters float over the player, which
+    /// covers the tabs, so a switch can't come from there.
+    private var tabSelection: Binding<RootTab> {
+        Binding(get: { selectedTab }, set: { selectTab($0) })
+    }
+
+    private func selectTab(_ tab: RootTab) {
+        if presentation.usesPanes { presentation.setChapters(open: false) }
+        if selectedTab != tab { selectedTab = tab }
     }
 }
 
@@ -113,6 +134,8 @@ struct AppRootView: View {
 private final class RootModels: ObservableObject {
     let presentation: PlayerPresentation
     let library: MediaListViewModel
+    /// The player's model per presentation, shared by the full-screen player and the player pane.
+    let details = PlayerDetailsModels()
 
     init(playback: PlaybackCenter) {
         let presentation = PlayerPresentation(playback: playback.state)
@@ -279,6 +302,44 @@ private struct SearchTab: View {
 
     private var libraryBookIDs: Set<String> {
         Set(library.audioList.compactMap { LibriVoxIdentity.bookID(from: $0.url) })
+    }
+}
+
+// MARK: - Layout
+
+/// Measures the room the app's content is given and decides the split (`AdaptiveLayout`), for the
+/// environment below and for the presentation. Re-decides on a fold, a rotation, a window resize or
+/// a text size change; only the decision, not the size, reaches the content, so a resize that
+/// keeps the split re-renders nothing below.
+private struct AdaptiveLayoutReader<Content: View>: View {
+    let presentation: PlayerPresentation
+    @ViewBuilder let content: Content
+
+    @Environment(\.horizontalSizeClass)
+    private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+    @State
+    private var size: CGSize = .zero
+
+    var body: some View {
+        let layout = AdaptiveLayout.decide(
+            width: size.width,
+            height: size.height,
+            horizontalSizeClass: horizontalSizeClass,
+            dynamicTypeSize: dynamicTypeSize
+        )
+        content
+            .environment(\.paneLayout, layout)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onChange(of: proxy.size, initial: true) { _, new in size = new }
+                }
+            }
+            .onChange(of: layout.isSplit, initial: true) { _, split in
+                presentation.layoutChanged(usesPanes: split)
+            }
     }
 }
 

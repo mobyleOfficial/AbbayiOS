@@ -9,8 +9,10 @@ search and the [details page](librivox-details.md) live in the Search tab.
 ## Sub-features
 
 - **grid:** a `ScrollView` (`library.list`) with an *All books* header and a `LazyVGrid` over
-  `LibraryFilter.filter(model.audioList, query:)`, keyed by `\.url`: three flexible columns (two
-  from the *xLarge* text size up, so titles never truncate), one [media-row](media-row.md) cell per book
+  `LibraryFilter.filter(model.audioList, query:)`, keyed by `\.url`: as many flexible columns as fit
+  the grid's own width (`LibraryGridLayout`, #255): three on a phone, two from the *xLarge* text size
+  up so titles never truncate, more and larger covers in a wide window or beside the player pane
+  ([adaptive-layout](adaptive-layout.md) *library-columns*). One [media-row](media-row.md) cell per book
   (`library.row.<n>.*`, positional within the filtered grid). Order unchanged (repository order).
 - **continue-card:** above the grid, under a *Continue* header, while the search is empty:
   `ContinueCard.book(in:lastPlayedURL:)` picks the last played book (`LastPlayedStore`) if it is

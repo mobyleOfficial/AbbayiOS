@@ -18,12 +18,24 @@ import SwiftUI
 ///
 /// Reads the clock for the current row's progress and the header's time left, but its rows redraw
 /// only when what they show changes (`ChaptersPanelContent` is `Equatable`).
+///
+/// `.pane` (#255) is the same list as a persistent pane beside the player, when the window is
+/// split: it fills its pane, a chapter tap plays that chapter and leaves it open, and its close
+/// button (or the player's ✕ Chapters pill) brings browsing back.
 struct ChaptersPanel: View {
+    enum Style {
+        /// The glass dropdown over the player (one pane).
+        case floating
+        /// A pane beside the player (split).
+        case pane
+    }
+
     let model: PlayerViewModel
-    /// The player's own state: closing writes it, so the panel never holds a stale callback
+    /// The shared chapters state: closing writes it, so the panel never holds a stale callback
     /// (its content is `Equatable`, and SwiftUI keeps the first instance's closures).
     @Binding var isPresented: Bool
     let closeAnimation: Animation
+    var style: Style = .floating
 
     @Environment(PlaybackClock.self)
     private var clock
@@ -44,6 +56,7 @@ struct ChaptersPanel: View {
             model: model,
             isPresented: $isPresented,
             closeAnimation: closeAnimation,
+            style: style,
             bookURL: book.url,
             currentIndex: index,
             progress: Self.chapterProgress(chapters: book.chapters, index: index, time: time),
@@ -83,6 +96,7 @@ private struct ChaptersPanelContent: View, Equatable {
     let model: PlayerViewModel
     @Binding var isPresented: Bool
     let closeAnimation: Animation
+    let style: ChaptersPanel.Style
     let bookURL: URL?
     let currentIndex: Int
     let progress: Double?
@@ -105,33 +119,18 @@ private struct ChaptersPanelContent: View, Equatable {
         RoundedRectangle(cornerRadius: ChaptersPanel.cornerRadius, style: .continuous)
     }
 
+    @ViewBuilder
     var body: some View {
+        switch style {
+        case .floating: floating
+        case .pane: pane
+        }
+    }
+
+    private var floating: some View {
         VStack(spacing: 0) {
             handle
-            ScrollViewReader { proxy in
-                ChapterListView(
-                    chapters: model.book.chapters.map(ChapterListView.Item.init),
-                    currentIndex: currentIndex,
-                    currentProgress: progress,
-                    downloadState: downloadState,
-                    layout: .list,
-                    chrome: .plain,
-                    headerDetail: headerDetail,
-                    title: Localizable.chaptersTitle.localized,
-                    showsBookProgress: false,
-                    titleIdentifier: AccessibilityID.Player.chaptersTitle,
-                    rowIdentifier: AccessibilityID.Player.chapter,
-                    onSelect: { index in
-                        model.selectChapter(index)
-                        onClose()
-                    },
-                    retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) })
-                )
-                .onAppear {
-                    // Opens with the current chapter in view (the rows' ids are their indices).
-                    proxy.scrollTo(currentIndex, anchor: .center)
-                }
-            }
+            list(closesOnSelect: true)
         }
         // The panel's top (handle and header) is its drag handle: a strip over it that owns the
         // drag, so the list's own scrolling never competes with it (a gesture on the whole panel
@@ -142,6 +141,65 @@ private struct ChaptersPanelContent: View, Equatable {
         // Over the glass, not inside it: the strip's own gesture then owns touches on the top.
         .overlay(alignment: .top) { dragStrip }
         .accessibilityAction(.escape) { onClose() }
+    }
+
+    /// The pane: the book's title over the list, and a close button that brings browsing back. Its
+    /// close button carries the panel handle's identifier, so tests close either form the same way.
+    private var pane: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(model.book.title)
+                    .font(.subheadline)
+                    .foregroundColor(ColorConstants.white.value.opacity(0.6))
+                    .lineLimit(1)
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .frame(side: SpaceConstants.sx36.value)
+                        .abbayGlass(in: Circle(), interactive: true)
+                        .frame(side: SpaceConstants.sx44.value)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(ColorConstants.white.value)
+                .accessibilityLabel(Localizable.closeChapters.localized)
+                .accessibilityIdentifier(AccessibilityID.Player.chaptersPanel)
+            }
+            .padding(.horizontal, SpaceConstants.sx16.value)
+            .padding(.top, SpaceConstants.sx8.value)
+            list(closesOnSelect: false)
+        }
+        .accessibilityAction(.escape) { onClose() }
+    }
+
+    private func list(closesOnSelect: Bool) -> some View {
+        ScrollViewReader { proxy in
+            ChapterListView(
+                chapters: model.book.chapters.map(ChapterListView.Item.init),
+                currentIndex: currentIndex,
+                currentProgress: progress,
+                downloadState: downloadState,
+                layout: .list,
+                chrome: .plain,
+                headerDetail: headerDetail,
+                title: Localizable.chaptersTitle.localized,
+                showsBookProgress: false,
+                titleIdentifier: AccessibilityID.Player.chaptersTitle,
+                rowIdentifier: AccessibilityID.Player.chapter,
+                onSelect: { index in
+                    model.selectChapter(index)
+                    if closesOnSelect { onClose() }
+                },
+                retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) })
+            )
+            .onAppear {
+                // Opens with the current chapter in view (the rows' ids are their indices).
+                proxy.scrollTo(currentIndex, anchor: .center)
+            }
+        }
     }
 
     /// Transparent, over the handle and the header. One gesture: a drag down closes the panel,

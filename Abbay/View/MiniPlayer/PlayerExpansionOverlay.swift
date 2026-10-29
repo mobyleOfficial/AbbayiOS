@@ -36,10 +36,13 @@ struct PlayerExpansionOverlay: View {
     private var downloads
     @Environment(\.scenePhase)
     private var scenePhase
+    /// Split, the player is a pane beside browsing (`PlayerPane`), and this draws nothing.
+    @Environment(\.paneLayout)
+    private var paneLayout
     @State
     private var geometry = ExpansionGeometry()
-    @State
-    private var models = PlayerDetailsModels()
+    /// Shared with the player pane, so a fold that swaps one for the other keeps the same model.
+    let models: PlayerDetailsModels
 
     var body: some View {
         GeometryReader { outer in
@@ -51,7 +54,7 @@ struct PlayerExpansionOverlay: View {
             .ignoresSafeArea()
         }
         .ignoresSafeArea(.keyboard)
-        .allowsHitTesting(presentation.presentedBook != nil)
+        .allowsHitTesting(presentation.presentedBook != nil && !paneLayout.isSplit)
         .onChange(of: scenePhase) { _, phase in
             // An incoming call cancels the gesture with no `onEnded`: settle any drag in flight,
             // including one that started on the bar (which can't watch its own gesture's reset).
@@ -65,7 +68,7 @@ struct PlayerExpansionOverlay: View {
                 .onChange(of: screen, initial: true) {
                     presentation.reportScreenSize(screen)
                 }
-            if let book = presentation.presentedBook {
+            if !paneLayout.isSplit, let book = presentation.presentedBook {
                 let model = models.model(
                     for: book,
                     presentationID: presentation.presentationID,
@@ -105,6 +108,10 @@ struct PlayerExpansionOverlay: View {
             )
             .id(book.url)
         }
+        // Clear of a system strip on either side (the folded iPhone Duo's status bar, #255); the
+        // tint behind still reaches the edges.
+        .padding(.leading, insets.leading)
+        .padding(.trailing, insets.trailing)
         .padding(.bottom, insets.bottom)
         .frame(width: screen.width, height: screen.height, alignment: .top)
         .coordinateSpace(.named(PlayerView.coordinateSpace))
@@ -445,6 +452,8 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
                 presentation.close(animated: true)
             }
             .padding(.top, insets.top)
+            .padding(.leading, insets.leading)
+            .padding(.trailing, insets.trailing)
             .frame(width: screen.width)
             .offset(x: -frame.minX)
             .opacity(detailsOpacity)
@@ -654,13 +663,17 @@ extension EnvironmentValues {
 /// again as soon as a close or a drag starts (Ruling 6: never mid-drag, where hiding it would move
 /// the accessory under the finger). On the hand-built tabs it does nothing; `RootTabs` hides its
 /// own bar with `HiddenWhilePlayerIsOpen`. Reads only `isFullyOpen`.
+///
+/// Split (#255), the player is a pane beside browsing and the tab bar stays.
 struct TabBarHiddenWhilePlayerIsOpen: ViewModifier {
     @Environment(PlayerPresentation.self)
     private var presentation
+    @Environment(\.paneLayout)
+    private var paneLayout
 
     func body(content: Content) -> some View {
         content
-            .toolbar(presentation.isFullyOpen ? .hidden : .automatic, for: .tabBar)
+            .toolbar(presentation.isFullyOpen && !paneLayout.isSplit ? .hidden : .automatic, for: .tabBar)
     }
 }
 
@@ -668,9 +681,11 @@ struct TabBarHiddenWhilePlayerIsOpen: ViewModifier {
 struct HiddenWhilePlayerIsOpen: ViewModifier {
     @Environment(PlayerPresentation.self)
     private var presentation
+    @Environment(\.paneLayout)
+    private var paneLayout
 
     func body(content: Content) -> some View {
-        if !presentation.isFullyOpen {
+        if !presentation.isFullyOpen || paneLayout.isSplit {
             content
         }
     }

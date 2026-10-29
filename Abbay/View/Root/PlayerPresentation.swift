@@ -36,6 +36,10 @@ final class PlayerPresentation {
     /// starts. The bar and the tab bar hide on this, not on `progress`: it changes once per open
     /// or close, so the views that read it never re-render during a drag.
     private(set) var isFullyOpen = false
+    /// Whether the chapters are open for the presented book: the compact panel over the player in
+    /// one pane, the chapters pane in browsing's place when the window is split (#255). Kept here,
+    /// not in the player, so a fold or a resize shows the same chapters in the other form.
+    private(set) var isShowingChapters = false
     /// The bar's global frame, written by the bar every time it moves (including each frame of
     /// its insertion transition). The overlay never reads it: it reads `expansionStart`.
     private(set) var barFrame: CGRect?
@@ -53,6 +57,10 @@ final class PlayerPresentation {
     /// `progress` is already at its target in the model). A drag that grabs the screen mid-spring
     /// continues from here. Not observed.
     @ObservationIgnored var renderedProgress: CGFloat = 0
+    /// The window is split (`PaneLayout.split`): the player is a pane beside browsing, so an open
+    /// or a close is immediate (the pane animates its own insertion) and nothing expands from a
+    /// cover or the bar. Set by the root when its layout changes (`layoutChanged`).
+    @ObservationIgnored private(set) var usesPanes = false
     /// The window's size, reported by the overlay; the bottom strip and the drag travel use it.
     @ObservationIgnored private(set) var screenSize: CGSize = .zero
 
@@ -130,14 +138,19 @@ final class PlayerPresentation {
         let startsPresentation = presentedBook == nil
         if startsPresentation {
             presentationID += 1
+            setChapters(open: false)
             dismissKeyboard()
             self.source = source
             snapshotExpansionStart()
         }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
-        if presentedBook == nil || presentedBook?.url != book.url { presentedBook = book }
-        guard startsPresentation, animated else {
-            settleOpen(animated: animated)
+        if presentedBook == nil || presentedBook?.url != book.url {
+            // Another book's chapters are not this one's.
+            if presentedBook != nil { setChapters(open: false) }
+            presentedBook = book
+        }
+        guard startsPresentation, animated, !usesPanes else {
+            settleOpen(animated: animated && !usesPanes)
             return
         }
         // This change inserts the panel. A progress set in the same update would be drawn at its
@@ -165,6 +178,12 @@ final class PlayerPresentation {
         pendingOpen = nil
         let current = generation
         setFullyOpen(false)
+        if usesPanes {
+            // A pane leaves at once; the browsing pane takes its room back.
+            set(progress: 0, animated: false, completion: nil)
+            clearBook()
+            return
+        }
         if retargetCollapse() { awaitingRestingBar = true }
         if awaitingRestingBar { landOnMovingBar() }
         guard animated else {
@@ -184,6 +203,11 @@ final class PlayerPresentation {
     /// screen stops wherever it is, even mid-spring, and the drag continues from there; the bar and
     /// the tab bar come back if it was settled open. Nil when there is nothing to present.
     func beginInteractive(_ book: AudioModel? = nil) -> InteractiveStart? {
+        if usesPanes {
+            // Split, the player is a pane: a drag up on the bar opens it, and nothing is dragged.
+            if presentedBook == nil, let book { open(book, animated: false) }
+            return nil
+        }
         generation += 1
         pendingOpen = nil
         landsOnMovingBar = false
@@ -256,6 +280,31 @@ final class PlayerPresentation {
         } else {
             close(animated: true)
         }
+    }
+
+    // MARK: - Chapters and layout
+
+    /// Opens or closes the chapters of the presented book. Without a presented book, or a book
+    /// without chapters, they stay closed.
+    func setChapters(open: Bool) {
+        let value = open && !(presentedBook?.chapters.isEmpty ?? true)
+        if isShowingChapters != value { isShowingChapters = value }
+    }
+
+    /// The root's split changed (a fold, a rotation, a window resize). The semantic state stays:
+    /// the same book stays presented, with its chapters open or not. What is in flight settles at
+    /// once, open if a book is presented, so no drag or spring is left aiming at the old layout.
+    func layoutChanged(usesPanes: Bool) {
+        guard self.usesPanes != usesPanes else { return }
+        self.usesPanes = usesPanes
+        generation += 1
+        interaction = nil
+        pendingOpen = nil
+        awaitingRestingBar = false
+        landsOnMovingBar = false
+        guard presentedBook != nil else { return }
+        stop(at: 1)
+        setFullyOpen(true)
     }
 
     // MARK: - Reports
@@ -380,6 +429,7 @@ final class PlayerPresentation {
     }
 
     private func clearBook() {
+        setChapters(open: false)
         awaitingRestingBar = false
         source = nil
         landsOnMovingBar = false

@@ -23,7 +23,9 @@ settings:
 
     # Target
     IPHONEOS_DEPLOYMENT_TARGET: '17.0'
-    TARGET_DEVICE_FAMILY: '1'
+    # iPhone and native iPad (#255). The setting is TARGETED_DEVICE_FAMILY; this used to read
+    # TARGET_DEVICE_FAMILY, which Xcode ignores (the app was iPhone-only by Xcode's default).
+    TARGETED_DEVICE_FAMILY: '1,2'
 
     # Signing
     #
