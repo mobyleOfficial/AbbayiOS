@@ -72,6 +72,7 @@ anything above None there would make the app 18+. The expected result is 13+.
 |---|---|---|
 | iPhone with Dynamic Island (medium display) | 1206 × 2622 | **Yes** |
 | iPhone with Dynamic Island (large display) | 1320 × 2868 | No (scaled from medium otherwise) |
+| iPad 13-inch | 2064 × 2752 (portrait) | **Yes** (Abbay is universal since 1.2.0) |
 | iPhone Duo, outer display | 1398 × 2034 | Not yet (from April 2027 with the iOS 27.1 SDK) |
 | iPhone Duo, inner display | 2853 × 2007 (landscape) | Not yet |
 
@@ -81,18 +82,42 @@ The images are in `screenshots/<language>/`, named `<slot>_<n>-<screen>.jpg`:
 
 - `iphone-6.3`: upload to "iPhone with Dynamic Island (medium display)"
 - `iphone-6.9`: upload to "iPhone with Dynamic Island (large display)"
-- `duo-outer`: upload to the iPhone Duo outer display. A retake after the clipped-grid fix is
-  tracked in #251.
+- `ipad-13`: upload to "iPad 13-inch"
+- `duo-outer`: upload to the iPhone Duo outer display
 - `duo-inner`: upload to the iPhone Duo inner display
 
-The order is library (with Continue), player, chapter list, LibriVox search, then book detail.
+The order is library (with Continue, the hero book playing), player, chapter list, LibriVox search,
+then a book page. On the iPad and the unfolded Duo the player opens beside the library and the
+chapters beside the player (the adaptive layout of 1.2.0 and 1.3.0).
 
-- **en-US:** captured from the 1.0.1 release build with the English classics from the landing-page footage (*Pride and Prejudice* playing, *Dracula*'s page).
-- **pt-BR:** captured from the 1.0.3 release build with a library of Brazilian books, the same as the landing page's Portuguese clips:
+- **en-US:** the English classics from the landing-page footage (*Pride and Prejudice* playing,
+  Popular on LibriVox, *Dracula*'s page).
+- **pt-BR:** a library of Brazilian books, the same as the landing page's Portuguese clips:
   - Machado de Assis, José de Alencar, Lima Barreto, Euclides da Cunha, Aluísio Azevedo, Raul Pompéia;
   - *Dom Casmurro* playing;
   - a search for "Machado de Assis";
   - *O Alienista*'s page.
 
-  The 6.3" set is native (iPhone 17); the 6.9" and Duo sets are from the same library copied to those simulators.
-The capture tooling isn't in the repo yet (#252).
+The iPhone sets were captured from 1.0.1 (en-US) and 1.0.3 (pt-BR); their portrait layout hasn't
+changed. The Duo and iPad sets are from 1.3.0, with `capture.sh`.
+
+### Capturing
+
+```bash
+StoreConfig/screenshots/capture.sh <simulator-udid> <en-US|pt-BR> <slot> [library-udid]
+```
+
+- **What it does:** builds the app and its UI tests, copies the demo library from `[library-udid]`
+  (a simulator whose Abbay holds it), sets a 9:41 status bar, and runs
+  `StoreScreenshotsUITests/test_storeScreens`. The test drives the five screens and asks for each
+  shot; the script takes it with `xcrun simctl io screenshot` and writes the JPEGs above.
+- **Why `simctl`:** on the unfolded iPhone Duo, XCUITest's own screenshots show the dark outer
+  display; `simctl` sees the inner one.
+- **Libraries:** the English and Brazilian libraries live on the local simulators *Abbay-landing*
+  and *Abbay-landing-pt* (built by downloading the books in the app). They aren't in the repo:
+  they hold gigabytes of LibriVox audio.
+- **The Duo's posture** is set by hand in DeviceHub (fold or unfold the simulator first); there is no
+  `simctl` command for it.
+- **iPad:** use a 13-inch iPad simulator; it opens the app full screen (a smaller one can open a
+  window). The test allows Siri's permission alert on a fresh simulator.
+- **Nothing is downloaded or deleted,** so a rerun starts from the same state.
