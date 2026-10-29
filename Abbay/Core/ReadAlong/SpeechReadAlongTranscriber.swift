@@ -51,11 +51,21 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
 
     // MARK: Transcription
 
+    /// Called once each run's work has stopped, however it ended. Tests use it to see that a
+    /// cancelled run really stops reading rather than only going quiet.
+    private let runEnded: @Sendable () -> Void
+
+    init(runEnded: @escaping @Sendable () -> Void = {}) {
+        self.runEnded = runEnded
+    }
+
     func transcribe(_ source: ReadAlongAudioSource, from startTime: Double, locale id: String)
         -> AsyncThrowingStream<ReadAlongChunk, Error> {
         let readings = source.readings(from: startTime)
+        let runEnded = runEnded
         return AsyncThrowingStream { continuation in
             let task = Task {
+                defer { runEnded() }
                 do {
                     let locale = try await Self.speechLocale(id)
                     for reading in readings {
@@ -70,9 +80,10 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
                     }
                     continuation.finish()
                 } catch {
-                    // A cancelled run ends quietly: whatever the engine throws on the way out is
-                    // a consequence of the cancel, not a failure to report.
-                    continuation.finish(throwing: Task.isCancelled || error is CancellationError ? nil : error)
+                    // A cancelled run ends quietly: whatever the engine throws on the way out is a
+                    // consequence of the cancel. Anything else, a CancellationError the engine
+                    // raised on its own included, is a failure the session must hear about.
+                    continuation.finish(throwing: Task.isCancelled ? nil : error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -81,27 +92,45 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
 
     /// Reads one file from `reading.offset` to the segment's end, handing over a chunk per final
     /// result.
+    ///
+    /// The file is always read with `analyzeSequence(from:)`, which ends at the end of the audio
+    /// whatever the metadata says. A segment that ends before its file does (chapters within one
+    /// file, or a duration that disagrees with the decoded length) is cut by cancelling the
+    /// analyzer once a result reaches the segment's end. Asking the analyzer to finish at a given
+    /// time instead hangs when that time is past the decodable audio.
     private static func transcribe(
         _ reading: Reading,
         locale: Locale,
         yield: @escaping @Sendable (ReadAlongChunk) -> Void
     ) async throws {
+        let span = reading.bookEnd - reading.bookStart
         try await withAccess(to: reading) { file in
             let transcriber = makeTranscriber(locale)
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             try await withTaskCancellationHandler {
-                try await withThrowingTaskGroup(of: Void.self) { group in
+                try await withThrowingTaskGroup(of: Bool.self) { group in
+                    // Returns whether it cut the reading at the segment's end.
                     group.addTask {
                         for try await result in transcriber.results where result.isFinal {
                             yield(chunk(for: result, in: reading))
+                            if result.range.end.seconds >= span {
+                                await analyzer.cancelAndFinishNow()
+                                return true
+                            }
                         }
+                        return false
                     }
                     do {
-                        try await analyze(file, through: reading.bookEnd - reading.bookStart, with: analyzer)
+                        if let last = try await analyzer.analyzeSequence(from: file) {
+                            try await analyzer.finalizeAndFinish(through: last)
+                        } else {
+                            await analyzer.cancelAndFinishNow()
+                        }
                     } catch {
-                        // Ends the results, or the group would wait on them forever.
+                        // Ends the results, or waiting on them would never return. An error that
+                        // comes from our own cut at the segment's end is not a failure.
                         await analyzer.cancelAndFinishNow()
-                        throw error
+                        guard try await group.next() == true else { throw error }
                     }
                     try await group.waitForAll()
                 }
@@ -113,37 +142,13 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
         }
     }
 
-    /// Feeds `file`, from its current position, for `seconds`. A segment usually is its whole file
-    /// (a LibriVox chapter, an imported book), and is read to the file's end. One that stops well
-    /// inside its file (chapters within one file) is cut at its end, so the run neither transcribes
-    /// the next chapter early nor spends time on it. The cut is only used inside the file: asked to
-    /// finish past the end of the audio, the analyzer waits for input forever.
-    private static func analyze(
-        _ file: AVAudioFile,
-        through seconds: Double,
-        with analyzer: SpeechAnalyzer
-    ) async throws {
-        let sampleRate = file.processingFormat.sampleRate
-        let remaining = Double(file.length - file.framePosition) / sampleRate
-        if seconds < remaining - endOfFileMargin {
-            let end = CMTime(seconds: seconds, preferredTimescale: CMTimeScale(sampleRate))
-            try await analyzer.start(inputAudioFile: file, finishAfterFile: false)
-            try await analyzer.finalizeAndFinish(through: end)
-        } else if let last = try await analyzer.analyzeSequence(from: file) {
-            try await analyzer.finalizeAndFinish(through: last)
-        } else {
-            await analyzer.cancelAndFinishNow()
-        }
-    }
-
-    /// A segment ending closer than this to its file's end is read to the end: chapter durations
-    /// and decoded lengths disagree by a fraction of a second.
-    private static let endOfFileMargin = 1.0
-
     /// The engine times from where it began reading; the transcript is in book time.
     private static func chunk(for result: SpeechTranscriber.Result, in reading: Reading) -> ReadAlongChunk {
         let end = min(reading.bookStart + result.range.end.seconds, reading.bookEnd)
-        let lines = line(from: result).map { [$0.shifted(by: reading.bookStart)] } ?? []
+        // A result can run past the segment's end into the next chapter's audio: that part belongs
+        // to the next segment's run.
+        let line = line(from: result)?.shifted(by: reading.bookStart).clipped(to: reading.bookEnd)
+        let lines = line.map { [$0] } ?? []
         let covered = ReadAlongSpan(start: reading.bookStart, end: max(end, reading.bookStart))
         return ReadAlongChunk(lines: lines, covered: covered)
     }

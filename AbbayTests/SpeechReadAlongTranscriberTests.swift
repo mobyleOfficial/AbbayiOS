@@ -32,6 +32,14 @@ final class SpeechReadAlongTranscriberTests: XCTestCase {
         )
     }
 
+    /// The whole fixture as one segment: about 830 s, long enough to tell a stopped run apart.
+    private func wholeFile() throws -> ReadAlongAudioSource {
+        ReadAlongAudioSource(
+            segments: [.init(fileURL: try fixtureURL(), bookStart: 0, duration: 831.6, isSecurityScoped: false)],
+            isLibriVox: false
+        )
+    }
+
     private func segment(_ start: Double, _ duration: Double, onDevice: Bool = true) -> ReadAlongAudioSource.Segment {
         .init(
             fileURL: onDevice ? URL(fileURLWithPath: "/books/\(Int(start)).mp3") : nil,
@@ -97,6 +105,24 @@ final class SpeechReadAlongTranscriberTests: XCTestCase {
         )
     }
 
+    func test_clipped_keepsOnlyWhatIsBeforeTheEnd() {
+        let line = ReadAlongLine(start: 10, end: 14, words: [
+            .init(text: "a", start: 10, end: 11),
+            .init(text: "b", start: 11.5, end: 12.5),
+            .init(text: "c", start: 13, end: 14)
+        ])
+
+        XCTAssertEqual(line.clipped(to: 20), line)
+        XCTAssertEqual(
+            line.clipped(to: 12),
+            ReadAlongLine(start: 10, end: 12, words: [
+                .init(text: "a", start: 10, end: 11),
+                .init(text: "b", start: 11.5, end: 12)
+            ])
+        )
+        XCTAssertNil(line.clipped(to: 10))
+    }
+
     // MARK: - Engine (integration)
 
     @available(iOS 26, *)
@@ -115,8 +141,9 @@ final class SpeechReadAlongTranscriberTests: XCTestCase {
 
         XCTAssertGreaterThan(lines.count, 5)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(lines.first).start, 29.5) // started at 30 s, in book time
-        // Offset added once, not twice: nothing can end past the end of the file.
-        XCTAssertLessThanOrEqual(try XCTUnwrap(lines.last).end, Self.chapterEnd + 1)
+        // Offset added once, not twice, and the run stops at the chapter's end though the file goes
+        // on: nothing ends past it.
+        XCTAssertLessThanOrEqual(try XCTUnwrap(lines.last).end, Self.chapterEnd)
         XCTAssertTrue(lines.allSatisfy { $0.words.allSatisfy { $0.end >= $0.start } })
         XCTAssertTrue(lines.allSatisfy { !$0.words.isEmpty })
         XCTAssertEqual(lines.map(\.start), lines.map(\.start).sorted())
@@ -139,29 +166,53 @@ final class SpeechReadAlongTranscriberTests: XCTestCase {
         XCTAssertGreaterThan(english, portuguese)
     }
 
+    /// The consumer's iterator returns nil as soon as it is cancelled, whatever the producer does,
+    /// so this watches the producer: a cancelled run must stop reading long before a full run ends.
     @available(iOS 26, *)
-    func test_cancelling_stopsTheStream() async throws {
+    func test_cancelling_stopsTheEngine_notOnlyTheStream() async throws {
         try XCTSkipUnless(SpeechTranscriber.isAvailable, "SpeechTranscriber unavailable here")
-        let transcriber = SpeechReadAlongTranscriber()
-        let status = await transcriber.modelStatus(locale: "en-US")
+        let status = await SpeechReadAlongTranscriber().modelStatus(locale: "en-US")
         try XCTSkipUnless(status == .installed, "en-US model not installed (status \(status))")
-        let source = try firstChapter()
-        var whole = 0
-        for try await _ in transcriber.transcribe(source, from: 0, locale: "en-US") { whole += 1 }
+        let source = try wholeFile()
 
+        let fullEnded = expectation(description: "full run ended")
+        let full = SpeechReadAlongTranscriber(runEnded: { fullEnded.fulfill() })
+        var started = Date()
+        for try await _ in full.transcribe(source, from: 0, locale: "en-US") {}
+        await fulfillment(of: [fullEnded], timeout: 300)
+        let fullSeconds = Date().timeIntervalSince(started)
+
+        let cancelledEnded = expectation(description: "cancelled run ended")
+        let cancelled = SpeechReadAlongTranscriber(runEnded: { cancelledEnded.fulfill() })
+        started = Date()
         let run = Task {
-            var chunks = 0
-            for try await _ in transcriber.transcribe(source, from: 0, locale: "en-US") {
-                chunks += 1
-                if chunks == 1 { withUnsafeCurrentTask { $0?.cancel() } }
+            for try await _ in cancelled.transcribe(source, from: 0, locale: "en-US") {
+                withUnsafeCurrentTask { $0?.cancel() }
             }
-            return chunks
         }
+        try await run.value
+        await fulfillment(of: [cancelledEnded], timeout: fullSeconds)
+        let cancelledSeconds = Date().timeIntervalSince(started)
 
-        // The stream ends soon after the first chunk rather than running to the chapter's end.
-        let chunks = try await run.value
-        XCTAssertGreaterThan(whole, 3)
-        XCTAssertLessThan(chunks, whole)
+        XCTAssertLessThan(cancelledSeconds, fullSeconds / 2, "full run \(fullSeconds) s")
+    }
+}
+
+/// Counts calls from any thread.
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
     }
 }
 
@@ -208,6 +259,38 @@ final class StubReadAlongTranscriberTests: XCTestCase {
         XCTAssertEqual(stub.installCalls, ["pt-BR"])
         let installed = await stub.installedLocales()
         XCTAssertEqual(installed, ["en-US", "pt-BR"])
+    }
+
+    /// Task 6's session tests rely on a cancelled stub run stopping, not only its stream going
+    /// quiet: count the generator's calls after the cancel.
+    func test_cancelling_stopsTheRun() async throws {
+        let stub = StubReadAlongTranscriber()
+        let calls = CallCounter()
+        stub.chunkDelay = .milliseconds(20)
+        stub.chunkSeconds = 4
+        stub.lines = { from, to in
+            calls.increment()
+            return StubReadAlongTranscriber.seededLines(from: from, to: to)
+        }
+        let source = ReadAlongAudioSource(
+            segments: [
+                .init(fileURL: URL(fileURLWithPath: "/a.mp3"), bookStart: 0, duration: 1000, isSecurityScoped: false)
+            ],
+            isLibriVox: false
+        )
+
+        let run = Task {
+            for try await _ in stub.transcribe(source, from: 0, locale: "en-US") {
+                withUnsafeCurrentTask { $0?.cancel() }
+            }
+        }
+        try await run.value
+        try await Task.sleep(for: .milliseconds(100))
+        let afterCancel = calls.value
+        try await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(calls.value, afterCancel, "the run kept generating after the cancel")
+        XCTAssertLessThan(afterCancel, 5)
     }
 
     func test_confidence_isPerLocale() async throws {

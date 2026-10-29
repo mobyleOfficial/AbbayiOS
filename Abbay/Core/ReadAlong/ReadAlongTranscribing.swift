@@ -89,4 +89,14 @@ extension ReadAlongLine {
             words: words.map { ReadAlongWord(text: $0.text, start: $0.start + seconds, end: $0.end + seconds) }
         )
     }
+
+    /// The part of the line before `end`: words starting at or after it dropped, the rest ending by
+    /// it. Nil when the line starts at or after `end`.
+    func clipped(to end: Double) -> ReadAlongLine? {
+        guard start < end else { return nil }
+        let kept = words.filter { $0.start < end }.map {
+            ReadAlongWord(text: $0.text, start: $0.start, end: min($0.end, end))
+        }
+        return ReadAlongLine(start: start, end: min(self.end, end), words: kept)
+    }
 }
