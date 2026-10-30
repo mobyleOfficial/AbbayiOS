@@ -128,6 +128,10 @@ added. Resolve a row by matching its title label rather than assuming an index.
     `-seedMissingFile` the book is relinked, not added, and plays (#196, see [import](import.md)).
   - `-resetSettings` — start from default settings kept in memory for that launch only, so a test
     that changes the language, a skip amount or a speed leaves nothing behind (see [settings](settings.md)).
+  - `-seedReadAlong` — with `-resetSettings`, Read-along is on in those in-memory settings, the speech
+    engine is a stub that writes a canned line every 4 s of book time, and its transcripts go to a
+    store of its own in the temporary directory, emptied at launch. Works on any simulator (the UI tests need
+    iOS 26+), no speech model needed (see [read-along](read-along.md)).
 
   `-seedLibrary`/`-resetLibrary` clear first, so repeated runs are deterministic rather than
   cumulative (a book whose file moved included, #176). A launch with any of these arguments
@@ -197,7 +201,7 @@ substitute: it records every intent firing across processes and survives app dea
 - [import](import.md): the document picker, metadata and chapter extraction, security-scoped bookmarks.
 - [media-row](media-row.md): the per-book row component, including the download ring.
 - [notices](notices.md): the app-wide error banner, and every failure that reports to it.
-- [settings](settings.md): the gear's sheet — default speed, skip amounts, cellular downloads, space used, delete finished, language, About.
+- [settings](settings.md): the gear's sheet — default speed, skip amounts, cellular downloads, space used, delete finished, language, Experimental (Read-along, iOS 26+), About.
 
 ### LibriVox
 
@@ -208,6 +212,7 @@ substitute: it records every intent firing across processes and survives app dea
 
 - [mini-player](mini-player.md): the one-row bar above the tabs, its tap, drag and swipes, and the expansion into the details screen.
 - [player](player.md): the details screen (no longer a sheet), its grabber and close, scrubbing, chapter list.
+- [read-along](read-along.md): experimental on-device text of the audiobook in the player's cover square (iOS 26+, Settings › Experimental), the Text pill, language, messages.
 - [now-playing](now-playing.md): lock screen, Control Center and remote commands.
 
 ### Siri and system integration
