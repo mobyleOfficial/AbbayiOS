@@ -16,7 +16,8 @@ import Foundation
 ///
 /// Every failure to read or write is swallowed: a missing transcript just means the player
 /// transcribes again. All access goes through one serial queue, so the transcriber, the player and
-/// Settings can touch it from any thread.
+/// Settings can touch it from any thread; saves are queued without waiting, everything else waits
+/// its turn.
 final class ReadAlongStore {
     /// The one store the app uses: the player's sessions, the off switch (`LiveSettingsEffects`) and
     /// deleting a book all go through it, so they always agree. Under `-seedReadAlong` it is a
@@ -38,35 +39,69 @@ final class ReadAlongStore {
         self.root = root
     }
 
+    /// A transcript read for a session, and the stamp its saves carry. A book deleted since the
+    /// stamp was taken doesn't get its text back from a session still showing it (the iPad's split
+    /// pane keeps the player up while the library deletes the book).
+    struct Loaded {
+        let transcript: ReadAlongTranscript?
+        let stamp: Int
+    }
+
+    /// How often each book's file was deleted, by file name. Read and written on `queue` only.
+    private var deletions: [String: Int] = [:]
+
     /// The book's transcript; nil when there is none, or when the file can't be decoded (then it
-    /// is deleted, so a bad file doesn't linger).
+    /// is deleted, so a bad file doesn't linger). Blocks until the queue reaches it, so it waits
+    /// for the saves already asked for.
     func load(bookURL: URL) -> ReadAlongTranscript? {
-        queue.sync {
-            let file = fileURL(for: bookURL)
-            guard let data = try? Data(contentsOf: file) else { return nil }
-            guard let transcript = try? JSONDecoder().decode(ReadAlongTranscript.self, from: data) else {
-                try? fileManager.removeItem(at: file)
-                return nil
+        queue.sync { read(bookURL: bookURL) }
+    }
+
+    /// `load`, off the caller's thread, with the stamp to save with: the session's way in, since a
+    /// whole book's transcript takes a moment to decode and the main thread is drawing the text.
+    func loadInBackground(bookURL: URL) async -> Loaded {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                let name = self.fileName(for: bookURL)
+                continuation.resume(returning: Loaded(
+                    transcript: self.read(bookURL: bookURL),
+                    stamp: self.deletions[name, default: 0]
+                ))
             }
-            return transcript
         }
     }
 
-    /// Replaces the book's transcript. The root is made (and marked as not backed up) here, on the
-    /// first save, so a user who never turns the feature on never gets the folder.
-    func save(_ transcript: ReadAlongTranscript, bookURL: URL) {
-        queue.sync {
+    /// Replaces the book's transcript, on the store's queue: `save` returns at once, and encoding a
+    /// whole book's text never holds up the main thread. The root is made (and marked as not backed
+    /// up) here, on the first save, so a user who never turns the feature on never gets the folder.
+    ///
+    /// With a `stamp` from `loadInBackground`, the save is dropped if the book was deleted since.
+    /// Saves and deletes run in the order they were asked for (the queue is serial), so a save asked
+    /// for before `deleteAll` is removed by it, and the caller checks the setting before asking for
+    /// one after.
+    func save(_ transcript: ReadAlongTranscript, bookURL: URL, unlessDeletedSince stamp: Int? = nil) {
+        queue.async {
+            let name = self.fileName(for: bookURL)
+            if let stamp, self.deletions[name, default: 0] != stamp { return }
             guard let data = try? JSONEncoder().encode(transcript) else { return }
-            try? fileManager.createDirectory(at: root, withIntermediateDirectories: true)
-            excludeRootFromBackup()
-            try? data.write(to: fileURL(for: bookURL), options: .atomic)
+            try? self.fileManager.createDirectory(at: self.root, withIntermediateDirectories: true)
+            self.excludeRootFromBackup()
+            try? data.write(to: self.root.appendingPathComponent(name), options: .atomic)
         }
     }
 
-    /// The book left the library.
+    /// Returns once every save asked for so far is on disk. For tests, which look at the files.
+    func waitForPendingSaves() {
+        queue.sync {}
+    }
+
+    /// The book left the library, or its text is starting over in another language. Saves stamped
+    /// before this are dropped.
     func delete(bookURL: URL) {
         queue.sync {
-            try? fileManager.removeItem(at: fileURL(for: bookURL))
+            let name = fileName(for: bookURL)
+            deletions[name, default: 0] += 1
+            try? fileManager.removeItem(at: root.appendingPathComponent(name))
         }
     }
 
@@ -79,10 +114,20 @@ final class ReadAlongStore {
 
     // MARK: - Private
 
-    private func fileURL(for bookURL: URL) -> URL {
+    /// On `queue`.
+    private func read(bookURL: URL) -> ReadAlongTranscript? {
+        let file = root.appendingPathComponent(fileName(for: bookURL))
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        guard let transcript = try? JSONDecoder().decode(ReadAlongTranscript.self, from: data) else {
+            try? fileManager.removeItem(at: file)
+            return nil
+        }
+        return transcript
+    }
+
+    private func fileName(for bookURL: URL) -> String {
         let digest = SHA256.hash(data: Data(bookURL.absoluteString.utf8))
-        let name = digest.map { String(format: "%02x", $0) }.joined()
-        return root.appendingPathComponent(name + ".json")
+        return digest.map { String(format: "%02x", $0) }.joined() + ".json"
     }
 
     /// Call with the root in place; set again on every save, because `deleteAll` removes the folder.

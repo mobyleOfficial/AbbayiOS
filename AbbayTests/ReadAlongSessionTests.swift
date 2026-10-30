@@ -259,6 +259,87 @@ final class ReadAlongSessionTests: ReadAlongSessionTestCase {
         XCTAssertEqual(stub.cancelledStarts, [100])
     }
 
+    // MARK: - How far ahead
+
+    /// Flipping to the text on a long book transcribes a window ahead of the shown time, not the
+    /// rest of the book; as playback nears the window's end, the next run starts there.
+    func test_run_stopsAWindowAheadOfTheShownTime_andTheNextStartsAsPlaybackNears() async throws {
+        let book = try importedBook(duration: 72_000)
+        stub.chunkSeconds = 30
+        let session = makeSession()
+
+        session.show(book, at: 100)
+        await waitUntil { (session.transcript?.covered.first?.end ?? 0) >= 100 + ReadAlongSession.runAhead }
+        try await Task.sleep(for: .milliseconds(200))
+
+        let end = try XCTUnwrap(session.transcript?.covered.first?.end)
+        XCTAssertGreaterThanOrEqual(end, 100 + ReadAlongSession.runAhead)
+        XCTAssertLessThanOrEqual(end, 100 + ReadAlongSession.runAhead + stub.chunkSeconds, "ran on past the window")
+        XCTAssertEqual(stub.transcribeStarts, [100])
+
+        session.timeChanged(end - ReadAlongSession.lookahead - 30)
+        XCTAssertEqual(stub.transcribeStarts, [100], "still well ahead: nothing to do yet")
+
+        session.timeChanged(end - 30)
+        XCTAssertEqual(stub.transcribeStarts, [100, end], "the next run starts where the text ends")
+        XCTAssertEqual(session.state, .ready)
+    }
+
+    // MARK: - Scrubbing
+
+    /// A drag across the scrubber shows the text it passes over, but starts no run: a run per tick
+    /// would leave covered islands mid-phrase. The run starts where the finger lifts.
+    func test_scrubbing_followsCoveredText_andRunsOnlyWhereTheFingerLifts() async throws {
+        let book = try importedBook(duration: 5000)
+        settings.setReadAlongLanguage("en-US", for: book.url)
+        var saved = ReadAlongTranscript(language: "en-US")
+        saved.add([line(10), line(350)], covering: ReadAlongSpan(start: 0, end: 400))
+        store.save(saved, bookURL: try XCTUnwrap(book.url))
+        let session = makeSession()
+        session.show(book, at: 100)
+        await waitUntil { session.state == .ready }
+
+        session.timeChanged(380, isScrubbing: true)
+        XCTAssertEqual(session.state, .ready, "covered text shows while dragging")
+        session.timeChanged(1000, isScrubbing: true)
+        session.timeChanged(2000, isScrubbing: true)
+        XCTAssertNotEqual(session.state, .ready, "no text yet past the covered stretch")
+        session.timeChanged(200, isScrubbing: true)
+        XCTAssertEqual(session.state, .ready)
+        session.timeChanged(2500, isScrubbing: true)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(stub.transcribeStarts, [], "a run started under the finger")
+
+        session.timeChanged(2500)
+
+        XCTAssertEqual(stub.transcribeStarts, [2500])
+        await waitUntil { session.state == .ready }
+        XCTAssertEqual(session.transcript?.isCovered(2500), true)
+    }
+
+    // MARK: - A deleted book
+
+    /// Deleting the shown book (the iPad's split pane keeps the player up) removes its transcript;
+    /// the session's later saves, its last one at `stop` included, must not write it back.
+    func test_bookDeletedWhileShown_itsTranscriptStaysDeleted() async throws {
+        let book = try importedBook(duration: 5000)
+        let url = try XCTUnwrap(book.url)
+        stub.chunkSeconds = 10
+        stub.chunkDelay = .milliseconds(30)
+        let session = makeSession(saveInterval: .seconds(60))
+        session.show(book, at: 0)
+        await waitUntil { (session.transcript?.covered.first?.end ?? 0) >= 20 }
+        store.waitForPendingSaves()
+        XCTAssertNotNil(store.load(bookURL: url))
+
+        DeleteAudioUseCase.forgetReadAlongNow(url, settings: settings, store: store)
+        await waitUntil { (session.transcript?.covered.first?.end ?? 0) >= 50 }
+        session.stop()
+        store.waitForPendingSaves()
+
+        XCTAssertNil(store.load(bookURL: url), "the deleted book's transcript came back")
+    }
+
     // MARK: - Stopping and Read-along off
 
     /// Review Focus 4: once stopped, the run saves nothing more, so it can't bring back what the

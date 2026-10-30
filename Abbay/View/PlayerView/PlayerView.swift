@@ -596,7 +596,9 @@ private struct PlayerDownloadLine: View {
 @Observable
 final class PlayerScrub {
     private(set) var time: Double?
-    @ObservationIgnored private var isDragging = false
+    /// A finger is on the scrubber. `time` outlives it until the seek lands; this doesn't.
+    /// Not observed: the read-along square reads it on its own 0.1 s poll.
+    @ObservationIgnored private(set) var isDragging = false
     @ObservationIgnored private var generation = 0
 
     func drag(to time: Double) {

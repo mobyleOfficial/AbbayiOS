@@ -77,6 +77,36 @@ final class ReadAlongTranscriptTests: XCTestCase {
         XCTAssertEqual(transcript.covered, [ReadAlongSpan(start: 0, end: 20), ReadAlongSpan(start: 95, end: 120)])
     }
 
+    /// A chunk landing among stored lines replaces only the ones within 50 ms of its own, whatever
+    /// order it arrives in, and the rest keep their order around it.
+    func test_add_intoTheMiddle_unsorted_replacesOnlyNearbyLines() {
+        var transcript = ReadAlongTranscript(language: "en-US")
+        let stored = [line(0, ["a"]), line(9.97, ["old"]), line(20, ["b"]), line(30.03, ["old"]), line(40, ["c"])]
+        transcript.add(stored, covering: .init(start: 0, end: 45))
+
+        transcript.add([line(30, ["new"]), line(10, ["new"])], covering: .init(start: 5, end: 35))
+
+        XCTAssertEqual(transcript.lines.map(\.start), [0, 10, 20, 30, 40])
+        XCTAssertEqual(transcript.lines.map(\.text), ["a", "new", "b", "new", "c"])
+    }
+
+    /// A whole book's transcript (a line every 4 s of 20 h is 18,000 lines) grows a line per chunk:
+    /// adding one must not filter and re-sort every line, or the 0.1 s highlight hitches.
+    func test_add_aChunkToALongTranscript_isCheap() {
+        var transcript = ReadAlongTranscript(language: "en-US")
+        transcript.add((0..<20_000).map { line(Double($0) * 4, ["w"]) }, covering: .init(start: 0, end: 80_000))
+
+        let start = Date()
+        for index in 20_000..<20_500 {
+            let time = Double(index) * 4
+            transcript.add([line(time, ["w"])], covering: .init(start: time, end: time + 4))
+        }
+
+        XCTAssertLessThan(Date().timeIntervalSince(start), 0.25)
+        XCTAssertEqual(transcript.lines.count, 20_500)
+        XCTAssertEqual(transcript.covered, [ReadAlongSpan(start: 0, end: 82_000)])
+    }
+
     func test_add_touchingSpans_merge() {
         var transcript = ReadAlongTranscript(language: "en-US")
         transcript.add([], covering: .init(start: 0, end: 10))

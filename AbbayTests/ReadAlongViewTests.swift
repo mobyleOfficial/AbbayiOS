@@ -75,4 +75,22 @@ final class ReadAlongViewTests: XCTestCase {
         slot.appeared()
         XCTAssertTrue(slot.disappeared())
     }
+
+    // MARK: - Scrubbing
+
+    /// The square starts no run while a finger is on the scrubber, and starts one as soon as it
+    /// lifts: the scrubbed time stays shown until the seek lands, but the drag is over at once.
+    @MainActor
+    func test_scrub_isDraggingOnlyWhileTheFingerIsDown_whileItsTimeOutlivesTheDrag() {
+        let scrub = PlayerScrub()
+        XCTAssertFalse(scrub.isDragging)
+
+        scrub.drag(to: 120)
+        XCTAssertTrue(scrub.isDragging)
+        XCTAssertEqual(scrub.time, 120)
+
+        scrub.finish()
+        XCTAssertFalse(scrub.isDragging)
+        XCTAssertEqual(scrub.time, 120, "shown until the seek lands")
+    }
 }

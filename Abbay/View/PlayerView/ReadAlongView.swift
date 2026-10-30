@@ -18,9 +18,9 @@ import SwiftUI
 /// branch of the layout). A session of its own would load the transcript and check the language
 /// and model again each time, flashing *Preparing text…*.
 ///
-/// The shown time is the scrubber's while a finger drags it, else the player's own time
-/// (`PlayerViewModel.liveBookTime`), polled every 0.1 s by a `TimelineView` inside this view only,
-/// so the rest of the player doesn't re-render on each poll.
+/// The shown time is the scrubber's while a finger drags it (shown, but no run starts until the
+/// finger lifts), else the player's own time (`PlayerViewModel.liveBookTime`), polled every 0.1 s by
+/// a `TimelineView` inside this view only, so the rest of the player doesn't re-render on each poll.
 struct ReadAlongView: View {
     let model: PlayerViewModel
     let scrub: PlayerScrub
@@ -166,7 +166,9 @@ private struct ReadAlongContent: View {
                 text(at: time)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .onChange(of: context.date) {
-                        session.timeChanged(time)
+                        // While the finger drags, the text follows it but nothing transcribes:
+                        // the run starts where it lifts.
+                        session.timeChanged(time, isScrubbing: scrub.isDragging)
                     }
             }
             // Outside the poll: it changes only with the language or the choices.

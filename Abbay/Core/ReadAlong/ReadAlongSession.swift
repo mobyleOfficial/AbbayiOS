@@ -30,7 +30,11 @@ enum ReadAlongState: Equatable {
 /// Transcription runs only while the text is shown (`show` until `stop`), from the shown time
 /// ahead of playback. At about 70× real time there is nothing to gain from running further ahead:
 /// a run starts where the text is uncovered, or at the end of the covered stretch once the shown
-/// time is within `lookahead` of it, and a seek out of a run's reach restarts it there.
+/// time is within `lookahead` of it, and a seek out of a run's reach restarts it there. A run stops
+/// once it is `runAhead` past the shown time, so showing the text on a long book doesn't transcribe
+/// the rest of it while the audio plays; the next run starts as playback nears where it stopped.
+/// While a finger drags the scrubber nothing starts: the text follows what is covered, and the run
+/// starts where the finger lifts.
 ///
 /// One run at a time, as one `Task`, cancelled whenever the session retargets. Two runs never
 /// transcribe the same audio: a run started at a seek cuts phrases differently from an earlier one,
@@ -43,6 +47,10 @@ final class ReadAlongSession {
     /// How close to the end of the covered stretch the shown time gets before the next run starts,
     /// and how far past a run's progress a seek can land and still be left to that run.
     nonisolated static let lookahead = 60.0
+    /// How far past the shown time a run transcribes before it stops: ten minutes of audio, about
+    /// nine seconds of work at 70× real time. Far beyond `lookahead`, so a new run starts only every
+    /// few minutes of listening.
+    nonisolated static let runAhead = 600.0
     /// Seconds of audio each candidate language transcribes for detection.
     static let detectionSeconds = 20.0
 
@@ -72,6 +80,8 @@ final class ReadAlongSession {
         case finished
         /// It reached audio an earlier run covered.
         case enteredCovered
+        /// It got `runAhead` past the shown time. More audio follows, so its span isn't exhausted.
+        case farEnoughAhead
         case failed
     }
 
@@ -102,6 +112,11 @@ final class ReadAlongSession {
     @ObservationIgnored private var exhausted: ReadAlongSpan?
     @ObservationIgnored private var hasUnsavedText = false
     @ObservationIgnored private var lastSave: ContinuousClock.Instant?
+    /// The store's stamp from loading this book's text: saves carry it, so a book deleted while its
+    /// text shows isn't written back. Nil until the text is loaded, and then nothing is saved.
+    @ObservationIgnored private var saveStamp: Int?
+    /// A finger is on the scrubber: the shown time follows it, but no run starts.
+    @ObservationIgnored private var isScrubbing = false
 
     /// `makeSource`, `preferredLanguages` and `saveInterval` are for tests; the defaults are the
     /// app's.
@@ -152,10 +167,12 @@ final class ReadAlongSession {
         prepare()
     }
 
-    /// The shown time moved: playback, a seek, or the scrubber.
-    func timeChanged(_ time: Double) {
+    /// The shown time moved: playback, a seek, or the scrubber (`isScrubbing` while the finger is
+    /// down; the first call without it is where the finger lifted).
+    func timeChanged(_ time: Double, isScrubbing: Bool = false) {
         guard book != nil, isShown, settings.readAlongEnabled else { return }
         shownTime = time
+        self.isScrubbing = isScrubbing
         evaluate()
     }
 
@@ -176,6 +193,7 @@ final class ReadAlongSession {
         settings.setReadAlongLanguage(locale, for: url)
         cancelWork()
         hasUnsavedText = false
+        saveStamp = nil
         store.delete(bookURL: url)
         transcript = nil
         language = locale
@@ -189,6 +207,7 @@ final class ReadAlongSession {
     /// The text left the screen: the run stops, and what it transcribed is saved.
     func stop() {
         isShown = false
+        isScrubbing = false
         cancelWork()
         saveNow()
     }
@@ -215,6 +234,8 @@ extension ReadAlongSession {
         exhausted = nil
         hasUnsavedText = false
         lastSave = nil
+        saveStamp = nil
+        isScrubbing = false
         isShown = false
         state = .preparing
     }
@@ -263,37 +284,49 @@ extension ReadAlongSession {
         }
         language = locale
 
-        switch await transcriber.modelStatus(locale: locale) {
-        case .unsupported:
-            guard isCurrent(generation) else { return }
-            state = .unsupported(locale)
-            preparation = nil
-            return
-        case .downloadable:
-            guard isCurrent(generation) else { return }
-            state = .downloadingModel(locale)
-            do {
-                try await transcriber.installModel(locale: locale)
-            } catch {
-                guard isCurrent(generation) else { return }
-                hasFailed = true
-                state = .failed
-                preparation = nil
-                return
-            }
-        case .installed:
-            break
-        }
-        guard isCurrent(generation) else { return }
+        guard await installModel(locale, transcriber: transcriber, generation: generation),
+              isCurrent(generation)
+        else { return }
 
-        if let saved = store.load(bookURL: url), saved.language == locale {
+        // Off the main thread: a whole book's text takes a moment to decode.
+        let loaded = await store.loadInBackground(bookURL: url)
+        guard isCurrent(generation) else { return }
+        if let saved = loaded.transcript, saved.language == locale {
             transcript = saved
         } else {
             transcript = ReadAlongTranscript(language: locale)
         }
+        saveStamp = loaded.stamp
         isPrepared = true
         preparation = nil
         evaluate()
+    }
+
+    /// Whether the locale's model is on the device, having it downloaded first when iOS offers it.
+    /// When not, says why and ends the preparation (unless a retarget has moved on meanwhile).
+    private func installModel(_ locale: String, transcriber: ReadAlongTranscribing, generation: Int) async -> Bool {
+        switch await transcriber.modelStatus(locale: locale) {
+        case .unsupported:
+            guard isCurrent(generation) else { return false }
+            state = .unsupported(locale)
+            preparation = nil
+            return false
+        case .downloadable:
+            guard isCurrent(generation) else { return false }
+            state = .downloadingModel(locale)
+            do {
+                try await transcriber.installModel(locale: locale)
+            } catch {
+                guard isCurrent(generation) else { return false }
+                hasFailed = true
+                state = .failed
+                preparation = nil
+                return false
+            }
+            return true
+        case .installed:
+            return true
+        }
     }
 
     /// The book's language: its own setting (a bare code from LibriVox is matched to a supported
@@ -401,18 +434,29 @@ extension ReadAlongSession {
         }
         if let span = transcript.covered.first(where: { $0.start <= time && time < $0.end }) {
             state = .ready
-            if span.end - time < Self.lookahead, canRun(from: span.end), run?.reaches(span.end) != true {
+            let isNearItsEnd = span.end - time < Self.lookahead
+            if !isScrubbing, isNearItsEnd, canRun(from: span.end), run?.reaches(span.end) != true {
                 startRun(at: span.end)
             }
             return
         }
+        evaluateUncovered(time, source: source)
+    }
+
+    /// The shown time has no text yet: the current run is about to reach it, or one starts there.
+    private func evaluateUncovered(_ time: Double, source: ReadAlongAudioSource) {
         if run?.reaches(time) == true {
             state = .preparing
             return
         }
         guard source.isOnDevice(at: time) else {
-            cancelRun()
+            if !isScrubbing { cancelRun() }
             state = missingAudioState
+            return
+        }
+        // Under the finger: no run until it lifts, which may be somewhere else entirely.
+        if isScrubbing {
+            state = .preparing
             return
         }
         guard canRun(from: time) else {
@@ -447,9 +491,8 @@ extension ReadAlongSession {
             do {
                 for try await chunk in stream {
                     guard let self, !Task.isCancelled, self.run?.id == id else { return }
-                    let reachedEarlier = self.receive(chunk, earlier: earlier, limit: limit)
-                    if reachedEarlier {
-                        self.endRun(id, .enteredCovered)
+                    if let end = self.receive(chunk, earlier: earlier, limit: limit) {
+                        self.endRun(id, end)
                         return
                     }
                 }
@@ -468,24 +511,28 @@ extension ReadAlongSession {
         run = nil
     }
 
-    /// Adds a chunk; true once the run has reached audio an earlier run covered.
-    private func receive(_ chunk: ReadAlongChunk, earlier: [ReadAlongSpan], limit: Double?) -> Bool {
-        guard var transcript else { return false }
+    /// Adds a chunk; how the run ends once it has reached audio an earlier run covered or got
+    /// `runAhead` past the shown time, nil while it goes on.
+    private func receive(_ chunk: ReadAlongChunk, earlier: [ReadAlongSpan], limit: Double?) -> RunEnd? {
+        guard transcript != nil else { return nil }
         let fresh = chunk.lines.filter { line in
             !earlier.contains { $0.start <= line.start && line.start < $0.end }
         }
-        transcript.add(fresh, covering: chunk.covered)
-        self.transcript = transcript
+        // In place: a copy would duplicate a whole book's lines on every chunk.
+        transcript?.add(fresh, covering: chunk.covered)
         hasUnsavedText = true
         if let frontier = run?.frontier {
             run?.frontier = max(frontier, chunk.covered.end)
         }
         saveIfDue()
-        let reachedEarlier = limit.map { chunk.covered.end >= $0 } ?? false
-        if !reachedEarlier {
-            evaluate()
+        if let limit, chunk.covered.end >= limit {
+            return .enteredCovered
         }
-        return reachedEarlier
+        if chunk.covered.end >= shownTime + Self.runAhead {
+            return .farEnoughAhead
+        }
+        evaluate()
+        return nil
     }
 
     private func endRun(_ id: Int, _ end: RunEnd) {
@@ -499,7 +546,7 @@ extension ReadAlongSession {
         case .finished:
             exhausted = ReadAlongSpan(start: ended.start, end: ended.frontier)
             evaluate()
-        case .enteredCovered:
+        case .enteredCovered, .farEnoughAhead:
             // Explicit, so the engine stops reading now rather than when the stream is let go.
             ended.task.cancel()
             evaluate()
@@ -512,19 +559,21 @@ extension ReadAlongSession {
 
 extension ReadAlongSession {
     /// Within a run: at most every `saveInterval`, so a fast run doesn't rewrite the file per chunk.
+    /// A cancelled run never gets here: its chunks are dropped before `receive`.
     private func saveIfDue() {
-        // A cancelled run belongs to a book or language that has moved on; the session saved for it
-        // when it moved.
-        guard !Task.isCancelled else { return }
         if let lastSave, ContinuousClock.now - lastSave < saveInterval { return }
         saveNow()
     }
 
     /// Read-along turned off deletes every transcript: a save after that would bring the folder
-    /// back, so every save checks the setting first.
+    /// back, so every save checks the setting first, here on the main thread, before it is queued
+    /// (the store's queue is serial, so one queued earlier is removed by `deleteAll`). The save
+    /// carries the stamp the text was loaded with, so a book deleted meanwhile stays deleted. The
+    /// encoding and the write happen on the store's queue.
     private func saveNow() {
-        guard hasUnsavedText, settings.readAlongEnabled, let url = book?.url, let transcript else { return }
-        store.save(transcript, bookURL: url)
+        guard hasUnsavedText, settings.readAlongEnabled, let url = book?.url, let transcript, let saveStamp
+        else { return }
+        store.save(transcript, bookURL: url, unlessDeletedSince: saveStamp)
         hasUnsavedText = false
         lastSave = .now
     }
