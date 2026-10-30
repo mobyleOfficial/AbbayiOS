@@ -247,25 +247,36 @@ final class ReadAlongUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Portuguese"].exists, "the menu doesn't list Portuguese")
     }
 
-    /// The chapter panel floats over the square: the language label hides while it is open rather
-    /// than drawing over the chapters (owner's device test), and comes back when it closes.
-    func test_languageLabel_hidesWhileTheChapterPanelIsOpen() throws {
+    /// The chapter panel floats over the square: the language label stays where it is, under the
+    /// panel, rather than drawing over the chapters or stepping aside (owner's device tests: in the
+    /// player's glass container it drew over the panel, and when it was taken out instead the
+    /// panel's glass morphed out of the square's buttons). A tap there reaches the panel, not the
+    /// label; once the panel closes, the label works.
+    func test_languageLabel_staysUnderTheChapterPanel() throws {
         launch()
         try openPlayableBook()
         showText()
 
         let label = element(AccessibilityID.Player.readAlongLanguage)
         XCTAssertTrue(label.waitForExistence(timeout: 5), "no language label")
+        let before = label.frame
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 5), "no chapter panel")
-        XCTAssertTrue(
-            label.waitForNonExistence(timeout: 5), "the language label stays over the chapter panel"
+        sleep(1)
+        XCTAssertTrue(label.exists, "the language label stepped aside")
+        XCTAssertEqual(label.frame, before, "the language label moved")
+        // XCUITest calls it hittable whatever is drawn over it, so tap where it is: the panel takes
+        // the tap, and the label's menu doesn't open.
+        label.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertFalse(
+            app.buttons["English"].waitForExistence(timeout: 2), "the language label is over the chapter panel"
         )
+        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).exists, "the tap didn't land on the panel")
 
         element(AccessibilityID.Player.chapters).tap()
-        XCTAssertTrue(label.waitForExistence(timeout: 5), "the language label didn't come back")
+        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForNonExistence(timeout: 5))
         label.tap()
-        XCTAssertTrue(app.buttons["English"].waitForExistence(timeout: 5), "the label came back without its menu")
+        XCTAssertTrue(app.buttons["English"].waitForExistence(timeout: 5), "the label lost its menu")
     }
 
     // MARK: - Reduce Motion, reopening, landscape

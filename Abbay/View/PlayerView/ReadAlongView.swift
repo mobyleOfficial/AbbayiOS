@@ -29,10 +29,6 @@ struct ReadAlongView: View {
 
     /// The player screen's session, made the first time the text shows.
     let slot: ReadAlongSessionSlot
-    /// The chapter panel is open over the square. The language label and the expand button, glass
-    /// buttons, drew over the panel (owner's device test), so they step aside until it closes. They
-    /// step aside under the full screen too, and come back with a fresh delay when it collapses.
-    let hidesControls: Bool
 
     /// The square's fill, under the text. The expansion's growing cover turns into it as it lands.
     static let fill = Color.black.opacity(0.28)
@@ -47,13 +43,6 @@ struct ReadAlongView: View {
     @Environment(\.expansionDrawsPlayerCover)
     private var isDrawnByExpansion
 
-    init(model: PlayerViewModel, scrub: PlayerScrub, slot: ReadAlongSessionSlot, hidesControls: Bool = false) {
-        self.model = model
-        self.scrub = scrub
-        self.slot = slot
-        self.hidesControls = hidesControls
-    }
-
     var body: some View {
         let session = slot.session(from: center)
         ZStack {
@@ -67,9 +56,10 @@ struct ReadAlongView: View {
                 model: model,
                 scrub: scrub,
                 style: .square,
-                // Also while the expansion moves: a glass control is composited by its container
-                // whatever its parent's opacity, so a fade alone left them over the growing cover.
-                hidesControls: hidesControls || isDrawnByExpansion || presentation?.readAlongFullScreen != nil
+                // Under the full screen, and while the expansion moves: a glass control is
+                // composited by its container whatever its parent's opacity, so a fade alone
+                // left them over the growing cover.
+                hidesControls: isDrawnByExpansion || presentation?.readAlongFullScreen != nil
             ) {
                 EmptyView()
             } trailing: {
@@ -90,8 +80,8 @@ struct ReadAlongView: View {
         .modifier(ReadAlongSessionDriver(session: session, model: model, scrub: scrub, slot: slot, place: .square))
     }
 
-    /// Bottom-right, opposite the language label: the same text over the whole window. Left out
-    /// while the chapter panel is open, like the label (`ReadAlongContent`).
+    /// Bottom-right, opposite the language label: the same text over the whole window. It stays
+    /// while the chapter panel is open, under the panel, like the label (`ReadAlongContent`).
     private func expandButton(_ presentation: PlayerPresentation) -> some View {
         ReadAlongCornerButton(
             systemImage: "arrow.up.left.and.arrow.down.right",
@@ -272,12 +262,18 @@ enum ReadAlongStyle {
 /// doesn't seek); while they show, a tap does what it does and starts the delay again, as does
 /// scrolling the lines. Hidden controls are left out of the hierarchy, never faded: the glass
 /// container composites a glass control whatever its parent's opacity.
+///
+/// The bar's glass is a container of its own, not the player's: in the player's container the
+/// chapter panel's glass merged with the label's and the expand button's, so the buttons drew over
+/// the open panel, and when they were taken out instead the panel morphed out of the expand button
+/// (owner's device tests). On their own they composite with the square, under the panel, and stay.
 struct ReadAlongContent<Center: View, Trailing: View>: View {
     let session: ReadAlongSession
     let model: PlayerViewModel
     let scrub: PlayerScrub
     let style: ReadAlongStyle
-    /// The chapter panel is open over the square: the language label and `trailing` step aside.
+    /// Something covers the text (the full screen) or draws it (the expansion, moving): the
+    /// language label and `trailing` step aside.
     let hidesControls: Bool
     let center: Center
     let trailing: Trailing
@@ -356,6 +352,12 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
     }
 
     private var bar: some View {
+        AbbayGlassContainer {
+            barContent
+        }
+    }
+
+    private var barContent: some View {
         HStack(spacing: 0) {
             // Always in the tree, so it keeps its named choices; only its button steps aside
             // (removing the whole view lost the choices, and it never came back).
@@ -463,8 +465,8 @@ private enum ReadAlongContentText {
 /// button (`ReadAlongLanguageMenuButton`), which reports when it opens and closes.
 private struct ReadAlongLanguageMenu: View {
     let session: ReadAlongSession
-    /// The chapter panel is open over the square (the button would draw over it), or the controls
-    /// hid with no interaction.
+    /// The controls hid with no interaction, or something covers or draws the text
+    /// (`ReadAlongContent.hidesControls`).
     let isHidden: Bool
     /// The menu opened (true) or closed: the controls stay while it is open, since it hangs off
     /// the label.

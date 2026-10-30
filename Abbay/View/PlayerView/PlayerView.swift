@@ -203,7 +203,7 @@ struct PlayerView: View {
     @ViewBuilder
     private var coverSquare: some View {
         if showsText {
-            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot, hidesControls: showsPanel)
+            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot)
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }
