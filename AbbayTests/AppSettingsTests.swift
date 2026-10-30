@@ -13,6 +13,7 @@ final class AppSettingsTests: XCTestCase {
     private final class RecordingEffects: SettingsEffects {
         var skipIntervals: [(back: SkipInterval, forward: SkipInterval)] = []
         var languages: [AppLanguage] = []
+        var clearReadAlongCount = 0
 
         func apply(skipBackward: SkipInterval, skipForward: SkipInterval) {
             skipIntervals.append((skipBackward, skipForward))
@@ -20,6 +21,10 @@ final class AppSettingsTests: XCTestCase {
 
         func apply(language: AppLanguage) {
             languages.append(language)
+        }
+
+        func clearReadAlong() {
+            clearReadAlongCount += 1
         }
     }
 
@@ -36,6 +41,9 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(sut.defaultSpeed, 1)
         XCTAssertEqual(sut.cellularPreference, .ask)
         XCTAssertEqual(sut.language, .system)
+        XCTAssertFalse(sut.readAlongEnabled)
+        XCTAssertFalse(sut.readAlongShowsText, "the cover shows until the user flips once")
+        XCTAssertNil(sut.readAlongLanguage(for: bookURL))
         XCTAssertEqual(sut.speed(for: bookURL), 1, "a book never set uses the default speed")
     }
 
@@ -183,5 +191,81 @@ final class AppSettingsTests: XCTestCase {
         sut.language = .english
 
         XCTAssertEqual(effects.languages, [.system, .english])
+    }
+
+    // MARK: - Read-along
+
+    func test_readAlongSwitchAndTextMemory_persistAcrossInstances() {
+        let store = InMemoryKeyValueStore()
+        let first = AppSettings(store: store)
+
+        first.readAlongEnabled = true
+        first.readAlongShowsText = true
+
+        let second = AppSettings(store: store)
+        XCTAssertTrue(second.readAlongEnabled)
+        XCTAssertTrue(second.readAlongShowsText)
+    }
+
+    func test_turningReadAlongOff_clearsItOnce_turningItOnDoesNot() {
+        let effects = RecordingEffects()
+        let sut = AppSettings(store: InMemoryKeyValueStore(), effects: effects)
+
+        sut.readAlongEnabled = true
+        XCTAssertEqual(effects.clearReadAlongCount, 0)
+
+        sut.readAlongEnabled = false
+        XCTAssertEqual(effects.clearReadAlongCount, 1)
+    }
+
+    func test_launchingWithReadAlongOff_doesNotClear() {
+        let effects = RecordingEffects()
+
+        _ = AppSettings(store: InMemoryKeyValueStore([AppSettings.Key.readAlongEnabled: false]), effects: effects)
+
+        XCTAssertEqual(effects.clearReadAlongCount, 0)
+    }
+
+    func test_readAlongLanguage_roundTripsPerBookAndPersists() {
+        let store = InMemoryKeyValueStore()
+        let sut = AppSettings(store: store)
+
+        sut.setReadAlongLanguage("pt-BR", for: bookURL)
+        sut.setReadAlongLanguage("en", for: otherURL)
+
+        XCTAssertEqual(sut.readAlongLanguage(for: bookURL), "pt-BR")
+        XCTAssertEqual(sut.readAlongLanguage(for: otherURL), "en")
+        XCTAssertEqual(AppSettings(store: store).readAlongLanguage(for: bookURL), "pt-BR")
+    }
+
+    func test_setReadAlongLanguage_nilClearsIt() {
+        let sut = AppSettings(store: InMemoryKeyValueStore())
+        sut.setReadAlongLanguage("pt-BR", for: bookURL)
+
+        sut.setReadAlongLanguage(nil, for: bookURL)
+
+        XCTAssertNil(sut.readAlongLanguage(for: bookURL))
+    }
+
+    func test_forgetReadAlong_removesOnlyThatBooksLanguage() {
+        let store = InMemoryKeyValueStore()
+        let sut = AppSettings(store: store)
+        sut.setReadAlongLanguage("pt-BR", for: bookURL)
+        sut.setReadAlongLanguage("en", for: otherURL)
+
+        sut.forgetReadAlong(for: bookURL)
+
+        XCTAssertNil(sut.readAlongLanguage(for: bookURL))
+        XCTAssertEqual(sut.readAlongLanguage(for: otherURL), "en")
+        XCTAssertNil(AppSettings(store: store).readAlongLanguage(for: bookURL))
+    }
+
+    func test_readAlongLanguage_withoutAURL_isNilAndIgnored() {
+        let sut = AppSettings(store: InMemoryKeyValueStore())
+
+        sut.setReadAlongLanguage("en", for: nil)
+        sut.forgetReadAlong(for: nil)
+
+        XCTAssertNil(sut.readAlongLanguage(for: nil))
     }
 }

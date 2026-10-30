@@ -27,6 +27,8 @@ final class NormalPlaybackSpeed: PlaybackSpeedStoring {
 protocol SettingsEffects {
     func apply(skipBackward: SkipInterval, skipForward: SkipInterval)
     func apply(language: AppLanguage)
+    /// Read-along was turned off: the transcripts it made go with it.
+    func clearReadAlong()
 }
 
 struct LiveSettingsEffects: SettingsEffects {
@@ -37,6 +39,10 @@ struct LiveSettingsEffects: SettingsEffects {
     func apply(language: AppLanguage) {
         AbbayBundle.languageCode = language.languageCode
         NotificationCenter.default.post(name: .appLanguageDidChange, object: nil)
+    }
+
+    func clearReadAlong() {
+        ReadAlongStore.shared.deleteAll()
     }
 }
 
@@ -62,6 +68,9 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         static let bookSpeeds = "abbay.settings.bookSpeeds"
         static let cellularPreference = "abbay.settings.cellularPreference"
         static let language = "abbay.settings.language"
+        static let readAlongEnabled = "abbay.settings.readAlong"
+        static let readAlongShowsText = "abbay.settings.readAlongShowsText"
+        static let readAlongLanguages = "abbay.settings.readAlongLanguages"
     }
 
     @ObservationIgnored private let store: KeyValueStoring
@@ -104,6 +113,22 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         }
     }
 
+    /// Experimental read-along (#192). Off by default; turning it off deletes every transcript.
+    var readAlongEnabled: Bool {
+        didSet {
+            store.set(readAlongEnabled, forKey: Key.readAlongEnabled)
+            if !readAlongEnabled {
+                effects?.clearReadAlong()
+            }
+        }
+    }
+
+    /// What the player's cover square last showed: the text (true) or the cover. False until the
+    /// user flips it once, so turning the feature on changes nothing they can see.
+    var readAlongShowsText: Bool {
+        didSet { store.set(readAlongShowsText, forKey: Key.readAlongShowsText) }
+    }
+
     /// Speeds set on a book, by URL string. The observable copy views read.
     private(set) var bookSpeeds: [String: Double]
 
@@ -116,6 +141,8 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         cellularPreference = (store.object(forKey: Key.cellularPreference) as? String)
             .flatMap(CellularDownloadPreference.init) ?? .ask
         language = (store.object(forKey: Key.language) as? String).flatMap(AppLanguage.init(languageCode:)) ?? .system
+        readAlongEnabled = store.object(forKey: Key.readAlongEnabled) as? Bool ?? false
+        readAlongShowsText = store.object(forKey: Key.readAlongShowsText) as? Bool ?? false
         bookSpeeds = Self.storedBookSpeeds(in: store)
         applySkipIntervals()
         effects?.apply(language: language)
@@ -187,6 +214,31 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         }
     }
 
+    // MARK: - Per-book read-along language
+
+    /// The language the book is read along in: a locale id (`pt-BR`, once the user picked or
+    /// detection settled) or a bare code hint (`pt`, from LibriVox's listing). Read from the
+    /// store, not an observable copy: only the transcriber and the language sheet ask.
+    func readAlongLanguage(for url: URL?) -> String? {
+        guard let key = url?.absoluteString else { return nil }
+        return Self.storedReadAlongLanguages(in: store)[key]
+    }
+
+    /// nil clears it. Main thread, like the other writes.
+    func setReadAlongLanguage(_ language: String?, for url: URL?) {
+        guard let key = url?.absoluteString else { return }
+        var stored = Self.storedReadAlongLanguages(in: store)
+        guard stored[key] != language else { return }
+        stored[key] = language
+        store.set(stored, forKey: Key.readAlongLanguages)
+    }
+
+    /// The book left the library: drop its language with it (its transcript file goes through
+    /// `ReadAlongStore`). Main thread.
+    func forgetReadAlong(for url: URL?) {
+        setReadAlongLanguage(nil, for: url)
+    }
+
     // MARK: - Private
 
     private func applySkipIntervals() {
@@ -203,6 +255,10 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
 
     private static func storedDefaultSpeed(in store: KeyValueStoring) -> Double {
         (store.object(forKey: Key.defaultSpeed) as? Double).map(PlaybackSpeed.snap) ?? PlaybackSpeed.normal
+    }
+
+    private static func storedReadAlongLanguages(in store: KeyValueStoring) -> [String: String] {
+        store.object(forKey: Key.readAlongLanguages) as? [String: String] ?? [:]
     }
 
     private static func storedBookSpeeds(in store: KeyValueStoring) -> [String: Double] {

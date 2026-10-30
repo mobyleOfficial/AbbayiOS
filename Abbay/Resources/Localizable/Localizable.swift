@@ -119,6 +119,9 @@ enum Localizable: String {
     case settingsLanguage
     case languageSystem
     case languageFooter
+    case experimentalTitle
+    case readAlongToggle
+    case readAlongFooter
     case settingsAbout
     case privacyPolicy
     case version
@@ -143,6 +146,21 @@ enum Localizable: String {
     case speedIsDefault
     case skipBackAction
     case skipForwardAction
+    // Read-along (the player's Text pill and square)
+    case readAlongPill
+    case readAlongCoverPill
+    case readAlongShowCover
+    case readAlongPreparing
+    case readAlongDownloadingModel
+    case readAlongUnsupported
+    case readAlongNeedsDownload
+    case readAlongFileMissing
+    case readAlongNoSpeech
+    case readAlongFailed
+    case readAlongLanguage
+    case readAlongLineHint
+    case readAlongFullScreen
+    case readAlongExitFullScreen
 }
 
 extension Localizable {

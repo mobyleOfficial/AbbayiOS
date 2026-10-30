@@ -84,6 +84,21 @@ enum LaunchArgument {
     /// Run with Reduce Motion on, whatever the system setting says: XCUITest can't switch the
     /// setting itself.
     static let forceReduceMotion = "-forceReduceMotion"
+    /// A stub transcriber with canned lines for every book, and Read-along on; use with
+    /// `resetSettings` (the setting is turned on in its in-memory store). The text is "Seeded line
+    /// N of the read-along text", a line every 4 s of book time, so no speech model, real
+    /// recognition or iOS 26 is needed.
+    static let seedReadAlong = "-seedReadAlong"
+    /// The stub transcriber of `seedReadAlong` and its own transcript store, but Read-along left
+    /// as the settings have it (off with `resetSettings`). For Settings' Experimental section, which
+    /// shows only where an engine runs: the real one doesn't in the Simulator. Implied by
+    /// `seedReadAlong`.
+    static let stubReadAlongEngine = "-stubReadAlongEngine"
+    /// Followed by a number of seconds (`-readAlongControlsHideAfter 600`): how long the read-along
+    /// controls (the language label, expand; full screen's play/pause and collapse) stay with no
+    /// interaction before they hide, instead of 3 s. The UI tests give most launches a long delay, so
+    /// a slow step never finds a control gone, and the auto-hide tests a short one.
+    static let readAlongControlsHideAfter = "-readAlongControlsHideAfter"
 
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
@@ -91,6 +106,7 @@ enum LaunchArgument {
         seedCoverArt, seedArtwork, seedLastPlayed, resetLibrary, stubLibriVox, stubCovers, stubCoversOffline,
         stubSlowLibriVox,
         stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
-        stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion
+        stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion, seedReadAlong, stubReadAlongEngine,
+        readAlongControlsHideAfter
     ]
 }

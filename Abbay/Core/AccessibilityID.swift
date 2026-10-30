@@ -154,6 +154,8 @@ enum AccessibilityID {
         static let developer = "settings.about.developer"
         static let developerBody = "settings.about.developer.body"
         static let linkedIn = "settings.about.linkedIn"
+        /// The Experimental section's Read-along switch (iOS 26 and later only).
+        static let readAlong = "settings.experimental.readAlong"
 
         /// One option of the language picker; `language` is an `AppLanguage` raw value.
         static func language(_ language: String) -> String {
@@ -180,7 +182,8 @@ enum AccessibilityID {
         static let close = "player.close"
         /// Opens the speed sheet; its label is the book's speed ("1.5×").
         static let speed = "player.speed"
-        /// The grabber at the top of the details screen: drag it down to collapse into the bar.
+        /// The header strip at the top of the details screen (it no longer draws a grabber bar):
+        /// drag it down to collapse into the bar.
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
         static let grabber = "player.grabber"
         static let title = "player.title"
@@ -199,6 +202,30 @@ enum AccessibilityID {
         static let downloadCellularHold = "player.download.cellularHold"
         /// "Waiting for Wi-Fi: on a Personal Hotspot", the same place, for one held on a hotspot.
         static let downloadHotspotHold = "player.download.hotspotHold"
+        /// The Text pill (read-along, #192): flips the cover square to the text and back. Present
+        /// only while Read-along is on (iOS 26+).
+        static let text = "player.text"
+        /// The read-along square, in the cover's place while the Text pill is on.
+        static let readAlong = "player.readAlong"
+        /// The square's language label (*English ▾*): a menu of the languages iOS can transcribe.
+        static let readAlongLanguage = "player.readAlong.language"
+        /// The square's message while there is no text to show (preparing, no audio, no speech…).
+        static let readAlongStatus = "player.readAlong.status"
+        /// The square's expand button (bottom-right, opposite the language label): the text goes
+        /// full screen. Hidden while the chapter panel is open, like the language label.
+        static let readAlongExpand = "player.readAlong.expand"
+        /// The full-screen text, over the whole window (both panes when split).
+        static let readAlongFullScreen = "player.readAlong.fullScreen"
+        /// The full-screen text's collapse button (bottom-right): back to the square.
+        static let readAlongCollapse = "player.readAlong.collapse"
+        /// The full-screen text's play/pause button (bottom-centre); its label is *Play* or *Pause*.
+        static let readAlongPlayPause = "player.readAlong.playPause"
+
+        /// A line of the read-along text, by its position in the transcript; the current one carries
+        /// the selected trait.
+        static func readAlongLine(_ index: Int) -> String {
+            "player.readAlong.line.\(index)"
+        }
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"

@@ -104,14 +104,52 @@ enum DebugOverrides {
         return nil
     }
 
-    /// A fresh in-memory settings store, for `-resetSettings`.
+    /// A fresh in-memory settings store, for `-resetSettings`; with `-seedReadAlong`, Read-along is
+    /// on in it. Never the real preferences: a UI test must not leave the feature on for the user.
     static func settingsStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> KeyValueStoring? {
         #if DEBUG
         if arguments.contains(LaunchArgument.resetSettings) {
-            return InMemoryKeyValueStore()
+            let store = InMemoryKeyValueStore()
+            if arguments.contains(LaunchArgument.seedReadAlong) {
+                store.set(true, forKey: AppSettings.Key.readAlongEnabled)
+            }
+            return store
         }
         #endif
         return nil
+    }
+
+    /// A transcript store in the temporary directory, emptied here, at launch, whenever the stub
+    /// engine is in use (`-seedReadAlong`, `-stubReadAlongEngine`): the canned text is this launch's
+    /// only, like the settings under `-resetSettings`.
+    static func readAlongStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> ReadAlongStore? {
+        #if DEBUG
+        if usesStubReadAlongEngine(arguments) {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("UITestReadAlong", isDirectory: true)
+            let store = ReadAlongStore(root: root)
+            store.deleteAll()
+            return store
+        }
+        #endif
+        return nil
+    }
+
+    /// The canned-text transcriber, for `-stubReadAlongEngine` and `-seedReadAlong`.
+    static func readAlongTranscriber(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> ReadAlongTranscribing? {
+        #if DEBUG
+        if usesStubReadAlongEngine(arguments) {
+            return StubReadAlongTranscriber()
+        }
+        #endif
+        return nil
+    }
+
+    /// `-seedReadAlong` implies `-stubReadAlongEngine`.
+    private static func usesStubReadAlongEngine(_ arguments: [String]) -> Bool {
+        arguments.contains(LaunchArgument.seedReadAlong) || arguments.contains(LaunchArgument.stubReadAlongEngine)
     }
 
     /// True for a UI test's launch (any `LaunchArgument`): the app then doesn't ask for Siri
@@ -124,6 +162,19 @@ enum DebugOverrides {
         #else
         return false
         #endif
+    }
+
+    /// How long the read-along controls stay with no interaction, for `-readAlongControlsHideAfter
+    /// <seconds>`; `nil` without it or with no number after it (the 3 s then).
+    static func readAlongControlsHideAfter(arguments: [String] = ProcessInfo.processInfo.arguments) -> Duration? {
+        #if DEBUG
+        if let index = arguments.firstIndex(of: LaunchArgument.readAlongControlsHideAfter),
+           arguments.indices.contains(index + 1),
+           let seconds = Double(arguments[index + 1]), seconds >= 0 {
+            return .milliseconds(Int((seconds * 1000).rounded()))
+        }
+        #endif
+        return nil
     }
 
     /// Reduce Motion forced on, for `-forceReduceMotion`; `nil` follows the system setting.

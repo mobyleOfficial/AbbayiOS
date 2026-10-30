@@ -34,13 +34,15 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         super.tearDown()
     }
 
-    private var book: LibriVoxBook {
+    private var book: LibriVoxBook { listing(language: "English") }
+
+    private func listing(language: String) -> LibriVoxBook {
         LibriVoxBook(
             id: "moby_dick_librivox",
             title: "Moby Dick",
             authors: "Herman Melville",
             descriptionText: "A whale.",
-            language: "English",
+            language: language,
             totalSeconds: 120,
             coverURL: URL(fileURLWithPath: "/cover"),
             sections: [
@@ -53,9 +55,13 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
     private func makeSUT(
         totalBytes: Int64,
         cellular: Bool,
-        preference: CellularDownloadPreference = .ask
+        preference: CellularDownloadPreference = .ask,
+        language: String = "English",
+        recordLanguage: @escaping (String, URL?) -> Void = { _, _ in }
     ) async -> LibriVoxDetailViewModel {
-        client.detailsResult = .success(LibriVoxBookDetails(book: book, sectionBytes: [totalBytes, 0]))
+        client.detailsResult = .success(
+            LibriVoxBookDetails(book: listing(language: language), sectionBytes: [totalBytes, 0])
+        )
         path.isMetered = cellular
         let sut = LibriVoxDetailViewModel(
             book: book,
@@ -66,6 +72,7 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             path: path,
             loadAudio: MockLoadAudioUseCase(),
             cellularPreference: { preference },
+            recordLanguage: recordLanguage,
             noticeReporter: notices,
             onAdded: { [unowned self] in added.append($0) },
             openPlayer: { [unowned self] in opened.append($0) }
@@ -98,6 +105,37 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertNil(sut.details)
         XCTAssertTrue(sut.loadFailed)
+    }
+
+    func test_download_recordsTheListedLanguageAsAHint() async {
+        let settings = AppSettings(store: InMemoryKeyValueStore())
+        let sut = await makeSUT(
+            totalBytes: 10_000_000,
+            cellular: false,
+            language: "eng",
+            recordLanguage: { settings.setReadAlongLanguage($0, for: $1) }
+        )
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+
+        XCTAssertNotNil(sut.addedBook)
+        XCTAssertEqual(settings.readAlongLanguage(for: sut.addedBook?.url), "en")
+    }
+
+    func test_download_recordsNothingForALanguageItDoesNotKnow() async {
+        var recorded: [String] = []
+        let sut = await makeSUT(
+            totalBytes: 10_000_000,
+            cellular: false,
+            language: "Klingon",
+            recordLanguage: { code, _ in recorded.append(code) }
+        )
+
+        sut.downloadTapped()
+        await waitUntil { !downloads.enqueued.isEmpty }
+
+        XCTAssertTrue(recorded.isEmpty)
     }
 
     func test_download_smallBook_startsWithCellularAllowed() async {

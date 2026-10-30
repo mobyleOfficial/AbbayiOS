@@ -222,6 +222,37 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertFalse(fired)
     }
 
+    // MARK: - Live time (read-along)
+
+    /// The read-along text ticks every 0.1 s, faster than the clock: it reads the player itself for
+    /// the loaded book, and the saved position for any other.
+    func test_liveBookTime_loadedBook_isThePlayersTime() {
+        let book = ViewModelSupport.chaptered(currentTime: 10)
+        let player = MockPlayer()
+        player.currentTime = 123.4
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        XCTAssertEqual(sut.liveBookTime(), 123.4, accuracy: 0.001)
+    }
+
+    func test_liveBookTime_loadedBookWithANonFiniteTime_isTheSavedPosition() {
+        let book = ViewModelSupport.chaptered(currentTime: 10)
+        let player = MockPlayer()
+        player.currentTime = .nan
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        XCTAssertEqual(sut.liveBookTime(), 10)
+    }
+
+    func test_liveBookTime_anotherBook_isItsSavedPosition() {
+        let player = MockPlayer()
+        player.currentTime = 123.4
+        let state = loadedState(ViewModelSupport.chaptered())
+        let sut = PlayerViewModel(otherBook(currentTime: 250), state: state, player: player, downloads: nil)
+
+        XCTAssertEqual(sut.liveBookTime(), 250, "not the loaded book's player time")
+    }
+
     /// The chapter list leaf depends on the chapter, not on every tick.
     func test_currentChapter_doesNotDependOnBookTime() {
         let book = ViewModelSupport.chaptered()
