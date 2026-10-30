@@ -17,6 +17,12 @@ import Speech
 final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
     typealias Reading = ReadAlongAudioSource.Reading
 
+    /// Whether Speech can transcribe on this hardware at all. False in the Simulator: every locale
+    /// then reads as unsupported.
+    static var isEngineAvailable: Bool {
+        SpeechTranscriber.isAvailable
+    }
+
     // MARK: Models
 
     func supportedLocales() async -> [String] {
@@ -171,9 +177,13 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
 
     // MARK: Detection
 
-    /// Mean confidence of the words in the results that start within `seconds` of `startTime`.
-    /// Reads only the file holding `startTime`; 0 when nothing was recognised. Only for installed
-    /// models: without one Speech throws, misleadingly, "Audio format is not supported".
+    /// Mean confidence of the words recognised in `seconds` of audio from `startTime`. Reads only
+    /// the file holding `startTime`; 0 when nothing was recognised. Only for installed models:
+    /// without one Speech throws, misleadingly, "Audio format is not supported".
+    ///
+    /// The analyzer gets exactly that much audio (`detectionSample`) rather than the file: on music
+    /// or silence no result comes to stop at, and it would read the whole chapter, once per
+    /// candidate language. If the results fail, the analyzer is stopped too.
     func confidence(
         _ source: ReadAlongAudioSource,
         from startTime: Double,
@@ -184,22 +194,82 @@ final class SpeechReadAlongTranscriber: ReadAlongTranscribing {
         let locale = try await Self.speechLocale(id)
         return try await Self.withAccess(to: reading) { file in
             let transcriber = Self.makeTranscriber(locale)
+            let format = await SpeechAnalyzer.bestAvailableAudioFormat(
+                compatibleWith: [transcriber],
+                considering: file.processingFormat
+            )
+            guard let sample = try Self.detectionSample(of: file, seconds: seconds, as: format) else { return 0 }
+            let input = AnalyzerInput(buffer: sample)
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             return try await withTaskCancellationHandler {
-                try await analyzer.start(inputAudioFile: file, finishAfterFile: true)
-                var confidences: [Double] = []
-                for try await result in transcriber.results where result.isFinal {
-                    confidences += result.text.runs.compactMap(\.transcriptionConfidence)
-                    if result.range.end.seconds >= seconds { break }
+                try await withThrowingTaskGroup(of: [Double].self) { group in
+                    group.addTask {
+                        do {
+                            var confidences: [Double] = []
+                            for try await result in transcriber.results where result.isFinal {
+                                confidences += result.text.runs.compactMap(\.transcriptionConfidence)
+                            }
+                            return confidences
+                        } catch {
+                            await analyzer.cancelAndFinishNow()
+                            throw error
+                        }
+                    }
+                    do {
+                        let audio = AsyncStream<AnalyzerInput> { continuation in
+                            continuation.yield(input)
+                            continuation.finish()
+                        }
+                        if let last = try await analyzer.analyzeSequence(audio) {
+                            try await analyzer.finalizeAndFinish(through: last)
+                        } else {
+                            await analyzer.cancelAndFinishNow()
+                        }
+                    } catch {
+                        // Ends the results, or waiting on them would never return.
+                        await analyzer.cancelAndFinishNow()
+                        throw error
+                    }
+                    let confidences = try await group.next() ?? []
+                    guard !confidences.isEmpty else { return 0 }
+                    return confidences.reduce(0, +) / Double(confidences.count)
                 }
-                // Enough heard: stop reading the rest of the file.
-                await analyzer.cancelAndFinishNow()
-                guard !confidences.isEmpty else { return 0 }
-                return confidences.reduce(0, +) / Double(confidences.count)
             } onCancel: {
                 Task { await analyzer.cancelAndFinishNow() }
             }
         }
+    }
+
+    /// At most `seconds` of `file` from its current position, converted to `format` (the
+    /// analyzer's; nil keeps the file's). Nil when the file has nothing left.
+    static func detectionSample(
+        of file: AVAudioFile,
+        seconds: Double,
+        as format: AVAudioFormat?
+    ) throws -> AVAudioPCMBuffer? {
+        let source = file.processingFormat
+        let wanted = AVAudioFramePosition((seconds * source.sampleRate).rounded(.up))
+        let frames = AVAudioFrameCount(clamping: min(wanted, max(file.length - file.framePosition, 0)))
+        guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: frames) else { return nil }
+        try file.read(into: buffer, frameCount: frames)
+        guard let format, format != source else { return buffer }
+        let capacity = (Double(buffer.frameLength) * format.sampleRate / source.sampleRate).rounded(.up) + 1
+        guard let converter = AVAudioConverter(from: source, to: format),
+              let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(capacity))
+        else { throw CocoaError(.fileReadUnknown) }
+        var isConsumed = false
+        var conversionError: NSError?
+        let status = converter.convert(to: output, error: &conversionError) { _, inputStatus in
+            if isConsumed {
+                inputStatus.pointee = .endOfStream
+                return nil
+            }
+            isConsumed = true
+            inputStatus.pointee = .haveData
+            return buffer
+        }
+        if status == .error { throw conversionError ?? CocoaError(.fileReadUnknown) }
+        return output
     }
 
     // MARK: Helpers

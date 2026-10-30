@@ -4,6 +4,7 @@
 //
 
 @testable import Abbay
+import AVFoundation
 import Speech
 import XCTest
 
@@ -121,6 +122,40 @@ final class SpeechReadAlongTranscriberTests: XCTestCase {
             ])
         )
         XCTAssertNil(line.clipped(to: 10))
+    }
+
+    // MARK: - Detection sample (AVFoundation, runs in the Simulator)
+
+    /// Detection hands the analyzer at most `seconds` of audio, already in its format, so on music
+    /// or silence (no result to stop at) it can't read on through the rest of the file.
+    @available(iOS 26, *)
+    func test_detectionSample_isAtMostTheAskedSeconds_inTheGivenFormat() throws {
+        let file = try AVAudioFile(forReading: try fixtureURL())
+        let rate = file.processingFormat.sampleRate
+        file.framePosition = AVAudioFramePosition(10 * rate)
+        let format = try XCTUnwrap(
+            AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: false)
+        )
+
+        let sample = try XCTUnwrap(SpeechReadAlongTranscriber.detectionSample(of: file, seconds: 5, as: format))
+
+        XCTAssertEqual(sample.format, format)
+        XCTAssertEqual(Double(sample.frameLength) / 16_000, 5, accuracy: 0.1)
+    }
+
+    /// Near the end of the file there is less than asked; at the end, nothing.
+    @available(iOS 26, *)
+    func test_detectionSample_stopsAtTheEndOfTheFile() throws {
+        let file = try AVAudioFile(forReading: try fixtureURL())
+        let rate = file.processingFormat.sampleRate
+        file.framePosition = file.length - AVAudioFramePosition(2 * rate)
+
+        let tail = try XCTUnwrap(SpeechReadAlongTranscriber.detectionSample(of: file, seconds: 20, as: nil))
+
+        XCTAssertEqual(tail.format, file.processingFormat)
+        XCTAssertEqual(Double(tail.frameLength) / rate, 2, accuracy: 0.05)
+        file.framePosition = file.length
+        XCTAssertNil(try SpeechReadAlongTranscriber.detectionSample(of: file, seconds: 20, as: nil))
     }
 
     // MARK: - Engine (integration)
