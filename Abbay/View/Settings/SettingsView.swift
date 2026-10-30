@@ -38,6 +38,9 @@ struct SettingsView: View {
                 playbackSection(settings: $settings)
                 downloadsSection(settings: $settings)
                 languageSection(settings: $settings)
+                if #available(iOS 26, *) {
+                    experimentalSection(settings: $settings)
+                }
                 aboutSection
             }
             .navigationTitle(Localizable.settingsTitle.localized)
@@ -209,6 +212,23 @@ struct SettingsView: View {
         case .system: return Localizable.languageSystem.localized
         case .english: return "English"
         case .portuguese: return "Português (Brasil)"
+        }
+    }
+
+    // MARK: - Experimental
+
+    /// Features still being tried out. Only iOS 26 and later has the on-device speech model that
+    /// Read-along needs, so earlier systems don't see the section at all. Turning the switch off
+    /// deletes every transcript (`AppSettings.readAlongEnabled`).
+    @available(iOS 26, *)
+    private func experimentalSection(settings: Bindable<AppSettings>) -> some View {
+        Section {
+            Toggle(Localizable.readAlongToggle.localized, isOn: settings.readAlongEnabled)
+                .accessibilityIdentifier(AccessibilityID.Settings.readAlong)
+        } header: {
+            Text(Localizable.experimentalTitle.localized)
+        } footer: {
+            Text(Localizable.readAlongFooter.localized)
         }
     }
 

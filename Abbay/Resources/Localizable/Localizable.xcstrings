@@ -2313,6 +2313,60 @@
         }
       }
     },
+    "experimentalTitle" : {
+      "comment" : "Settings experimental section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        }
+      }
+    },
+    "readAlongToggle" : {
+      "comment" : "Settings read-along switch",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read-along"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leitura acompanhada"
+          }
+        }
+      }
+    },
+    "readAlongFooter" : {
+      "comment" : "Settings experimental section footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the audiobook's text as it plays, highlighting the words being read. The text is made from the audio on this iPhone, so it can get words wrong, especially names. Nothing is sent anywhere and the microphone is never used. The first time a language is used, iOS may download its speech model."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o texto do audiolivro enquanto ele toca, destacando as palavras lidas. O texto é gerado a partir do áudio neste iPhone, então pode errar palavras, principalmente nomes. Nada é enviado e o microfone nunca é usado. Na primeira vez que um idioma é usado, o iOS pode baixar o modelo de fala dele."
+          }
+        }
+      }
+    },
     "settingsAbout" : {
       "comment" : "Settings section header",
       "extractionState" : "manual",

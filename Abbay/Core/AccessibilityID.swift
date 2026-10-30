@@ -154,6 +154,8 @@ enum AccessibilityID {
         static let developer = "settings.about.developer"
         static let developerBody = "settings.about.developer.body"
         static let linkedIn = "settings.about.linkedIn"
+        /// The Experimental section's Read-along switch (iOS 26 and later only).
+        static let readAlong = "settings.experimental.readAlong"
 
         /// One option of the language picker; `language` is an `AppLanguage` raw value.
         static func language(_ language: String) -> String {

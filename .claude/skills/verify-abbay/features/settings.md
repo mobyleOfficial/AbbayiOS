@@ -61,6 +61,12 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   key, then cold-launch:
   `xcrun simctl spawn <udid> defaults write com.edyuto.Abbay abbay.settings.language -string pt-BR`;
   the library opens as *Biblioteca*, no crash report.
+- **experimental** (iOS 26 and later only; earlier systems don't draw the section):
+  **Read-along** (`settings.experimental.readAlong`, pt-BR *Leitura acompanhada*): a switch bound to
+  `AppSettings.readAlongEnabled`, off by default. The footer says what it does: the text is made on
+  the device from the audio, can get words wrong, nothing is sent, the microphone is never used,
+  and iOS may download a language's speech model the first time. Switching it off deletes every
+  transcript. Between Language and About. Value `"0"` / `"1"`.
 - **about:**
   - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
     in an `SFSafariViewController`.
@@ -106,7 +112,9 @@ $B tap settings.language.portuguese                               # nav title be
 `settings.playback.{defaultSpeed,skipBack,skipForward}`,
 `settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
 `settings.about.{privacyPolicy,version,librivox,licenses,developer,audioStatus}` and
-`settings.about.licenses.body` resolve; changing Skip forward relabels the player's forward
+`settings.about.licenses.body` resolve; on iOS 26+ `settings.experimental.readAlong` is off by
+default, toggles, and its footer mentions the microphone (microfone in pt-BR)
+(`test_experimental_*`); changing Skip forward relabels the player's forward
 button; choosing Português switches Settings and the Library without a relaunch; on a pt-BR
 device choosing English relabels both skip pickers to "15 seconds" at once
 (`test_switchingLanguage_relabelsTheSkipPickers`).

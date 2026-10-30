@@ -119,6 +119,9 @@ enum Localizable: String {
     case settingsLanguage
     case languageSystem
     case languageFooter
+    case experimentalTitle
+    case readAlongToggle
+    case readAlongFooter
     case settingsAbout
     case privacyPolicy
     case version

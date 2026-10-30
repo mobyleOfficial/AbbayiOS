@@ -166,6 +166,9 @@ final class SettingsUITests: XCTestCase {
         XCTAssertFalse(deleteFinished.isEnabled, "seeded books are not finished downloads")
         app.swipeUp()
         app.swipeUp()
+        if #available(iOS 26, *) {
+            assertResolves(AccessibilityID.Settings.readAlong)
+        }
         for identifier in [
             AccessibilityID.Settings.language(AppLanguageRaw.system),
             AccessibilityID.Settings.privacyPolicy,
@@ -179,6 +182,57 @@ final class SettingsUITests: XCTestCase {
 
         closeSettings()
         assertResolves(AccessibilityID.Library.list)
+    }
+
+    // MARK: - Experimental
+
+    /// The Experimental section exists only where the speech framework does (iOS 26).
+    private func openExperimental(language: String = "en", locale: String = "en_US") throws {
+        guard #available(iOS 26, *) else { throw XCTSkip("Read-along needs iOS 26") }
+        launch(language: language, locale: locale)
+        openSettings()
+        let toggle = element(AccessibilityID.Settings.readAlong)
+        for _ in 0..<6 where !(toggle.exists && toggle.isHittable) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), "no Read-along switch")
+    }
+
+    func test_experimental_readAlong_offByDefault() throws {
+        try openExperimental()
+
+        XCTAssertEqual(value(of: AccessibilityID.Settings.readAlong), "0")
+    }
+
+    func test_experimental_readAlong_toggles() throws {
+        try openExperimental()
+        let toggle = element(AccessibilityID.Settings.readAlong)
+
+        // The row spans the form; its switch sits at the trailing edge, where a tap lands on it.
+        for expected in ["1", "0"] {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            let changed = NSPredicate(format: "value == %@", expected)
+            let waiter = XCTNSPredicateExpectation(predicate: changed, object: toggle)
+            XCTAssertEqual(XCTWaiter.wait(for: [waiter], timeout: 5), .completed, "value: \(String(describing: toggle.value))")
+        }
+    }
+
+    func test_experimental_footerExplains() throws {
+        let cases = [
+            ("en", "en_US", "Experimental", "Read-along", "microphone"),
+            ("pt-BR", "pt_BR", "Experimental", "Leitura acompanhada", "microfone")
+        ]
+        for (language, locale, title, label, word) in cases {
+            try openExperimental(language: language, locale: locale)
+            XCTAssertEqual(element(AccessibilityID.Settings.readAlong).label, label)
+            let footer = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", word)).firstMatch
+            XCTAssertTrue(footer.waitForExistence(timeout: 5), "\(language): no footer mentioning \"\(word)\"")
+            XCTAssertTrue(
+                app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", title)).firstMatch.exists,
+                "\(language): no \"\(title)\" header"
+            )
+            app.terminate()
+        }
     }
 
     func test_licensesPage_opens() {
