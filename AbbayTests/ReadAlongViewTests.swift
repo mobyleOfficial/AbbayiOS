@@ -76,6 +76,45 @@ final class ReadAlongViewTests: XCTestCase {
         XCTAssertTrue(slot.disappeared())
     }
 
+    /// Full screen (#192) counts as a square on screen: the session keeps running while either the
+    /// square or the full-screen text shows it, whichever goes first.
+    @MainActor
+    func test_sessionSlot_staysShownWhileTheSquareOrFullScreenShowsIt() {
+        let slot = ReadAlongSessionSlot()
+
+        slot.appeared(.square)
+        slot.appeared(.fullScreen)
+        XCTAssertFalse(slot.disappeared(.square), "the full screen still shows it")
+        XCTAssertTrue(slot.disappeared(.fullScreen))
+
+        slot.appeared(.fullScreen)
+        slot.appeared(.square)
+        XCTAssertFalse(slot.disappeared(.fullScreen), "the square still shows it")
+        XCTAssertTrue(slot.disappeared(.square))
+    }
+
+    /// The full screen's text is larger and kept to a readable column; the square's fills it.
+    func test_style_fullScreenIsLargerAndKeptToAColumn() {
+        XCTAssertNil(ReadAlongStyle.square.maxLineWidth)
+        XCTAssertEqual(ReadAlongStyle.fullScreen.maxLineWidth, 600)
+        XCTAssertEqual(ReadAlongStyle.square.lineStyle, .title2)
+        XCTAssertEqual(ReadAlongStyle.fullScreen.lineStyle, .title)
+    }
+
+    /// The full-screen buttons say what they do, in both languages.
+    func test_fullScreenLabels_areTranslated() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(Localizable.readAlongFullScreen.localized, "Full screen")
+        XCTAssertEqual(Localizable.readAlongExitFullScreen.localized, "Exit full screen")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(Localizable.readAlongFullScreen.localized, "Tela cheia")
+        XCTAssertEqual(Localizable.readAlongExitFullScreen.localized, "Sair da tela cheia")
+    }
+
     // MARK: - Scrubbing
 
     /// The square starts no run while a finger is on the scrubber, and starts one as soon as it

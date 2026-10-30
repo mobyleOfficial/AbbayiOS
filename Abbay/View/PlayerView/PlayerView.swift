@@ -148,6 +148,8 @@ struct PlayerView: View {
             }
             .onChange(of: showsText) { _, shown in
                 onTextShown?(shown)
+                // The pill flipped back or Read-along went off: no text to show full screen.
+                if !shown { presentation.endReadAlongFullScreen(of: readAlongSlot) }
             }
             .onAppear {
                 onChaptersOpen?(showsPanel)
@@ -156,6 +158,7 @@ struct PlayerView: View {
             .onDisappear {
                 onChaptersOpen?(false)
                 onTextShown?(false)
+                presentation.endReadAlongFullScreen(of: readAlongSlot)
             }
             .coordinateSpace(.named(Self.layoutSpace))
         }
@@ -198,7 +201,7 @@ struct PlayerView: View {
     @ViewBuilder
     private var coverSquare: some View {
         if showsText {
-            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot, hidesLanguage: showsPanel)
+            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot, hidesControls: showsPanel)
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }

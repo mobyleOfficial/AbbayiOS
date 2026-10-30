@@ -40,6 +40,11 @@ final class PlayerPresentation {
     /// one pane, the chapters pane in browsing's place when the window is split (#255). Kept here,
     /// not in the player, so a fold or a resize shows the same chapters in the other form.
     private(set) var isShowingChapters = false
+    /// The presented player's read-along text, shown over the whole window (#192): drawn by the
+    /// root (`ReadAlongFullScreenHost`) so it covers both panes when split. Never remembered: the
+    /// player always opens with the square. It ends with the player, with another book, and with
+    /// a change of split (the other layout's player has a session of its own).
+    private(set) var readAlongFullScreen: ReadAlongFullScreen?
     /// The bar's global frame, written by the bar every time it moves (including each frame of
     /// its insertion transition). The overlay never reads it: it reads `expansionStart`.
     private(set) var barFrame: CGRect?
@@ -145,8 +150,9 @@ final class PlayerPresentation {
         }
         // Books are identified by URL, as everywhere else; the details screen is keyed by it too.
         if presentedBook == nil || presentedBook?.url != book.url {
-            // Another book's chapters are not this one's.
+            // Another book's chapters and text are not this one's.
             if presentedBook != nil { setChapters(open: false) }
+            endReadAlongFullScreen()
             presentedBook = book
         }
         guard startsPresentation, animated, !usesPanes else {
@@ -178,6 +184,8 @@ final class PlayerPresentation {
         pendingOpen = nil
         let current = generation
         setFullyOpen(false)
+        // At once, not when the collapse lands: the text would float over a closing player.
+        endReadAlongFullScreen()
         if usesPanes {
             // A pane leaves at once; the browsing pane takes its room back.
             set(progress: 0, animated: false, completion: nil)
@@ -297,6 +305,7 @@ final class PlayerPresentation {
     func layoutChanged(usesPanes: Bool) {
         guard self.usesPanes != usesPanes else { return }
         self.usesPanes = usesPanes
+        endReadAlongFullScreen()
         generation += 1
         interaction = nil
         pendingOpen = nil
@@ -430,6 +439,7 @@ final class PlayerPresentation {
 
     private func clearBook() {
         setChapters(open: false)
+        endReadAlongFullScreen()
         awaitingRestingBar = false
         source = nil
         landsOnMovingBar = false
@@ -462,5 +472,27 @@ final class PlayerPresentation {
             try? await Task.sleep(for: .milliseconds(450))
             work()
         }
+    }
+}
+
+// MARK: - Read-along full screen
+
+extension PlayerPresentation {
+    /// The presented player's read-along text goes full screen. Without a presented player there
+    /// is nothing to expand from.
+    func showReadAlongFullScreen(_ fullScreen: ReadAlongFullScreen) {
+        guard presentedBook != nil else { return }
+        readAlongFullScreen = fullScreen
+    }
+
+    /// Back to the square (the collapse button, VoiceOver's escape, the text going away).
+    func endReadAlongFullScreen() {
+        if readAlongFullScreen != nil { readAlongFullScreen = nil }
+    }
+
+    /// The player screen that owns `slot` lost its text (the pill flipped back, Read-along turned
+    /// off) or left: its full screen ends, and only its own.
+    func endReadAlongFullScreen(of slot: ReadAlongSessionSlot) {
+        if readAlongFullScreen?.slot === slot { readAlongFullScreen = nil }
     }
 }

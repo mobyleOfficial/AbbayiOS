@@ -104,6 +104,12 @@ LibriVox page's Play all open it.
     the language is known. Its menu lists the languages iOS can transcribe by name, with the region
     only where two share a language (*English (United Kingdom)*), in the in-app language; the current
     one has a check. Picking one discards the book's text and transcribes again in it.
+  - **expand button:** a glass circle in the bottom-trailing corner, opposite the language label
+    (`player.readAlong.expand`, VoiceOver *Full screen* / *Tela cheia*): the same text over the whole
+    window (`player.readAlong.fullScreen`, both panes when split), with the language label,
+    play/pause (`player.readAlong.playPause`) and collapse (`player.readAlong.collapse`) along the
+    bottom. Both corner controls fade (the expand button disabled) while the chapter panel is open.
+    See [read-along](read-along.md) *full screen*.
   - **messages** (`player.readAlong.status`), centred, a spinner while something is under way:
     *Preparing text…*, *Downloading the English speech model…*, *Text isn't available in X.*, *The
     audio must be downloaded first to show its text.* (a LibriVox chapter not on the device), *The
@@ -227,6 +233,8 @@ $B launch -seedLibrary -seedPlayableBook -resetSettings -seedReadAlong   # Read-
 $B tap library.row.<n>.title && $B tap player.text && $B wait player.readAlong.line.0   # the text in the cover's square
 $B tap player.readAlong.line.5                            # seeks there when the book is loaded; nothing otherwise
 $B tap player.readAlong.language                          # the menu: English, Portuguese
+$B tap player.readAlong.expand && $B wait player.readAlong.fullScreen   # over the whole window
+$B tap player.readAlong.collapse                          # back to the square
 $B drag player.close down                                 # planned: collapse under the finger (the grabber is not addressable)
 ```
 
@@ -257,7 +265,9 @@ $B drag player.close down                                 # planned: collapse un
   loaded book moves the elapsed time to the line's start; `player.readAlong.language` opens a menu
   with *English* and *Portuguese*; with `-forceReduceMotion` one line is selected; the text stays up
   after closing and reopening; in landscape `player.readAlong` sits on the leading side, clear of
-  the transport. The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
+  the transport; `player.readAlong.expand` shows `player.readAlong.fullScreen` over the whole window
+  (an iPad's split too), its play/pause drives playback, collapse brings the square back, and the
+  expand button is disabled while the chapter panel is open. The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
   `PlayerViewModelTests`. Not driven by a UI test: the status messages other than the stub's quick
   *Preparing text…*, the scene-phase stop, and VoiceOver itself.
 - `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI

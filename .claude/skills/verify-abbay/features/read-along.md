@@ -12,7 +12,8 @@ The pieces: `AppSettings.readAlongEnabled` (the switch); `ReadAlongCenter` (is i
 one place that makes a session or a transcript store); `ReadAlongSession` (what runs while the text
 shows: audio, language, transcription, saving); `SpeechReadAlongTranscriber` (the real engine
 behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcripts, JSON files);
-`ReadAlongView` (the square); `PlayerView`'s Text pill.
+`ReadAlongView` (the square); `ReadAlongFullScreenView` (the same text over the whole window);
+`PlayerView`'s Text pill.
 
 ## Sub-features
 
@@ -41,6 +42,26 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   `ReadAlongTranscript.display(at:)`. It
   follows playback every 0.1 s, the saved position for a book that isn't loaded, and the scrubber
   while dragging (showing covered text only; transcription starts where the finger lifts). **Reduce Motion:** the text jumps line to line, no word highlight.
+- **full screen** (owner's follow-up after the device test): the square's **expand** button
+  (`player.readAlong.expand`, bottom-right, opposite the language label, a glass circle with
+  `arrow.up.left.and.arrow.down.right`; VoiceOver *Full screen* / *Tela cheia*) shows the same text
+  over the **whole window** (`player.readAlong.fullScreen`): above the tabs, the mini player and the
+  player on an iPhone, and over **both panes** on the iPhone Duo and a split iPad. Drawn by the root
+  (`ReadAlongFullScreenHost` in `AppRootView`) from `PlayerPresentation.readAlongFullScreen`. The
+  player's cover-tint gradient behind it (reaching every edge; the status bar stays), the lines
+  larger (`.title`) in a centred column at most 600 pt wide, the current line in the middle, the
+  same highlight rules, a line tap still seeks. Along the bottom: the language label (left),
+  **play/pause** (`player.readAlong.playPause`, centre, *Play* / *Pause*) and **collapse**
+  (`player.readAlong.collapse`, right, `arrow.down.right.and.arrow.up.left`, *Exit full screen* /
+  *Sair da tela cheia*). No skips (owner's call). VoiceOver's escape collapses it too. It shows the
+  **same session** as the square (the screen's `ReadAlongSessionSlot`, which counts it as on screen),
+  so nothing is prepared again on the way in or out. It ends when the player closes, another book is
+  presented, the screen follows another loaded book (never book A's text over book B), the pill
+  flips back or Read-along goes off, and on a change of split (a fold, a resize: the other layout's
+  player has a session of its own; collapse there and expand again). Not remembered: the player
+  always opens with the square. Scale and fade in and out; a plain fade with Reduce Motion. While
+  the chapter panel is open the expand button fades, is disabled and hidden from VoiceOver, like the
+  language label (UI tests still list it, disabled).
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
   nothing (it never loads or plays a book).
 - **language:** a LibriVox book uses the language LibriVox lists (stored when the book is added); an
@@ -80,6 +101,8 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
 1. Settings (the Library's gear) › Experimental › switch Read-along on (iOS 26+).
 2. Open a book's player; tap **Text** between the speed and Chapters pills.
 3. Tap **Cover** (the same pill) to go back.
+4. With the text showing, tap the expand button in the square's bottom-right corner for full screen;
+   the button in the same corner there collapses it.
 
 ## Driving it with abbay-ctl
 
@@ -91,6 +114,9 @@ $B tap player.text && $B wait player.readAlong.line.0    # the square replaces t
 $B tap player.transport.play && $B snapshot              # the selected line moves on, a line every 4 s
 $B tap player.readAlong.line.5                           # seeks to its start (loaded book)
 $B tap player.readAlong.language                         # menu: English (checked), Portuguese
+$B tap player.readAlong.expand && $B wait player.readAlong.fullScreen   # frame = the window's
+$B tap player.readAlong.playPause                        # label Play <-> Pause, as the transport
+$B tap player.readAlong.collapse                         # back to the square, its lines straight back
 $B tap player.text                                       # back to the cover; the square is gone
 $B launch -seedLibrary -seedPlayableBook -seedArtwork -resetSettings -forceReduceMotion -seedReadAlong
                                                          # one selected line, jumping, no word colour
@@ -116,6 +142,16 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
 - The text stays up after closing and reopening the player; flipping off and on, and rotating,
   bring the text straight back (one session per screen).
 - In landscape the square sits on the leading side, clear of the transport.
+- Full screen (`ReadAlongFullScreenUITests.swift`, part of `ReadAlongUITests`): the expand button
+  sits bottom-right; `player.readAlong.fullScreen`'s frame equals the window's, its lines show
+  without *Preparing text…*, the mini player and the player's close button aren't hittable under
+  it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
+  expand button is disabled while the chapter panel is open and works once it closes. The cover and
+  play/pause tests also pass on an iPad Air 13-inch (iOS 26.4) in its landscape split, where the full
+  screen covers both panes. Unit: `ReadAlongFullScreenTests` (needs a presented player; ends on
+  close, another book, a change of split, the owning screen's slot; stale once the screen follows
+  another book), `ReadAlongViewTests` (the slot keeps the session shown while the square or the full
+  screen shows it, the styles, the labels in en and pt-BR).
 - Unit: highlight lookup, the store (keyed, deleted), the settings, language mapping and detection
   pick and region choice, the session (nothing runs while hidden, cancellation, saving, retarget,
   the ten-minute window, no run while scrubbing, a deleted book stays deleted), the store (saves
@@ -124,8 +160,9 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   naming.
 
 **Not driven by a UI test:** the status messages other than the stub's quick *Preparing text…*, the
-scene-phase stop, a real LibriVox download finishing under the square, VoiceOver, iPad and the split
-pane (same cover path), and the **real engine**: its tests skip in the Simulator, so its proof is a
+scene-phase stop, a real LibriVox download finishing under the square, VoiceOver (including the
+full screen's escape), the full screen ending on a fold or a book switch (unit-tested only), the
+iPhone Duo (same root path as the iPad), and the **real engine**: its tests skip in the Simulator, so its proof is a
 macOS 27 harness run and the owner's device test.
 
 ## Gotchas

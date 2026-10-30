@@ -3518,6 +3518,42 @@
           }
         }
       }
+    },
+    "readAlongFullScreen" : {
+      "comment" : "Player read-along square: VoiceOver label of the button that shows the text full screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full screen"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tela cheia"
+          }
+        }
+      }
+    },
+    "readAlongExitFullScreen" : {
+      "comment" : "Player read-along full screen: VoiceOver label of the button that returns the text to the player's square",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exit full screen"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair da tela cheia"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

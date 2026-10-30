@@ -13,7 +13,7 @@ import XCTest
 /// Read-along needs iOS 26's speech engine: below it there is no pill, and these tests skip.
 /// Tests that play pause again at the end: the seed makes sound.
 final class ReadAlongUITests: XCTestCase {
-    private var app = XCUIApplication()
+    var app = XCUIApplication()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -31,17 +31,17 @@ final class ReadAlongUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func element(_ identifier: String) -> XCUIElement {
+    func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private var transportPlay: XCUIElement {
+    var transportPlay: XCUIElement {
         element(AccessibilityID.Player.transport(AccessibilityID.Transport.play))
     }
 
-    private var square: XCUIElement { element(AccessibilityID.Player.readAlong) }
+    var square: XCUIElement { element(AccessibilityID.Player.readAlong) }
 
-    private func launch(readAlong: Bool = true, _ extra: [String] = []) {
+    func launch(readAlong: Bool = true, _ extra: [String] = []) {
         app.launchArguments = [
             LaunchArgument.seedLibrary,
             LaunchArgument.seedPlayableBook,
@@ -61,7 +61,7 @@ final class ReadAlongUITests: XCTestCase {
     }
 
     /// Opens the playable seed without playing it, and waits for the player to settle at the top.
-    private func openPlayableBook(file: StaticString = #filePath, line: UInt = #line) throws {
+    func openPlayableBook(file: StaticString = #filePath, line: UInt = #line) throws {
         try playableRowTitle().tap()
         let close = element(AccessibilityID.Player.close)
         XCTAssertTrue(close.waitForExistence(timeout: 15), "the player did not open", file: file, line: line)
@@ -73,7 +73,7 @@ final class ReadAlongUITests: XCTestCase {
     }
 
     /// Taps the Text pill and waits for the square and its first line.
-    private func showText(file: StaticString = #filePath, line: UInt = #line) {
+    func showText(file: StaticString = #filePath, line: UInt = #line) {
         let pill = element(AccessibilityID.Player.text)
         XCTAssertTrue(pill.waitForExistence(timeout: 5), "no Text pill", file: file, line: line)
         pill.tap()
@@ -86,7 +86,7 @@ final class ReadAlongUITests: XCTestCase {
         )
     }
 
-    private func waitForLabel(of element: XCUIElement, _ label: String, timeout: TimeInterval = 10) -> Bool {
+    func waitForLabel(of element: XCUIElement, _ label: String, timeout: TimeInterval = 10) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while element.label != label, Date() < deadline {
             usleep(100_000)
@@ -95,7 +95,7 @@ final class ReadAlongUITests: XCTestCase {
     }
 
     /// Plays from the player's transport, and pauses again when the test ends.
-    private func play(file: StaticString = #filePath, line: UInt = #line) {
+    func play(file: StaticString = #filePath, line: UInt = #line) {
         transportPlay.tap()
         XCTAssertTrue(waitForLabel(of: transportPlay, "Pause"), "did not start playing", file: file, line: line)
         addTeardownBlock { [transportPlay] in

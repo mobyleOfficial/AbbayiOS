@@ -131,6 +131,29 @@ square**, like lyrics in Apple Music. Everything else on the player stays where 
     LibriVox chapter that is streaming, an imported file iCloud has offloaded). See *Audio that
     isn't on the device*.
 
+### Full screen (owner follow-up)
+
+After the device test the owner asked for "an expand icon [in] the bottom right corner, opposite to
+the language selector, that allows the transcription to go full screen. On duo and ipad it should
+cover both sides of the screen, text centered and background the same color it is today", with
+"play pause, the skip is not required".
+
+- The square's bottom-right corner has an expand button (glass circle,
+  `arrow.up.left.and.arrow.down.right`, *Full screen*), hidden with the language label while the
+  chapter panel is open.
+- Full screen covers the whole window, above the tabs, the mini player and the player; split (the
+  iPhone Duo, an iPad), both panes. The root draws it (`ReadAlongFullScreenHost`) from
+  `PlayerPresentation.readAlongFullScreen`, since the player can be a pane.
+- The player's cover-tint gradient behind; the same lines and highlight rules, larger (`.title`), in a
+  centred column at most 600 pt wide; the status bar stays. Along the bottom: the language label,
+  play/pause in the centre, collapse (`arrow.down.right.and.arrow.up.left`, *Exit full screen*) on
+  the right. VoiceOver's escape collapses.
+- The same `ReadAlongSession` as the square (the screen's slot, which counts the full screen as on
+  screen): nothing is prepared again.
+- It ends with the player, with another book (presented, or followed after a switch), with the text
+  (pill flipped back, Read-along off) and on a change of split. It isn't remembered.
+- Scale and fade in and out; a plain fade with Reduce Motion.
+
 ### Language
 
 - **LibriVox books** use the language LibriVox lists (`LibriVoxBook.language`, an ISO 639-2 code

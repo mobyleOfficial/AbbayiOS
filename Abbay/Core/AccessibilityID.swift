@@ -211,6 +211,15 @@ enum AccessibilityID {
         static let readAlongLanguage = "player.readAlong.language"
         /// The square's message while there is no text to show (preparing, no audio, no speech…).
         static let readAlongStatus = "player.readAlong.status"
+        /// The square's expand button (bottom-right, opposite the language label): the text goes
+        /// full screen. Hidden while the chapter panel is open, like the language label.
+        static let readAlongExpand = "player.readAlong.expand"
+        /// The full-screen text, over the whole window (both panes when split).
+        static let readAlongFullScreen = "player.readAlong.fullScreen"
+        /// The full-screen text's collapse button (bottom-right): back to the square.
+        static let readAlongCollapse = "player.readAlong.collapse"
+        /// The full-screen text's play/pause button (bottom-centre); its label is *Play* or *Pause*.
+        static let readAlongPlayPause = "player.readAlong.playPause"
 
         /// A line of the read-along text, by its position in the transcript; the current one carries
         /// the selected trait.
