@@ -504,9 +504,21 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
         )
         return ZStack {
             if !isFullyOpen {
-                // The shadow arrives with the cover's size, so the bar's small cover has none; a
-                // library cover has its own from the start.
-                ArtworkView(book: art, cornerRadius: radius, shadow: fraction > 0.5 || origin.coverRadius != nil)
+                if geometry.isTextShown {
+                    // The read-along text is in the square (#192): the artwork turns into the
+                    // square's dark fill as it grows, so it lands as the square it hands over to
+                    // (whose text then fades in) and leaves it the same way, with no swap.
+                    let blend = ExpansionMath.textSquareBlend(progress: fraction, reduceMotion: reduceMotion)
+                    ArtworkView(book: art, cornerRadius: radius, shadow: origin.coverRadius != nil)
+                        .opacity(1 - blend)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .fill(ReadAlongView.fill)
+                        .opacity(blend)
+                } else {
+                    // The shadow arrives with the cover's size, so the bar's small cover has none;
+                    // a library cover has its own from the start.
+                    ArtworkView(book: art, cornerRadius: radius, shadow: fraction > 0.5 || origin.coverRadius != nil)
+                }
             }
             Color.clear
                 .contentShape(Rectangle())

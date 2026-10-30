@@ -185,7 +185,9 @@ struct PlayerView: View {
             // A square as wide as the screen allows, smaller when the height runs short.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
-            .opacity(hidesCover ? 0 : 1)
+            // The read-along square hides itself (`ReadAlongView`): its fill at once, its text with
+            // a fade, so the expansion's copy hands over without a swap.
+            .opacity(hidesCover && !showsText ? 0 : 1)
             // Measured on the square that is drawn, not on the `coverSide` frame around it: when
             // the height runs short, that frame is wider than the square, and the expansion's cover
             // grew into it and then snapped down to the real cover as it settled (#254).

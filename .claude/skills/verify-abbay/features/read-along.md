@@ -63,6 +63,17 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   the chapter panel is open the expand button is left out of the hierarchy, like the language label
   (a glass button faded by its parent still drew over the panel on a device: the glass container
   composites it).
+- **opening and collapsing the player with the text up** (owner's device test of 1.4.0): the
+  expansion's growing copy (`PlayerExpansionOverlay`) cross-fades from the artwork to the square's
+  dark fill as it grows (`ExpansionMath.textSquareBlend`, eased from 10% to 90% of the progress), so
+  it lands as the square; the real square's fill takes over at once and its text fades in (0.22 s),
+  its controls with it. On a collapse the text fades out quickly (0.12 s) and the copy turns from
+  the dark square back into the artwork as it shrinks. Before, the copy was the artwork all the way
+  and the text swapped in when it landed (and out as it started): a hard flicker. The controls are
+  left out while the expansion draws the square (`expansionDrawsPlayerCover`): a glass control is
+  composited whatever its parent's opacity, and they showed over the growing artwork. **Reduce
+  Motion:** the copy is the dark square throughout (the panel only fades) and the text fades in
+  after. With the cover showing, the expansion is unchanged.
 - **immersion** (owner's follow-up: "lets prioritize immersion"): the controls hide after **3 s**
   with no interaction, with a short fade (no movement, so Reduce Motion needs nothing else): in the
   square the language label and the expand button; full screen the language label, play/pause and
@@ -172,6 +183,10 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   without *Preparing text…*, the mini player and the player's close button aren't hittable under
   it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
   expand button doesn't exist while the chapter panel is open and works once it closes.
+- The expansion's cross-fade with the text up: unit-tested (`ExpansionMathTests`
+  `test_textSquareBlend_*`: all artwork at 0, all square at 1, no step, the square throughout with
+  Reduce Motion); the look is checked by eye from screen recordings (frames of the collapse, the
+  reopen and a drag held mid-collapse).
 - Immersion (`ReadAlongImmersionUITests.swift`, part of `ReadAlongUITests`, launched with a 6 s
   delay): the square's label and expand button stop existing after the delay, a tap on the square
   brings both back without moving the elapsed time, and they hide again; full screen, play/pause,

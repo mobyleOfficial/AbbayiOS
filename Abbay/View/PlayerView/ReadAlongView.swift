@@ -34,11 +34,18 @@ struct ReadAlongView: View {
     /// step aside under the full screen too, and come back with a fresh delay when it collapses.
     let hidesControls: Bool
 
+    /// The square's fill, under the text. The expansion's growing cover turns into it as it lands.
+    static let fill = Color.black.opacity(0.28)
+
     @Environment(ReadAlongCenter.self)
     private var center
     /// Optional so previews and tests can omit it: there is no expand button then.
     @Environment(PlayerPresentation.self)
     private var presentation: PlayerPresentation?
+    /// The expansion draws the square while it grows or shrinks (`PlayerExpansionOverlay`), turning
+    /// the artwork into this fill: the fill hands over at once, the text and the controls fade.
+    @Environment(\.expansionDrawsPlayerCover)
+    private var isDrawnByExpansion
 
     init(model: PlayerViewModel, scrub: PlayerScrub, slot: ReadAlongSessionSlot, hidesControls: Bool = false) {
         self.model = model
@@ -50,15 +57,19 @@ struct ReadAlongView: View {
     var body: some View {
         let session = slot.session(from: center)
         ZStack {
-            // A dark fill rather than glass: the text is content, not a control.
+            // A dark fill rather than glass: the text is content, not a control. Hidden at once
+            // while the expansion draws it: its copy is the same fill in the same place.
             RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous)
-                .fill(Color.black.opacity(0.28))
+                .fill(Self.fill)
+                .opacity(isDrawnByExpansion ? 0 : 1)
             ReadAlongContent(
                 session: session,
                 model: model,
                 scrub: scrub,
                 style: .square,
-                hidesControls: hidesControls || presentation?.readAlongFullScreen != nil
+                // Also while the expansion moves: a glass control is composited by its container
+                // whatever its parent's opacity, so a fade alone left them over the growing cover.
+                hidesControls: hidesControls || isDrawnByExpansion || presentation?.readAlongFullScreen != nil
             ) {
                 EmptyView()
             } trailing: {
@@ -66,6 +77,12 @@ struct ReadAlongView: View {
                     expandButton(presentation)
                 }
             }
+            // The text fades in as the square lands, and quickly out as it starts to shrink.
+            .opacity(isDrawnByExpansion ? 0 : 1)
+            .animation(
+                isDrawnByExpansion ? .easeOut(duration: 0.12) : .easeIn(duration: 0.22),
+                value: isDrawnByExpansion
+            )
         }
         .clipShape(RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous))
         .accessibilityElement(children: .contain)

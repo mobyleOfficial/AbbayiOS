@@ -73,6 +73,10 @@
   - The cover grows from the bar's 36 pt slot (radius 8) to the details screen's cover (radius 14),
     its shadow appearing from half-way. From a library cover it grows from that whole cover (its
     radius: 10 for a cell, 8 for the Continue card).
+  - With the read-along text in the square (#192, `ExpansionGeometry.isTextShown`), the growing
+    cover cross-fades from the artwork to the square's dark fill (`ReadAlongView.fill`) as it grows
+    (`ExpansionMath.textSquareBlend`), and the square's text fades in once it lands; a collapse runs
+    it backwards. No swap at either end. See [read-along](read-along.md).
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
   - Opened with nothing visible to grow from (a LibriVox page's Play with nothing loaded), it
     grows from a 56 pt strip along the bottom edge.

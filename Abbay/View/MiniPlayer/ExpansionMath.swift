@@ -181,6 +181,17 @@ enum ExpansionMath {
         reduceMotion ? end : lerp(start, end, clamp(progress))
     }
 
+    /// With the read-along text in the square (#192), how far the growing cover has turned from the
+    /// artwork (0) into the text square's dark fill (1): eased over the growth, from 10% to 90%, so
+    /// it lands as the square it hands over to and leaves the bar as the artwork, with no swap at
+    /// either end (owner's device test). With `reduceMotion` nothing grows, so it is the square
+    /// throughout and only the panel's fade shows.
+    static func textSquareBlend(progress: CGFloat, reduceMotion: Bool) -> CGFloat {
+        if reduceMotion { return 1 }
+        let fraction = clamp((progress - 0.1) / 0.8)
+        return fraction * fraction * (3 - 2 * fraction)
+    }
+
     static func lerp(_ from: CGFloat, _ to: CGFloat, _ fraction: CGFloat) -> CGFloat {
         from + (to - from) * fraction
     }
