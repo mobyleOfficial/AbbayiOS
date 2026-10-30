@@ -32,7 +32,13 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
 - **the square** (`player.readAlong`): the cover's frame, dark fill, the lines scrolling with the
   current one centred (white, semibold, the spoken word in malachite; read lines faded, upcoming
   ones dimmer). Lines are `player.readAlong.line.<n>`, buttons to VoiceOver with the hint *Plays
-  from this line* / *Toca a partir desta linha*; the current one has the selected trait. It
+  from this line* / *Toca a partir desta linha*; the current one has the selected trait. A line
+  stays current through a pause of up to 5 s after it ends. **Before speech** (an intro, a longer
+  pause) the next line waits in the middle, dimmed, nothing highlighted, and lights up in place
+  when the narrator reaches it; when the next line is more than 30 s away, or there is none, the
+  square shows a ♪ (`music.note`, VoiceOver *No speech here*) instead (owner decision, after a
+  full-cast intro showed *No speech here.* until the narrator started). Rules in
+  `ReadAlongTranscript.display(at:)`. It
   follows playback every 0.1 s, the saved position for a book that isn't loaded, and the scrubber
   while dragging (showing covered text only; transcription starts where the finger lifts). **Reduce Motion:** the text jumps line to line, no word highlight.
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
@@ -50,7 +56,7 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   model…* (iOS fetches Apple's model once per language, only because the text was shown),
   *Text isn't available in X.*, *The audio must be downloaded first to show its text.* (a LibriVox
   chapter not on the device; the text appears by itself when it finishes), *The audio file must be
-  on this iPhone to show its text.* (an imported file that is not), *No speech here.*, *Couldn't
+  on this iPhone to show its text.* (an imported file that is not), *Couldn't
   make the text.* Read-along never streams audio and starts no download of its own.
 - **only while shown:** the session runs only while the square is on screen. It stops when the pill
   flips back, the player closes or the screen follows nothing, Read-along is turned off, or the app

@@ -104,8 +104,10 @@ LibriVox page's Play all open it.
   - **messages** (`player.readAlong.status`), centred, a spinner while something is under way:
     *Preparing text…*, *Downloading the English speech model…*, *Text isn't available in X.*, *The
     audio must be downloaded first to show its text.* (a LibriVox chapter not on the device), *The
-    audio file must be on this iPhone to show its text.* (an imported file that isn't), *No speech
-    here.* (nothing recognised at this point), *Couldn't make the text.* (pt-BR in the catalogue).
+    audio file must be on this iPhone to show its text.* (an imported file that isn't), *Couldn't
+    make the text.* (pt-BR in the catalogue). Before speech the next line waits dimmed; a long
+    stretch with no speech (next line over 30 s away) shows ♪, VoiceOver *No speech here*; see
+    [read-along](read-along.md).
     The text appears by itself once the chapter being played finishes downloading.
   - **when it runs:** only while the text is on screen. The square stops its session when it leaves
     the screen (the pill flips back, the player closes, Read-along is turned off) and when the app

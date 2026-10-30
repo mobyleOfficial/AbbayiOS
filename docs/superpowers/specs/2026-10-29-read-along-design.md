@@ -123,7 +123,10 @@ square**, like lyrics in Apple Music. Everything else on the player stays where 
   - *Downloading the <language> speech model…* the first time a language is needed;
   - *Text isn't available in <language>* when iOS can't transcribe that language (the language
     label still lets the user pick another);
-  - *No speech here* (or similar) for music or silence with nothing recognized;
+  - before speech (an intro, a pause over 5 s) the next line shown dimmed, lighting up when the
+    narrator reaches it; a ♪ (VoiceOver *No speech here*) when the next line is over 30 s away or
+    there is none (owner decision after the first device test: *No speech here.* during a
+    full-cast intro read as broken);
   - *The audio must be downloaded first* when the part being played isn't on the device (a
     LibriVox chapter that is streaming, an imported file iCloud has offloaded). See *Audio that
     isn't on the device*.

@@ -140,4 +140,48 @@ final class ReadAlongTranscriptTests: XCTestCase {
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertNil(object["text"])
     }
+
+    // MARK: - What the square shows
+
+    func test_display_insideALine_isThatLineAndWord() {
+        XCTAssertEqual(sample.display(at: 11.2), .line(ReadAlongPosition(line: 0, word: 1)))
+    }
+
+    func test_display_aShortPauseAfterALine_holdsIt() {
+        // Line 0 ends at 13; 2 s later is a breath, not a break.
+        XCTAssertEqual(sample.display(at: 15), .line(ReadAlongPosition(line: 0, word: nil)))
+    }
+
+    func test_display_aLongerPause_showsTheNextLineComing() {
+        // 5.5 s after line 0 ended, line 1 starts at 20.
+        XCTAssertEqual(sample.display(at: 18.5), .upcoming(1))
+    }
+
+    func test_display_introBeforeTheFirstLine_showsItComing() {
+        // The owner's case: music before the narrator, the first line 5 s away.
+        XCTAssertEqual(sample.display(at: 5), .upcoming(0))
+    }
+
+    func test_display_longMusicBeforeTheFirstLine_isMusic() {
+        var transcript = ReadAlongTranscript(language: "en-US")
+        transcript.add([line(60, ["Chapter", "one"])], covering: .init(start: 0, end: 90))
+        XCTAssertEqual(transcript.display(at: 5), .music)
+        XCTAssertEqual(transcript.display(at: 31), .upcoming(0))
+    }
+
+    func test_display_longMusicBetweenLines_isMusic_untilTheNextIsNear() {
+        var transcript = ReadAlongTranscript(language: "en-US")
+        transcript.add([line(10, ["a"]), line(100, ["b"])], covering: .init(start: 0, end: 120))
+        XCTAssertEqual(transcript.display(at: 40), .music)
+        XCTAssertEqual(transcript.display(at: 75), .upcoming(1))
+    }
+
+    func test_display_afterTheLastLine_isMusic() {
+        // Line 1 ends at 21; nothing follows.
+        XCTAssertEqual(sample.display(at: 27), .music)
+    }
+
+    func test_display_noLines_isMusic() {
+        XCTAssertEqual(ReadAlongTranscript(language: "en-US").display(at: 5), .music)
+    }
 }

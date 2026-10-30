@@ -36,6 +36,14 @@ struct ReadAlongPosition: Equatable {
     let word: Int?
 }
 
+/// What the square shows at a moment: the line being read, the next line coming (dimmed, nothing
+/// highlighted, during an intro or a pause), or ♪ for a long stretch with no speech.
+enum ReadAlongDisplay: Equatable {
+    case line(ReadAlongPosition)
+    case upcoming(Int)
+    case music
+}
+
 /// Everything transcribed so far for one book, in book time. Transcription arrives in runs
 /// (ahead of the playhead, after a seek, resumed after a pause), so `add` has to accept runs in
 /// any order and overlapping ones, and `covered` records which stretches are already done.
@@ -89,6 +97,25 @@ struct ReadAlongTranscript: Codable, Equatable {
 
     func isCovered(_ time: Double) -> Bool {
         covered.contains { $0.start <= time && time < $0.end }
+    }
+
+    /// A pause this long after a line ends is a break, not a breath: the line stops being current.
+    static let holdAfterLine: Double = 5
+    /// Silence or music until the next line further away than this shows ♪ rather than the text
+    /// coming (owner decision: a full-cast intro shows its first lines dimmed, a long music-only
+    /// stretch shows a note).
+    static let musicBeforeLine: Double = 30
+
+    /// What the square shows at `time`. Inside a line, or a short pause after one, that line is
+    /// current. Before the first line or after a longer pause the next line is shown coming, unless
+    /// it is more than `musicBeforeLine` away (or there is none), which is music.
+    func display(at time: Double) -> ReadAlongDisplay {
+        if let position = position(at: time), time < lines[position.line].end + Self.holdAfterLine {
+            return .line(position)
+        }
+        let next = firstLine { $0.start > time }
+        guard next < lines.count, lines[next].start - time <= Self.musicBeforeLine else { return .music }
+        return .upcoming(next)
     }
 
     /// The line being spoken is the last one that has started; the gap after it holds that line

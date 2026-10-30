@@ -179,10 +179,12 @@ private struct ReadAlongContent: View {
     @ViewBuilder
     private func text(at time: Double) -> some View {
         if session.state == .ready, let transcript = session.transcript {
-            if let position = transcript.position(at: time) {
+            switch transcript.display(at: time) {
+            case let .line(position):
                 ReadAlongLines(
                     lines: transcript.lines,
                     current: position.line,
+                    isSpoken: true,
                     // With Reduce Motion, only the line: a word lighting up every half second is
                     // motion too.
                     word: reduceMotion ? nil : position.word,
@@ -190,8 +192,20 @@ private struct ReadAlongContent: View {
                     onTap: { model.seek($0.start) }
                 )
                 .equatable()
-            } else {
-                ReadAlongStatus(message: Localizable.readAlongNoSpeech.localized, isWorking: false)
+            case let .upcoming(line):
+                // An intro or a pause: the next line waits in the middle, dimmed, and lights up in
+                // place when the narrator reaches it.
+                ReadAlongLines(
+                    lines: transcript.lines,
+                    current: line,
+                    isSpoken: false,
+                    word: nil,
+                    animates: !reduceMotion,
+                    onTap: { model.seek($0.start) }
+                )
+                .equatable()
+            case .music:
+                ReadAlongMusic()
             }
         } else {
             ReadAlongStatus(message: Self.message(for: session.state), isWorking: Self.isWorking(session.state))
@@ -291,7 +305,9 @@ private struct ReadAlongLanguageMenu: View {
 /// start (`PlayerViewModel.seek`, which does nothing for a book that isn't loaded).
 private struct ReadAlongLines: View, Equatable {
     let lines: [ReadAlongLine]
+    /// The line kept in the middle: the one being read, or the one coming when `isSpoken` is false.
     let current: Int
+    let isSpoken: Bool
     let word: Int?
     let animates: Bool
     let onTap: (ReadAlongLine) -> Void
@@ -300,7 +316,8 @@ private struct ReadAlongLines: View, Equatable {
     private var spacing: CGFloat = 14
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.current == rhs.current && lhs.word == rhs.word && lhs.animates == rhs.animates && lhs.lines == rhs.lines
+        lhs.current == rhs.current && lhs.isSpoken == rhs.isSpoken && lhs.word == rhs.word
+            && lhs.animates == rhs.animates && lhs.lines == rhs.lines
     }
 
     var body: some View {
@@ -335,7 +352,7 @@ private struct ReadAlongLines: View, Equatable {
     }
 
     private func line(_ index: Int) -> some View {
-        let isCurrent = index == current
+        let isCurrent = isSpoken && index == current
         let opacity: Double = isCurrent ? 1 : index < current ? 0.35 : 0.55
         return Text(Self.text(of: lines[index], highlighting: isCurrent ? word : nil))
             .font(.title2.weight(isCurrent ? .semibold : .regular))
@@ -377,6 +394,23 @@ private struct ReadAlongLines: View, Equatable {
             startPoint: .top,
             endPoint: .bottom
         )
+    }
+}
+
+// MARK: - Music
+
+/// ♪ for a long stretch with no speech (an intro, an interlude, the music after a chapter): a
+/// sentence there read as an error. VoiceOver still says *No speech here*.
+private struct ReadAlongMusic: View {
+    var body: some View {
+        Image(systemName: "music.note")
+            .font(.largeTitle)
+            .imageScale(.large)
+            .foregroundColor(ColorConstants.white.value.opacity(0.6))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement()
+            .accessibilityLabel(Localizable.readAlongNoSpeech.localized)
+            .accessibilityIdentifier(AccessibilityID.Player.readAlongStatus)
     }
 }
 
