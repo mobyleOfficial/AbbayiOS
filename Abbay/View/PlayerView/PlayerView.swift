@@ -196,8 +196,11 @@ struct PlayerView: View {
             })
             .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The cover is decoration; the text is read like any other.
-            .accessibilityHidden(!showsText)
+            // The cover is decoration; the text is read like any other. Under the open chapter panel
+            // the square stays drawn (its glass bar stays put) but VoiceOver can't reach it, so the
+            // language label and the expand button can't be used behind the panel.
+            .accessibilityHidden(!showsText || showsPanel)
+            .environment(\.readAlongCoveredByPanel, showsPanel)
     }
 
     @ViewBuilder

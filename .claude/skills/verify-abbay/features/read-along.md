@@ -67,7 +67,8 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   in the player's container the label's glass drew over the panel, and once the controls were
   instead removed while the panel was open (1.4.0), Liquid Glass morphed the removed expand button
   into the appearing panel (the panel grew out of the expand icon and shrank back into it) and the
-  label's glass morphed away. A tap where they sit reaches the panel.
+  label's glass morphed away. A tap where they sit reaches the panel, and VoiceOver can't reach
+  the square while the panel covers it (`PlayerView`: `accessibilityHidden(!showsText || showsPanel)`), and the bar is disabled there (`readAlongCoveredByPanel`).
 - **opening and collapsing the player with the text up** (owner's device test of 1.4.0): the
   expansion's growing copy (`PlayerExpansionOverlay`) cross-fades from the artwork to the square's
   dark fill as it grows (`ExpansionMath.textSquareBlend`, eased from 10% to 90% of the progress), so

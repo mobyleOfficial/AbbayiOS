@@ -282,6 +282,8 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
     private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled)
     private var voiceOver
+    @Environment(\.readAlongCoveredByPanel)
+    private var isCoveredByPanel
     @State
     private var controls = ReadAlongControlsVisibility()
     @State
@@ -358,6 +360,15 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
     }
 
     private var barContent: some View {
+        // Under the open chapter panel the square is hidden from VoiceOver from outside
+        // (`PlayerView`); the bar is also disabled there, so its controls can't be used behind the
+        // panel whatever reaches them (XCUITest can't observe a SwiftUI accessibility hide, and an
+        // `accessibilityHidden` here, even when false, stopped XCUITest's taps on the expand button).
+        barRow
+            .disabled(isCoveredByPanel)
+    }
+
+    private var barRow: some View {
         HStack(spacing: 0) {
             // Always in the tree, so it keeps its named choices; only its button steps aside
             // (removing the whole view lost the choices, and it never came back).
@@ -725,5 +736,22 @@ struct ReadAlongCornerButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
+    }
+}
+
+// MARK: - Covered by the chapter panel
+
+private struct ReadAlongCoveredByPanelKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// The chapter panel is open over the square. The square stays drawn under it (its glass bar
+    /// stays put) but its controls mustn't be usable behind the panel: the bar disables itself and
+    /// the UIKit language button hides itself from VoiceOver, since the square's own
+    /// `accessibilityHidden` (set in `PlayerView`) doesn't reach a UIKit view.
+    var readAlongCoveredByPanel: Bool {
+        get { self[ReadAlongCoveredByPanelKey.self] }
+        set { self[ReadAlongCoveredByPanelKey.self] = newValue }
     }
 }

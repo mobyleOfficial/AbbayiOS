@@ -263,11 +263,13 @@ final class ReadAlongUITests: XCTestCase {
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 5), "no chapter panel")
         sleep(1)
+        // Still there and in place under the panel, but disabled while the panel covers it (and
+        // hidden from VoiceOver, which XCUITest can't observe).
         XCTAssertTrue(label.exists, "the language label stepped aside")
         XCTAssertEqual(label.frame, before, "the language label moved")
-        // XCUITest calls it hittable whatever is drawn over it, so tap where it is: the panel takes
-        // the tap, and the label's menu doesn't open.
-        label.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertFalse(label.isEnabled, "the language label can be used behind the chapter panel")
+        // Tap where it is drawn: the panel takes the tap, and the label's menu doesn't open.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: before.midX, dy: before.midY)).tap()
         XCTAssertFalse(
             app.buttons["English"].waitForExistence(timeout: 2), "the language label is over the chapter panel"
         )
@@ -275,6 +277,9 @@ final class ReadAlongUITests: XCTestCase {
 
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForNonExistence(timeout: 5))
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: label)
+        wait(for: [enabled], timeout: 5)
+        sleep(1) // the panel's close animation takes taps until it's gone
         label.tap()
         XCTAssertTrue(app.buttons["English"].waitForExistence(timeout: 5), "the label lost its menu")
     }
