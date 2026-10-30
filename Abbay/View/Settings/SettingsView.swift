@@ -20,6 +20,9 @@ struct SettingsView: View {
     /// Nil only outside the app's environment (previews).
     @Environment(ReadAlongCenter.self)
     private var readAlong: ReadAlongCenter?
+    /// Read in the body, so the Experimental section comes and goes as VoiceOver is switched.
+    @Environment(\.accessibilityVoiceOverEnabled)
+    private var voiceOver
     @State
     private var webPage: WebPage?
 
@@ -41,7 +44,8 @@ struct SettingsView: View {
                 playbackSection(settings: $settings)
                 downloadsSection(settings: $settings)
                 languageSection(settings: $settings)
-                if #available(iOS 26, *), readAlong?.isAvailable == true {
+                if #available(iOS 26, *),
+                   Self.showsExperimental(isAvailable: readAlong?.isAvailable == true, voiceOverOn: voiceOver) {
                     experimentalSection(settings: $settings)
                 }
                 aboutSection
@@ -220,10 +224,20 @@ struct SettingsView: View {
 
     // MARK: - Experimental
 
+    /// The Experimental section shows where Read-along can run, and not while VoiceOver runs. The
+    /// owner: "the audio would be playing together with the text which is already highlighted, do
+    /// not show this experimental toggle for voice over users". Only the switch goes: the stored
+    /// setting is left as it is, and the feature stays usable if it was already on.
+    static func showsExperimental(isAvailable: Bool, voiceOverOn: Bool) -> Bool {
+        isAvailable && !voiceOverOn
+    }
+
     /// Features still being tried out. Only iOS 26 and later has the on-device speech model that
     /// Read-along needs, and only on hardware Speech transcribes on (`ReadAlongCenter.isAvailable`),
     /// so elsewhere the section isn't drawn at all. Turning the switch off
     /// deletes every transcript (`AppSettings.readAlongEnabled`).
+    ///
+    /// Not drawn while VoiceOver runs (`showsExperimental`).
     @available(iOS 26, *)
     private func experimentalSection(settings: Bindable<AppSettings>) -> some View {
         Section {

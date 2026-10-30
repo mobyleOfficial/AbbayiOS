@@ -64,7 +64,12 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
 - **experimental** (iOS 26 and later, and only where Speech's transcriber runs:
   `ReadAlongCenter.isAvailable`, read from the environment; earlier systems, the Simulator and
   hardware without the engine don't draw the section. In the Simulator, `-stubReadAlongEngine`
-  draws it with a stub engine and the switch off):
+  draws it with a stub engine and the switch off. **Not drawn while VoiceOver runs**, and it comes
+  and goes live as VoiceOver is switched (owner: "the audio would be playing together with the text
+  which is already highlighted, do not show this experimental toggle for voice over users"). Only
+  the switch is hidden: the stored setting is untouched, and if Read-along was already on, the
+  player's Text pill and the feature stay. The rule is `SettingsView.showsExperimental`, unit-tested
+  in `SettingsViewExperimentalTests`; XCUITest can't run VoiceOver, so it isn't driven):
   **Read-along** (`settings.experimental.readAlong`, pt-BR *Leitura acompanhada*): a switch bound to
   `AppSettings.readAlongEnabled`, off by default. The footer says what it does: the text is made on
   the device from the audio, can get words wrong, nothing is sent, the microphone is never used,

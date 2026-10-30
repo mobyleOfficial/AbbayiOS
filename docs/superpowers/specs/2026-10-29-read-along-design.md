@@ -85,7 +85,11 @@ time; behaviour in the background (not needed, see *When transcription runs*).
 
 ### Settings › Experimental
 
-A new **Experimental** section in `SettingsView`, shown only on iOS 26+.
+A new **Experimental** section in `SettingsView`, shown only on iOS 26+, and not while VoiceOver
+runs (owner, after the second device test: "the audio would be playing together with the text which
+is already highlighted, do not show this experimental toggle for voice over users"). Only the switch
+is hidden, live as VoiceOver is switched; the stored setting is untouched, so a Read-along already
+on stays usable.
 
 - One switch, **Read-along**, off by default, persisted in `AppSettings` like the other settings.
 - A footer explaining it: the app writes the text from the audiobook's audio, on this iPhone; it
