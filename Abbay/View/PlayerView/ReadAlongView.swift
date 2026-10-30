@@ -8,10 +8,15 @@ import SwiftUI
 /// The read-along text in the player's cover square (#192, option A): the text takes the cover's
 /// place, like lyrics in Apple Music, and nothing else on the player moves.
 ///
-/// It owns the screen's `ReadAlongSession` and drives it while it is on screen, and only then:
-/// `show` when it appears, when the screen follows another book and when the app comes back;
-/// `stop` when it leaves the screen (the pill flips back, the player closes, Read-along is turned
-/// off) and when the app leaves the foreground. Nothing transcribes while the text is hidden.
+/// It drives the screen's `ReadAlongSession` while it is on screen, and only then: `show` when it
+/// appears, when the screen follows another book and when the app comes back; `stop` when it
+/// leaves the screen (the pill flips back, the player closes, Read-along is turned off) and when
+/// the app leaves the foreground. Nothing transcribes while the text is hidden.
+///
+/// The session isn't this view's: `PlayerView` owns it (`ReadAlongSessionSlot`), because this view
+/// is rebuilt each time the pill flips back and forth or the phone turns (the cover sits in another
+/// branch of the layout). A session of its own would load the transcript and check the language
+/// and model again each time, flashing *Preparing text…*.
 ///
 /// The shown time is the scrubber's while a finger drags it, else the player's own time
 /// (`PlayerViewModel.liveBookTime`), polled every 0.1 s by a `TimelineView` inside this view only,
@@ -20,18 +25,22 @@ struct ReadAlongView: View {
     let model: PlayerViewModel
     let scrub: PlayerScrub
 
+    /// The player screen's session, made the first time the text shows.
+    let slot: ReadAlongSessionSlot
+
     @Environment(ReadAlongCenter.self)
     private var center
     @Environment(\.scenePhase)
     private var scenePhase
-    /// Made on first appearance, kept while the screen lives: what it saved and resolved (the
-    /// language, the model) survives the text being hidden and shown again.
-    @State
-    private var session: ReadAlongSession?
 
-    init(model: PlayerViewModel, scrub: PlayerScrub) {
+    init(model: PlayerViewModel, scrub: PlayerScrub, slot: ReadAlongSessionSlot) {
         self.model = model
         self.scrub = scrub
+        self.slot = slot
+    }
+
+    private var session: ReadAlongSession {
+        slot.session(from: center)
     }
 
     var body: some View {
@@ -39,27 +48,34 @@ struct ReadAlongView: View {
             // A dark fill rather than glass: the text is content, not a control.
             RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous)
                 .fill(Color.black.opacity(0.28))
-            if let session {
-                ReadAlongContent(session: session, model: model, scrub: scrub)
-            }
+            ReadAlongContent(session: session, model: model, scrub: scrub)
         }
         .clipShape(RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.Player.readAlong)
-        .onAppear { show() }
-        .onDisappear { session?.stop() }
+        .onAppear {
+            slot.appeared()
+            show()
+        }
+        .onDisappear {
+            // After a rotation the new square may appear before the old one goes: the session
+            // stops only once no square shows it.
+            if slot.disappeared() {
+                session.stop()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 show()
             } else {
-                session?.stop()
+                session.stop()
             }
         }
         // The screen follows the loaded book after a switch (Siri, CarPlay, Play on another book).
         .onChange(of: model.book.url) { show() }
         // A chapter that finishes downloading can be transcribed now: the text appears by itself.
         .onChange(of: downloadedChapters) {
-            session?.downloadsChanged(model.book)
+            session.downloadsChanged(model.book)
         }
     }
 
@@ -71,10 +87,6 @@ struct ReadAlongView: View {
 
     private func show() {
         guard scenePhase == .active else { return }
-        let session = session ?? center.makeSession()
-        if self.session == nil {
-            self.session = session
-        }
         session.show(model.book, at: scrub.time ?? model.liveBookTime())
     }
 
@@ -101,6 +113,39 @@ struct ReadAlongView: View {
     }
 }
 
+// MARK: - Session slot
+
+/// One player screen's read-along session, held by `PlayerView` so it outlives the square: the
+/// square is rebuilt on every flip of the Text pill and every rotation, and the session's language,
+/// model check and loaded transcript must not be redone each time. Made lazily, the first time the
+/// text shows, so a screen that never shows it costs nothing.
+///
+/// It also counts the squares on screen: in a rotation the new layout's square can appear before
+/// the old one disappears, and the old one's `stop` must not stop the session the new one shows.
+@MainActor
+final class ReadAlongSessionSlot {
+    private var session: ReadAlongSession?
+    private var squaresOnScreen = 0
+
+    /// The session, made with `center` the first time it is asked for.
+    func session(from center: ReadAlongCenter) -> ReadAlongSession {
+        if let session { return session }
+        let made = center.makeSession()
+        session = made
+        return made
+    }
+
+    func appeared() {
+        squaresOnScreen += 1
+    }
+
+    /// True when no square shows the session any more: it is time to stop it.
+    func disappeared() -> Bool {
+        squaresOnScreen = max(squaresOnScreen - 1, 0)
+        return squaresOnScreen == 0
+    }
+}
+
 // MARK: - Content
 
 /// The lines, or a message when there is nothing to show yet, and the language label. The one
@@ -115,16 +160,17 @@ private struct ReadAlongContent: View {
     private var reduceMotion
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { context in
-            let time = scrub.time ?? model.liveBookTime()
-            ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .bottomLeading) {
+            TimelineView(.periodic(from: .now, by: 0.1)) { context in
+                let time = scrub.time ?? model.liveBookTime()
                 text(at: time)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                languageMenu
+                    .onChange(of: context.date) {
+                        session.timeChanged(time)
+                    }
             }
-            .onChange(of: context.date) {
-                session.timeChanged(time)
-            }
+            // Outside the poll: it changes only with the language or the choices.
+            ReadAlongLanguageMenu(session: session)
         }
     }
 
@@ -173,45 +219,63 @@ private struct ReadAlongContent: View {
         default: false
         }
     }
+}
 
-    /// *English ▾* in the bottom-leading corner, once the language is known. It stays when iOS
-    /// can't transcribe that language, so another can be picked.
-    @ViewBuilder
-    private var languageMenu: some View {
-        if let language = session.language, !session.choices.isEmpty {
-            let name = ReadAlongLanguage.displayName(language)
-            Menu {
-                ForEach(ReadAlongView.languageChoices(session.choices), id: \.id) { choice in
-                    Button {
-                        session.setLanguage(choice.id)
-                    } label: {
-                        if choice.id == language {
-                            Label(choice.name, systemImage: "checkmark")
-                        } else {
-                            Text(choice.name)
-                        }
+// MARK: - Language menu
+
+/// *English ▾* in the bottom-leading corner, once the language is known. It stays when iOS can't
+/// transcribe that language, so another can be picked. The entries are named once per change of
+/// the choices, not on each render: iOS 26 lists dozens of locales.
+private struct ReadAlongLanguageMenu: View {
+    let session: ReadAlongSession
+
+    @State
+    private var choices: [ReadAlongView.LanguageChoice] = []
+
+    var body: some View {
+        Group {
+            if let language = session.language, !choices.isEmpty {
+                menu(language: language)
+            }
+        }
+        .onChange(of: session.choices, initial: true) { _, ids in
+            choices = ReadAlongView.languageChoices(ids)
+        }
+    }
+
+    private func menu(language: String) -> some View {
+        let name = ReadAlongLanguage.displayName(language)
+        return Menu {
+            ForEach(choices, id: \.id) { choice in
+                Button {
+                    session.setLanguage(choice.id)
+                } label: {
+                    if choice.id == language {
+                        Label(choice.name, systemImage: "checkmark")
+                    } else {
+                        Text(choice.name)
                     }
                 }
-            } label: {
-                HStack(spacing: SpaceConstants.sx4.value) {
-                    Text(name)
-                    Image(systemName: "chevron.down")
-                        .font(.caption2.weight(.bold))
-                        .accessibilityHidden(true)
-                }
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .foregroundColor(ColorConstants.white.value)
-                .padding(.horizontal, SpaceConstants.sx12.value)
-                .padding(.vertical, SpaceConstants.sx8.value)
-                .abbayGlass(in: Capsule(), interactive: true)
-                .contentShape(Capsule())
             }
-            .accessibilityLabel(Localizable.readAlongLanguage.localized)
-            .accessibilityValue(name)
-            .accessibilityIdentifier(AccessibilityID.Player.readAlongLanguage)
-            .padding(SpaceConstants.sx12.value)
+        } label: {
+            HStack(spacing: SpaceConstants.sx4.value) {
+                Text(name)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .accessibilityHidden(true)
+            }
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .foregroundColor(ColorConstants.white.value)
+            .padding(.horizontal, SpaceConstants.sx12.value)
+            .padding(.vertical, SpaceConstants.sx8.value)
+            .abbayGlass(in: Capsule(), interactive: true)
+            .contentShape(Capsule())
         }
+        .accessibilityLabel(Localizable.readAlongLanguage.localized)
+        .accessibilityValue(name)
+        .accessibilityIdentifier(AccessibilityID.Player.readAlongLanguage)
+        .padding(SpaceConstants.sx12.value)
     }
 }
 

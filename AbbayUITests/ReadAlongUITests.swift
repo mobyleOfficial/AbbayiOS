@@ -259,6 +259,27 @@ final class ReadAlongUITests: XCTestCase {
         XCTAssertTrue(square.waitForExistence(timeout: 5), "the text did not stay up")
     }
 
+    /// The square is rebuilt by a flip and by a rotation, but the session isn't: the text comes
+    /// straight back, with no *Preparing text…* in between.
+    func test_flipAndRotation_bringTheTextStraightBack() throws {
+        launch()
+        try openPlayableBook()
+        showText()
+        let pill = element(AccessibilityID.Player.text)
+        let firstLine = element(AccessibilityID.Player.readAlongLine(0))
+        let status = element(AccessibilityID.Player.readAlongStatus)
+
+        pill.tap()
+        XCTAssertTrue(square.waitForNonExistence(timeout: 5))
+        pill.tap()
+        XCTAssertTrue(firstLine.waitForExistence(timeout: 2), "the text didn't come back")
+        XCTAssertFalse(status.exists, "the text was prepared again after a flip")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(firstLine.waitForExistence(timeout: 5), "the text didn't survive the rotation")
+        XCTAssertFalse(status.exists, "the text was prepared again after a rotation")
+    }
+
     /// Landscape (#270) puts the cover on the leading side; the text takes its place there.
     func test_landscape_textTakesTheCoversPlace() throws {
         launch()

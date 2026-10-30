@@ -56,6 +56,10 @@ struct PlayerView: View {
     /// Optional so previews and tests can omit it: there is no Text pill then.
     @Environment(ReadAlongCenter.self)
     private var readAlong: ReadAlongCenter?
+    /// The read-along session, here rather than in the square, which is rebuilt on each flip and
+    /// rotation. One per screen, and the overlay builds one screen per presented book.
+    @State
+    private var readAlongSlot = ReadAlongSessionSlot()
     /// Whether the chapters are open: shared state (`PlayerPresentation.isShowingChapters`), so a
     /// fold or a resize keeps them open in the other form.
     @Environment(PlayerPresentation.self)
@@ -194,7 +198,7 @@ struct PlayerView: View {
     @ViewBuilder
     private var coverSquare: some View {
         if showsText {
-            ReadAlongView(model: model, scrub: scrub)
+            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot)
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }
