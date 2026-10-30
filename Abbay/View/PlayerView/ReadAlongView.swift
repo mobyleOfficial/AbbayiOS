@@ -484,7 +484,8 @@ private struct ReadAlongLanguageMenu: View {
         .foregroundColor(ColorConstants.white.value)
         .padding(.horizontal, SpaceConstants.sx12.value)
         .padding(.vertical, SpaceConstants.sx8.value)
-        .abbayGlass(in: Capsule(), interactive: true)
+        // Not interactive: the clear UIKit button over it takes every touch.
+        .abbayGlass(in: Capsule(), interactive: false)
         // The capsule only draws; the clear UIKit button over it is the control, and says when its
         // menu opens and closes (SwiftUI's `Menu` doesn't).
         .accessibilityHidden(true)

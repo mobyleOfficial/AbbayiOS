@@ -29,24 +29,45 @@ struct ReadAlongLanguageMenuButton: UIViewRepresentable {
         let button = MenuButton(type: .custom)
         button.showsMenuAsPrimaryAction = true
         button.backgroundColor = .clear
-        button.accessibilityLabel = Localizable.readAlongLanguage.localized
         button.accessibilityIdentifier = AccessibilityID.Player.readAlongLanguage
         return button
     }
 
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func updateUIView(_ button: MenuButton, context: Context) {
+        // Here rather than once at creation: the in-app language can change while the button
+        // stays (an iPad with Settings open beside the player).
+        button.accessibilityLabel = Localizable.readAlongLanguage.localized
         button.accessibilityValue = name
         button.onOpenChange = onOpenChange
+        let coordinator = context.coordinator
+        coordinator.onPick = onPick
+        // Only when the entries or the checkmark change: the menu opening re-renders this view
+        // too, and replacing the menu while it shows is wasted work and may flicker.
+        guard coordinator.choices != choices || coordinator.current != current else { return }
+        coordinator.choices = choices
+        coordinator.current = current
         button.menu = UIMenu(children: choices.map { choice in
-            UIAction(title: choice.name, state: choice.id == current ? .on : .off) { _ in
-                onPick(choice.id)
+            UIAction(title: choice.name, state: choice.id == current ? .on : .off) { [weak coordinator] _ in
+                coordinator?.onPick(choice.id)
             }
         })
     }
 
+    /// The inputs the shown menu was built from, and the latest pick handler, which its actions
+    /// call so a kept menu never runs a stale one.
+    final class Coordinator {
+        var choices: [ReadAlongView.LanguageChoice]?
+        var current: String?
+        var onPick: (String) -> Void = { _ in }
+    }
+
     /// Taken out while its menu is open (the text went away under it): the menu is gone too, so
     /// nothing should stay pinned waiting for a close that won't be reported.
-    static func dismantleUIView(_ button: MenuButton, coordinator: ()) {
+    static func dismantleUIView(_ button: MenuButton, coordinator: Coordinator) {
         guard button.isMenuOpen, let onOpenChange = button.onOpenChange else { return }
         // Not during the update that took it out.
         DispatchQueue.main.async { onOpenChange(false) }

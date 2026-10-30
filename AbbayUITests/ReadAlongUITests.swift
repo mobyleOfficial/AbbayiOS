@@ -42,7 +42,8 @@ final class ReadAlongUITests: XCTestCase {
     var square: XCUIElement { element(AccessibilityID.Player.readAlong) }
 
     /// `hideControlsAfter`: seconds before the read-along controls hide with no interaction. Long by
-    /// default, so a slow step never finds a control gone; the auto-hide tests pass the real 3 s.
+    /// default, so a slow step never finds a control gone; the auto-hide tests pass 6 s (the real
+    /// 3 s ran out before XCUITest finished checking the controls were there; 3 s is unit-tested).
     func launch(readAlong: Bool = true, hideControlsAfter: Int = 600, _ extra: [String] = []) {
         app.launchArguments = [
             LaunchArgument.seedLibrary,

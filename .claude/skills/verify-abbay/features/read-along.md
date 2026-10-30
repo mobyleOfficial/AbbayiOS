@@ -81,7 +81,9 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   label's menu is a clear UIKit button over the glass capsule (`ReadAlongLanguageMenuButton`, told
   `willDisplayMenuFor` / `willEndFor`): SwiftUI's `Menu` content fires `onAppear` once, the first
   time it opens, and `onDisappear` never (iOS 26.5). `-readAlongControlsHideAfter <seconds>`
-  (Debug) changes the 3 s; the UI tests launch with 600 except the immersion tests.
+  (Debug) changes the 3 s; the UI tests launch with 600, the immersion tests with 6 (the real 3 s
+  ran out before XCUITest, at about a second a query, had checked the controls were there; the 3 s
+  default is unit-tested).
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
   nothing (it never loads or plays a book). While the controls are hidden it only brings them back.
 - **language:** a LibriVox book uses the language LibriVox lists (stored when the book is added); an
@@ -170,8 +172,8 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   without *Preparing text…*, the mini player and the player's close button aren't hittable under
   it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
   expand button doesn't exist while the chapter panel is open and works once it closes.
-- Immersion (`ReadAlongImmersionUITests.swift`, part of `ReadAlongUITests`, launched with the real
-  3 s): the square's label and expand button stop existing after the delay, a tap on the square
+- Immersion (`ReadAlongImmersionUITests.swift`, part of `ReadAlongUITests`, launched with a 6 s
+  delay): the square's label and expand button stop existing after the delay, a tap on the square
   brings both back without moving the elapsed time, and they hide again; full screen, play/pause,
   collapse and the label hide and a tap on the text brings all three back (still *Play*); on the
   loaded, paused book a line tap while hidden only reveals (elapsed unchanged) and the next one
