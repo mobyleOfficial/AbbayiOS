@@ -104,7 +104,8 @@ struct PlayerExpansionOverlay: View {
             PlayerView(
                 model: model,
                 onCoverFrame: { [geometry] in geometry.setCoverFrame($0) },
-                onChaptersOpen: { [geometry] in geometry.setChaptersOpen($0) }
+                onChaptersOpen: { [geometry] in geometry.setChaptersOpen($0) },
+                onTextShown: { [geometry] in geometry.setTextShown($0) }
             )
             .id(book.url)
         }
@@ -142,6 +143,9 @@ final class ExpansionGeometry {
     /// The chapter panel (G2) floats over the cover: while it is open, the cover's collapse handle
     /// (drawn above the details screen) must not take the panel's touches.
     private(set) var isChaptersOpen = false
+    /// The read-along text (#192) is in the cover's square: its lines take taps (a seek) and its
+    /// language menu opens there, so the handle stands aside for it too.
+    private(set) var isTextShown = false
 
     func setCoverFrame(_ frame: CGRect) {
         if coverFrame != frame { coverFrame = frame }
@@ -149,6 +153,10 @@ final class ExpansionGeometry {
 
     func setChaptersOpen(_ open: Bool) {
         if isChaptersOpen != open { isChaptersOpen = open }
+    }
+
+    func setTextShown(_ shown: Bool) {
+        if isTextShown != shown { isTextShown = shown }
     }
 }
 
@@ -503,8 +511,9 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             Color.clear
                 .contentShape(Rectangle())
                 .gesture(panelDrag)
-                // Under the open chapter panel, the panel's rows and handle take the touches.
-                .allowsHitTesting(!geometry.isChaptersOpen)
+                // Under the open chapter panel, the panel's rows and handle take the touches; over
+                // the read-along text, its lines and language menu do.
+                .allowsHitTesting(!geometry.isChaptersOpen && !geometry.isTextShown)
         }
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)
@@ -552,8 +561,10 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
 // MARK: - Header
 
-/// The details screen's top (G1): a glass close button (⌄) on the left and the grabber in the
-/// middle. Both carry the collapse drag. No ⋯ button: there is nothing to put in it yet.
+/// The details screen's top (G1): a glass close button (⌄) on the left, and the rest of the strip a
+/// drag area. Both carry the collapse drag. No ⋯ button: there is nothing to put in it yet. The
+/// grabber bar the strip used to draw is gone (owner's ask): ⌄ already says how to close, and the
+/// drag still works from anywhere along the strip.
 private struct ExpansionHeader<Drag: Gesture>: View {
     let drag: Drag
     let onClose: () -> Void
@@ -564,14 +575,12 @@ private struct ExpansionHeader<Drag: Gesture>: View {
 
     var body: some View {
         ZStack {
-            Capsule()
-                .fill(ColorConstants.white.value.opacity(0.35))
-                .frame(width: SpaceConstants.sx36.value, height: 5)
+            Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .gesture(drag)
                 // The chevron is VoiceOver's one "Close player" (with the escape action); the
-                // grabber is a drag handle only. The identifier stays for the UI tests' drags.
+                // strip is a drag area only. The identifier stays for the UI tests' drags.
                 .accessibilityIdentifier(AccessibilityID.Player.grabber)
                 .accessibilityHidden(true)
             HStack {

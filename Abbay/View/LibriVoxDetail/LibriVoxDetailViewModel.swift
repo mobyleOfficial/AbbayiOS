@@ -29,6 +29,9 @@ final class LibriVoxDetailViewModel: ObservableObject {
     private let path: NetworkPathProviding
     /// Read when Download is tapped, so a change in Settings applies to the next download.
     private let cellularPreference: () -> CellularDownloadPreference
+    /// Remembers the listed language for the saved book (a code such as `en`), as a hint for
+    /// read-along. Kept whether or not read-along is on: it is a hint, not text.
+    private let recordLanguage: (String, URL?) -> Void
     private let onAdded: (AudioModel) -> Void
     /// Presents the details screen, the same presentation a Library row opens.
     private let openPlayer: (AudioModel) -> Void
@@ -44,6 +47,10 @@ final class LibriVoxDetailViewModel: ObservableObject {
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
         cellularPreference: @escaping () -> CellularDownloadPreference = { .ask },
+        recordLanguage: @escaping (String, URL?) -> Void = { code, url in
+            guard DependencyContainer.isConfigured else { return }
+            DependencyContainer.shared.settings.setReadAlongLanguage(code, for: url)
+        },
         noticeReporter: NoticeReporting = NoticeCenter.shared,
         onAdded: @escaping (AudioModel) -> Void,
         openPlayer: @escaping (AudioModel) -> Void
@@ -55,6 +62,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.saveAudio = saveAudio
         self.path = path
         self.cellularPreference = cellularPreference
+        self.recordLanguage = recordLanguage
         self.noticeReporter = noticeReporter
         self.onAdded = onAdded
         self.openPlayer = openPlayer
@@ -158,6 +166,9 @@ final class LibriVoxDetailViewModel: ObservableObject {
                 noticeReporter.report(.saveFailed)
                 isStarting = false
                 return
+            }
+            if let code = ReadAlongLanguage.languageCode(fromLibriVox: details.book.language) {
+                recordLanguage(code, model.url)
             }
             addedBook = model
             onAdded(model)

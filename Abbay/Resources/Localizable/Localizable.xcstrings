@@ -2313,6 +2313,60 @@
         }
       }
     },
+    "experimentalTitle" : {
+      "comment" : "Settings experimental section header",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental"
+          }
+        }
+      }
+    },
+    "readAlongToggle" : {
+      "comment" : "Settings read-along switch",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read-along"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leitura acompanhada"
+          }
+        }
+      }
+    },
+    "readAlongFooter" : {
+      "comment" : "Settings experimental section footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the audiobook's text as it plays, highlighting the words being read. The text is made from the audio on this iPhone, so it can get words wrong, especially names. Nothing is sent anywhere and the microphone is never used. The first time a language is used, iOS may download its speech model."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o texto do audiolivro enquanto ele toca, destacando as palavras lidas. O texto é gerado a partir do áudio neste iPhone, então pode errar palavras, principalmente nomes. Nada é enviado e o microfone nunca é usado. Na primeira vez que um idioma é usado, o iOS pode baixar o modelo de fala dele."
+          }
+        }
+      }
+    },
     "settingsAbout" : {
       "comment" : "Settings section header",
       "extractionState" : "manual",
@@ -3245,6 +3299,258 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ABRIR"
+          }
+        }
+      }
+    },
+    "readAlongPill" : {
+      "comment" : "Player: the Text pill, which flips the cover to the read-along text",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto"
+          }
+        }
+      }
+    },
+    "readAlongCoverPill" : {
+      "comment" : "Player: the Text pill's title while the text shows; a tap shows the cover again",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cover"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capa"
+          }
+        }
+      }
+    },
+    "readAlongShowCover" : {
+      "comment" : "Player: VoiceOver label of the Text pill while the text shows",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show cover"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar capa"
+          }
+        }
+      }
+    },
+    "readAlongPreparing" : {
+      "comment" : "Player read-along square: the first lines are being transcribed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing text…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando o texto…"
+          }
+        }
+      }
+    },
+    "readAlongDownloadingModel" : {
+      "comment" : "Player read-along square: iOS downloads a speech model; %@ is a language name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading the %@ speech model…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixando o modelo de fala em %@…"
+          }
+        }
+      }
+    },
+    "readAlongUnsupported" : {
+      "comment" : "Player read-along square: iOS can't transcribe the language; %@ is a language name",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text isn't available in %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto não disponível em %@."
+          }
+        }
+      }
+    },
+    "readAlongNeedsDownload" : {
+      "comment" : "Player read-along square: the LibriVox chapter being played isn't downloaded",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The audio must be downloaded first to show its text."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O áudio precisa ser baixado primeiro para mostrar o texto."
+          }
+        }
+      }
+    },
+    "readAlongFileMissing" : {
+      "comment" : "Player read-along square: the imported file isn't on the device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The audio file must be on this iPhone to show its text."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O arquivo de áudio precisa estar neste iPhone para mostrar o texto."
+          }
+        }
+      }
+    },
+    "readAlongNoSpeech" : {
+      "comment" : "Player read-along square: nothing was recognised at this point (music, silence)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No speech here."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem fala neste trecho."
+          }
+        }
+      }
+    },
+    "readAlongFailed" : {
+      "comment" : "Player read-along square: transcription failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't make the text."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível gerar o texto."
+          }
+        }
+      }
+    },
+    "readAlongLanguage" : {
+      "comment" : "Player read-along square: VoiceOver label of the language menu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text language"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma do texto"
+          }
+        }
+      }
+    },
+    "readAlongLineHint" : {
+      "comment" : "Player read-along square: VoiceOver hint on a line of the text, which seeks there when tapped",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays from this line"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca a partir desta linha"
+          }
+        }
+      }
+    },
+    "readAlongFullScreen" : {
+      "comment" : "Player read-along square: VoiceOver label of the button that shows the text full screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full screen"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tela cheia"
+          }
+        }
+      }
+    },
+    "readAlongExitFullScreen" : {
+      "comment" : "Player read-along full screen: VoiceOver label of the button that returns the text to the player's square",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exit full screen"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair da tela cheia"
           }
         }
       }

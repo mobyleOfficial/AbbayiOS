@@ -76,7 +76,7 @@
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
   - Opened with nothing visible to grow from (a LibriVox page's Play with nothing loaded), it
     grows from a 56 pt strip along the bottom edge.
-- **collapse:** a drag down from the details screen's grabber header, its close button
+- **collapse:** a drag down from the details screen's header strip (no grabber bar since #192's device test), its close button
   (`player.close`) or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
   `player.close` collapses it animated. While the panel is moving, a drag anywhere on it continues
   the motion. On every iOS version these are the only handles: the chapter list moved into the
@@ -84,7 +84,11 @@
   list-at-top collapse (iOS 18+, `ExpansionListCollapse`) was deleted. The cover's collapse
   handle is drawn by the overlay above the details screen, so while the chapter panel is open
   over the cover it stops taking touches (`ExpansionGeometry.isChaptersOpen`, reported by
-  `PlayerView`'s `onChaptersOpen`); otherwise it swallowed the panel's taps and drags there.
+  `PlayerView`'s `onChaptersOpen`); otherwise it swallowed the panel's taps and drags there. It
+  stands aside the same way while the read-along text is in the cover's square
+  (`ExpansionGeometry.isTextShown`, from `onTextShown`; [player](player.md) *read-along*), so the
+  lines and the language menu take their taps: a drag on the text doesn't collapse the player,
+  the header and ⌄ still do.
   - Opened from a library cover, the collapse (⌄ or a drag) lands back on that cover at its latest
     frame while it is still on screen; once it is gone (scrolled away, deleted, the Continue card
     showing another book) it lands on the bar, or the strip. A drag's travel is at least half the

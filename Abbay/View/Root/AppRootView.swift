@@ -47,6 +47,8 @@ struct AppRootView: View {
             ZStack {
                 tabs
                 PlayerExpansionOverlay(models: models.details)
+                // The read-along text full screen (#192): over the player and browsing alike.
+                ReadAlongFullScreenHost()
             }
         }
         // Strings are read when a body runs, so a language switch rebuilds the tabs and the player

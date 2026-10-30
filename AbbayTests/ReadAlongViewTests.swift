@@ -1,0 +1,166 @@
+//
+//  ReadAlongViewTests.swift
+//  AbbayTests
+//
+
+@testable import Abbay
+import XCTest
+
+/// The read-along square's language menu: each choice named by its language, with the region only
+/// where two choices share a language, in the in-app language.
+final class ReadAlongViewTests: XCTestCase {
+    private let english = Locale(identifier: "en")
+    private let portuguese = Locale(identifier: "pt-BR")
+
+    func test_languageChoices_differentLanguages_areNamedByLanguageAlone() {
+        let choices = ReadAlongView.languageChoices(["pt-BR", "en-US"], in: english)
+
+        XCTAssertEqual(choices.map(\.name), ["English", "Portuguese"])
+        XCTAssertEqual(choices.map(\.id), ["en-US", "pt-BR"], "sorted by name, ids kept")
+    }
+
+    func test_languageChoices_sharedLanguage_carriesTheRegion() {
+        let choices = ReadAlongView.languageChoices(["en-US", "en-GB", "fr-FR"], in: english)
+
+        XCTAssertEqual(choices.map(\.name), ["English (United Kingdom)", "English (United States)", "French"])
+    }
+
+    func test_languageChoices_areNamedInTheInAppLanguage_andTakeUnderscoredIds() {
+        let choices = ReadAlongView.languageChoices(["pt_BR", "pt_PT", "en_US"], in: portuguese)
+
+        XCTAssertEqual(choices.first?.name, "Inglês")
+        XCTAssertEqual(choices.count, 3)
+        XCTAssertTrue(choices.dropFirst().allSatisfy { $0.name.hasPrefix("Português (") }, "\(choices)")
+        XCTAssertEqual(Set(choices.map(\.id)), ["pt_BR", "pt_PT", "en_US"])
+    }
+
+    // MARK: - The session slot
+
+    @MainActor
+    private func makeCenter() -> ReadAlongCenter {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        return ReadAlongCenter(
+            transcriber: StubReadAlongTranscriber(),
+            store: ReadAlongStore(root: root),
+            settings: AppSettings(store: InMemoryKeyValueStore())
+        )
+    }
+
+    /// The square is rebuilt on each flip and rotation; the session it shows must be the same one,
+    /// so its language, model check and transcript aren't redone.
+    @MainActor
+    func test_sessionSlot_handsOutOneSession() {
+        let center = makeCenter()
+        let slot = ReadAlongSessionSlot()
+
+        let first = slot.session(from: center)
+        let second = slot.session(from: center)
+
+        XCTAssertTrue(first === second)
+        XCTAssertFalse(first === ReadAlongSessionSlot().session(from: center), "one session per screen")
+    }
+
+    /// In a rotation the new square can appear before the old one disappears: only the last one to
+    /// go stops the session.
+    @MainActor
+    func test_sessionSlot_stopsOnlyWhenNoSquareShowsIt() {
+        let slot = ReadAlongSessionSlot()
+
+        slot.appeared()
+        slot.appeared()
+
+        XCTAssertFalse(slot.disappeared(), "the new square still shows it")
+        XCTAssertTrue(slot.disappeared(), "the last square went")
+        XCTAssertTrue(slot.disappeared(), "an extra disappearance doesn't go negative")
+        slot.appeared()
+        XCTAssertTrue(slot.disappeared())
+    }
+
+    /// Full screen (#192) counts as a square on screen: the session keeps running while either the
+    /// square or the full-screen text shows it, whichever goes first.
+    @MainActor
+    func test_sessionSlot_staysShownWhileTheSquareOrFullScreenShowsIt() {
+        let slot = ReadAlongSessionSlot()
+
+        slot.appeared(.square)
+        slot.appeared(.fullScreen)
+        XCTAssertFalse(slot.disappeared(.square), "the full screen still shows it")
+        XCTAssertTrue(slot.disappeared(.fullScreen))
+
+        slot.appeared(.fullScreen)
+        slot.appeared(.square)
+        XCTAssertFalse(slot.disappeared(.fullScreen), "the square still shows it")
+        XCTAssertTrue(slot.disappeared(.square))
+    }
+
+    /// The full screen's text is larger and kept to a readable column; the square's fills it.
+    func test_style_fullScreenIsLargerAndKeptToAColumn() {
+        XCTAssertNil(ReadAlongStyle.square.maxLineWidth)
+        XCTAssertEqual(ReadAlongStyle.fullScreen.maxLineWidth, 600)
+        XCTAssertEqual(ReadAlongStyle.square.lineStyle, .title2)
+        XCTAssertEqual(ReadAlongStyle.fullScreen.lineStyle, .title)
+    }
+
+    /// The full-screen buttons say what they do, in both languages.
+    func test_fullScreenLabels_areTranslated() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(Localizable.readAlongFullScreen.localized, "Full screen")
+        XCTAssertEqual(Localizable.readAlongExitFullScreen.localized, "Exit full screen")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(Localizable.readAlongFullScreen.localized, "Tela cheia")
+        XCTAssertEqual(Localizable.readAlongExitFullScreen.localized, "Sair da tela cheia")
+    }
+
+    // MARK: - Scrubbing
+
+    /// The square starts no run while a finger is on the scrubber, and starts one as soon as it
+    /// lifts: the scrubbed time stays shown until the seek lands, but the drag is over at once.
+    @MainActor
+    func test_scrub_isDraggingOnlyWhileTheFingerIsDown_whileItsTimeOutlivesTheDrag() {
+        let scrub = PlayerScrub()
+        XCTAssertFalse(scrub.isDragging)
+
+        scrub.drag(to: 120)
+        XCTAssertTrue(scrub.isDragging)
+        XCTAssertEqual(scrub.time, 120)
+
+        scrub.finish()
+        XCTAssertFalse(scrub.isDragging)
+        XCTAssertEqual(scrub.time, 120, "shown until the seek lands")
+    }
+
+    // MARK: - VoiceOver
+
+    /// A line seeks when tapped, so VoiceOver says so, in both languages.
+    func test_lineHint_isTranslated() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(Localizable.readAlongLineHint.localized, "Plays from this line")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(Localizable.readAlongLineHint.localized, "Toca a partir desta linha")
+    }
+
+    // MARK: - Text pill
+
+    /// The pill names what a tap shows: *Text* over the cover, *Cover* over the text (owner's ask
+    /// after the device test), in both languages.
+    func test_textPill_namesWhatATapShows() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: false), "Text")
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: true), "Cover")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: false), "Texto")
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: true), "Capa")
+    }
+}

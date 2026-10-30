@@ -61,6 +61,21 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   key, then cold-launch:
   `xcrun simctl spawn <udid> defaults write com.edyuto.Abbay abbay.settings.language -string pt-BR`;
   the library opens as *Biblioteca*, no crash report.
+- **experimental** (iOS 26 and later, and only where Speech's transcriber runs:
+  `ReadAlongCenter.isAvailable`, read from the environment; earlier systems, the Simulator and
+  hardware without the engine don't draw the section. In the Simulator, `-stubReadAlongEngine`
+  draws it with a stub engine and the switch off. **Not drawn while VoiceOver runs**, and it comes
+  and goes live as VoiceOver is switched (owner: "the audio would be playing together with the text
+  which is already highlighted, do not show this experimental toggle for voice over users"). Only
+  the switch is hidden: the stored setting is untouched, and if Read-along was already on, the
+  player's Text pill and the feature stay. The rule is `SettingsView.showsExperimental`, unit-tested
+  in `SettingsViewExperimentalTests`; XCUITest can't run VoiceOver, so it isn't driven):
+  **Read-along** (`settings.experimental.readAlong`, pt-BR *Leitura acompanhada*): a switch bound to
+  `AppSettings.readAlongEnabled`, off by default. The footer says what it does: the text is made on
+  the device from the audio, can get words wrong, nothing is sent, the microphone is never used,
+  and iOS may download a language's speech model the first time. Switching it off deletes every
+  transcript. Between Language and About. Value `"0"` / `"1"`. What the switch turns on is in
+  [read-along](read-along.md) and the [player](player.md)'s Text pill.
 - **about:**
   - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
     in an `SFSafariViewController`.
@@ -100,13 +115,17 @@ $B tap settings.playback.skipForward && $B tap-label "30 seconds"
 $B tap settings.done
 $B tap library.row.0.title && $B wait player.transport.forward   # label "Skip forward 30 seconds"
 $B tap settings.language.portuguese                               # nav title becomes "Ajustes"
+$B launch --seed-library --reset-settings -stubReadAlongEngine   # Simulator: Experimental drawn, Read-along off
 ```
 
 **Verified** (`SettingsUITests`): `library.toolbar.settings` opens it; `settings.done`,
 `settings.playback.{defaultSpeed,skipBack,skipForward}`,
 `settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
 `settings.about.{privacyPolicy,version,librivox,licenses,developer,audioStatus}` and
-`settings.about.licenses.body` resolve; changing Skip forward relabels the player's forward
+`settings.about.licenses.body` resolve; on iOS 26+ `settings.experimental.readAlong` is off by
+default, toggles, and its footer mentions the microphone (microfone in pt-BR) under
+`-stubReadAlongEngine`, and without it the Simulator draws no Experimental section
+(`test_experimental_*`); changing Skip forward relabels the player's forward
 button; choosing Português switches Settings and the Library without a relaunch; on a pt-BR
 device choosing English relabels both skip pickers to "15 seconds" at once
 (`test_switchingLanguage_relabelsTheSkipPickers`).

@@ -24,12 +24,15 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
     private let repository: DeleteAudioRepositoryProtocol
     private let removeDownloads: (String) -> Void
     private let forgetSettings: (URL?) -> Void
+    private let forgetReadAlong: (URL?) -> Void
     private let snapshotWriter: LibrarySnapshotWriterProtocol
 
     /// - Parameter removeDownloads: Cancels a LibriVox book's downloads and deletes its files,
     ///   given its librivoxID. Defaults to the container's download manager, when configured.
     /// - Parameter forgetSettings: Drops the book's own settings (its speed). Defaults to the
     ///   container's settings, on the main thread, when configured.
+    /// - Parameter forgetReadAlong: Drops the book's read-along language and transcript file.
+    ///   Defaults to the container's settings and `ReadAlongStore.shared`.
     init(
         repository: DeleteAudioRepositoryProtocol = DeleteAudioRepository(),
         removeDownloads: @escaping (String) -> Void = { id in
@@ -37,11 +40,13 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
             DependencyContainer.shared.downloads.remove(bookID: id)
         },
         forgetSettings: @escaping (URL?) -> Void = DeleteAudioUseCase.forgetSettingsOnMain,
+        forgetReadAlong: @escaping (URL?) -> Void = DeleteAudioUseCase.forgetReadAlongOnMain,
         snapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared
     ) {
         self.repository = repository
         self.removeDownloads = removeDownloads
         self.forgetSettings = forgetSettings
+        self.forgetReadAlong = forgetReadAlong
         self.snapshotWriter = snapshotWriter
     }
 
@@ -52,6 +57,7 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
                 removeDownloads(id)
             }
             forgetSettings(audio.url)
+            forgetReadAlong(audio.url)
             // By the book's identity, never its `fileURL`: a moved book's matches no row (#176).
             repository.execute(url: audio.url)
         }
@@ -59,15 +65,38 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
     }
 
     private static func forgetSettingsOnMain(_ url: URL?) {
-        let forget = {
+        onMain {
             // Checked when it runs: tests reset the container between cases.
             guard DependencyContainer.isConfigured else { return }
             DependencyContainer.shared.settings.forgetSpeed(for: url)
         }
+    }
+
+    private static func forgetReadAlongOnMain(_ url: URL?) {
+        onMain {
+            // The file goes even where no container is configured; the language needs settings.
+            guard DependencyContainer.isConfigured else {
+                forgetReadAlongNow(url, settings: nil, store: .shared)
+                return
+            }
+            forgetReadAlongNow(url, settings: DependencyContainer.shared.settings, store: .shared)
+        }
+    }
+
+    /// The language the book was remembered in, and its transcript file. The file goes whether or
+    /// not read-along is on: it may have been turned off with the book's text still on disk.
+    static func forgetReadAlongNow(_ url: URL?, settings: AppSettings?, store: ReadAlongStore) {
+        settings?.forgetReadAlong(for: url)
+        if let url {
+            store.delete(bookURL: url)
+        }
+    }
+
+    private static func onMain(_ work: @escaping () -> Void) {
         if Thread.isMainThread {
-            forget()
+            work()
         } else {
-            DispatchQueue.main.async(execute: forget)
+            DispatchQueue.main.async(execute: work)
         }
     }
 }
