@@ -73,8 +73,8 @@ LibriVox page's Play all open it.
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the
   clock reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
-- **read-along (#192, experimental; its own page is [read-along](read-along.md)):** with Read-along on in [Settings](settings.md) (iOS 26+, where
-  `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
+- **read-along (#192, experimental; its own page is [read-along](read-along.md)):** with Read-along on in [Settings](settings.md) (iOS 26+ with an
+  engine that runs here: `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
   `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
   the cover's square to the text (`player.readAlong`, `ReadAlongView`), like lyrics in Apple Music,
   with a short cross-fade; nothing else on the screen moves. While the text shows, the pill's icon
@@ -88,8 +88,10 @@ LibriVox page's Play all open it.
     and semibold with the spoken word in malachite, lines already read 35% white, upcoming ones 55%;
     the top and bottom edges fade. It follows playback (polled every 0.1 s from the player,
     `PlayerViewModel.liveBookTime`), the saved position for a book that isn't loaded, and the
-    scrubber while a finger drags it. Lines are `player.readAlong.line.<n>` (position in the
-    transcript); the current one has the selected trait, so VoiceOver can find it, and nothing is
+    scrubber while a finger drags it (no transcription starts under the finger: the text follows
+    what is already covered, and a run starts where it lifts). Lines are `player.readAlong.line.<n>` (position in the
+    transcript); each is a button to VoiceOver with the hint *Plays from this line* / *Toca a partir
+    desta linha*; the current one has the selected trait, so VoiceOver can find it, and nothing is
     announced as it moves. **Reduce Motion:** the text jumps line to line without scrolling, and no
     word is highlighted.
   - **tap a line:** seeks to its start (`PlayerViewModel.seek`). On a book that isn't loaded it does

@@ -3,6 +3,7 @@
 //  AbbayUITests
 //
 
+import Speech
 import XCTest
 
 /// The Settings sheet (from the library's gear), the skip amounts reaching the player's buttons,
@@ -21,13 +22,16 @@ final class SettingsUITests: XCTestCase {
 
     /// English with a US region, so labels ("30 seconds") and speeds ("1.5×", not "1,5×") don't
     /// depend on the simulator's region.
-    private func launch(language: String = "en", locale: String = "en_US") {
+    ///
+    /// `stubEngine` gives Read-along an engine where the real one doesn't run (the Simulator), so
+    /// the Experimental section is drawn; the switch stays off.
+    private func launch(language: String = "en", locale: String = "en_US", stubEngine: Bool = false) {
         app.launchArguments = [
             LaunchArgument.seedLibrary,
             LaunchArgument.resetSettings,
             "-AppleLanguages", "(\(language))",
             "-AppleLocale", locale
-        ]
+        ] + (stubEngine ? [LaunchArgument.stubReadAlongEngine] : [])
         app.launch()
     }
 
@@ -148,7 +152,7 @@ final class SettingsUITests: XCTestCase {
     }
 
     func test_gear_opensSettings_withEverySection_andDoneCloses() {
-        launch()
+        launch(stubEngine: true)
 
         openSettings()
 
@@ -186,16 +190,31 @@ final class SettingsUITests: XCTestCase {
 
     // MARK: - Experimental
 
-    /// The Experimental section exists only where the speech framework does (iOS 26).
+    /// The Experimental section exists only where the speech engine runs (iOS 26, on hardware
+    /// Speech transcribes on): the stub engine stands in for it in the Simulator.
     private func openExperimental(language: String = "en", locale: String = "en_US") throws {
         guard #available(iOS 26, *) else { throw XCTSkip("Read-along needs iOS 26") }
-        launch(language: language, locale: locale)
+        launch(language: language, locale: locale, stubEngine: true)
         openSettings()
         let toggle = element(AccessibilityID.Settings.readAlong)
         for _ in 0..<6 where !(toggle.exists && toggle.isHittable) {
             app.swipeUp()
         }
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), "no Read-along switch")
+    }
+
+    /// Where Speech can't transcribe (the Simulator) there is no engine, so no section: not a switch
+    /// that turns on a feature that can only say "Text isn't available".
+    func test_experimental_absentWhereTheEngineDoesNotRun() throws {
+        if #available(iOS 26, *), SpeechTranscriber.isAvailable {
+            throw XCTSkip("the speech engine runs here")
+        }
+        launch()
+        openSettings()
+        for _ in 0..<4 { app.swipeUp() }
+
+        assertResolves(AccessibilityID.Settings.audioStatus)
+        XCTAssertFalse(element(AccessibilityID.Settings.readAlong).exists, "a Read-along switch with no engine")
     }
 
     func test_experimental_readAlong_offByDefault() throws {

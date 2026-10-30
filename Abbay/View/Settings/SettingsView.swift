@@ -17,6 +17,9 @@ struct SettingsView: View {
     private var model: SettingsViewModel
     @Environment(\.dismiss)
     private var dismiss
+    /// Nil only outside the app's environment (previews).
+    @Environment(ReadAlongCenter.self)
+    private var readAlong: ReadAlongCenter?
     @State
     private var webPage: WebPage?
 
@@ -38,7 +41,7 @@ struct SettingsView: View {
                 playbackSection(settings: $settings)
                 downloadsSection(settings: $settings)
                 languageSection(settings: $settings)
-                if #available(iOS 26, *) {
+                if #available(iOS 26, *), readAlong?.isAvailable == true {
                     experimentalSection(settings: $settings)
                 }
                 aboutSection
@@ -218,7 +221,8 @@ struct SettingsView: View {
     // MARK: - Experimental
 
     /// Features still being tried out. Only iOS 26 and later has the on-device speech model that
-    /// Read-along needs, so earlier systems don't see the section at all. Turning the switch off
+    /// Read-along needs, and only on hardware Speech transcribes on (`ReadAlongCenter.isAvailable`),
+    /// so elsewhere the section isn't drawn at all. Turning the switch off
     /// deletes every transcript (`AppSettings.readAlongEnabled`).
     @available(iOS 26, *)
     private func experimentalSection(settings: Bindable<AppSettings>) -> some View {

@@ -5,6 +5,7 @@
 
 #if DEBUG
 @testable import Abbay
+import Speech
 import XCTest
 
 /// `-forceReduceMotion` is how the UI tests get Reduce Motion: `nil` must mean "follow the
@@ -111,7 +112,8 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 24, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 25, "a new launch argument belongs in `all`")
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubReadAlongEngine))
     }
 
     // MARK: - Stub download states and network path (#171)
@@ -210,6 +212,35 @@ final class DebugOverridesTests: XCTestCase {
         let transcriber = DebugOverrides.readAlongTranscriber(arguments: [LaunchArgument.seedReadAlong])
 
         XCTAssertTrue(transcriber is StubReadAlongTranscriber)
+    }
+
+    /// `-stubReadAlongEngine` is the engine alone: Settings shows the switch where the real engine
+    /// doesn't run (the Simulator), but Read-along stays off.
+    func test_stubReadAlongEngine_isTheStub_withItsOwnStore_andLeavesReadAlongOff() throws {
+        let arguments = [LaunchArgument.resetSettings, LaunchArgument.stubReadAlongEngine]
+
+        XCTAssertTrue(DebugOverrides.readAlongTranscriber(arguments: arguments) is StubReadAlongTranscriber)
+        let store = try XCTUnwrap(DebugOverrides.readAlongStore(arguments: arguments))
+        XCTAssertNotEqual(store.root, ReadAlongStore.defaultRoot)
+        let settings = try XCTUnwrap(DebugOverrides.settingsStore(arguments: arguments))
+        XCTAssertFalse(AppSettings(store: settings).readAlongEnabled)
+    }
+
+    /// Where Speech has no transcriber (the Simulator, some hardware) the feature is unavailable,
+    /// not a switch and a pill that only ever say "Text isn't available".
+    @MainActor
+    func test_readAlongEngine_isNilWhereSpeechCannotTranscribe() {
+        let transcriber = DependencyContainer.makeReadAlongTranscriber(arguments: [])
+
+        if #available(iOS 26, *), SpeechTranscriber.isAvailable {
+            XCTAssertTrue(transcriber is SpeechReadAlongTranscriber)
+        } else {
+            XCTAssertNil(transcriber)
+        }
+        XCTAssertTrue(
+            DependencyContainer.makeReadAlongTranscriber(arguments: [LaunchArgument.stubReadAlongEngine])
+                is StubReadAlongTranscriber
+        )
     }
 
     /// Canned text goes to a store of the launch's own, never the user's, and the next launch starts

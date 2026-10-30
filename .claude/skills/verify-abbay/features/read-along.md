@@ -17,10 +17,12 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
 ## Sub-features
 
 - **switch** (`settings.experimental.readAlong`): Settings › Experimental › *Read-along* (pt-BR
-  *Leitura acompanhada*), iOS 26+ only. Off by default; the footer says the text is made on the
-  device, can be wrong, nothing is sent and the microphone is never used. On iOS 17 to 25 the
-  section is not drawn, the pill does not exist and no read-along code runs
-  (`ReadAlongCenter.isAvailable` is false). Details in [settings](settings.md).
+  *Leitura acompanhada*), iOS 26+ only, and only where Speech's transcriber runs
+  (`SpeechTranscriber.isAvailable`). Off by default; the footer says the text is made on the
+  device, can be wrong, nothing is sent and the microphone is never used. On iOS 17 to 25, in the
+  Simulator and on hardware without the engine the section is not drawn, the pill does not exist
+  and no read-along code runs (`ReadAlongCenter.isAvailable` is false: the container makes no
+  transcriber). Details in [settings](settings.md).
 - **off leaves nothing:** switching it off stops a running session and deletes every saved
   transcript (`ReadAlongStore.deleteAll`); the Text pill goes away. A book deleted from the library
   loses its transcript too (`DeleteAudioUseCase`).
@@ -29,16 +31,19 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   the text shows is remembered app-wide. See [player](player.md) *read-along*.
 - **the square** (`player.readAlong`): the cover's frame, dark fill, the lines scrolling with the
   current one centred (white, semibold, the spoken word in malachite; read lines faded, upcoming
-  ones dimmer). Lines are `player.readAlong.line.<n>`; the current one has the selected trait. It
+  ones dimmer). Lines are `player.readAlong.line.<n>`, buttons to VoiceOver with the hint *Plays
+  from this line* / *Toca a partir desta linha*; the current one has the selected trait. It
   follows playback every 0.1 s, the saved position for a book that isn't loaded, and the scrubber
-  while dragging. **Reduce Motion:** the text jumps line to line, no word highlight.
+  while dragging (showing covered text only; transcription starts where the finger lifts). **Reduce Motion:** the text jumps line to line, no word highlight.
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
   nothing (it never loads or plays a book).
 - **language:** a LibriVox book uses the language LibriVox lists (stored when the book is added); an
   imported book, and a LibriVox book added before this, is detected the first time the text shows:
   a short sample is scored with each candidate language whose speech model is **already installed**
   (the app's language, the device's, English), and the best recognition confidence wins; if nothing
-  is decisive the in-app language is used. The label (`player.readAlong.language`, *English ▾*)
+  is decisive the in-app language is used. A bare language ("eng" → "en") takes the device's
+  region for it, else a region whose model is already installed, else the language's likely one
+  (en-US, pt-BR, es-ES), never the alphabetically first (en-AU). The label (`player.readAlong.language`, *English ▾*)
   opens a menu of the languages iOS can transcribe; picking one is saved for the book, deletes its
   transcript and transcribes again.
 - **messages** (`player.readAlong.status`): *Preparing text…*, *Downloading the English speech
@@ -51,9 +56,14 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   flips back, the player closes or the screen follows nothing, Read-along is turned off, or the app
   leaves the foreground, and it picks up again when the text shows. A seek past the covered text
   restarts transcription from there; it works ahead of playback (about 70 times real time on an
-  iPhone 15), saving what it finishes.
-- **stub engine** (`-seedReadAlong`, Debug only): turns Read-along on in the in-memory settings that
-  `-resetSettings` gives, swaps the engine for `StubReadAlongTranscriber` (a line every 4 s of book
+  iPhone 15) but only ten minutes past the shown time (`ReadAlongSession.runAhead`), starting the
+  next stretch when playback is within a minute of the end (`lookahead`). It saves what it
+  finishes off the main thread; a book deleted while its text shows is not written back.
+- **stub engine** (`-stubReadAlongEngine`, Debug only): swaps the engine for
+  `StubReadAlongTranscriber` with its own transcript store, leaving Read-along as the settings have
+  it (off under `-resetSettings`): Settings' Experimental section is drawn in the Simulator.
+  `-seedReadAlong` implies it and also turns Read-along on in the in-memory settings that
+  `-resetSettings` gives. The stub is `StubReadAlongTranscriber` (a line every 4 s of book
   time, "Seeded line N of the read-along text", words 0.5 s apart; English and Portuguese offered)
   and keeps its transcripts in a store of its own in the temporary directory, emptied at launch. No
   speech model, no iOS 26 engine and no real recognition is needed, so the same text appears on the
@@ -85,10 +95,13 @@ Without `-seedReadAlong`, turning the switch on (Settings) drives the **real eng
 the first lines appear in about half a second. In the iOS Simulator the engine is not available
 (see Gotchas).
 
-**Verified** (`ReadAlongUITests`, `SettingsUITests.test_experimental_*`; skipped below iOS 26):
+**Verified** (`ReadAlongUITests`, `SettingsUITests.test_experimental_*` under
+`-stubReadAlongEngine`; skipped below iOS 26):
+- Without an engine (the Simulator, no stub) Settings draws no Experimental section.
 - Read-along off by default (`-resetSettings`): no `player.text`; the switch toggles and its footer
   names the microphone (en and pt-BR).
-- `player.text` flips to `player.readAlong` with `player.readAlong.line.0`, and back.
+- `player.text` flips to `player.readAlong` with `player.readAlong.line.0`, and back; lines are
+  buttons.
 - The selected line moves on while playing; with `-forceReduceMotion` exactly one line is selected.
 - A line tap on a book that isn't loaded leaves *Play* showing; on the loaded book it moves the
   elapsed time to the line's start.
@@ -98,7 +111,9 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   bring the text straight back (one session per screen).
 - In landscape the square sits on the leading side, clear of the transport.
 - Unit: highlight lookup, the store (keyed, deleted), the settings, language mapping and detection
-  pick, the session (nothing runs while hidden, cancellation, saving, retarget), the audio source
+  pick and region choice, the session (nothing runs while hidden, cancellation, saving, retarget,
+  the ten-minute window, no run while scrubbing, a deleted book stays deleted), the store (saves
+  queued, stamps), the detection sample's length and format, the line hint, the audio source
   (book time to files on the device), the transcriber's segmentation, `liveBookTime`, the menu's
   naming.
 
@@ -110,16 +125,18 @@ macOS 27 harness run and the owner's device test.
 ## Gotchas
 
 - **The real engine does not run in the iOS Simulator.** `SpeechTranscriber` reports itself
-  unavailable there, so `SpeechReadAlongTranscriberTests` skip and a Simulator launch without
-  `-seedReadAlong` shows *Text isn't available in English.* instead of text (observed on the iOS 26.5
-  Simulator: the square holds that message, no language label, no lines, for as long as it stays up). Use `-seedReadAlong` to see the UI; use a device for the engine.
+  unavailable there, so the engine tests in `SpeechReadAlongTranscriberTests` skip, and without a
+  stub the app treats the feature as unavailable: no Experimental section, no Text pill. Use
+  `-stubReadAlongEngine` for Settings and `-seedReadAlong` for the player; use a device for the
+  engine.
 - **English against Portuguese detection has never run for real** (no Portuguese speech model was
   available to the builder): the scoring is unit-tested against a stub only. Check it on a
   Portuguese LibriVox book and an English one, on a device.
-- **iOS 17 to 25 has no Read-along, except under `-seedReadAlong`.** Without the argument, an
-  iOS 17.5 simulator shows no Experimental section in Settings and no Text pill (driven in task 9).
-  With it, the Debug stub counts as an engine, so the pill appears there: an artefact of the
-  launch argument, which Release builds don't have. Verify the absence without it.
+- **iOS 17 to 25 has no Read-along, except under `-seedReadAlong` / `-stubReadAlongEngine`.**
+  Without them, an iOS 17.5 simulator shows no Experimental section in Settings and no Text pill
+  (driven in task 9). With them, the Debug stub counts as an engine, so the pill appears there: an
+  artefact of the launch arguments, which Release builds don't have. Verify the absence without
+  them.
 - **The playable seed is saved 200 s in**, so with the stub its first line is line 51 (3:20); line
   ids are positions in the transcript and shift when an earlier run inserts lines.
 - **The text square takes drags:** while it shows, the cover's collapse handle stands aside

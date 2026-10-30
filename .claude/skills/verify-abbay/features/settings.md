@@ -61,7 +61,10 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   key, then cold-launch:
   `xcrun simctl spawn <udid> defaults write com.edyuto.Abbay abbay.settings.language -string pt-BR`;
   the library opens as *Biblioteca*, no crash report.
-- **experimental** (iOS 26 and later only; earlier systems don't draw the section):
+- **experimental** (iOS 26 and later, and only where Speech's transcriber runs:
+  `ReadAlongCenter.isAvailable`, read from the environment; earlier systems, the Simulator and
+  hardware without the engine don't draw the section. In the Simulator, `-stubReadAlongEngine`
+  draws it with a stub engine and the switch off):
   **Read-along** (`settings.experimental.readAlong`, pt-BR *Leitura acompanhada*): a switch bound to
   `AppSettings.readAlongEnabled`, off by default. The footer says what it does: the text is made on
   the device from the audio, can get words wrong, nothing is sent, the microphone is never used,
@@ -107,6 +110,7 @@ $B tap settings.playback.skipForward && $B tap-label "30 seconds"
 $B tap settings.done
 $B tap library.row.0.title && $B wait player.transport.forward   # label "Skip forward 30 seconds"
 $B tap settings.language.portuguese                               # nav title becomes "Ajustes"
+$B launch --seed-library --reset-settings -stubReadAlongEngine   # Simulator: Experimental drawn, Read-along off
 ```
 
 **Verified** (`SettingsUITests`): `library.toolbar.settings` opens it; `settings.done`,
@@ -114,7 +118,8 @@ $B tap settings.language.portuguese                               # nav title be
 `settings.downloads.{cellular,spaceUsed,deleteFinished}`, `settings.language.system`,
 `settings.about.{privacyPolicy,version,librivox,licenses,developer,audioStatus}` and
 `settings.about.licenses.body` resolve; on iOS 26+ `settings.experimental.readAlong` is off by
-default, toggles, and its footer mentions the microphone (microfone in pt-BR)
+default, toggles, and its footer mentions the microphone (microfone in pt-BR) under
+`-stubReadAlongEngine`, and without it the Simulator draws no Experimental section
 (`test_experimental_*`); changing Skip forward relabels the player's forward
 button; choosing Português switches Settings and the Library without a relaunch; on a pt-BR
 device choosing English relabels both skip pickers to "15 seconds" at once

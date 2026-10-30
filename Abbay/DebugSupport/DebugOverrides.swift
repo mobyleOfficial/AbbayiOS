@@ -119,11 +119,12 @@ enum DebugOverrides {
         return nil
     }
 
-    /// A transcript store in the temporary directory, emptied here, at launch, for `-seedReadAlong`:
-    /// the canned text is this launch's only, like the settings under `-resetSettings`.
+    /// A transcript store in the temporary directory, emptied here, at launch, whenever the stub
+    /// engine is in use (`-seedReadAlong`, `-stubReadAlongEngine`): the canned text is this launch's
+    /// only, like the settings under `-resetSettings`.
     static func readAlongStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> ReadAlongStore? {
         #if DEBUG
-        if arguments.contains(LaunchArgument.seedReadAlong) {
+        if usesStubReadAlongEngine(arguments) {
             let root = FileManager.default.temporaryDirectory
                 .appendingPathComponent("UITestReadAlong", isDirectory: true)
             let store = ReadAlongStore(root: root)
@@ -134,16 +135,21 @@ enum DebugOverrides {
         return nil
     }
 
-    /// The canned-text transcriber, for `-seedReadAlong`.
+    /// The canned-text transcriber, for `-stubReadAlongEngine` and `-seedReadAlong`.
     static func readAlongTranscriber(
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) -> ReadAlongTranscribing? {
         #if DEBUG
-        if arguments.contains(LaunchArgument.seedReadAlong) {
+        if usesStubReadAlongEngine(arguments) {
             return StubReadAlongTranscriber()
         }
         #endif
         return nil
+    }
+
+    /// `-seedReadAlong` implies `-stubReadAlongEngine`.
+    private static func usesStubReadAlongEngine(_ arguments: [String]) -> Bool {
+        arguments.contains(LaunchArgument.seedReadAlong) || arguments.contains(LaunchArgument.stubReadAlongEngine)
     }
 
     /// True for a UI test's launch (any `LaunchArgument`): the app then doesn't ask for Siri

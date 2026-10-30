@@ -10,8 +10,9 @@ import Observation
 /// that switch the feature and hold each book's language. The player asks it for a session per
 /// screen rather than building one, so tests and `-seedReadAlong` swap the engine in one place.
 ///
-/// The transcriber is nil below iOS 26, where the speech engine doesn't exist: the feature is then
-/// unavailable, and the player shows no Text pill.
+/// The transcriber is nil below iOS 26, where the speech engine doesn't exist, and where Speech
+/// can't transcribe on the hardware (the Simulator among them): the feature is then unavailable,
+/// Settings shows no Experimental section and the player no Text pill.
 @MainActor
 @Observable
 final class ReadAlongCenter {
@@ -26,7 +27,7 @@ final class ReadAlongCenter {
         self.settings = settings
     }
 
-    /// Whether this device can transcribe at all (iOS 26+).
+    /// Whether this device can transcribe at all (iOS 26+, with an engine that runs here).
     var isAvailable: Bool {
         transcriber != nil
     }

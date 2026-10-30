@@ -130,12 +130,17 @@ final class DependencyContainer: DependencyContainerProtocol {
         DebugOverrides.downloadManager() ?? BookDownloadManager.shared
     }
 
-    /// The canned stub under `-seedReadAlong`, else the speech engine where iOS has it.
-    private static func makeReadAlongTranscriber() -> ReadAlongTranscribing? {
-        if let stub = DebugOverrides.readAlongTranscriber() {
+    /// The canned stub under `-seedReadAlong` or `-stubReadAlongEngine`, else the speech engine
+    /// where it runs: iOS 26 on hardware Speech can transcribe on. Elsewhere (the Simulator, some
+    /// devices) the feature is unavailable rather than a switch and a pill that can only say *Text
+    /// isn't available*.
+    static func makeReadAlongTranscriber(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> ReadAlongTranscribing? {
+        if let stub = DebugOverrides.readAlongTranscriber(arguments: arguments) {
             return stub
         }
-        if #available(iOS 26, *) {
+        if #available(iOS 26, *), SpeechReadAlongTranscriber.isEngineAvailable {
             return SpeechReadAlongTranscriber()
         }
         return nil
