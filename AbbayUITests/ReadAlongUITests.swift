@@ -41,11 +41,15 @@ final class ReadAlongUITests: XCTestCase {
 
     var square: XCUIElement { element(AccessibilityID.Player.readAlong) }
 
-    func launch(readAlong: Bool = true, _ extra: [String] = []) {
+    /// `hideControlsAfter`: seconds before the read-along controls hide with no interaction. Long by
+    /// default, so a slow step never finds a control gone; the auto-hide tests pass the real 3 s.
+    func launch(readAlong: Bool = true, hideControlsAfter: Int = 600, _ extra: [String] = []) {
         app.launchArguments = [
             LaunchArgument.seedLibrary,
             LaunchArgument.seedPlayableBook,
-            LaunchArgument.resetSettings
+            LaunchArgument.resetSettings,
+            LaunchArgument.readAlongControlsHideAfter,
+            String(hideControlsAfter)
         ] + (readAlong ? [LaunchArgument.seedReadAlong] : []) + extra
         app.launch()
         XCTAssertTrue(element(AccessibilityID.Library.list).waitForExistence(timeout: 20), "no library")
@@ -118,7 +122,7 @@ final class ReadAlongUITests: XCTestCase {
     }
 
     /// The scrubber's elapsed label ("3:40"), in seconds. The remaining one has a minus sign.
-    private func elapsedSeconds() -> Int? {
+    func elapsedSeconds() -> Int? {
         let label = app.staticTexts
             .matching(NSPredicate(format: "label MATCHES %@", "^[0-9]+:[0-9]{2}$"))
             .firstMatch

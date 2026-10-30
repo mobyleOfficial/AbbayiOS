@@ -154,6 +154,21 @@ cover both sides of the screen, text centered and background the same color it i
   (pill flipped back, Read-along off) and on a change of split. It isn't remembered.
 - Scale and fade in and out; a plain fade with Reduce Motion.
 
+**Immersion.** After the second device test the owner asked to "prioritize immersion, after some
+time without user interacting, please hide the language selector and the fullscreen until the user
+taps the container again. Same thing on the full screen". The controls (the square's language label
+and expand button; full screen's label, play/pause and collapse) hide after 3 s with no interaction,
+with a short fade (no movement). They show when the text appears; a tap anywhere on the text brings
+them back and restarts the 3 s, as does any interaction while they show (a tap, scrolling the lines,
+a control). While hidden, the first tap only reveals: it doesn't seek. They never hide while
+VoiceOver runs, while the language menu is open, while the session isn't ready (the label may be
+needed there) or while the chapter panel or the full screen covers them. Hidden glass controls are
+left out of the hierarchy: on a device, a glass control faded by its parent's opacity still drew
+(the glass container composites it), which is how the expand button drew over the chapter panel.
+`ReadAlongControlsVisibility` holds the logic, with one sleeping task per interaction; a Debug launch
+argument (`-readAlongControlsHideAfter <s>`) sets the delay for UI tests. The language menu is a
+clear UIKit button over the glass capsule, since SwiftUI's `Menu` doesn't report its closing.
+
 ### Language
 
 - **LibriVox books** use the language LibriVox lists (`LibriVoxBook.language`, an ISO 639-2 code

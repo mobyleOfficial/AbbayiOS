@@ -9,11 +9,14 @@ import XCTest
 /// over the whole window, its play/pause and collapse. Part of `ReadAlongUITests`, with its seeds
 /// and helpers; in a file of its own to keep each file readable.
 extension ReadAlongUITests {
-    private var fullScreen: XCUIElement { element(AccessibilityID.Player.readAlongFullScreen) }
+    var fullScreen: XCUIElement { element(AccessibilityID.Player.readAlongFullScreen) }
 
-    /// Taps the square's expand button and waits for the full screen to settle over the window.
-    private func expand(file: StaticString = #filePath, line: UInt = #line) {
+    /// Taps the square's expand button and waits for the full screen to settle over the window. If
+    /// the controls have already hidden (a short `hideControlsAfter`), a tap on the square brings
+    /// them back first.
+    func expand(file: StaticString = #filePath, line: UInt = #line) {
         let expand = element(AccessibilityID.Player.readAlongExpand)
+        if !expand.exists { square.tap() }
         XCTAssertTrue(expand.waitForExistence(timeout: 5), "no expand button", file: file, line: line)
         expand.tap()
         XCTAssertTrue(

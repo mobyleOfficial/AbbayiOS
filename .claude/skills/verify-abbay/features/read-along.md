@@ -63,8 +63,27 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   the chapter panel is open the expand button is left out of the hierarchy, like the language label
   (a glass button faded by its parent still drew over the panel on a device: the glass container
   composites it).
+- **immersion** (owner's follow-up: "lets prioritize immersion"): the controls hide after **3 s**
+  with no interaction, with a short fade (no movement, so Reduce Motion needs nothing else): in the
+  square the language label and the expand button; full screen the language label, play/pause and
+  collapse. They show when the square appears or full screen opens, then the 3 s run. A **tap
+  anywhere** on the text brings them back and starts the 3 s again; while they show, every
+  interaction starts it again (a tap, scrolling the lines, a control). **While hidden, the first tap
+  only reveals**: a tap on a line doesn't seek then; once they show, it does. Hidden controls are
+  **left out of the hierarchy** (`player.readAlong.language`, `.expand`, `.playPause`, `.collapse`
+  don't exist), never faded: the glass container composites a glass control whatever its parent's
+  opacity. **Never hidden** while VoiceOver runs, while the language menu is open, while the text
+  isn't ready (*Preparing*, *Downloading*, *Not available*, *must be downloaded*, *Couldn't make*:
+  the label may be needed) or while something covers them (the chapter panel; the full screen over
+  the square, which comes back with a fresh 3 s on collapse). The model is
+  `ReadAlongControlsVisibility`: one sleeping task per interaction, cancelled by the next, so only
+  `ReadAlongContent` re-renders, and only when they flip. To know when the language menu is open, the
+  label's menu is a clear UIKit button over the glass capsule (`ReadAlongLanguageMenuButton`, told
+  `willDisplayMenuFor` / `willEndFor`): SwiftUI's `Menu` content fires `onAppear` once, the first
+  time it opens, and `onDisappear` never (iOS 26.5). `-readAlongControlsHideAfter <seconds>`
+  (Debug) changes the 3 s; the UI tests launch with 600 except the immersion tests.
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
-  nothing (it never loads or plays a book).
+  nothing (it never loads or plays a book). While the controls are hidden it only brings them back.
 - **language:** a LibriVox book uses the language LibriVox lists (stored when the book is added); an
   imported book, and a LibriVox book added before this, is detected the first time the text shows:
   a short sample is scored with each candidate language whose speech model is **already installed**
@@ -118,6 +137,9 @@ $B tap player.readAlong.language                         # menu: English (checke
 $B tap player.readAlong.expand && $B wait player.readAlong.fullScreen   # frame = the window's
 $B tap player.readAlong.playPause                        # label Play <-> Pause, as the transport
 $B tap player.readAlong.collapse                         # back to the square, its lines straight back
+# wait 3 s without touching: player.readAlong.language and .expand are gone (full screen: .playPause,
+# .collapse too); tap player.readAlong (or .fullScreen) to bring them back; a line tap then only reveals
+$B launch ... -readAlongControlsHideAfter 600            # (Debug) keep the controls up while driving
 $B tap player.text                                       # back to the cover; the square is gone
 $B launch -seedLibrary -seedPlayableBook -seedArtwork -resetSettings -forceReduceMotion -seedReadAlong
                                                          # one selected line, jumping, no word colour
@@ -147,7 +169,15 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   sits bottom-right; `player.readAlong.fullScreen`'s frame equals the window's, its lines show
   without *Preparing text…*, the mini player and the player's close button aren't hittable under
   it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
-  expand button doesn't exist while the chapter panel is open and works once it closes. The cover and
+  expand button doesn't exist while the chapter panel is open and works once it closes.
+- Immersion (`ReadAlongImmersionUITests.swift`, part of `ReadAlongUITests`, launched with the real
+  3 s): the square's label and expand button stop existing after the delay, a tap on the square
+  brings both back without moving the elapsed time, and they hide again; full screen, play/pause,
+  collapse and the label hide and a tap on the text brings all three back (still *Play*); on the
+  loaded, paused book a line tap while hidden only reveals (elapsed unchanged) and the next one
+  seeks; with the language menu open past the delay the menu and the label stay, and once it closes
+  the label hides. Unit: `ReadAlongControlsVisibilityTests` (the delay, reveal, restart, pinning,
+  the never-hide conditions, the real clock, the launch argument). The cover and
   play/pause tests also pass on an iPad Air 13-inch (iOS 26.4) in its landscape split, where the full
   screen covers both panes. Unit: `ReadAlongFullScreenTests` (needs a presented player; ends on
   close, another book, a change of split, the owning screen's slot; stale once the screen follows
@@ -163,7 +193,9 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
 **Not driven by a UI test:** the status messages other than the stub's quick *Preparing text…*, the
 scene-phase stop, a real LibriVox download finishing under the square, VoiceOver (including the
 full screen's escape), the full screen ending on a fold or a book switch (unit-tested only), the
-iPhone Duo (same root path as the iPad), and the **real engine**: its tests skip in the Simulator, so its proof is a
+iPhone Duo (same root path as the iPad), the controls staying while VoiceOver runs or the text
+isn't ready (unit-tested only: XCUITest can't run VoiceOver, and the stub is ready at once),
+scrolling the lines as an interaction, and the **real engine**: its tests skip in the Simulator, so its proof is a
 macOS 27 harness run and the owner's device test.
 
 ## Gotchas

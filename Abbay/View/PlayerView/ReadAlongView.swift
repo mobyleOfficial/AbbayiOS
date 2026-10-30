@@ -30,7 +30,8 @@ struct ReadAlongView: View {
     /// The player screen's session, made the first time the text shows.
     let slot: ReadAlongSessionSlot
     /// The chapter panel is open over the square. The language label and the expand button, glass
-    /// buttons, drew over the panel (owner's device test), so they step aside until it closes.
+    /// buttons, drew over the panel (owner's device test), so they step aside until it closes. They
+    /// step aside under the full screen too, and come back with a fresh delay when it collapses.
     let hidesControls: Bool
 
     @Environment(ReadAlongCenter.self)
@@ -57,7 +58,7 @@ struct ReadAlongView: View {
                 model: model,
                 scrub: scrub,
                 style: .square,
-                hidesControls: hidesControls
+                hidesControls: hidesControls || presentation?.readAlongFullScreen != nil
             ) {
                 EmptyView()
             } trailing: {
@@ -248,6 +249,12 @@ enum ReadAlongStyle {
 /// screen's collapse button) and `center` between them (the full screen's play/pause). The one part
 /// that ticks: it re-renders on each 0.1 s poll, while the lines redraw only when the line or word
 /// to highlight changes (`ReadAlongLines` is `Equatable`).
+///
+/// The bar's controls hide after 3 s with no interaction (`ReadAlongControlsVisibility`, owner's
+/// "prioritize immersion"). While they are hidden the first tap anywhere only brings them back (it
+/// doesn't seek); while they show, a tap does what it does and starts the delay again, as does
+/// scrolling the lines. Hidden controls are left out of the hierarchy, never faded: the glass
+/// container composites a glass control whatever its parent's opacity.
 struct ReadAlongContent<Center: View, Trailing: View>: View {
     let session: ReadAlongSession
     let model: PlayerViewModel
@@ -260,6 +267,12 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
 
     @ReduceMotion
     private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled)
+    private var voiceOver
+    @State
+    private var controls = ReadAlongControlsVisibility()
+    @State
+    private var isMenuOpen = false
 
     init(
         session: ReadAlongSession,
@@ -291,26 +304,66 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
                         session.timeChanged(time, isScrubbing: scrub.isDragging)
                     }
             }
-            // Outside the poll: these change only with the language, the choices or playback.
-            HStack(spacing: 0) {
-                // Always in the tree, so it keeps its named choices; only its button steps aside
-                // while the chapter panel is open (removing the whole view lost the choices, and it
-                // never came back).
-                ReadAlongLanguageMenu(session: session, isHidden: hidesControls)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                center
-                // Left out, not faded: the shared glass container composites a glass button
-                // itself, so a parent's opacity didn't hide it on a device (owner's device test).
-                ZStack {
-                    if !hidesControls {
-                        trailing
-                            .transition(.opacity)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .animation(.easeInOut(duration: 0.2), value: hidesControls)
-            }
+            // Outside the poll: these change only with the language, the choices, playback or
+            // the controls' visibility.
+            bar
         }
+        // The whole text takes a tap, not only its lines.
+        .contentShape(Rectangle())
+        // Hidden: the first tap only brings the controls back, ahead of a line's seek.
+        .highPriorityGesture(revealTap, including: controls.isHidden ? .all : .subviews)
+        // Showing: a tap does what it does, and starts the delay again.
+        .simultaneousGesture(revealTap, including: controls.isHidden ? .subviews : .all)
+        .onAppear { controls.reveal() }
+        .onDisappear { controls.stop() }
+        .onChange(of: isPinned, initial: true) { _, pinned in
+            controls.setPinned(pinned)
+        }
+    }
+
+    private var showsControls: Bool {
+        !hidesControls && !controls.isHidden
+    }
+
+    private var isPinned: Bool {
+        ReadAlongControlsVisibility.isPinned(
+            voiceOver: voiceOver,
+            menuOpen: isMenuOpen,
+            state: session.state,
+            covered: hidesControls
+        )
+    }
+
+    private var revealTap: some Gesture {
+        TapGesture().onEnded { controls.reveal() }
+    }
+
+    private var bar: some View {
+        HStack(spacing: 0) {
+            // Always in the tree, so it keeps its named choices; only its button steps aside
+            // (removing the whole view lost the choices, and it never came back).
+            ReadAlongLanguageMenu(session: session, isHidden: !showsControls) { isOpen in
+                isMenuOpen = isOpen
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Left out, not faded: the shared glass container composites a glass button itself,
+            // so a parent's opacity didn't hide it on a device (owner's device test). A fade, no
+            // movement, so Reduce Motion needs nothing else.
+            ZStack {
+                if showsControls {
+                    center
+                        .transition(.opacity)
+                }
+            }
+            ZStack {
+                if showsControls {
+                    trailing
+                        .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .animation(.easeInOut(duration: 0.25), value: showsControls)
     }
 
     @ViewBuilder
@@ -327,7 +380,8 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
                     word: reduceMotion ? nil : position.word,
                     animates: !reduceMotion,
                     style: style,
-                    onTap: { model.seek($0.start) }
+                    onTap: { model.seek($0.start) },
+                    onScroll: { controls.reveal() }
                 )
                 .equatable()
             case let .upcoming(line):
@@ -340,7 +394,8 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
                     word: nil,
                     animates: !reduceMotion,
                     style: style,
-                    onTap: { model.seek($0.start) }
+                    onTap: { model.seek($0.start) },
+                    onScroll: { controls.reveal() }
                 )
                 .equatable()
             case .music:
@@ -387,11 +442,16 @@ private enum ReadAlongContentText {
 
 /// *English ▾* in the bottom-leading corner, once the language is known. It stays when iOS can't
 /// transcribe that language, so another can be picked. The entries are named once per change of
-/// the choices, not on each render: iOS 26 lists dozens of locales.
+/// the choices, not on each render: iOS 26 lists dozens of locales. The menu itself is a UIKit
+/// button (`ReadAlongLanguageMenuButton`), which reports when it opens and closes.
 private struct ReadAlongLanguageMenu: View {
     let session: ReadAlongSession
-    /// The chapter panel is open over the square: the button would draw over it.
+    /// The chapter panel is open over the square (the button would draw over it), or the controls
+    /// hid with no interaction.
     let isHidden: Bool
+    /// The menu opened (true) or closed: the controls stay while it is open, since it hangs off
+    /// the label.
+    let onOpenChange: (Bool) -> Void
 
     @State
     private var choices: [ReadAlongView.LanguageChoice] = []
@@ -414,36 +474,29 @@ private struct ReadAlongLanguageMenu: View {
 
     private func menu(language: String) -> some View {
         let name = ReadAlongLanguage.displayName(language)
-        return Menu {
-            ForEach(choices, id: \.id) { choice in
-                Button {
-                    session.setLanguage(choice.id)
-                } label: {
-                    if choice.id == language {
-                        Label(choice.name, systemImage: "checkmark")
-                    } else {
-                        Text(choice.name)
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: SpaceConstants.sx4.value) {
-                Text(name)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.bold))
-                    .accessibilityHidden(true)
-            }
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .foregroundColor(ColorConstants.white.value)
-            .padding(.horizontal, SpaceConstants.sx12.value)
-            .padding(.vertical, SpaceConstants.sx8.value)
-            .abbayGlass(in: Capsule(), interactive: true)
-            .contentShape(Capsule())
+        return HStack(spacing: SpaceConstants.sx4.value) {
+            Text(name)
+            Image(systemName: "chevron.down")
+                .font(.caption2.weight(.bold))
         }
-        .accessibilityLabel(Localizable.readAlongLanguage.localized)
-        .accessibilityValue(name)
-        .accessibilityIdentifier(AccessibilityID.Player.readAlongLanguage)
+        .font(.caption.weight(.semibold))
+        .lineLimit(1)
+        .foregroundColor(ColorConstants.white.value)
+        .padding(.horizontal, SpaceConstants.sx12.value)
+        .padding(.vertical, SpaceConstants.sx8.value)
+        .abbayGlass(in: Capsule(), interactive: true)
+        // The capsule only draws; the clear UIKit button over it is the control, and says when its
+        // menu opens and closes (SwiftUI's `Menu` doesn't).
+        .accessibilityHidden(true)
+        .overlay {
+            ReadAlongLanguageMenuButton(
+                choices: choices,
+                current: language,
+                name: name,
+                onPick: { session.setLanguage($0) },
+                onOpenChange: onOpenChange
+            )
+        }
         .padding(SpaceConstants.sx12.value)
     }
 }
@@ -465,6 +518,8 @@ private struct ReadAlongLines: View, Equatable {
     let animates: Bool
     let style: ReadAlongStyle
     let onTap: (ReadAlongLine) -> Void
+    /// A finger scrolls the lines: an interaction, like a tap.
+    let onScroll: () -> Void
 
     @ScaledMetric(relativeTo: .title2)
     private var squareSpacing: CGFloat = 14
@@ -497,6 +552,7 @@ private struct ReadAlongLines: View, Equatable {
                     .padding(.vertical, proxy.size.height / 2)
                 }
                 .mask(Self.fade)
+                .modifier(ReadAlongScrollWatch(onScroll: onScroll))
                 .onAppear {
                     reader.scrollTo(current, anchor: .center)
                 }
@@ -556,6 +612,22 @@ private struct ReadAlongLines: View, Equatable {
             startPoint: .top,
             endPoint: .bottom
         )
+    }
+}
+
+/// Calls `onScroll` when a finger scrolls the lines (not when the current line scrolls itself into
+/// place). iOS 18 and later; read-along needs iOS 26 anyway.
+private struct ReadAlongScrollWatch: ViewModifier {
+    let onScroll: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.onScrollPhaseChange { _, phase in
+                if phase == .interacting { onScroll() }
+            }
+        } else {
+            content
+        }
     }
 }
 

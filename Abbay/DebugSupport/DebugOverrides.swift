@@ -164,6 +164,19 @@ enum DebugOverrides {
         #endif
     }
 
+    /// How long the read-along controls stay with no interaction, for `-readAlongControlsHideAfter
+    /// <seconds>`; `nil` without it or with no number after it (the 3 s then).
+    static func readAlongControlsHideAfter(arguments: [String] = ProcessInfo.processInfo.arguments) -> Duration? {
+        #if DEBUG
+        if let index = arguments.firstIndex(of: LaunchArgument.readAlongControlsHideAfter),
+           arguments.indices.contains(index + 1),
+           let seconds = Double(arguments[index + 1]), seconds >= 0 {
+            return .milliseconds(Int((seconds * 1000).rounded()))
+        }
+        #endif
+        return nil
+    }
+
     /// Reduce Motion forced on, for `-forceReduceMotion`; `nil` follows the system setting.
     static func reduceMotion(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
         #if DEBUG

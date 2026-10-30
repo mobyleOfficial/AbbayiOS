@@ -112,7 +112,8 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 25, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 26, "a new launch argument belongs in `all`")
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.readAlongControlsHideAfter))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubReadAlongEngine))
     }
 
