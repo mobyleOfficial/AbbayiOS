@@ -66,7 +66,8 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   `AppSettings.readAlongEnabled`, off by default. The footer says what it does: the text is made on
   the device from the audio, can get words wrong, nothing is sent, the microphone is never used,
   and iOS may download a language's speech model the first time. Switching it off deletes every
-  transcript. Between Language and About. Value `"0"` / `"1"`.
+  transcript. Between Language and About. Value `"0"` / `"1"`. What the switch turns on is in
+  [read-along](read-along.md) and the [player](player.md)'s Text pill.
 - **about:**
   - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
     in an `SFSafariViewController`.

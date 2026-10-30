@@ -73,7 +73,7 @@ LibriVox page's Play all open it.
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the
   clock reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
-- **read-along (#192, experimental):** with Read-along on in [Settings](settings.md) (iOS 26+, where
+- **read-along (#192, experimental; its own page is [read-along](read-along.md)):** with Read-along on in [Settings](settings.md) (iOS 26+, where
   `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
   `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
   the cover's square to the text (`player.readAlong`, `ReadAlongView`), like lyrics in Apple Music,
