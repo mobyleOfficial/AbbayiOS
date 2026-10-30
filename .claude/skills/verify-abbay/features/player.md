@@ -2,7 +2,8 @@
 
 `PlayerView` is the full-screen details screen, "Player A" of the Liquid Glass redesign (#166 G1):
 a large cover, a left-aligned title block, the scrubber, the transport, and two glass pills (speed
-and chapters). The chapters open as a glass panel over the cover (G2). It is **no longer a sheet**.
+and chapters), three with Read-along on (Text between them, #192). The chapters open as a glass
+panel over the cover (G2); the Text pill flips the cover's square to the text being read. It is **no longer a sheet**.
 It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of where it
 was opened (the tapped [library](library.md) cover, or the [mini player](mini-player.md)) and
 collapses back there (#241). The overlay paints the background (the
@@ -72,6 +73,47 @@ LibriVox page's Play all open it.
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the
   clock reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
+- **read-along (#192, experimental):** with Read-along on in [Settings](settings.md) (iOS 26+, where
+  `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
+  `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
+  the cover's square to the text (`player.readAlong`, `ReadAlongView`), like lyrics in Apple Music,
+  with a short cross-fade; nothing else on the screen moves. While the text shows, the pill's icon
+  is `photo` and VoiceOver reads it *Show cover* / *Mostrar capa*; a tap flips back. Whether the
+  text shows is remembered app-wide (`AppSettings.readAlongShowsText`): it stays up across books,
+  closing and reopening, and launches. **With Read-along off the pill row and the screen are exactly
+  as before** (pixel-compared, task 8).
+  - **the square:** the cover's frame and 14 pt radius, a dark fill (black 28%). The expansion's
+    growing cover still lands on it (the square reports its frame), and the text shows once it has
+    landed. The lines scroll in it with the current one kept in the middle: the current line white
+    and semibold with the spoken word in malachite, lines already read 35% white, upcoming ones 55%;
+    the top and bottom edges fade. It follows playback (polled every 0.1 s from the player,
+    `PlayerViewModel.liveBookTime`), the saved position for a book that isn't loaded, and the
+    scrubber while a finger drags it. Lines are `player.readAlong.line.<n>` (position in the
+    transcript); the current one has the selected trait, so VoiceOver can find it, and nothing is
+    announced as it moves. **Reduce Motion:** the text jumps line to line without scrolling, and no
+    word is highlighted.
+  - **tap a line:** seeks to its start (`PlayerViewModel.seek`). On a book that isn't loaded it does
+    nothing: it never loads or plays the book.
+  - **language label:** a glass capsule in the bottom-leading corner (`player.readAlong.language`,
+    *English ▾*, VoiceOver *Text language* / *Idioma do texto* with the language as its value), once
+    the language is known. Its menu lists the languages iOS can transcribe by name, with the region
+    only where two share a language (*English (United Kingdom)*), in the in-app language; the current
+    one has a check. Picking one discards the book's text and transcribes again in it.
+  - **messages** (`player.readAlong.status`), centred, a spinner while something is under way:
+    *Preparing text…*, *Downloading the English speech model…*, *Text isn't available in X.*, *The
+    audio must be downloaded first to show its text.* (a LibriVox chapter not on the device), *The
+    audio file must be on this iPhone to show its text.* (an imported file that isn't), *No speech
+    here.* (nothing recognised at this point), *Couldn't make the text.* (pt-BR in the catalogue).
+    The text appears by itself once the chapter being played finishes downloading.
+  - **when it runs:** only while the text is on screen. The square stops its session when it leaves
+    the screen (the pill flips back, the player closes, Read-along is turned off) and when the app
+    leaves the foreground, and shows it again when the app comes back or the screen follows another
+    loaded book.
+  - **while the text shows, the cover's collapse handle stands aside** (see
+    [mini-player](mini-player.md)): a drag on the text scrolls it rather than collapsing the player;
+    the header and ⌄ still collapse.
+  - **landscape and split:** the text takes the cover's place in each layout (leading side in
+    landscape).
 - **chapters-pill:** the right glass pill (`player.chapters`, *☰ Chapters* / *Capítulos*) opens the
   chapter panel; while it is open it shows *✕* and its label is *Close chapters*. **A book with no
   chapter markers (a plain MP3) has no pill**, so there is no "No chapters" message on this screen
@@ -148,7 +190,9 @@ LibriVox page's Play all open it.
   kept its rate and kept reporting "playing", so the first tap only paused.)
 - **what ticks:** the screen's body reads only the slow state. `PlayerTimeline` reads
   `PlaybackClock.bookTime`, so it re-renders once per tick. `PlayerSubtitle` reads
-  `currentChapter`, so it re-renders once per chapter. The open chapter panel reads the clock, but
+  `currentChapter`, so it re-renders once per chapter. The read-along square, while it shows,
+  polls the player every 0.1 s inside itself (a `TimelineView`), and its lines redraw only when the
+  line or word to highlight changes. The open chapter panel reads the clock, but
   its rows redraw only when their text or 1% progress changes. The screen is built once per book and handed down unchanged,
   so a drag frame doesn't re-run its body.
 
@@ -172,6 +216,10 @@ $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed
 $B tap player.chapters && $B wait player.chapters.panel  # the glass chapter panel, at the current chapter
 $B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed); closes the panel
 $B tap player.close && $B wait library.list
+$B launch -seedLibrary -seedPlayableBook -resetSettings -seedReadAlong   # Read-along on, stub text every 4 s
+$B tap library.row.<n>.title && $B tap player.text && $B wait player.readAlong.line.0   # the text in the cover's square
+$B tap player.readAlong.line.5                            # seeks there when the book is loaded; nothing otherwise
+$B tap player.readAlong.language                          # the menu: English, Portuguese
 $B drag player.close down                                 # planned: collapse under the finger (the grabber is not addressable)
 ```
 
@@ -196,6 +244,15 @@ $B drag player.close down                                 # planned: collapse un
 - no `player.chapters` pill on "Seeded Plain Book", and the pill opening the rows on "Seeded
   Chaptered Book" (`EmptyStateUITests`)
 - `player.close` (`test_player_closeButton_dismisses`)
+- read-along (`ReadAlongUITests`, iOS 26+, `-seedReadAlong`): no `player.text` with Read-along off;
+  `player.text` flips to `player.readAlong` with `player.readAlong.line.0` and back; the selected line
+  moves on while playing; a line tap on a book that isn't loaded leaves *Play*; a line tap on the
+  loaded book moves the elapsed time to the line's start; `player.readAlong.language` opens a menu
+  with *English* and *Portuguese*; with `-forceReduceMotion` one line is selected; the text stays up
+  after closing and reopening; in landscape `player.readAlong` sits on the leading side, clear of
+  the transport. The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
+  `PlayerViewModelTests`. Not driven by a UI test: the status messages other than the stub's quick
+  *Preparing text…*, the scene-phase stop, and VoiceOver itself.
 - `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI
   tests drag from its position, found from `player.close` (`grabberCenter()` in
   `MiniPlayerUITests`, `test_draggingDetailsDown_collapses`; a downward swipe from the chevron also

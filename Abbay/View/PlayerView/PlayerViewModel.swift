@@ -72,6 +72,15 @@ final class PlayerViewModel {
         isLoaded ? clock.bookTime : book.currentTime
     }
 
+    /// The player's own time for the loaded book, the saved position otherwise. Not observed: the
+    /// read-along text polls it every 0.1 s, finer than the clock's ticks, so the spoken word is
+    /// highlighted as it is said. A non-finite time (nothing playable yet) falls back to the saved
+    /// position.
+    func liveBookTime() -> Double {
+        guard isLoaded, let time = player?.currentTime, time.isFinite else { return book.currentTime }
+        return time
+    }
+
     /// Reads `PlaybackClock.currentChapter` only, so the caller re-renders per chapter, not per tick.
     func currentChapter(in clock: PlaybackClock) -> Int {
         isLoaded ? clock.currentChapter : book.currentChapter(for: book.currentTime) ?? 0

@@ -13,12 +13,15 @@ import SwiftUI
 /// gradient behind it and adds the header (glass close button, grabber) on top.
 ///
 /// The Chapters pill opens the chapter list as a glass panel floating over the cover (G2,
-/// `ChaptersPanel`); nothing else on the screen moves.
+/// `ChaptersPanel`); nothing else on the screen moves. With Read-along on (#192), a Text pill
+/// between the two flips the cover's square to the text being read (`ReadAlongView`), like lyrics
+/// in Apple Music; again, nothing else moves.
 ///
 /// What it reads, so a clock tick does as little as possible:
 /// - this body reads the slow state only (the book, playing or not, via `PlayerViewModel`);
 /// - `PlayerTimeline` reads `PlaybackClock.bookTime` and re-renders once per tick;
 /// - `PlayerSubtitle` reads `PlaybackClock.currentChapter`, so it re-renders per chapter;
+/// - `ReadAlongView`, while the text shows, polls the player every 0.1 s inside itself;
 /// - the open panel reads the clock too, but redraws its rows only when what they show changes.
 struct PlayerView: View {
     // MARK: - Properties
@@ -33,6 +36,9 @@ struct PlayerView: View {
     /// Told when the chapter panel opens or closes: the expansion's cover handle sits above this
     /// screen, under the panel, and stands aside while it is open.
     private let onChaptersOpen: ((Bool) -> Void)?
+    /// Told when the read-along text takes the cover's square, or gives it back: the same handle
+    /// stands aside then too, so the lines and the language menu take their taps and drags.
+    private let onTextShown: ((Bool) -> Void)?
     /// Skip amounts and speeds. Changes only from Settings or the speed sheet, never on a tick.
     @Environment(AppSettings.self)
     private var settings
@@ -43,6 +49,13 @@ struct PlayerView: View {
     private var verticalSizeClass
     @State
     private var isShowingSpeed = false
+    /// The scrubbed time, shared by the scrubber and the read-along text, so the text follows the
+    /// finger while it drags.
+    @State
+    private var scrub = PlayerScrub()
+    /// Optional so previews and tests can omit it: there is no Text pill then.
+    @Environment(ReadAlongCenter.self)
+    private var readAlong: ReadAlongCenter?
     /// Whether the chapters are open: shared state (`PlayerPresentation.isShowingChapters`), so a
     /// fold or a resize keeps them open in the other form.
     @Environment(PlayerPresentation.self)
@@ -85,11 +98,13 @@ struct PlayerView: View {
     init(
         model: PlayerViewModel,
         onCoverFrame: ((CGRect) -> Void)? = nil,
-        onChaptersOpen: ((Bool) -> Void)? = nil
+        onChaptersOpen: ((Bool) -> Void)? = nil,
+        onTextShown: ((Bool) -> Void)? = nil
     ) {
         self.model = model
         self.onCoverFrame = onCoverFrame
         self.onChaptersOpen = onChaptersOpen
+        self.onTextShown = onTextShown
     }
 
     // MARK: - Body
@@ -127,8 +142,17 @@ struct PlayerView: View {
             .onChange(of: showsPanel) { _, open in
                 onChaptersOpen?(open)
             }
-            .onAppear { onChaptersOpen?(showsPanel) }
-            .onDisappear { onChaptersOpen?(false) }
+            .onChange(of: showsText) { _, shown in
+                onTextShown?(shown)
+            }
+            .onAppear {
+                onChaptersOpen?(showsPanel)
+                onTextShown?(showsText)
+            }
+            .onDisappear {
+                onChaptersOpen?(false)
+                onTextShown?(false)
+            }
             .coordinateSpace(.named(Self.layoutSpace))
         }
     }
@@ -138,7 +162,7 @@ struct PlayerView: View {
     private func controls(compact: Bool) -> some View {
         titleBlock
         VStack(spacing: SpaceConstants.sx8.value) {
-            PlayerTimeline(model: model)
+            PlayerTimeline(model: model, scrub: scrub)
             PlayerDownloadLine(model: model)
         }
         playerButtonsView
@@ -146,8 +170,11 @@ struct PlayerView: View {
     }
 
     // MARK: - Cover view
+    /// The cover's square: the cover, or the read-along text in its place while the Text pill is
+    /// on. Either way it is the square the expansion's growing cover lands on, and hidden until it
+    /// has.
     private var coverView: some View {
-        ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
+        coverSquare
             // A square as wide as the screen allows, smaller when the height runs short.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
@@ -160,7 +187,29 @@ struct PlayerView: View {
             })
             .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityHidden(true)
+            // The cover is decoration; the text is read like any other.
+            .accessibilityHidden(!showsText)
+    }
+
+    @ViewBuilder
+    private var coverSquare: some View {
+        if showsText {
+            ReadAlongView(model: model, scrub: scrub)
+        } else {
+            ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
+        }
+    }
+
+    // MARK: - Read-along (#192)
+    /// Read-along is on and this device can transcribe (iOS 26+): the Text pill shows.
+    private var offersText: Bool {
+        settings.readAlongEnabled && readAlong?.isAvailable == true
+    }
+
+    /// The text is in the cover's place. Remembered app-wide, so it stays up across books and
+    /// launches until flipped back.
+    private var showsText: Bool {
+        offersText && settings.readAlongShowsText
     }
 
     // MARK: - Title
@@ -211,7 +260,8 @@ struct PlayerView: View {
     }
 
     // MARK: - Pills
-    /// Speed on the left, Chapters on the right. A book with no chapters has no Chapters pill.
+    /// Speed on the left, Chapters on the right, and Text between them while Read-along is on. A
+    /// book with no chapters has no Chapters pill.
     /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
     /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
     /// panel off the bottom of the landscape screen, over the pills (#270).
@@ -219,6 +269,10 @@ struct PlayerView: View {
         HStack {
             speedPill
             Spacer()
+            if offersText {
+                textPill
+                Spacer()
+            }
             if !model.book.chapters.isEmpty {
                 chaptersPill
             }
@@ -247,6 +301,27 @@ struct PlayerView: View {
                 onSetDefault: { settings.defaultSpeed = $0 }
             )
         }
+    }
+
+    /// "Text" with a quote mark; while the text shows, with a picture instead, and VoiceOver reads
+    /// it as *Show cover*. A tap flips the square; the cross-fade is the same with Reduce Motion.
+    private var textPill: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                settings.readAlongShowsText.toggle()
+            }
+        } label: {
+            PlayerPill(
+                text: Localizable.readAlongPill.localized,
+                systemImage: showsText ? "photo" : "text.quote"
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(ColorConstants.white.value)
+        .accessibilityLabel(
+            showsText ? Localizable.readAlongShowCover.localized : Localizable.readAlongPill.localized
+        )
+        .accessibilityIdentifier(AccessibilityID.Player.text)
     }
 
     /// "☰ Chapters", or "✕ Chapters" while the panel is open; a tap toggles it.
@@ -451,13 +526,12 @@ struct PlayerSubtitle: View {
 /// saved position otherwise), so it is the one part of the screen that ticks.
 private struct PlayerTimeline: View {
     let model: PlayerViewModel
+    /// While the finger scrubs, and after it lifts until the clock reports the seek, the slider
+    /// shows the scrubbed time instead of the clock, so it doesn't jump back for a tick.
+    let scrub: PlayerScrub
 
     @Environment(PlaybackClock.self)
     private var clock
-    /// While the finger scrubs, and after it lifts until the clock reports the seek, the slider
-    /// shows the scrubbed time instead of the clock, so it doesn't jump back for a tick.
-    @State
-    private var scrub = Scrub()
 
     var body: some View {
         let time = model.bookTime(in: clock)
@@ -512,10 +586,11 @@ private struct PlayerDownloadLine: View {
 }
 
 /// The scrubbed time, in a reference type so the slider's touch callbacks (captured once, when its
-/// UIKit view is made) always reach the live value. Observable, read only by `PlayerTimeline`.
+/// UIKit view is made) always reach the live value. Observable, read only by the leaves that show
+/// the time: `PlayerTimeline`, and `ReadAlongView`, whose text follows the finger.
 @MainActor
 @Observable
-private final class Scrub {
+final class PlayerScrub {
     private(set) var time: Double?
     @ObservationIgnored private var isDragging = false
     @ObservationIgnored private var generation = 0

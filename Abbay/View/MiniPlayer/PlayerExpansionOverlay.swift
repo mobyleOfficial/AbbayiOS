@@ -104,7 +104,8 @@ struct PlayerExpansionOverlay: View {
             PlayerView(
                 model: model,
                 onCoverFrame: { [geometry] in geometry.setCoverFrame($0) },
-                onChaptersOpen: { [geometry] in geometry.setChaptersOpen($0) }
+                onChaptersOpen: { [geometry] in geometry.setChaptersOpen($0) },
+                onTextShown: { [geometry] in geometry.setTextShown($0) }
             )
             .id(book.url)
         }
@@ -142,6 +143,9 @@ final class ExpansionGeometry {
     /// The chapter panel (G2) floats over the cover: while it is open, the cover's collapse handle
     /// (drawn above the details screen) must not take the panel's touches.
     private(set) var isChaptersOpen = false
+    /// The read-along text (#192) is in the cover's square: its lines take taps (a seek) and its
+    /// language menu opens there, so the handle stands aside for it too.
+    private(set) var isTextShown = false
 
     func setCoverFrame(_ frame: CGRect) {
         if coverFrame != frame { coverFrame = frame }
@@ -149,6 +153,10 @@ final class ExpansionGeometry {
 
     func setChaptersOpen(_ open: Bool) {
         if isChaptersOpen != open { isChaptersOpen = open }
+    }
+
+    func setTextShown(_ shown: Bool) {
+        if isTextShown != shown { isTextShown = shown }
     }
 }
 
@@ -503,8 +511,9 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
             Color.clear
                 .contentShape(Rectangle())
                 .gesture(panelDrag)
-                // Under the open chapter panel, the panel's rows and handle take the touches.
-                .allowsHitTesting(!geometry.isChaptersOpen)
+                // Under the open chapter panel, the panel's rows and handle take the touches; over
+                // the read-along text, its lines and language menu do.
+                .allowsHitTesting(!geometry.isChaptersOpen && !geometry.isTextShown)
         }
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)

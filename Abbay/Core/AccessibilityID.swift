@@ -201,6 +201,21 @@ enum AccessibilityID {
         static let downloadCellularHold = "player.download.cellularHold"
         /// "Waiting for Wi-Fi: on a Personal Hotspot", the same place, for one held on a hotspot.
         static let downloadHotspotHold = "player.download.hotspotHold"
+        /// The Text pill (read-along, #192): flips the cover square to the text and back. Present
+        /// only while Read-along is on (iOS 26+).
+        static let text = "player.text"
+        /// The read-along square, in the cover's place while the Text pill is on.
+        static let readAlong = "player.readAlong"
+        /// The square's language label (*English ▾*): a menu of the languages iOS can transcribe.
+        static let readAlongLanguage = "player.readAlong.language"
+        /// The square's message while there is no text to show (preparing, no audio, no speech…).
+        static let readAlongStatus = "player.readAlong.status"
+
+        /// A line of the read-along text, by its position in the transcript; the current one carries
+        /// the selected trait.
+        static func readAlongLine(_ index: Int) -> String {
+            "player.readAlong.line.\(index)"
+        }
 
         static func chapter(_ index: Int) -> String {
             "player.chapter.\(index)"
