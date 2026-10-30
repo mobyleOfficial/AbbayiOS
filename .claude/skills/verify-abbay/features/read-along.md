@@ -60,8 +60,9 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   flips back or Read-along goes off, and on a change of split (a fold, a resize: the other layout's
   player has a session of its own; collapse there and expand again). Not remembered: the player
   always opens with the square. Scale and fade in and out; a plain fade with Reduce Motion. While
-  the chapter panel is open the expand button fades, is disabled and hidden from VoiceOver, like the
-  language label (UI tests still list it, disabled).
+  the chapter panel is open the expand button is left out of the hierarchy, like the language label
+  (a glass button faded by its parent still drew over the panel on a device: the glass container
+  composites it).
 - **tap a line:** seeks the loaded book to the line's start. On a book that isn't loaded it does
   nothing (it never loads or plays a book).
 - **language:** a LibriVox book uses the language LibriVox lists (stored when the book is added); an
@@ -146,7 +147,7 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   sits bottom-right; `player.readAlong.fullScreen`'s frame equals the window's, its lines show
   without *Preparing text…*, the mini player and the player's close button aren't hittable under
   it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
-  expand button is disabled while the chapter panel is open and works once it closes. The cover and
+  expand button doesn't exist while the chapter panel is open and works once it closes. The cover and
   play/pause tests also pass on an iPad Air 13-inch (iOS 26.4) in its landscape split, where the full
   screen covers both panes. Unit: `ReadAlongFullScreenTests` (needs a presented player; ends on
   close, another book, a change of split, the owning screen's slot; stale once the screen follows

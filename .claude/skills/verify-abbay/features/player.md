@@ -108,7 +108,7 @@ LibriVox page's Play all open it.
     (`player.readAlong.expand`, VoiceOver *Full screen* / *Tela cheia*): the same text over the whole
     window (`player.readAlong.fullScreen`, both panes when split), with the language label,
     play/pause (`player.readAlong.playPause`) and collapse (`player.readAlong.collapse`) along the
-    bottom. Both corner controls fade (the expand button disabled) while the chapter panel is open.
+    bottom. Both corner controls are left out of the hierarchy while the chapter panel is open.
     See [read-along](read-along.md) *full screen*.
   - **messages** (`player.readAlong.status`), centred, a spinner while something is under way:
     *Preparing text…*, *Downloading the English speech model…*, *Text isn't available in X.*, *The
@@ -267,7 +267,7 @@ $B drag player.close down                                 # planned: collapse un
   after closing and reopening; in landscape `player.readAlong` sits on the leading side, clear of
   the transport; `player.readAlong.expand` shows `player.readAlong.fullScreen` over the whole window
   (an iPad's split too), its play/pause drives playback, collapse brings the square back, and the
-  expand button is disabled while the chapter panel is open. The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
+  expand button doesn't exist while the chapter panel is open. The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
   `PlayerViewModelTests`. Not driven by a UI test: the status messages other than the stub's quick
   *Preparing text…*, the scene-phase stop, and VoiceOver itself.
 - `player.grabber` is set but **hidden from accessibility**, so XCUITest can't resolve it: the UI

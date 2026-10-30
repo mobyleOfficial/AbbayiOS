@@ -72,14 +72,13 @@ struct ReadAlongView: View {
         .modifier(ReadAlongSessionDriver(session: session, model: model, scrub: scrub, slot: slot, place: .square))
     }
 
-    /// Bottom-right, opposite the language label: the same text over the whole window. Faded and
-    /// out of reach (but kept) while the chapter panel is open, like the label.
+    /// Bottom-right, opposite the language label: the same text over the whole window. Left out
+    /// while the chapter panel is open, like the label (`ReadAlongContent`).
     private func expandButton(_ presentation: PlayerPresentation) -> some View {
         ReadAlongCornerButton(
             systemImage: "arrow.up.left.and.arrow.down.right",
             label: Localizable.readAlongFullScreen.localized,
-            identifier: AccessibilityID.Player.readAlongExpand,
-            isHidden: hidesControls
+            identifier: AccessibilityID.Player.readAlongExpand
         ) {
             presentation.showReadAlongFullScreen(ReadAlongFullScreen(model: model, scrub: scrub, slot: slot))
         }
@@ -254,7 +253,7 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
     let model: PlayerViewModel
     let scrub: PlayerScrub
     let style: ReadAlongStyle
-    /// The chapter panel is open over the square: the language label steps aside.
+    /// The chapter panel is open over the square: the language label and `trailing` step aside.
     let hidesControls: Bool
     let center: Center
     let trailing: Trailing
@@ -300,8 +299,16 @@ struct ReadAlongContent<Center: View, Trailing: View>: View {
                 ReadAlongLanguageMenu(session: session, isHidden: hidesControls)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 center
-                trailing
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                // Left out, not faded: the shared glass container composites a glass button
+                // itself, so a parent's opacity didn't hide it on a device (owner's device test).
+                ZStack {
+                    if !hidesControls {
+                        trailing
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .animation(.easeInOut(duration: 0.2), value: hidesControls)
             }
         }
     }
@@ -601,12 +608,12 @@ private struct ReadAlongStatus: View {
 /// and the full screen's collapse button. The hit area takes the corner's margin too, so it is
 /// larger than the circle.
 ///
-/// `isHidden` fades it and takes it out of reach and out of VoiceOver, but keeps it in place.
+/// It has no hidden state: a glass button is hidden by leaving it out of the hierarchy
+/// (`ReadAlongContent`), since the glass container draws it whatever its parent's opacity.
 struct ReadAlongCornerButton: View {
     let systemImage: String
     let label: String
     let identifier: String
-    var isHidden = false
     let action: () -> Void
 
     /// The language label's height at the default text size.
@@ -624,14 +631,7 @@ struct ReadAlongCornerButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // Disabled as well as hidden: UI tests still list a hidden SwiftUI button, and see this way
-        // that it can't be used.
-        .disabled(isHidden)
-        .accessibilityHidden(isHidden)
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
-        .opacity(isHidden ? 0 : 1)
-        .allowsHitTesting(!isHidden)
-        .animation(.easeInOut(duration: 0.2), value: isHidden)
     }
 }

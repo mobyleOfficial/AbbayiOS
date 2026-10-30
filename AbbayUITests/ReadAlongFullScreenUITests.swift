@@ -97,12 +97,9 @@ extension ReadAlongUITests {
         XCTAssertGreaterThan(expand.frame.midY, square.frame.midY, "not at the bottom")
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 5), "no chapter panel")
-        // Faded and out of reach but kept in place: UI tests still list it, disabled.
-        let deadline = Date().addingTimeInterval(5)
-        while expand.exists, expand.isEnabled, Date() < deadline {
-            usleep(100_000)
-        }
-        XCTAssertFalse(expand.exists && expand.isEnabled, "the expand button stays over the chapter panel")
+        // Out of the hierarchy, not faded: a faded glass button still drew over the panel on a
+        // device, since the glass container composites it.
+        XCTAssertTrue(expand.waitForNonExistence(timeout: 5), "the expand button stays over the chapter panel")
 
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(expand.waitForExistence(timeout: 5), "the expand button didn't come back")
