@@ -7,8 +7,8 @@ panel over the cover (G2); the Text pill flips the cover's square to the text be
 It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of where it
 was opened (the tapped [library](library.md) cover, or the [mini player](mini-player.md)) and
 collapses back there (#241). The overlay paints the background (the
-book's cover tint fading to near-black) and adds a header on top with a grabber (`player.grabber`,
-hidden from accessibility) and a glass close button (`player.close`).
+book's cover tint fading to near-black) and adds a header on top: a glass close button (`player.close`) and a drag strip
+(`player.grabber`, hidden from accessibility; it no longer draws a grabber bar).
 There is one presentation for the whole app (`PlayerPresentation`). Library rows, the bar and a
 LibriVox page's Play all open it.
 
@@ -21,10 +21,12 @@ LibriVox page's Play all open it.
   changing size. A book without artwork has the `onyx` tint. `-seedCoverArt` gives two seeds a
   cover, so the tint can be seen.
 - **header:** a glass circular close button (⌄, `abbayGlass(in: Circle(), interactive: true)`,
-  `player.close`, label *Close player*) on the left and the grabber in the middle. No ⋯ button:
-  there is nothing to put in it yet. Tapping ⌄ collapses the screen into the bar, animated.
-  Dragging the grabber, the button or the cover down collapses it under the finger. The grabber is
-  hidden from VoiceOver (a drag handle only), so ⌄ is the one *Close player* element; the panel
+  `player.close`, label *Close player*) on the left; the rest of the header is an invisible drag
+  strip. The grabber bar it used to draw was removed (owner's ask during the read-along device
+  test: ⌄ already shows how to close). No ⋯ button: there is nothing to put in it yet. Tapping ⌄
+  collapses the screen into the bar, animated. Dragging the header strip, the button or the cover
+  down collapses it under the finger. The strip is hidden from VoiceOver (a drag area only), so ⌄
+  is the one *Close player* element; the panel
   also answers the escape gesture (two-finger Z). Collapse rules are in
   [mini-player](mini-player.md#sub-features).
 - **cover:** `ArtworkView(book:cornerRadius: 14, shadow: true)`, as wide as the screen less 24 pt

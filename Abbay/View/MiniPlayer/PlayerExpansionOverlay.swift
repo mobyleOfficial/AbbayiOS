@@ -561,8 +561,10 @@ private struct ExpansionLayout<Details: View>: View, Animatable {
 
 // MARK: - Header
 
-/// The details screen's top (G1): a glass close button (⌄) on the left and the grabber in the
-/// middle. Both carry the collapse drag. No ⋯ button: there is nothing to put in it yet.
+/// The details screen's top (G1): a glass close button (⌄) on the left, and the rest of the strip a
+/// drag area. Both carry the collapse drag. No ⋯ button: there is nothing to put in it yet. The
+/// grabber bar the strip used to draw is gone (owner's ask): ⌄ already says how to close, and the
+/// drag still works from anywhere along the strip.
 private struct ExpansionHeader<Drag: Gesture>: View {
     let drag: Drag
     let onClose: () -> Void
@@ -573,14 +575,12 @@ private struct ExpansionHeader<Drag: Gesture>: View {
 
     var body: some View {
         ZStack {
-            Capsule()
-                .fill(ColorConstants.white.value.opacity(0.35))
-                .frame(width: SpaceConstants.sx36.value, height: 5)
+            Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .gesture(drag)
                 // The chevron is VoiceOver's one "Close player" (with the escape action); the
-                // grabber is a drag handle only. The identifier stays for the UI tests' drags.
+                // strip is a drag area only. The identifier stays for the UI tests' drags.
                 .accessibilityIdentifier(AccessibilityID.Player.grabber)
                 .accessibilityHidden(true)
             HStack {

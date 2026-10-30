@@ -76,7 +76,7 @@
   - The bar's face fades out over the first 30%, and the details screen fades in over the last 70%.
   - Opened with nothing visible to grow from (a LibriVox page's Play with nothing loaded), it
     grows from a 56 pt strip along the bottom edge.
-- **collapse:** a drag down from the details screen's grabber header, its close button
+- **collapse:** a drag down from the details screen's header strip (no grabber bar since #192's device test), its close button
   (`player.close`) or its cover follows the finger back into the bar, under the same 30% / 800 pt/s rule.
   `player.close` collapses it animated. While the panel is moving, a drag anywhere on it continues
   the motion. On every iOS version these are the only handles: the chapter list moved into the

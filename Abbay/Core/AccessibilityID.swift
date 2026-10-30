@@ -182,7 +182,8 @@ enum AccessibilityID {
         static let close = "player.close"
         /// Opens the speed sheet; its label is the book's speed ("1.5×").
         static let speed = "player.speed"
-        /// The grabber at the top of the details screen: drag it down to collapse into the bar.
+        /// The header strip at the top of the details screen (it no longer draws a grabber bar):
+        /// drag it down to collapse into the bar.
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
         static let grabber = "player.grabber"
         static let title = "player.title"

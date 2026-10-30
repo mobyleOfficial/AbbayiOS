@@ -211,7 +211,7 @@ substitute: it records every intent firing across processes and survives app dea
 ### Playback
 
 - [mini-player](mini-player.md): the one-row bar above the tabs, its tap, drag and swipes, and the expansion into the details screen.
-- [player](player.md): the details screen (no longer a sheet), its grabber and close, scrubbing, chapter list.
+- [player](player.md): the details screen (no longer a sheet), its header (close, drag strip), scrubbing, chapter list.
 - [read-along](read-along.md): experimental on-device text of the audiobook in the player's cover square (iOS 26+, Settings › Experimental), the Text pill, language, messages.
 - [now-playing](now-playing.md): lock screen, Control Center and remote commands.
 
