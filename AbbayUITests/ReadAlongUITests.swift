@@ -242,6 +242,27 @@ final class ReadAlongUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Portuguese"].exists, "the menu doesn't list Portuguese")
     }
 
+    /// The chapter panel floats over the square: the language label hides while it is open rather
+    /// than drawing over the chapters (owner's device test), and comes back when it closes.
+    func test_languageLabel_hidesWhileTheChapterPanelIsOpen() throws {
+        launch()
+        try openPlayableBook()
+        showText()
+
+        let label = element(AccessibilityID.Player.readAlongLanguage)
+        XCTAssertTrue(label.waitForExistence(timeout: 5), "no language label")
+        element(AccessibilityID.Player.chapters).tap()
+        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 5), "no chapter panel")
+        XCTAssertTrue(
+            label.waitForNonExistence(timeout: 5), "the language label stays over the chapter panel"
+        )
+
+        element(AccessibilityID.Player.chapters).tap()
+        XCTAssertTrue(label.waitForExistence(timeout: 5), "the language label didn't come back")
+        label.tap()
+        XCTAssertTrue(app.buttons["English"].waitForExistence(timeout: 5), "the label came back without its menu")
+    }
+
     // MARK: - Reduce Motion, reopening, landscape
 
     func test_reduceMotion_stillShowsCurrentLine() throws {

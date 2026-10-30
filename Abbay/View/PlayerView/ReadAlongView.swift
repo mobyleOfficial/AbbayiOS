@@ -27,16 +27,20 @@ struct ReadAlongView: View {
 
     /// The player screen's session, made the first time the text shows.
     let slot: ReadAlongSessionSlot
+    /// The chapter panel is open over the square. The language label, a system menu button, drew
+    /// over the panel (owner's device test), so it steps aside until the panel closes.
+    let hidesLanguage: Bool
 
     @Environment(ReadAlongCenter.self)
     private var center
     @Environment(\.scenePhase)
     private var scenePhase
 
-    init(model: PlayerViewModel, scrub: PlayerScrub, slot: ReadAlongSessionSlot) {
+    init(model: PlayerViewModel, scrub: PlayerScrub, slot: ReadAlongSessionSlot, hidesLanguage: Bool = false) {
         self.model = model
         self.scrub = scrub
         self.slot = slot
+        self.hidesLanguage = hidesLanguage
     }
 
     private var session: ReadAlongSession {
@@ -48,7 +52,7 @@ struct ReadAlongView: View {
             // A dark fill rather than glass: the text is content, not a control.
             RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous)
                 .fill(Color.black.opacity(0.28))
-            ReadAlongContent(session: session, model: model, scrub: scrub)
+            ReadAlongContent(session: session, model: model, scrub: scrub, hidesLanguage: hidesLanguage)
         }
         .clipShape(RoundedRectangle(cornerRadius: PlayerView.coverRadius, style: .continuous))
         .accessibilityElement(children: .contain)
@@ -155,6 +159,7 @@ private struct ReadAlongContent: View {
     let session: ReadAlongSession
     let model: PlayerViewModel
     let scrub: PlayerScrub
+    let hidesLanguage: Bool
 
     @ReduceMotion
     private var reduceMotion
@@ -172,7 +177,10 @@ private struct ReadAlongContent: View {
                     }
             }
             // Outside the poll: it changes only with the language or the choices.
-            ReadAlongLanguageMenu(session: session)
+            // Always in the tree, so it keeps its named choices; only its button steps aside while
+            // the chapter panel is open (removing the whole view lost the choices, and it never
+            // came back).
+            ReadAlongLanguageMenu(session: session, isHidden: hidesLanguage)
         }
     }
 
@@ -244,16 +252,20 @@ private struct ReadAlongContent: View {
 /// the choices, not on each render: iOS 26 lists dozens of locales.
 private struct ReadAlongLanguageMenu: View {
     let session: ReadAlongSession
+    /// The chapter panel is open over the square: the button would draw over it.
+    let isHidden: Bool
 
     @State
     private var choices: [ReadAlongView.LanguageChoice] = []
 
     var body: some View {
         Group {
-            if let language = session.language, !choices.isEmpty {
+            if !isHidden, let language = session.language, !choices.isEmpty {
                 menu(language: language)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: isHidden)
         .onChange(of: session.choices, initial: true) { _, ids in
             choices = ReadAlongView.languageChoices(ids)
         }

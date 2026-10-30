@@ -10,7 +10,7 @@ import SwiftUI
 /// The details screen, "Player A" of the Liquid Glass redesign (#166 G1): a large cover, a
 /// left-aligned title block, the scrubber, the transport and two glass pills (speed, chapters).
 /// It is drawn inside the expansion overlay (`PlayerExpansionOverlay`), which paints the cover-tint
-/// gradient behind it and adds the header (glass close button, grabber) on top.
+/// gradient behind it and adds the header (glass close button, a drag strip) on top.
 ///
 /// The Chapters pill opens the chapter list as a glass panel floating over the cover (G2,
 /// `ChaptersPanel`); nothing else on the screen moves. With Read-along on (#192), a Text pill
@@ -198,7 +198,7 @@ struct PlayerView: View {
     @ViewBuilder
     private var coverSquare: some View {
         if showsText {
-            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot)
+            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot, hidesLanguage: showsPanel)
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }
