@@ -345,8 +345,10 @@ private struct ReadAlongLines: View, Equatable {
             .onTapGesture { onTap(lines[index]) }
             .id(index)
             .accessibilityIdentifier(AccessibilityID.Player.readAlongLine(index))
-            // VoiceOver can find the line being spoken; nothing is announced as it moves on.
-            .accessibilityAddTraits(isCurrent ? .isSelected : [])
+            // A tap seeks there, so VoiceOver offers it as a button. It can find the line being
+            // spoken; nothing is announced as it moves on.
+            .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            .accessibilityHint(Localizable.readAlongLineHint.localized)
     }
 
     /// The line's words, the highlighted one in malachite.

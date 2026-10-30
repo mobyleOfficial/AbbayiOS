@@ -173,6 +173,16 @@ final class ReadAlongUITests: XCTestCase {
 
     // MARK: - Tapping a line
 
+    /// A line seeks when tapped, so VoiceOver gets it as a button (its hint, "Plays from this line",
+    /// is checked in `ReadAlongViewTests`).
+    func test_lines_areButtons() throws {
+        launch()
+        try openPlayableBook()
+        showText()
+
+        XCTAssertTrue(app.buttons[AccessibilityID.Player.readAlongLine(0)].waitForExistence(timeout: 5))
+    }
+
     /// Review Focus 3: the shown book isn't loaded, so a line tap must not load or play it.
     func test_lineTap_onABookNotLoaded_doesNotStartPlayback() throws {
         launch()

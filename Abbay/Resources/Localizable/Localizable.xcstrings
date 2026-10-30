@@ -3482,6 +3482,24 @@
           }
         }
       }
+    },
+    "readAlongLineHint" : {
+      "comment" : "Player read-along square: VoiceOver hint on a line of the text, which seeks there when tapped",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays from this line"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca a partir desta linha"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -93,4 +93,18 @@ final class ReadAlongViewTests: XCTestCase {
         XCTAssertFalse(scrub.isDragging)
         XCTAssertEqual(scrub.time, 120, "shown until the seek lands")
     }
+
+    // MARK: - VoiceOver
+
+    /// A line seeks when tapped, so VoiceOver says so, in both languages.
+    func test_lineHint_isTranslated() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(Localizable.readAlongLineHint.localized, "Plays from this line")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(Localizable.readAlongLineHint.localized, "Toca a partir desta linha")
+    }
 }

@@ -157,6 +157,7 @@ enum Localizable: String {
     case readAlongNoSpeech
     case readAlongFailed
     case readAlongLanguage
+    case readAlongLineHint
 }
 
 extension Localizable {
