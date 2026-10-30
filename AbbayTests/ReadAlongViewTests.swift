@@ -107,4 +107,21 @@ final class ReadAlongViewTests: XCTestCase {
         XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
         XCTAssertEqual(Localizable.readAlongLineHint.localized, "Toca a partir desta linha")
     }
+
+    // MARK: - Text pill
+
+    /// The pill names what a tap shows: *Text* over the cover, *Cover* over the text (owner's ask
+    /// after the device test), in both languages.
+    func test_textPill_namesWhatATapShows() {
+        defer {
+            AbbayBundle.value.unsetLocalizedLanguage()
+            AbbayBundle.languageCode = nil
+        }
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "en"))
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: false), "Text")
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: true), "Cover")
+        XCTAssertTrue(AbbayBundle.value.setLocalizedLanguage(to: "pt-BR"))
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: false), "Texto")
+        XCTAssertEqual(PlayerView.textPillTitle(showsText: true), "Capa")
+    }
 }

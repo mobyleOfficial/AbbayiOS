@@ -77,8 +77,9 @@ LibriVox page's Play all open it.
   engine that runs here: `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
   `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
   the cover's square to the text (`player.readAlong`, `ReadAlongView`), like lyrics in Apple Music,
-  with a short cross-fade; nothing else on the screen moves. While the text shows, the pill's icon
-  is `photo` and VoiceOver reads it *Show cover* / *Mostrar capa*; a tap flips back. Whether the
+  with a short cross-fade; nothing else on the screen moves. While the text shows, the pill reads
+  *Cover* / *Capa* with a `photo` icon and VoiceOver reads it *Show cover* / *Mostrar capa*; a tap
+  flips back. Whether the
   text shows is remembered app-wide (`AppSettings.readAlongShowsText`): it stays up across books,
   closing and reopening, and launches. **With Read-along off the pill row and the screen are exactly
   as before** (pixel-compared, task 8).

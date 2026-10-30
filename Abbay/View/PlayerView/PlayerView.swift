@@ -307,7 +307,7 @@ struct PlayerView: View {
         }
     }
 
-    /// "Text" with a quote mark; while the text shows, with a picture instead, and VoiceOver reads
+    /// "Text" with a quote mark; while the text shows, "Cover" with a picture, and VoiceOver reads
     /// it as *Show cover*. A tap flips the square; the cross-fade is the same with Reduce Motion.
     private var textPill: some View {
         Button {
@@ -316,7 +316,7 @@ struct PlayerView: View {
             }
         } label: {
             PlayerPill(
-                text: Localizable.readAlongPill.localized,
+                text: Self.textPillTitle(showsText: showsText),
                 systemImage: showsText ? "photo" : "text.quote"
             )
         }
@@ -326,6 +326,11 @@ struct PlayerView: View {
             showsText ? Localizable.readAlongShowCover.localized : Localizable.readAlongPill.localized
         )
         .accessibilityIdentifier(AccessibilityID.Player.text)
+    }
+
+    /// What a tap on the Text pill shows: the text over the cover, the cover over the text.
+    static func textPillTitle(showsText: Bool) -> String {
+        showsText ? Localizable.readAlongCoverPill.localized : Localizable.readAlongPill.localized
     }
 
     /// "☰ Chapters", or "✕ Chapters" while the panel is open; a tap toggles it.

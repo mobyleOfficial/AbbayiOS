@@ -148,6 +148,7 @@ enum Localizable: String {
     case skipForwardAction
     // Read-along (the player's Text pill and square)
     case readAlongPill
+    case readAlongCoverPill
     case readAlongShowCover
     case readAlongPreparing
     case readAlongDownloadingModel

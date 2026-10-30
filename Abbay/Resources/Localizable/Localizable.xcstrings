@@ -3321,6 +3321,24 @@
         }
       }
     },
+    "readAlongCoverPill" : {
+      "comment" : "Player: the Text pill's title while the text shows; a tap shows the cover again",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cover"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capa"
+          }
+        }
+      }
+    },
     "readAlongShowCover" : {
       "comment" : "Player: VoiceOver label of the Text pill while the text shows",
       "extractionState" : "manual",

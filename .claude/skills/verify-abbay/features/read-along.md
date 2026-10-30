@@ -27,7 +27,7 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   transcript (`ReadAlongStore.deleteAll`); the Text pill goes away. A book deleted from the library
   loses its transcript too (`DeleteAudioUseCase`).
 - **text pill** (`player.text`): between the speed and Chapters pills, only with Read-along on.
-  Flips the cover's square to the text and back; VoiceOver reads *Text* / *Show cover*. Whether
+  Flips the cover's square to the text and back; the pill reads *Text* / *Texto* over the cover and *Cover* / *Capa* over the text; VoiceOver reads *Text* / *Show cover*. Whether
   the text shows is remembered app-wide. See [player](player.md) *read-along*.
 - **the square** (`player.readAlong`): the cover's frame, dark fill, the lines scrolling with the
   current one centred (white, semibold, the spoken word in malachite; read lines faded, upcoming
@@ -79,7 +79,7 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
 
 1. Settings (the Library's gear) › Experimental › switch Read-along on (iOS 26+).
 2. Open a book's player; tap **Text** between the speed and Chapters pills.
-3. Tap **Show cover** (the same pill) to go back.
+3. Tap **Cover** (the same pill) to go back.
 
 ## Driving it with abbay-ctl
 
