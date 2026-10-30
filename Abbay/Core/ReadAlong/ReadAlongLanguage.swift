@@ -80,20 +80,41 @@ enum ReadAlongLanguage {
                 add(locale(forLanguageCode: parts(of: id).language, in: installed, preferredRegion: nil))
             }
         }
-        add(installed.first { $0.caseInsensitiveCompare("en-US") == .orderedSame }
-            ?? locale(forLanguageCode: "en", in: installed, preferredRegion: nil))
+        add(locale(forLanguageCode: "en", in: installed, preferredRegion: nil))
         return result
     }
 
-    /// The installed/supported locale that matches a language code ("pt" → "pt-BR" if offered):
-    /// the one in `preferredRegion` if there is one, else the first of that language.
-    static func locale(forLanguageCode code: String, in supported: [String], preferredRegion: String?) -> String? {
+    /// The supported locale that matches a language code ("pt" → "pt-BR" if offered), in order:
+    /// the one in `preferredRegion` (the device's own, for that language); else an `installed` one,
+    /// so a model already on the device is used rather than another region's download; else the
+    /// language's likely region ("en" → US, "pt" → BR, "es" → ES); else the first of that language.
+    /// Never the alphabetically first by default: that is en-AU for English.
+    static func locale(
+        forLanguageCode code: String,
+        in supported: [String],
+        installed: [String] = [],
+        preferredRegion: String?
+    ) -> String? {
         let code = code.lowercased()
         let matches = supported.map(normalised).filter { parts(of: $0).language == code }
-        let inRegion = matches.first {
-            parts(of: $0).region?.caseInsensitiveCompare(preferredRegion ?? "") == .orderedSame
+        let likely = likelyRegion(of: code)
+        func inRegion(_ region: String?, among locales: [String]) -> String? {
+            guard let region else { return nil }
+            return locales.first { parts(of: $0).region?.caseInsensitiveCompare(region) == .orderedSame }
         }
-        return inRegion ?? matches.first
+        let installed = Set(installed.map { normalised($0).lowercased() })
+        let installedMatches = matches.filter { installed.contains($0.lowercased()) }
+        return inRegion(preferredRegion, among: matches)
+            ?? inRegion(likely, among: installedMatches)
+            ?? installedMatches.first
+            ?? inRegion(likely, among: matches)
+            ?? matches.first
+    }
+
+    /// The region a language is most likely spoken in, from CLDR's likely subtags ("en" is
+    /// "en-Latn-US").
+    private static func likelyRegion(of code: String) -> String? {
+        parts(of: Locale.Language(identifier: code).maximalIdentifier).region
     }
 
     // MARK: Detection pick

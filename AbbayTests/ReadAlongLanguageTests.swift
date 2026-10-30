@@ -167,6 +167,61 @@ final class ReadAlongLanguageTests: XCTestCase {
         )
     }
 
+    /// A LibriVox "eng" on a device with no English: the language's likely region (en-US), not the
+    /// alphabetically first one (en-AU).
+    func test_locale_noPreferredRegion_takesTheLanguagesLikelyRegion() {
+        let english = ["en-AU", "en-GB", "en-IN", "en-US"]
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(forLanguageCode: "en", in: english, preferredRegion: nil),
+            "en-US"
+        )
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(forLanguageCode: "es", in: ["es-CL", "es-ES", "es-MX"], preferredRegion: nil),
+            "es-ES"
+        )
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(forLanguageCode: "de", in: ["de-AT", "de-CH", "de-DE"], preferredRegion: nil),
+            "de-DE"
+        )
+    }
+
+    /// An installed model is used rather than another region's download; among installed ones the
+    /// likely region still wins.
+    func test_locale_prefersInstalledLocales() {
+        let english = ["en-AU", "en-GB", "en-IN", "en-US"]
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(forLanguageCode: "en", in: english, installed: ["en-GB"], preferredRegion: nil),
+            "en-GB"
+        )
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(
+                forLanguageCode: "en",
+                in: english,
+                installed: ["en_GB", "en_US"],
+                preferredRegion: nil
+            ),
+            "en-US"
+        )
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(forLanguageCode: "en", in: english, installed: ["pt-BR"], preferredRegion: nil),
+            "en-US",
+            "nothing in the language installed: the likely region"
+        )
+    }
+
+    /// The device's own region beats an installed model in another one: an en-GB device wants en-GB.
+    func test_locale_preferredRegion_winsOverInstalled() {
+        XCTAssertEqual(
+            ReadAlongLanguage.locale(
+                forLanguageCode: "en",
+                in: ["en-AU", "en-GB", "en-US"],
+                installed: ["en-US"],
+                preferredRegion: "GB"
+            ),
+            "en-GB"
+        )
+    }
+
     func test_locale_noMatch_isNil() {
         XCTAssertNil(ReadAlongLanguage.locale(forLanguageCode: "de", in: ["pt-BR", "en-US"], preferredRegion: nil))
     }

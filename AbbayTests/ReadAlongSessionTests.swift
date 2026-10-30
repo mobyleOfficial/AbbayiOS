@@ -341,6 +341,53 @@ final class ReadAlongSessionLanguageTests: ReadAlongSessionTestCase {
         XCTAssertEqual(settings.readAlongLanguage(for: book.url), "en-US")
     }
 
+    /// The issue's persona: a Brazilian device practising English on an "eng" LibriVox book gets
+    /// en-US, never the alphabetically first English (en-AU), installed or not.
+    func test_storedLanguageCode_withNoDeviceLanguageInIt_takesTheInstalledOrLikelyRegion() async throws {
+        for installed in [["en-US", "pt-BR"], ["pt-BR"]] {
+            let book = try importedBook()
+            settings.setReadAlongLanguage("en", for: book.url)
+            stub.supported = ["en-AU", "en-GB", "en-IN", "en-US", "pt-BR"]
+            stub.installed = installed
+            let session = ReadAlongSession(
+                transcriber: stub,
+                store: store,
+                settings: settings,
+                makeSource: { [root] in ReadAlongAudioSource.make(for: $0, root: root) },
+                preferredLanguages: { ["pt-BR"] },
+                saveInterval: .zero
+            )
+
+            session.show(book, at: 0)
+            await waitUntil { session.language != nil && session.state != .preparing }
+
+            XCTAssertEqual(session.language, "en-US", "installed: \(installed)")
+            XCTAssertEqual(settings.readAlongLanguage(for: book.url), "en-US")
+            session.stop()
+        }
+    }
+
+    /// The same for the in-app language when detection is not decisive.
+    func test_detectionFallback_inAppLanguage_takesTheLikelyRegion() async throws {
+        let book = try importedBook()
+        stub.supported = ["en-AU", "en-GB", "en-US", "pt-BR"]
+        stub.installed = ["pt-BR"]
+        stub.confidences = ["pt-BR": 0.2]
+        let session = ReadAlongSession(
+            transcriber: stub,
+            store: store,
+            settings: settings,
+            makeSource: { [root] in ReadAlongAudioSource.make(for: $0, root: root) },
+            preferredLanguages: { ["pt-BR"] },
+            saveInterval: .zero
+        )
+
+        session.show(book, at: 0)
+        await waitUntil { session.language != nil && session.state != .preparing }
+
+        XCTAssertEqual(session.language, "en-US")
+    }
+
     func test_noStoredLanguage_detectsTheMostConfidentInstalledLocale_andSavesIt() async throws {
         let book = try importedBook()
         stub.installed = ["en-US", "pt-BR"]

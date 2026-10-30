@@ -308,9 +308,12 @@ extension ReadAlongSession {
     ) async -> String? {
         if let stored = settings.readAlongLanguage(for: url) {
             guard Self.isBareCode(stored) else { return stored }
+            let installed = await transcriber.installedLocales()
+            guard isCurrent(generation) else { return nil }
             guard let locale = ReadAlongLanguage.locale(
                 forLanguageCode: stored,
                 in: supported,
+                installed: installed,
                 preferredRegion: preferredRegion(for: stored)
             ) else { return stored }
             settings.setReadAlongLanguage(locale, for: url)
@@ -341,20 +344,26 @@ extension ReadAlongSession {
             guard isCurrent(generation) else { return nil }
             scores[candidate] = score
         }
-        let locale = ReadAlongLanguage.best(scores) ?? appLanguageLocale(in: supported)
+        let locale = ReadAlongLanguage.best(scores) ?? appLanguageLocale(in: supported, installed: installed)
         settings.setReadAlongLanguage(locale, for: url)
         return locale
     }
 
-    /// The in-app language's locale among the supported ones; the language id itself (which the
-    /// model check then reports as unsupported) when iOS has none.
-    private func appLanguageLocale(in supported: [String]) -> String {
+    /// The in-app language's locale among the supported ones, chosen as `ReadAlongLanguage.locale`
+    /// does (the device's region, an installed model, the likely region); the language id itself
+    /// (which the model check then reports as unsupported) when iOS has none.
+    private func appLanguageLocale(in supported: [String], installed: [String]) -> String {
         let id = settings.language.languageCode ?? AbbayBundle.locale.identifier
         let language = Locale(identifier: id).language
         let code = language.languageCode?.identifier ?? "en"
         let region = language.region?.identifier ?? preferredRegion(for: code)
-        return ReadAlongLanguage.locale(forLanguageCode: code, in: supported, preferredRegion: region)
-            ?? id.replacingOccurrences(of: "_", with: "-")
+        let locale = ReadAlongLanguage.locale(
+            forLanguageCode: code,
+            in: supported,
+            installed: installed,
+            preferredRegion: region
+        )
+        return locale ?? id.replacingOccurrences(of: "_", with: "-")
     }
 
     /// The region of the first device language in `code`: "pt" on a Brazilian device is "BR".
