@@ -76,8 +76,8 @@ final class ReadAlongControlsVisibility {
     /// The controls must stay: VoiceOver users would lose them; the language menu hangs off the
     /// label; while the text isn't ready (*Preparing*, *Downloading*, *Not available*, *must be
     /// downloaded*, *Couldn't make*) the label may be what's needed; and while something covers
-    /// them (the chapter panel, the full screen) they are out of the way already, and come back
-    /// with a fresh delay when it goes.
+    /// or draws the square (the full screen, the player's expansion moving) they are out of the way
+    /// already, and come back with a fresh delay when it goes.
     static func isPinned(voiceOver: Bool, menuOpen: Bool, state: ReadAlongState, covered: Bool) -> Bool {
         voiceOver || menuOpen || state != .ready || covered
     }

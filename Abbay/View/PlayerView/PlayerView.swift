@@ -185,7 +185,9 @@ struct PlayerView: View {
             // A square as wide as the screen allows, smaller when the height runs short.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
-            .opacity(hidesCover ? 0 : 1)
+            // The read-along square hides itself (`ReadAlongView`): its fill at once, its text with
+            // a fade, so the expansion's copy hands over without a swap.
+            .opacity(hidesCover && !showsText ? 0 : 1)
             // Measured on the square that is drawn, not on the `coverSide` frame around it: when
             // the height runs short, that frame is wider than the square, and the expansion's cover
             // grew into it and then snapped down to the real cover as it settled (#254).
@@ -194,14 +196,17 @@ struct PlayerView: View {
             })
             .frame(maxWidth: Self.coverSide, maxHeight: Self.coverSide)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The cover is decoration; the text is read like any other.
-            .accessibilityHidden(!showsText)
+            // The cover is decoration; the text is read like any other. Under the open chapter panel
+            // the square stays drawn (its glass bar stays put) but VoiceOver can't reach it, so the
+            // language label and the expand button can't be used behind the panel.
+            .accessibilityHidden(!showsText || showsPanel)
+            .environment(\.readAlongCoveredByPanel, showsPanel)
     }
 
     @ViewBuilder
     private var coverSquare: some View {
         if showsText {
-            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot, hidesControls: showsPanel)
+            ReadAlongView(model: model, scrub: scrub, slot: readAlongSlot)
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }

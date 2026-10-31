@@ -87,9 +87,10 @@ extension ReadAlongUITests {
         XCTAssertEqual(transportPlay.label, "Play", "the player's transport disagrees")
     }
 
-    /// The expand button steps aside while the chapter panel is open, like the language label, and
-    /// works again once it closes.
-    func test_expand_hidesWhileTheChapterPanelIsOpen() throws {
+    /// The expand button stays where it is while the chapter panel is open, under the panel, like
+    /// the language label: the panel no longer grows out of it, nor draws under it. A tap there
+    /// reaches the panel; once it closes, the button works.
+    func test_expand_staysUnderTheChapterPanel() throws {
         launch()
         try openPlayableBook()
         showText()
@@ -98,16 +99,26 @@ extension ReadAlongUITests {
         XCTAssertTrue(expand.waitForExistence(timeout: 5), "no expand button")
         XCTAssertGreaterThan(expand.frame.midX, square.frame.midX, "not on the right")
         XCTAssertGreaterThan(expand.frame.midY, square.frame.midY, "not at the bottom")
+        let before = expand.frame
         element(AccessibilityID.Player.chapters).tap()
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForExistence(timeout: 5), "no chapter panel")
-        // Out of the hierarchy, not faded: a faded glass button still drew over the panel on a
-        // device, since the glass container composites it.
-        XCTAssertTrue(expand.waitForNonExistence(timeout: 5), "the expand button stays over the chapter panel")
+        sleep(1)
+        // Still there and in place under the panel, but disabled while the panel covers it (and
+        // hidden from VoiceOver, which XCUITest can't observe).
+        XCTAssertTrue(expand.exists, "the expand button stepped aside")
+        XCTAssertEqual(expand.frame, before, "the expand button moved")
+        XCTAssertFalse(expand.isEnabled, "the expand button can be used behind the chapter panel")
+        // Tap where it is drawn: the panel takes the tap, and the full screen doesn't open.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: before.midX, dy: before.midY)).tap()
+        XCTAssertFalse(fullScreen.waitForExistence(timeout: 2), "the expand button is over the chapter panel")
+        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).exists, "the tap didn't land on the panel")
 
         element(AccessibilityID.Player.chapters).tap()
-        XCTAssertTrue(expand.waitForExistence(timeout: 5), "the expand button didn't come back")
-        XCTAssertTrue(expand.isEnabled, "the expand button didn't come back")
+        XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).waitForNonExistence(timeout: 5))
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: expand)
+        wait(for: [enabled], timeout: 5)
+        sleep(1) // the panel's close animation takes taps until it's gone
         expand.tap()
-        XCTAssertTrue(fullScreen.waitForExistence(timeout: 5), "the expand button came back without its action")
+        XCTAssertTrue(fullScreen.waitForExistence(timeout: 5), "the expand button lost its action")
     }
 }

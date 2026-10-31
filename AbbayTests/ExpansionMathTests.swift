@@ -159,4 +159,37 @@ final class ExpansionMathTests: XCTestCase {
         XCTAssertEqual(ExpansionMath.cornerRadius(from: 8, progress: 0.5), 4)
         XCTAssertEqual(ExpansionMath.cornerRadius(from: 8, progress: 1), 0)
     }
+
+    // MARK: - Read-along square (#192)
+
+    /// With the read-along text showing, the growing cover turns from the artwork into the text
+    /// square's dark fill as it grows: all artwork at the bar, all square where it lands, so the
+    /// hand-off to the real square is no swap (owner's device test).
+    func test_textSquareBlend_isTheArtworkAtTheBarAndTheSquareWhereItLands() {
+        XCTAssertEqual(ExpansionMath.textSquareBlend(progress: 0, reduceMotion: false), 0)
+        XCTAssertEqual(ExpansionMath.textSquareBlend(progress: 1, reduceMotion: false), 1)
+        XCTAssertEqual(ExpansionMath.textSquareBlend(progress: -0.1, reduceMotion: false), 0, "a spring's undershoot")
+        XCTAssertEqual(ExpansionMath.textSquareBlend(progress: 1.1, reduceMotion: false), 1, "a spring's overshoot")
+    }
+
+    /// Over the growth, not at an end: no step, and always moving the same way.
+    func test_textSquareBlend_crossFadesOverTheGrowth() {
+        let middle = ExpansionMath.textSquareBlend(progress: 0.5, reduceMotion: false)
+        XCTAssertGreaterThan(middle, 0.3)
+        XCTAssertLessThan(middle, 0.7)
+        var previous: CGFloat = 0
+        for step in 0...100 {
+            let value = ExpansionMath.textSquareBlend(progress: CGFloat(step) / 100, reduceMotion: false)
+            XCTAssertGreaterThanOrEqual(value, previous, "goes back at \(step)%")
+            XCTAssertLessThan(value - previous, 0.05, "jumps at \(step)%")
+            previous = value
+        }
+    }
+
+    /// Reduce Motion: nothing grows, the panel only fades, and the square is the square throughout.
+    func test_textSquareBlend_withReduceMotion_isTheSquare() {
+        for progress: CGFloat in [0, 0.3, 0.7, 1] {
+            XCTAssertEqual(ExpansionMath.textSquareBlend(progress: progress, reduceMotion: true), 1)
+        }
+    }
 }
