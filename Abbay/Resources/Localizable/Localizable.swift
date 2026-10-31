@@ -144,6 +144,7 @@ enum Localizable: String {
     case speedPresets
     case speedSetDefault
     case speedIsDefault
+    case bookVolume
     case skipBackAction
     case skipForwardAction
     // Read-along (the player's Text pill and square)

@@ -87,7 +87,12 @@ final class DependencyContainer: DependencyContainerProtocol {
         // Before the player: a pause refreshes Siri's context through it.
         let siriContext = SiriContextRefresher(loadAllAudios: loadAllAudios)
         self.siriContext = siriContext
-        let player = Player(chapterPrioritizer: downloads, speeds: settings, siriContext: siriContext)
+        let player = Player(
+            chapterPrioritizer: downloads,
+            speeds: settings,
+            volumes: settings,
+            siriContext: siriContext
+        )
         let loadAudio = LoadAudioUseCase()
         self.player = player
         self.loadAudio = loadAudio

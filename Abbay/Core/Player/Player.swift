@@ -40,13 +40,21 @@ protocol PlayerProtocol {
     /// Sets the loaded book's speed, saves it for that book, and applies it at once when playing.
     /// It holds across pause and resume, seeks and chapter files.
     func setPlaybackRate(_ rate: Double)
+    /// Abbay's own volume, 0–1, under the system volume. One level for every book.
+    var volume: Double { get }
+    /// Sets and saves Abbay's volume, applied at once whether playing or not.
+    func setVolume(_ volume: Double)
 }
 
-/// For players with no speed control (test doubles that predate it).
+/// For players with no speed or volume control (test doubles that predate them).
 extension PlayerProtocol {
     var playbackRate: Double { PlaybackSpeed.normal }
 
     func setPlaybackRate(_ rate: Double) {}
+
+    var volume: Double { BookVolume.full }
+
+    func setVolume(_ volume: Double) {}
 }
 
 final class Player: PlayerProtocol {
@@ -73,6 +81,7 @@ final class Player: PlayerProtocol {
     private var lastPositionSave: Date?
     private var notificationObservers: [NSObjectProtocol] = []
     private let speeds: PlaybackSpeedStoring
+    private let volumes: PlaybackVolumeStoring
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
     /// Donations on pause, on an interruption and at chapter boundaries, and the context refresh
@@ -140,6 +149,9 @@ final class Player: PlayerProtocol {
 
     private(set) var playbackRate: Double = PlaybackSpeed.normal
 
+    /// The queue player's own gain, for tests.
+    internal var requestedVolume: Float { player.volume }
+
     // MARK: - Init
     init(
         savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol = SavePlaybackPositionUseCase(),
@@ -154,11 +166,13 @@ final class Player: PlayerProtocol {
         noticeReporter: NoticeReporting = NoticeCenter.shared,
         networkPath: NetworkPathProviding = NetworkPathMonitor.shared,
         speeds: PlaybackSpeedStoring = NormalPlaybackSpeed(),
+        volumes: PlaybackVolumeStoring = FullPlaybackVolume(),
         lastPlayed: LastPlayedStore = .shared,
         launchState: LaunchStateFlag = .shared,
         siriContext: SiriContextRefreshing = NoopSiriContextRefresher()
     ) {
         self.speeds = speeds
+        self.volumes = volumes
         self.lastPlayed = lastPlayed
         self.launchState = launchState
         self.siriSignals = PlayerSiriSignals(donor: intentDonor, context: siriContext)
@@ -173,6 +187,7 @@ final class Player: PlayerProtocol {
         self.now = now
         self.noticeReporter = noticeReporter
         self.networkPath = networkPath
+        player.volume = Float(BookVolume.snap(volumes.volume))
         setupTimeObserver()
         setupSaveObservers()
 
@@ -654,6 +669,19 @@ extension Player {
         if player.rate != 0 {
             player.rate = Float(speed)
         }
+    }
+}
+
+// MARK: - Volume
+extension Player {
+    var volume: Double { volumes.volume }
+
+    /// One `AVQueuePlayer` plays every book and chapter file, so its `volume` holds across them.
+    /// It is the player's gain, not the system volume: other apps (a call) stay as loud as they were.
+    func setVolume(_ volume: Double) {
+        let level = BookVolume.snap(volume)
+        volumes.volume = level
+        player.volume = Float(level)
     }
 }
 

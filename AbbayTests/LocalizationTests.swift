@@ -128,6 +128,7 @@ private let allKeys: [Localizable] = [
     .speedPresets,
     .speedSetDefault,
     .speedIsDefault,
+    .bookVolume,
     .skipBackAction,
     .skipForwardAction
 ] + libraryGridKeys
@@ -249,6 +250,8 @@ final class LocalizationTests: XCTestCase {
         .speedPresets,
         .speedSetDefault,
         .speedIsDefault,
+    .bookVolume,
+        .bookVolume,
         .skipBackAction,
         .skipForwardAction
     ] + libraryGridKeys

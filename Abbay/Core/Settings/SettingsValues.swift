@@ -46,6 +46,40 @@ enum PlaybackSpeed {
     }
 }
 
+/// Abbay's own volume: a gain on its player, under the system volume, never the system volume
+/// itself. On the Mac the book can sit below a call, which the system volume would dim too.
+enum BookVolume {
+    static let minimum: Double = 0
+    static let maximum: Double = 1
+    static let step: Double = 0.05
+    static let full: Double = 1
+
+    /// Clamps to 0–1 and rounds to the nearest 5%, without float drift. NaN is full volume:
+    /// a bad value must never silence the book.
+    static func snap(_ value: Double) -> Double {
+        guard value.isFinite else { return full }
+        let clamped = min(max(value, minimum), maximum)
+        let steps = (clamped / step).rounded()
+        return (steps * step * 100).rounded() / 100
+    }
+
+    /// `volume` moved by `count` steps (VoiceOver's swipe up and down), kept in range.
+    static func stepped(_ volume: Double, by count: Int) -> Double {
+        snap(volume + Double(count) * step)
+    }
+
+    /// "60%": a whole percent, in the locale's format.
+    static func label(_ volume: Double, locale: Locale = AbbayBundle.locale) -> String {
+        snap(volume).formatted(.percent.precision(.fractionLength(0)).locale(locale))
+    }
+
+    /// The speaker on the volume pill: crossed out only at zero. Otherwise three waves, drawn with
+    /// the level as the symbol's variable value, so they fill in by thirds at a constant width.
+    static func symbol(_ volume: Double) -> String {
+        snap(volume) == minimum ? "speaker.slash.fill" : "speaker.wave.3.fill"
+    }
+}
+
 /// How far the skip buttons jump, on screen, on the lock screen and in CarPlay.
 enum SkipInterval: Int, CaseIterable, Identifiable {
     case ten = 10

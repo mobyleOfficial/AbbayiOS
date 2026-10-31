@@ -70,6 +70,46 @@ final class SettingsValuesTests: XCTestCase {
 
     // MARK: - Skip intervals
 
+    // MARK: - Volume
+
+    func test_volumeRange_isSilentToFull_inFivePercentSteps() {
+        XCTAssertEqual(BookVolume.minimum, 0)
+        XCTAssertEqual(BookVolume.maximum, 1)
+        XCTAssertEqual(BookVolume.step, 0.05)
+        XCTAssertEqual(BookVolume.full, 1)
+    }
+
+    func test_volumeSnap_roundsToTheStep_andClamps() {
+        XCTAssertEqual(BookVolume.snap(0.6000001), 0.6)
+        XCTAssertEqual(BookVolume.snap(0.33), 0.35)
+        XCTAssertEqual(BookVolume.snap(0.1 + 0.2), 0.3)
+        XCTAssertEqual(BookVolume.snap(-1), 0)
+        XCTAssertEqual(BookVolume.snap(7), 1)
+        XCTAssertEqual(BookVolume.snap(.nan), 1, "a NaN volume is full, never silence")
+    }
+
+    func test_volumeStepUpAndDown_stopAtTheEnds() {
+        XCTAssertEqual(BookVolume.stepped(0.5, by: 2), 0.6)
+        XCTAssertEqual(BookVolume.stepped(0.5, by: -1), 0.45)
+        XCTAssertEqual(BookVolume.stepped(1, by: 1), 1)
+        XCTAssertEqual(BookVolume.stepped(0, by: -1), 0)
+    }
+
+    func test_volumeLabel_isAWholePercent() {
+        XCTAssertEqual(BookVolume.label(0.6, locale: Locale(identifier: "en")), "60%")
+        XCTAssertEqual(BookVolume.label(1, locale: Locale(identifier: "en")), "100%")
+        XCTAssertEqual(BookVolume.label(0, locale: Locale(identifier: "en")), "0%")
+        XCTAssertEqual(BookVolume.label(0.35, locale: Locale(identifier: "pt-BR")), "35%")
+    }
+
+    /// Crossed out only at zero; above it, the waves show the level as the symbol's variable value.
+    func test_volumeSymbol_isMutedOnlyAtZero() {
+        XCTAssertEqual(BookVolume.symbol(0), "speaker.slash.fill")
+        XCTAssertEqual(BookVolume.symbol(0.01), "speaker.slash.fill", "rounds to 0%")
+        XCTAssertEqual(BookVolume.symbol(0.05), "speaker.wave.3.fill")
+        XCTAssertEqual(BookVolume.symbol(1), "speaker.wave.3.fill")
+    }
+
     func test_skipIntervals_offerTheFourAmounts() {
         XCTAssertEqual(SkipInterval.allCases.map(\.rawValue), [10, 15, 30, 45])
         XCTAssertEqual(SkipInterval.thirty.seconds, 30)

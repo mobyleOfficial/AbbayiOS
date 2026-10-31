@@ -45,6 +45,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(sut.readAlongShowsText, "the cover shows until the user flips once")
         XCTAssertNil(sut.readAlongLanguage(for: bookURL))
         XCTAssertEqual(sut.speed(for: bookURL), 1, "a book never set uses the default speed")
+        XCTAssertEqual(sut.volume, 1, "Abbay plays at full volume until the user dims it")
     }
 
     /// Garbage left in the store (an older build, a hand edit) falls back to the default.
@@ -53,7 +54,8 @@ final class AppSettingsTests: XCTestCase {
             AppSettings.Key.skipBackward: 7,
             AppSettings.Key.cellularPreference: "sometimes",
             AppSettings.Key.language: "klingon",
-            AppSettings.Key.defaultSpeed: 99.0
+            AppSettings.Key.defaultSpeed: 99.0,
+            AppSettings.Key.volume: -3.0
         ])
 
         let sut = AppSettings(store: store)
@@ -62,6 +64,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(sut.cellularPreference, .ask)
         XCTAssertEqual(sut.language, .system)
         XCTAssertEqual(sut.defaultSpeed, PlaybackSpeed.maximum, "an out-of-range speed is clamped")
+        XCTAssertEqual(sut.volume, 0, "an out-of-range volume is clamped")
     }
 
     // MARK: - Persistence
@@ -75,6 +78,7 @@ final class AppSettingsTests: XCTestCase {
         first.defaultSpeed = 1.5
         first.cellularPreference = .wifiOnly
         first.language = .portuguese
+        first.volume = 0.3
 
         let second = AppSettings(store: store)
         XCTAssertEqual(second.skipBackward, .ten)
@@ -82,6 +86,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(second.defaultSpeed, 1.5)
         XCTAssertEqual(second.cellularPreference, .wifiOnly)
         XCTAssertEqual(second.language, .portuguese)
+        XCTAssertEqual(second.volume, 0.3)
     }
 
     func test_defaultSpeed_isSnappedToTheStep() {
@@ -90,6 +95,14 @@ final class AppSettingsTests: XCTestCase {
         sut.defaultSpeed = 1.2345
 
         XCTAssertEqual(sut.defaultSpeed, 1.25)
+    }
+
+    func test_volume_isSnappedToTheStep() {
+        let sut = AppSettings(store: InMemoryKeyValueStore())
+
+        sut.volume = 0.618
+
+        XCTAssertEqual(sut.volume, 0.6)
     }
 
     // MARK: - Per-book speed
