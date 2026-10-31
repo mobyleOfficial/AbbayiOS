@@ -10,12 +10,15 @@ import XCTest
 /// nothing at all for custom actions or the escape scrub.
 ///
 /// This goes through XCTest's private accessibility client (`XCUIDevice.accessibilityInterface`,
-/// an `XCAXClient_iOS`), with the AX action numbers VoiceOver itself sends: 2010 activate, 2013
-/// escape, 2021 a custom action whose value is its `CustomActionIdentifier` dictionary. Test
+/// an `XCAXClient_iOS`), with the AX action numbers VoiceOver itself sends: 2004 and 2005 increment
+/// and decrement (a swipe up and down on an adjustable element), 2010 activate, 2013 escape, 2021 a
+/// custom action whose value is its `CustomActionIdentifier` dictionary. Test
 /// code only, never shipped. If an Xcode release moves any of it, `AccessibilityActionError`
 /// says which piece is missing, rather than a test silently doing nothing.
 enum AccessibilityActions {
     private enum Action: Int {
+        case increment = 2004
+        case decrement = 2005
         case activate = 2010
         case escape = 2013
         case custom = 2021
@@ -29,6 +32,16 @@ enum AccessibilityActions {
     /// The default action: what a VoiceOver double tap does.
     static func activate(_ element: XCUIElement) throws {
         try perform(.activate, value: nil, on: element)
+    }
+
+    /// VoiceOver's swipe up on an adjustable element (`accessibilityIncrement`).
+    static func increment(_ element: XCUIElement) throws {
+        try perform(.increment, value: nil, on: element)
+    }
+
+    /// VoiceOver's swipe down on an adjustable element (`accessibilityDecrement`).
+    static func decrement(_ element: XCUIElement) throws {
+        try perform(.decrement, value: nil, on: element)
     }
 
     /// The two-finger scrub ("Z"), sent to `element`; UIKit walks up from it to the first

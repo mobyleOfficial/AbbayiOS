@@ -1,8 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "${applicationName} open ${audiobook}" : {},
     "${applicationName} play" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -15,6 +15,7 @@
       }
     },
     "${applicationName} play ${audiobook}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -27,6 +28,7 @@
       }
     },
     "${applicationName} play ${chapter}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -39,6 +41,7 @@
       }
     },
     "${applicationName} resume" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -51,6 +54,7 @@
       }
     },
     "Continue audiobook in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -62,10 +66,8 @@
         }
       }
     },
-    "Continue audiobook on ${applicationName}" : {},
-    "In ${applicationName} play ${audiobook}" : {},
-    "In ${applicationName} play ${chapter}" : {},
     "Listen to ${audiobook} in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -77,8 +79,8 @@
         }
       }
     },
-    "Listen to ${audiobook} on ${applicationName}" : {},
     "Next chapter in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -90,10 +92,8 @@
         }
       }
     },
-    "Next chapter on ${applicationName}" : {},
-    "Open ${audiobook} in ${applicationName}" : {},
-    "Open ${audiobook} on ${applicationName}" : {},
     "Pause ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -107,6 +107,7 @@
       }
     },
     "Pick audiobook in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -118,8 +119,8 @@
         }
       }
     },
-    "Pick audiobook on ${applicationName}" : {},
     "Play ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -132,6 +133,7 @@
       }
     },
     "Play ${audiobook} in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -143,9 +145,21 @@
         }
       }
     },
-    "Play ${audiobook} on ${applicationName}" : {},
-    "Play ${audiobook} using ${applicationName}" : {},
+    "Play ${author} in ${applicationName}" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tocar ${author} no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
     "Play ${chapter} in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -157,8 +171,8 @@
         }
       }
     },
-    "Play ${chapter} on ${applicationName}" : {},
     "Play audiobook in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -170,8 +184,8 @@
         }
       }
     },
-    "Play audiobook on ${applicationName}" : {},
     "Play in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -184,8 +198,8 @@
         }
       }
     },
-    "Play on ${applicationName}" : {},
     "Previous chapter in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -198,8 +212,8 @@
         }
       }
     },
-    "Previous chapter on ${applicationName}" : {},
     "Resume ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -213,6 +227,7 @@
       }
     },
     "Skip chapter in ${applicationName}" : {
+      "extractionState" : "stale",
       "localizations" : {
         "pt-BR" : {
           "stringSet" : {
@@ -223,23 +238,7 @@
           }
         }
       }
-    },
-    "Skip chapter on ${applicationName}" : {},
-    "Skip to ${chapter} in ${applicationName}" : {},
-    "Skip to ${chapter} on ${applicationName}" : {},
-    "Play ${author} in ${applicationName}" : {
-      "localizations" : {
-        "pt-BR" : {
-          "stringSet" : {
-            "state" : "translated",
-            "values" : [
-              "Tocar ${author} no ${applicationName}"
-            ]
-          }
-        }
-      }
-    },
-    "Play ${author} on ${applicationName}" : {}
+    }
   },
   "version" : "1.0"
 }
