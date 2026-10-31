@@ -59,10 +59,27 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   presented, the screen follows another loaded book (never book A's text over book B), the pill
   flips back or Read-along goes off, and on a change of split (a fold, a resize: the other layout's
   player has a session of its own; collapse there and expand again). Not remembered: the player
-  always opens with the square. Scale and fade in and out; a plain fade with Reduce Motion. While
-  the chapter panel is open the expand button is left out of the hierarchy, like the language label
-  (a glass button faded by its parent still drew over the panel on a device: the glass container
-  composites it).
+  always opens with the square. Scale and fade in and out; a plain fade with Reduce Motion.
+- **under the chapter panel** (owner's device tests of 1.4.0): the language label and the expand
+  button **stay where they are** while the chapter panel is open, **under** it; the panel grows
+  from the Chapters pill as it does over the cover. The square's bottom bar is its own
+  `AbbayGlassContainer` (in `ReadAlongContent`), nested in the square, not part of the player's:
+  in the player's container the label's glass drew over the panel, and once the controls were
+  instead removed while the panel was open (1.4.0), Liquid Glass morphed the removed expand button
+  into the appearing panel (the panel grew out of the expand icon and shrank back into it) and the
+  label's glass morphed away. A tap where they sit reaches the panel, and VoiceOver can't reach
+  the square while the panel covers it (`PlayerView`: `accessibilityHidden(!showsText || showsPanel)`), and the bar is disabled there (`readAlongCoveredByPanel`).
+- **opening and collapsing the player with the text up** (owner's device test of 1.4.0): the
+  expansion's growing copy (`PlayerExpansionOverlay`) cross-fades from the artwork to the square's
+  dark fill as it grows (`ExpansionMath.textSquareBlend`, eased from 10% to 90% of the progress), so
+  it lands as the square; the real square's fill takes over at once and its text fades in (0.22 s),
+  its controls with it. On a collapse the text fades out quickly (0.12 s) and the copy turns from
+  the dark square back into the artwork as it shrinks. Before, the copy was the artwork all the way
+  and the text swapped in when it landed (and out as it started): a hard flicker. The controls are
+  left out while the expansion draws the square (`expansionDrawsPlayerCover`): a glass control is
+  composited whatever its parent's opacity, and they showed over the growing artwork. **Reduce
+  Motion:** the copy is the dark square throughout (the panel only fades) and the text fades in
+  after. With the cover showing, the expansion is unchanged.
 - **immersion** (owner's follow-up: "lets prioritize immersion"): the controls hide after **3 s**
   with no interaction, with a short fade (no movement, so Reduce Motion needs nothing else): in the
   square the language label and the expand button; full screen the language label, play/pause and
@@ -74,8 +91,8 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   don't exist), never faded: the glass container composites a glass control whatever its parent's
   opacity. **Never hidden** while VoiceOver runs, while the language menu is open, while the text
   isn't ready (*Preparing*, *Downloading*, *Not available*, *must be downloaded*, *Couldn't make*:
-  the label may be needed) or while something covers them (the chapter panel; the full screen over
-  the square, which comes back with a fresh 3 s on collapse). The model is
+  the label may be needed) or while something covers or draws the square (the full screen over the
+  square, which comes back with a fresh 3 s on collapse; the expansion while it moves). The model is
   `ReadAlongControlsVisibility`: one sleeping task per interaction, cancelled by the next, so only
   `ReadAlongContent` re-renders, and only when they flip. To know when the language menu is open, the
   label's menu is a clear UIKit button over the glass capsule (`ReadAlongLanguageMenuButton`, told
@@ -171,7 +188,13 @@ the first lines appear in about half a second. In the iOS Simulator the engine i
   sits bottom-right; `player.readAlong.fullScreen`'s frame equals the window's, its lines show
   without *Preparing text…*, the mini player and the player's close button aren't hittable under
   it; collapse brings the square back with its lines; its play/pause starts and stops playback; the
-  expand button doesn't exist while the chapter panel is open and works once it closes.
+  expand button stays in place while the chapter panel is open (a tap at it reaches the panel, no
+  full screen) and works once it closes (`test_expand_staysUnderTheChapterPanel`); the language
+  label likewise, a tap at it opening no menu (`test_languageLabel_staysUnderTheChapterPanel`).
+- The expansion's cross-fade with the text up: unit-tested (`ExpansionMathTests`
+  `test_textSquareBlend_*`: all artwork at 0, all square at 1, no step, the square throughout with
+  Reduce Motion); the look is checked by eye from screen recordings (frames of the collapse, the
+  reopen and a drag held mid-collapse).
 - Immersion (`ReadAlongImmersionUITests.swift`, part of `ReadAlongUITests`, launched with a 6 s
   delay): the square's label and expand button stop existing after the delay, a tap on the square
   brings both back without moving the elapsed time, and they hide again; full screen, play/pause,

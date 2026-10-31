@@ -42,6 +42,12 @@ struct ReadAlongLanguageMenuButton: UIViewRepresentable {
         // stays (an iPad with Settings open beside the player).
         button.accessibilityLabel = Localizable.readAlongLanguage.localized
         button.accessibilityValue = name
+        // SwiftUI's accessibilityHidden doesn't reach a UIKit view: under the open chapter panel
+        // the button hides itself from VoiceOver.
+        let covered = context.environment.readAlongCoveredByPanel
+        button.isAccessibilityElement = !covered
+        button.accessibilityElementsHidden = covered
+        button.isEnabled = !covered
         button.onOpenChange = onOpenChange
         let coordinator = context.coordinator
         coordinator.onPick = onPick

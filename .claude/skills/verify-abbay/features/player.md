@@ -108,8 +108,10 @@ LibriVox page's Play all open it.
     (`player.readAlong.expand`, VoiceOver *Full screen* / *Tela cheia*): the same text over the whole
     window (`player.readAlong.fullScreen`, both panes when split), with the language label,
     play/pause (`player.readAlong.playPause`) and collapse (`player.readAlong.collapse`) along the
-    bottom. Both corner controls are left out of the hierarchy while the chapter panel is open,
-    and after 3 s with no interaction (a tap on the square brings them back without seeking; never
+    bottom. Both corner controls **stay put under the open chapter panel** (their glass is a
+    container of their own, not the player's, so it composites with the square and the panel draws
+    over it; a tap there reaches the panel), are left out of the hierarchy while the player grows or
+    shrinks (they fade in as it lands), and after 3 s with no interaction (a tap on the square brings them back without seeking; never
     while VoiceOver runs, the menu is open or the text isn't ready).
     See [read-along](read-along.md) *full screen*.
   - **messages** (`player.readAlong.status`), centred, a spinner while something is under way:
@@ -269,7 +271,8 @@ $B drag player.close down                                 # planned: collapse un
   after closing and reopening; in landscape `player.readAlong` sits on the leading side, clear of
   the transport; `player.readAlong.expand` shows `player.readAlong.fullScreen` over the whole window
   (an iPad's split too), its play/pause drives playback, collapse brings the square back, and the
-  expand button doesn't exist while the chapter panel is open; the corner controls hide after 3 s
+  label and the expand button stay where they are under the open chapter panel (a tap at either
+  reaches the panel: no menu, no full screen) and work once it closes; the corner controls hide after 3 s
   idle and a tap brings them back (`ReadAlongImmersionUITests.swift`). The menu's naming is unit-tested in `ReadAlongViewTests`, `liveBookTime` in
   `PlayerViewModelTests`. Not driven by a UI test: the status messages other than the stub's quick
   *Preparing text…*, the scene-phase stop, and VoiceOver itself.
