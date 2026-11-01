@@ -98,7 +98,8 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
 
 ## How to get to it (user POV)
 
-Library tab → gear (top right) → Settings. **Done** closes it; so does a swipe down.
+Library tab → gear (top right; top left while the player pane is open beside the library on an
+iPad or a Mac) → Settings. **Done** closes it; so does a swipe down.
 
 On iOS 27.1 (seen on the iPhone Duo, not on the iPhone 17 / iOS 27.0) the navigation bar hides
 its title and Done while the form is scrolled down, and they come back at the top. That is the

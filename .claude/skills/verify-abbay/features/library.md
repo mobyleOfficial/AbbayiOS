@@ -48,7 +48,9 @@ search and the [details page](librivox-details.md) live in the Search tab.
 - **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with **Import file**
   (`library.menu.import`) and **Download** (`library.add.download`, only switches to the Search
   tab, like *Browse free audiobooks*), plus the `gearshape` button (`library.toolbar.settings`, label
-  *Settings*), which opens the [Settings](settings.md) sheet.
+  *Settings*), which opens the [Settings](settings.md) sheet. Both sit at the bar's trailing side,
+  or at its **leading** side while the player pane is open beside the library
+  ([adaptive layout](adaptive-layout.md) *toolbar-beside-player*).
 - **mini-player:** when a book is loaded (`PlaybackState.loadedBook`), the
   [mini player](mini-player.md) docks above the tab bar on both tabs, and the grid's last cell ends
   above it (`test_lastCell_isNotCoveredByMiniPlayer`).

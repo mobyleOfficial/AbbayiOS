@@ -28,6 +28,10 @@ struct MediaListView: View {
     private var presentation
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+    /// Beside the player pane the trailing corner is under the top tab bar: the toolbar moves to
+    /// the leading side (see `isBesidePlayerPane`).
+    @Environment(\.isBesidePlayerPane)
+    private var isBesidePlayerPane
 
     @State
     private var query = ""
@@ -55,7 +59,7 @@ struct MediaListView: View {
         contentView
             .navigationTitle(Localizable.libraryTitle.localized)
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: isBesidePlayerPane ? .topBarLeading : .topBarTrailing) {
                     addMenu
                     Button {
                         onSettings?()

@@ -19,6 +19,10 @@ struct LibriVoxDetailView: View {
     /// The cover's average colour, darkened for white text (`CoverTint`), once the cover is in.
     @State
     private var tint: Color?
+    /// Beside the player pane the trailing corner is under the top tab bar: the pinned action moves
+    /// to the leading side, after the back button (see `isBesidePlayerPane`).
+    @Environment(\.isBesidePlayerPane)
+    private var isBesidePlayerPane
 
     init(
         book: LibriVoxBook,
@@ -294,12 +298,13 @@ struct LibriVoxDetailView: View {
         .accessibilityIdentifier(isAdded ? AccessibilityID.Detail.play : AccessibilityID.Detail.download)
     }
 
-    /// The compact Download/Play in the navigation bar's trailing slot, once the big one is gone.
-    /// iOS 26 draws a toolbar button on glass; earlier it is a plain bar button.
+    /// The compact Download/Play in the navigation bar's trailing slot (leading beside the player
+    /// pane), once the big one is gone. iOS 26 draws a toolbar button on glass; earlier it is a
+    /// plain bar button.
     @ToolbarContentBuilder
     private var pinnedAction: some ToolbarContent {
         if model.details != nil, isActionScrolledAway {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: isBesidePlayerPane ? .topBarLeading : .topBarTrailing) {
                 Button(action: performAction) {
                     actionLabel
                         .labelStyle(.titleAndIcon)

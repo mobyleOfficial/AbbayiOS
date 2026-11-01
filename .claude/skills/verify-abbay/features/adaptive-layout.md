@@ -44,6 +44,14 @@ app is given and the text size, never the device model.
   - A tab switch while B is open closes the chapters: the chosen tab shows beside the player.
   - The mini player stays while the pane shows another book than the loaded one (a preview).
   - A drag up on the mini player opens the pane (nothing is dragged).
+- **toolbar-beside-player:** in A, the top tab bar stays centred on the window (an iPad, a Mac), but
+  browsing's navigation bar ends at the player pane, so its trailing corner lies under or against
+  the tab bar. There the system folded the Library's `+` and gear into a More button that collided
+  with the tab bar and opened an empty glass blob, or tapped Search instead; a LibriVox page's
+  pinned Download shrank under the tab bar, unhittable. `BrowsingPanes` sets `\.isBesidePlayerPane`
+  on browsing in A, and those items (`library.toolbar.add`, `library.toolbar.settings`,
+  `detail.pinned.download` / `detail.pinned.play`) move to the bar's leading side; in C, B and one
+  pane they stay trailing.
 - **reflow:** `layoutChanged` ends any drag or spring and settles open if a book is presented.
   - Split → one pane: the full-screen player, with the compact chapter panel if B was open.
   - One pane → split: A, or B.
@@ -87,6 +95,8 @@ Two simulators, since the Duo's fold can't be scripted (only DeviceHub folds it,
 ```bash
 $B launch -seedLibrary -seedPlayableBook -seedArtwork -seedLastPlayed -seedFillerBooks
 $B tap library.row.1.title && $B wait player.title     # split: the pane; one pane: the full-screen player
+$B tap library.toolbar.settings && $B wait settings.done  # split: the gear is at the leading side
+$B tap settings.done
 $B tap player.chapters && $B wait player.chapter.0    # split: B beside the player; one pane: the panel
 $B tap player.chapter.1                               # split: plays it, the chapters stay
 $B tap player.chapters.panel                          # closes the chapters (either form)
@@ -94,7 +104,8 @@ $B tap player.close                                   # back to browsing
 ```
 
 Evidence: on a split window, `player.title`'s frame starts right of `library.list`'s (A), and the
-chapter rows start right of `player.title` (B); on one pane the player covers them. `AdaptiveLayoutUITests` asserts this on whichever
+chapter rows start right of `player.title` (B); on one pane the player covers them. In A, `library.toolbar.settings` and `library.toolbar.add` exist, are hittable and
+don't intersect `root.tab.library` / `root.tab.search`. `AdaptiveLayoutUITests` asserts this on whichever
 simulator it runs, and writes screenshot requests when `TEST_RUNNER_ABBAY_SHOTS_DIR` is set (see the
 test's `shot`).
 

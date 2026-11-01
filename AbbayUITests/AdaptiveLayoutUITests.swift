@@ -276,6 +276,79 @@ final class AdaptiveLayoutUITests: XCTestCase {
         wait.tap()
     }
 
+    /// With the player pane beside it, the library's `+` and gear stay usable, in both orientations.
+    /// At the pane's trailing edge they sat under the window-centred top tab bar: the system folded
+    /// them into a More button that showed an empty glass blob (or tapped the Search tab instead).
+    /// Skipped in one pane.
+    func test_libraryToolbar_staysUsable_besideThePlayer() throws {
+        launch()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            XCUIDevice.shared.orientation = orientation
+            sleep(1)
+            try openPlayer(titled: "Seeded Chaptered Book")
+            guard playerIsBesideLibrary else { throw XCTSkip("one pane: the player covers the library") }
+            let side = orientation == .portrait ? "portrait" : "landscape"
+            shot("13-toolbar-\(side)")
+
+            let tabs = [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch].map { element($0) }
+            let settings = element(AccessibilityID.Library.toolbarSettings)
+            let add = element(AccessibilityID.Library.toolbarAdd)
+            for button in [settings, add] {
+                XCTAssertTrue(button.waitForExistence(timeout: 5), "\(button.identifier) folded away beside the player")
+                XCTAssertTrue(button.isHittable, "\(button.identifier) is not hittable beside the player")
+                for tab in tabs where tab.exists {
+                    XCTAssertFalse(button.frame.intersects(tab.frame), "\(button.identifier) sits under the tab bar")
+                }
+            }
+
+            settings.tap()
+            let done = element(AccessibilityID.Settings.done)
+            XCTAssertTrue(done.waitForExistence(timeout: 10), "Settings did not open")
+            done.tap()
+            XCTAssertTrue(done.waitForNonExistence(timeout: 5), "Settings did not close")
+
+            add.tap()
+            let importItem = element(AccessibilityID.Library.menuImport)
+            XCTAssertTrue(importItem.waitForExistence(timeout: 5), "the + menu did not open")
+            sleep(1)
+            shot("14-add-menu-\(side)")
+            // Dismissed by tapping the player's title, outside the menu.
+            element(AccessibilityID.Player.title).tap()
+            XCTAssertTrue(importItem.waitForNonExistence(timeout: 5), "the + menu did not close")
+
+            element(AccessibilityID.Player.close).tap()
+            XCTAssertTrue(element(AccessibilityID.Player.title).waitForNonExistence(timeout: 5))
+        }
+    }
+
+    /// The same corner on a LibriVox page beside the player: its pinned Download, once the big one
+    /// scrolls away, is reachable and clear of the tab bar. Skipped in one pane.
+    func test_detailPinnedAction_staysUsable_besideThePlayer() throws {
+        launch()
+        try openPlayer(titled: "Seeded Chaptered Book")
+        guard playerIsBesideLibrary else { throw XCTSkip("one pane: the player covers the library") }
+        element(AccessibilityID.Root.tabSearch).tap()
+        let card = element(AccessibilityID.Search.card(5))
+        XCTAssertTrue(card.waitForExistence(timeout: 15), "no Popular card")
+        card.tap()
+        XCTAssertTrue(element(AccessibilityID.Detail.download).waitForExistence(timeout: 15), "no Download")
+        app.swipeUp()
+        app.swipeUp()
+        let pinned = element(AccessibilityID.Detail.pinnedDownload)
+        XCTAssertTrue(pinned.waitForExistence(timeout: 5), "no pinned Download")
+        sleep(1)
+        shot("15-pinned-download")
+        XCTAssertTrue(pinned.isHittable, "the pinned Download is not hittable beside the player")
+        let tabs = [AccessibilityID.Root.tabLibrary, AccessibilityID.Root.tabSearch].map { element($0) }
+        for tab in tabs where tab.exists {
+            XCTAssertFalse(pinned.frame.intersects(tab.frame), "the pinned Download sits under the tab bar")
+        }
+        pinned.tap()
+        let play = element(AccessibilityID.Detail.pinnedPlay)
+        XCTAssertTrue(play.waitForExistence(timeout: 15), "the download did not start")
+    }
+
     /// Every library cell fits the window: none runs past the trailing edge or under the system's
     /// side strip (#251), at any width.
     func test_libraryGrid_fitsTheWindow() throws {

@@ -46,6 +46,7 @@ struct BrowsingPanes: ViewModifier {
             content
                 .frame(width: showsChapters ? layout.playerWidth : nil)
                 .environment(\.isBrowsingCovered, showsChapters)
+                .environment(\.isBesidePlayerPane, book != nil && !showsChapters)
                 .opacity(showsChapters ? 0 : 1)
                 .allowsHitTesting(!showsChapters)
                 .accessibilityHidden(showsChapters)
@@ -90,6 +91,21 @@ extension EnvironmentValues {
     var isBrowsingCovered: Bool {
         get { self[BrowsingCoveredKey.self] }
         set { self[BrowsingCoveredKey.self] = newValue }
+    }
+}
+
+private struct BesidePlayerPaneKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// The player pane is on browsing's trailing side (A). Browsing's navigation bar then ends at
+    /// the pane, under the top tab bar, which stays centred on the window (an iPad, a Mac): trailing
+    /// toolbar items have no room there, and the system folds them into a More button that collides
+    /// with the tab bar and opens an empty menu. Browsing puts them on the leading side instead.
+    var isBesidePlayerPane: Bool {
+        get { self[BesidePlayerPaneKey.self] }
+        set { self[BesidePlayerPaneKey.self] = newValue }
     }
 }
 
