@@ -58,6 +58,7 @@ extension ChapterDataModel {
         model.duration = duration
         model.remoteURL = remoteURL
         model.expectedBytes = expectedBytes
+        model.resumeOffset = resumeOffset?.doubleValue
         return model
     }
 }

@@ -19,7 +19,9 @@ can validate.
   phrase, so it always costs a second "Which audiobook?" turn. Kept deliberately for its
   input-echoing no-match dialog: *"No audiobook matches '\<input>'."*
 - **PlayChapterIntent** — takes a `ChapterEntity`. Seeks if a book is loaded; otherwise resumes the
-  last-played book positioned at that chapter by setting `currentTime` before `play`.
+  last-played book positioned at that chapter by setting `currentTime` before `play`. Either way
+  the chapter starts where it was left (#299, [player](player.md) *chapter-resume*); the chapter
+  already playing plays on.
   `ChapterEntityQuery.entities(matching:)` resolves what was said through `matchChapters`
   (`Abbay/Intents/ChapterMatch.swift`, #206): a spoken position wins (digits: "4", "capítulo 3",
   "3rd"; or number words next to "chapter"/"capítulo", 1 to 99, cardinal or ordinal, en and pt-BR:

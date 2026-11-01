@@ -84,13 +84,40 @@ final class CarPlayRateAndLanguageTests: XCTestCase {
         XCTAssertTrue(player.rateCalls.isEmpty, "there is no book to give the speed to")
     }
 
-    func test_nowPlayingButtons_areTheRateButton() {
+    func test_nowPlayingButtons_areTheRateButtonThenStartOver() {
         let delegate = makeDelegate()
 
         let buttons = delegate.makeNowPlayingButtons()
 
-        XCTAssertEqual(buttons.count, 1)
+        XCTAssertEqual(buttons.count, 2)
         XCTAssertTrue(buttons.first is CPNowPlayingPlaybackRateButton)
+        XCTAssertTrue(buttons.last is CPNowPlayingImageButton, "↺ Start over (#299)")
+    }
+
+    // MARK: - Start over (#299)
+
+    /// ↺ plays the chapter playing from its start, whatever was saved for it.
+    func test_startOver_playsTheCurrentChapterFromItsStart() {
+        let book = ViewModelSupport.chaptered(currentTime: 150)
+        player.url = book.url
+        player.currentTime = 150
+
+        XCTAssertTrue(CarPlaySceneDelegate.startOver(player: player, book: book))
+
+        XCTAssertEqual(player.seekSeconds, [100], "chapter two's start")
+        XCTAssertEqual(player.playChapterCalls, [1], "and plays it")
+    }
+
+    func test_startOver_anotherBookOrNoChapters_doesNothing() {
+        var book = ViewModelSupport.chaptered()
+        player.url = URL(string: "file:///carplay/other.m4b")
+        XCTAssertFalse(CarPlaySceneDelegate.startOver(player: player, book: book), "not the loaded book")
+
+        book.chapters = []
+        player.url = book.url
+        XCTAssertFalse(CarPlaySceneDelegate.startOver(player: player, book: book), "no chapter to start over")
+        XCTAssertEqual(player.seekSeconds, [])
+        XCTAssertEqual(player.playChapterCalls, [])
     }
 
     // MARK: - In-app language (#152)

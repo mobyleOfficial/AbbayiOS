@@ -102,6 +102,10 @@ private struct ChaptersPanelContent: View, Equatable {
     let progress: Double?
     let headerDetail: String
     let downloadState: BookDownloadState?
+    /// Where a chapter tap that resumed partway in leaves its prompt (#299). Optional so previews
+    /// can omit it.
+    @Environment(PlayerPresentation.self)
+    private var presentation: PlayerPresentation?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.bookURL == rhs.bookURL
@@ -190,7 +194,9 @@ private struct ChaptersPanelContent: View, Equatable {
                 titleIdentifier: AccessibilityID.Player.chaptersTitle,
                 rowIdentifier: AccessibilityID.Player.chapter,
                 onSelect: { index in
-                    model.selectChapter(index)
+                    if let prompt = model.selectChapter(index) {
+                        presentation?.showResumePrompt(prompt)
+                    }
                     if closesOnSelect { onClose() }
                 },
                 retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) })

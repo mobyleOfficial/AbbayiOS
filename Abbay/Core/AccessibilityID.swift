@@ -200,6 +200,10 @@ enum AccessibilityID {
         /// The open chapter panel's handle at its top (a leaf): VoiceOver's "Close chapters", and
         /// where a drag down closes the panel.
         static let chaptersPanel = "player.chapters.panel"
+        /// The prompt after a chapter tap resumed partway in (#299): "Resumed at 3:20", and its
+        /// *Start over* button, which plays the chapter from its beginning.
+        static let resumePrompt = "player.resumePrompt"
+        static let resumePromptStartOver = "player.resumePrompt.startOver"
         static let downloadProgress = "player.download.progress"
         /// "Waiting: Low Data Mode is on" under the progress bar, for a Wait-for-Wi-Fi book held by it.
         static let downloadLowDataMode = "player.download.lowDataMode"

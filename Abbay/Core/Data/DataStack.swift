@@ -23,11 +23,21 @@ final class DataStack: ObservableObject {
     /// Loads the store eagerly. `LocalStorage.persistent` is a `static let`, so this runs once
     /// even when the first callers race on several threads (a `lazy var` would not be safe).
     ///
-    /// `inMemory` is for tests: a store that starts empty and is never written to disk.
-    init(modelName: String, inMemory: Bool = false, noticeReporter: NoticeReporting = NoticeCenter.shared) {
+    /// `inMemory` is for tests: a store that starts empty and is never written to disk. So is
+    /// `storeURL`: an existing store file to open, which proves an older model's store migrates.
+    /// The container's defaults migrate a store saved by an older model version on load
+    /// (lightweight, inferred), keeping every row.
+    init(
+        modelName: String,
+        inMemory: Bool = false,
+        storeURL: URL? = nil,
+        noticeReporter: NoticeReporting = NoticeCenter.shared
+    ) {
         let container = NSPersistentContainer(name: modelName)
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+        } else if let storeURL {
+            container.persistentStoreDescriptions.first?.url = storeURL
         }
         container.loadPersistentStores { _, error in
             if let error = error {
