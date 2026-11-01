@@ -80,8 +80,9 @@ once the book is in the library. The only way to add a LibriVox book.
   the mini player, which now shows this book, and returns to the page.
 - **pinned-action (#166 G5):** once the big Download/Play button's bottom edge scrolls above the
   scroll view (`LibriVoxDetailView.isScrolledAway`, read with `onGeometryChange`), a compact
-  Download / Play appears in the navigation bar's trailing slot (`detail.pinned.download` /
-  `detail.pinned.play`) and does the same thing; scrolling back hides it. iOS 26 draws it on the
+  Download / Play appears in the navigation bar's trailing slot (the leading one, after the back
+  button, while the player pane is open beside it: [adaptive layout](adaptive-layout.md)
+  *toolbar-beside-player*) (`detail.pinned.download` / `detail.pinned.play`) and does the same thing; scrolling back hides it. iOS 26 draws it on the
   bar's glass; earlier it is a plain malachite bar button. The stub book is too short to scroll it
   away: the stub catalog's last Popular book, *Emma* (`search.card.5`, 24 chapters), is.
 - **already-owned:** a book already in the Library opens with **Play** instead of Download (looked up
