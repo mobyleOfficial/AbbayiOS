@@ -147,7 +147,7 @@ finished downloads, and the stub download manager writes nothing), the Safari pa
   moved file's resolved URL before #186 is moved to the row's URL on the first load
   (`MovedBookKeyMigration`, `AppSettings.moveSpeed(from:to:)`).
 - **The volume has no Settings row.** Abbay's own volume (see [player](player.md) *volume*) lives
-  in `AppSettings.volume` (`abbay.settings.volume`, 0–1 in 5% steps, default 1) and is set only from
+  in `AppSettings.volume` (`abbay.settings.volume`, 0–2 in 5% steps, default 1; above 1 is the boost, #297) and is set only from
   the player's volume pill; `Player` applies it at init, before any book loads.
 - **Skip amounts apply to the lock screen at launch**: `AppSettings.init` pushes them through
   `LiveSettingsEffects`, so they don't wait for a change in Settings.

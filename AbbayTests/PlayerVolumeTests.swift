@@ -104,7 +104,33 @@ final class PlayerVolumeTests: XCTestCase {
         XCTAssertEqual(player.volume, 0.6)
 
         player.setVolume(4)
-        XCTAssertEqual(player.volume, 1)
+        XCTAssertEqual(player.volume, 2)
+    }
+
+    /// Past 100% (#297) the queue player stays at full and the boost carries the rest, so the
+    /// recording is made louder rather than the request being clipped at 1.
+    func test_boostedVolume_keepsThePlayerAtFull_andGainsTheRest() throws {
+        let player = try makePlayer()
+
+        player.setVolume(1.5)
+
+        XCTAssertEqual(player.requestedVolume, 1)
+        XCTAssertEqual(player.boostGain, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(settings.volume, 1.5)
+
+        player.setVolume(0.5)
+
+        XCTAssertEqual(player.requestedVolume, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(player.boostGain, 1, "no boost while dimmed")
+    }
+
+    func test_savedBoost_isAppliedAtLaunch() throws {
+        settings.volume = 1.8
+
+        let player = try makePlayer()
+
+        XCTAssertEqual(player.requestedVolume, 1)
+        XCTAssertEqual(player.boostGain, 1.8, accuracy: 0.0001)
     }
 
     func test_setVolume_whilePaused_doesNotStartPlayback() throws {

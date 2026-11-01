@@ -72,9 +72,10 @@ final class SettingsValuesTests: XCTestCase {
 
     // MARK: - Volume
 
-    func test_volumeRange_isSilentToFull_inFivePercentSteps() {
+    /// Silent to double (#297), full (the recording's own level) in between, in 5% steps.
+    func test_volumeRange_isSilentToDouble_inFivePercentSteps() {
         XCTAssertEqual(BookVolume.minimum, 0)
-        XCTAssertEqual(BookVolume.maximum, 1)
+        XCTAssertEqual(BookVolume.maximum, 2)
         XCTAssertEqual(BookVolume.step, 0.05)
         XCTAssertEqual(BookVolume.full, 1)
     }
@@ -84,14 +85,16 @@ final class SettingsValuesTests: XCTestCase {
         XCTAssertEqual(BookVolume.snap(0.33), 0.35)
         XCTAssertEqual(BookVolume.snap(0.1 + 0.2), 0.3)
         XCTAssertEqual(BookVolume.snap(-1), 0)
-        XCTAssertEqual(BookVolume.snap(7), 1)
+        XCTAssertEqual(BookVolume.snap(1.6180), 1.6)
+        XCTAssertEqual(BookVolume.snap(7), 2)
         XCTAssertEqual(BookVolume.snap(.nan), 1, "a NaN volume is full, never silence")
     }
 
     func test_volumeStepUpAndDown_stopAtTheEnds() {
         XCTAssertEqual(BookVolume.stepped(0.5, by: 2), 0.6)
         XCTAssertEqual(BookVolume.stepped(0.5, by: -1), 0.45)
-        XCTAssertEqual(BookVolume.stepped(1, by: 1), 1)
+        XCTAssertEqual(BookVolume.stepped(1, by: 1), 1.05, "past full into the boost")
+        XCTAssertEqual(BookVolume.stepped(2, by: 1), 2)
         XCTAssertEqual(BookVolume.stepped(0, by: -1), 0)
     }
 
@@ -99,6 +102,7 @@ final class SettingsValuesTests: XCTestCase {
         XCTAssertEqual(BookVolume.label(0.6, locale: Locale(identifier: "en")), "60%")
         XCTAssertEqual(BookVolume.label(1, locale: Locale(identifier: "en")), "100%")
         XCTAssertEqual(BookVolume.label(0, locale: Locale(identifier: "en")), "0%")
+        XCTAssertEqual(BookVolume.label(1.5, locale: Locale(identifier: "en")), "150%")
         XCTAssertEqual(BookVolume.label(0.35, locale: Locale(identifier: "pt-BR")), "35%")
     }
 
@@ -108,6 +112,7 @@ final class SettingsValuesTests: XCTestCase {
         XCTAssertEqual(BookVolume.symbol(0.01), "speaker.slash.fill", "rounds to 0%")
         XCTAssertEqual(BookVolume.symbol(0.05), "speaker.wave.3.fill")
         XCTAssertEqual(BookVolume.symbol(1), "speaker.wave.3.fill")
+        XCTAssertEqual(BookVolume.symbol(2), "speaker.wave.3.fill")
     }
 
     func test_skipIntervals_offerTheFourAmounts() {

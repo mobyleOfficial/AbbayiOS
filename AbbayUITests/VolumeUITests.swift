@@ -82,7 +82,8 @@ final class VolumeUITests: XCTestCase {
         start.press(forDuration: 0.1, thenDragTo: end)
 
         let dimmed = try percent(of: AccessibilityID.Player.volumeSlider)
-        XCTAssertTrue((25...75).contains(dimmed), "a drag to the middle sets about half, got \(dimmed)%")
+        // 0–100% fills the bottom two thirds of the track, so the capsule's middle is about 70%.
+        XCTAssertTrue((40...95).contains(dimmed), "a drag to the middle dims the book, got \(dimmed)%")
         XCTAssertEqual(try percent(of: AccessibilityID.Player.volume), dimmed, "the pill follows")
 
         // A tap outside, on the cover, closes the capsule and keeps the level. (Not on the title:
@@ -119,5 +120,22 @@ final class VolumeUITests: XCTestCase {
         try AccessibilityActions.increment(pill)
         XCTAssertEqual(value(of: AccessibilityID.Player.volume), "90%")
         XCTAssertFalse(element(AccessibilityID.Player.volumeSlider).exists, "adjusting does not open the capsule")
+    }
+
+    /// Past 100% (#297): a drag to the top of the capsule boosts the book to 200%.
+    func test_dragToTheTop_boostsTo200() throws {
+        try openPlayer()
+        let pill = element(AccessibilityID.Player.volume)
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        pill.tap()
+        let slider = element(AccessibilityID.Player.volumeSlider)
+        XCTAssertTrue(slider.waitForExistence(timeout: 5))
+
+        let start = slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let top = slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -0.2))
+        start.press(forDuration: 0.1, thenDragTo: top)
+
+        XCTAssertEqual(value(of: AccessibilityID.Player.volumeSlider), "200%")
+        XCTAssertEqual(value(of: AccessibilityID.Player.volume), "200%")
     }
 }

@@ -9,6 +9,10 @@ import SwiftUI
 /// a fill to drag up and down, the speaker at the bottom. It rises from the volume pill and a tap
 /// outside closes it. The level is the player's gain, never the system volume, so on the Mac a
 /// call stays loud while the book is dimmed under it.
+///
+/// 0–100% fills the bottom two thirds and 100–200% (the boost, #297) the top third, past a notch at
+/// 100% that a drag sticks to. Past it the whole fill, the percent and the speaker turn red.
+/// Landing on 100% gives a light tick on a device with haptics.
 struct VolumeSlider: View {
     let volume: Double
     let onChange: (Double) -> Void
@@ -24,10 +28,13 @@ struct VolumeSlider: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .foregroundColor(levelColor)
             track
-            Image(systemName: BookVolume.symbol(volume), variableValue: volume)
+            Image(systemName: BookVolume.symbol(volume), variableValue: min(volume, BookVolume.full))
                 .font(.subheadline)
+                .foregroundColor(levelColor)
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: volume == BookVolume.full) { _, isFull in isFull }
         .padding(.vertical, SpaceConstants.sx12.value)
         .padding(.horizontal, SpaceConstants.sx4.value)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -45,21 +52,33 @@ struct VolumeSlider: View {
         .accessibilityIdentifier(AccessibilityID.Player.volumeSlider)
     }
 
-    /// The fill grows from the bottom; a touch or a drag anywhere on it sets the level there.
+    /// Red past 100%, white otherwise.
+    private var levelColor: Color {
+        BookVolume.isBoosted(volume) ? ColorConstants.maximumRed.value : ColorConstants.white.value
+    }
+
+    /// The fill grows from the bottom, white, all red once past 100%; a touch or a drag anywhere on
+    /// it sets the level there.
     private var track: some View {
         GeometryReader { proxy in
             let height = max(proxy.size.height, 1)
+            let filled = height * BookVolume.track(for: volume)
+            let notch = height * BookVolume.notch
             ZStack(alignment: .bottom) {
                 Color.black.opacity(0.25)
-                ColorConstants.white.value
-                    .frame(height: height * volume)
+                levelColor
+                    .frame(height: filled)
+                // The 100% mark, across the track.
+                ColorConstants.white.value.opacity(0.6)
+                    .frame(height: 2)
+                    .padding(.bottom, notch - 1)
             }
             .clipShape(Capsule())
             .contentShape(Capsule())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in
-                        let level = BookVolume.snap(1 - drag.location.y / height)
+                        let level = BookVolume.volume(atTrack: 1 - drag.location.y / height)
                         if level != volume {
                             onChange(level)
                         }
@@ -71,7 +90,7 @@ struct VolumeSlider: View {
 }
 
 extension BookVolume {
-    /// One VoiceOver swipe up or down: 10%, so the whole range is ten swipes. Nil at either end,
+    /// One VoiceOver swipe up or down: 10%, so 0–100% is ten swipes and the boost ten more. Nil at either end,
     /// or for a direction that isn't up or down.
     static func adjusted(_ volume: Double, _ direction: AccessibilityAdjustmentDirection) -> Double? {
         let level: Double
@@ -93,6 +112,12 @@ enum VolumeSliderLayout {
     /// Between the capsule and the pill, and the capsule and the screen's edges.
     static let gap: CGFloat = SpaceConstants.sx8.value
 
+    /// The pill's top centre, as a unit point of the container: where the capsule grows from.
+    static func growthAnchor(container: CGSize, pill: CGRect) -> UnitPoint {
+        guard container.width > 0, container.height > 0 else { return .bottom }
+        return UnitPoint(x: pill.midX / container.width, y: pill.minY / container.height)
+    }
+
     static func frame(container: CGSize, pill: CGRect) -> CGRect {
         let bottom = max(pill.minY - gap, 0)
         let capsuleHeight = min(height, max(bottom - gap, 0))
@@ -103,8 +128,8 @@ enum VolumeSliderLayout {
 }
 
 /// The volume pill beside the speed: the speaker, its waves filled to the level; green while the
-/// book is dimmed, as the speed pill is away from 1.0×. A tap raises the capsule, a second closes
-/// it. VoiceOver adjusts the level right here, without opening it.
+/// book is dimmed, as the speed pill is away from 1.0×, red while boosted past 100%. A tap raises
+/// the capsule, a second closes it. VoiceOver adjusts the level right here, without opening it.
 struct VolumePill: View {
     let model: PlayerViewModel
     @Binding var isShowing: Bool
@@ -118,10 +143,10 @@ struct VolumePill: View {
         Button {
             withAnimation(animation) { isShowing.toggle() }
         } label: {
-            PlayerPill(text: nil, systemImage: BookVolume.symbol(volume), variableValue: volume)
+            PlayerPill(text: nil, systemImage: BookVolume.symbol(volume), variableValue: min(volume, BookVolume.full))
         }
         .buttonStyle(.plain)
-        .foregroundColor(volume == BookVolume.full ? ColorConstants.white.value : ColorConstants.malachite.value)
+        .foregroundColor(Self.color(for: volume))
         .accessibilityLabel(Localizable.bookVolume.localized)
         .accessibilityValue(BookVolume.label(volume))
         .accessibilityAdjustableAction { direction in
@@ -131,6 +156,14 @@ struct VolumePill: View {
         }
         .accessibilityIdentifier(AccessibilityID.Player.volume)
         .anchorPreference(key: VolumePillAnchorKey.self, value: .bounds) { $0 }
+    }
+}
+
+extension VolumePill {
+    /// White at 100%, malachite while dimmed (as the speed pill is away from 1.0×), red past 100%.
+    static func color(for volume: Double) -> Color {
+        if BookVolume.isBoosted(volume) { return ColorConstants.maximumRed.value }
+        return volume == BookVolume.full ? ColorConstants.white.value : ColorConstants.malachite.value
     }
 }
 
@@ -151,6 +184,7 @@ struct VolumeCapsuleOverlay: ViewModifier {
             if isShowing, let pill {
                 GeometryReader { proxy in
                     let frame = VolumeSliderLayout.frame(container: proxy.size, pill: proxy[pill])
+                    let anchor = VolumeSliderLayout.growthAnchor(container: proxy.size, pill: proxy[pill])
                     ZStack(alignment: .topLeading) {
                         Color.clear
                             .padding(.top, -PlayerView.dimReach)
@@ -166,16 +200,18 @@ struct VolumeCapsuleOverlay: ViewModifier {
                         .padding(.leading, frame.minX)
                         .padding(.top, frame.minY)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .transition(transition)
+                        .transition(transition(from: anchor))
                     }
                 }
             }
         }
     }
 
-    /// Grows up out of the pill and fades; with Reduce Motion it only fades.
-    private var transition: AnyTransition {
-        reduceMotion ? .opacity : .scale(scale: 0.2, anchor: .bottom).combined(with: .opacity)
+    /// Grows up out of the pill and fades; with Reduce Motion it only fades. The capsule is drawn
+    /// in a frame as big as the screen, so the scale's anchor is the pill's top centre in it: a
+    /// bare `.bottom` was the screen's bottom centre, which on a phone looked like the Chapters pill.
+    private func transition(from anchor: UnitPoint) -> AnyTransition {
+        reduceMotion ? .opacity : .scale(scale: 0.2, anchor: anchor).combined(with: .opacity)
     }
 
     private func close() {

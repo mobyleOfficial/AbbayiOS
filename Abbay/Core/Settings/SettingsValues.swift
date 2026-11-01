@@ -48,13 +48,21 @@ enum PlaybackSpeed {
 
 /// Abbay's own volume: a gain on its player, under the system volume, never the system volume
 /// itself. On the Mac the book can sit below a call, which the system volume would dim too.
+/// Up to 100% it is the player's `volume`; past it (to 200%, #297) a `VolumeBoost` makes a quiet
+/// recording louder.
 enum BookVolume {
     static let minimum: Double = 0
-    static let maximum: Double = 1
+    static let maximum: Double = 2
     static let step: Double = 0.05
+    /// The recording's own level.
     static let full: Double = 1
+    /// Where 100% sits on the capsule's track (0 bottom, 1 top): dimming gets the bottom two thirds,
+    /// the boost the top third.
+    static let notch: Double = 2.0 / 3.0
+    /// How close to the notch, in track lengths, a drag sticks at exactly 100%.
+    static let stickiness: Double = 0.035
 
-    /// Clamps to 0–1 and rounds to the nearest 5%, without float drift. NaN is full volume:
+    /// Clamps to 0–200% and rounds to the nearest 5%, without float drift. NaN is full volume:
     /// a bad value must never silence the book.
     static func snap(_ value: Double) -> Double {
         guard value.isFinite else { return full }
@@ -71,6 +79,42 @@ enum BookVolume {
     /// "60%": a whole percent, in the locale's format.
     static func label(_ volume: Double, locale: Locale = AbbayBundle.locale) -> String {
         snap(volume).formatted(.percent.precision(.fractionLength(0)).locale(locale))
+    }
+
+    /// Where `volume` sits on the capsule's track, 0–1.
+    static func track(for volume: Double) -> Double {
+        let level = snap(volume)
+        if level <= full {
+            return level / full * notch
+        }
+        return notch + (level - full) / (maximum - full) * (1 - notch)
+    }
+
+    /// The level at a point on the track, snapped; within `stickiness` of the notch it is 100%.
+    static func volume(atTrack position: Double) -> Double {
+        let position = min(max(position, 0), 1)
+        if abs(position - notch) < stickiness {
+            return full
+        }
+        if position <= notch {
+            return snap(position / notch * full)
+        }
+        return snap(full + (position - notch) / (1 - notch) * (maximum - full))
+    }
+
+    /// Past 100%: the boost is on.
+    static func isBoosted(_ volume: Double) -> Bool {
+        snap(volume) > full
+    }
+
+    /// The queue player's own `volume`: the level, up to full.
+    static func playerVolume(_ volume: Double) -> Double {
+        min(snap(volume), full)
+    }
+
+    /// What `VolumeBoost` multiplies the samples by: 1 up to full, the level past it.
+    static func boostGain(_ volume: Double) -> Double {
+        max(snap(volume), full)
     }
 
     /// The speaker on the volume pill: crossed out only at zero. Otherwise three waves, drawn with
