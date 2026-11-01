@@ -3608,6 +3608,276 @@
           }
         }
       }
+    },
+    "findChapters" : {
+      "comment" : "Player: the pill that searches an imported book's audio for chapter headings, shown where Chapters would be",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find chapters"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar capítulos"
+          }
+        }
+      }
+    },
+    "findingChapters" : {
+      "comment" : "Player: the pill while the audio is searched for chapters; the argument is the percentage done, e.g. 34%",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando %@"
+          }
+        }
+      }
+    },
+    "findingChaptersLabel" : {
+      "comment" : "VoiceOver: the pill while the audio is searched for chapters; the argument is the percentage done",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding chapters, %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando capítulos, %@"
+          }
+        }
+      }
+    },
+    "findingChaptersHint" : {
+      "comment" : "VoiceOver hint on the pill while chapters are being found",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops finding chapters."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para a busca de capítulos."
+          }
+        }
+      }
+    },
+    "findChaptersHint" : {
+      "comment" : "VoiceOver hint on the Find chapters pill",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listens to the book on this device for chapter headings."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escuta o livro neste aparelho em busca de títulos de capítulos."
+          }
+        }
+      }
+    },
+    "chapterOpening" : {
+      "comment" : "Chapter list: the title of the part of a book before its first chapter heading, when chapters were found in the audio",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abertura"
+          }
+        }
+      }
+    },
+    "foundChaptersNote" : {
+      "comment" : "Chapter list footer: these chapters were found by listening to the book's audio",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Found by listening to the audio."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontrados ouvindo o áudio."
+          }
+        }
+      }
+    },
+    "removeFoundChapters" : {
+      "comment" : "Chapter list footer button: removes the chapters found in the audio",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove found chapters"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover capítulos encontrados"
+          }
+        }
+      }
+    },
+    "noticeNoChaptersFound" : {
+      "comment" : "Banner: Find chapters heard no chapter headings in the book",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No chapter headings were heard in this book."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum título de capítulo foi ouvido neste livro."
+          }
+        }
+      }
+    },
+    "noticeChapterSearchFailed" : {
+      "comment" : "Banner: Find chapters could not search the book's audio",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't search this book for chapters. Try again in a moment."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível buscar capítulos neste livro. Tente de novo daqui a pouco."
+          }
+        }
+      }
+    },
+    "findChaptersFooter" : {
+      "comment" : "Settings › Experimental: the footer under the Find chapters switch",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adds Find chapters to the player for imported books that have no chapters. It listens to the whole book on this iPhone for headings such as “Chapter One” and starts a chapter at each, so it can miss or misplace some; found chapters can be removed from the chapter list. Nothing is sent anywhere."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adiciona Buscar capítulos ao player para livros importados sem capítulos. Ele ouve o livro inteiro neste iPhone procurando títulos como “Capítulo um” e começa um capítulo em cada um, então pode errar ou deixar passar alguns; os capítulos encontrados podem ser removidos na lista de capítulos. Nada é enviado."
+          }
+        }
+      }
+    },
+    "chaptersFinding" : {
+      "comment" : "Player: the Chapters pill while more chapters are being found in the audio; the argument is the percentage done, e.g. 34%",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chapters %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capítulos %@"
+          }
+        }
+      }
+    },
+    "chaptersFindingValue" : {
+      "comment" : "VoiceOver value of the Chapters pill while more chapters are being found; the argument is the percentage done",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding more, %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando mais, %@"
+          }
+        }
+      }
+    },
+    "findingMoreChapters" : {
+      "comment" : "Chapter list footer while more chapters are being found in the audio; the argument is the percentage done",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding more chapters… %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando mais capítulos… %@"
+          }
+        }
+      }
+    },
+    "stopFindingChapters" : {
+      "comment" : "Chapter list footer button: stops finding chapters, keeping the ones found",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop finding"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parar a busca"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -164,6 +164,22 @@ enum Localizable: String {
     case readAlongLineHint
     case readAlongFullScreen
     case readAlongExitFullScreen
+    // Chapters found in the audio (Read-along's engine)
+    case findChapters
+    case findingChapters
+    case findingChaptersLabel
+    case findingChaptersHint
+    case findChaptersHint
+    case findChaptersFooter
+    case chapterOpening
+    case foundChaptersNote
+    case removeFoundChapters
+    case chaptersFinding
+    case chaptersFindingValue
+    case findingMoreChapters
+    case stopFindingChapters
+    case noticeNoChaptersFound
+    case noticeChapterSearchFailed
 }
 
 extension Localizable {

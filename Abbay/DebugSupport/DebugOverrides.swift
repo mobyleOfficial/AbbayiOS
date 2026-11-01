@@ -105,13 +105,16 @@ enum DebugOverrides {
     }
 
     /// A fresh in-memory settings store, for `-resetSettings`; with `-seedReadAlong`, Read-along is
-    /// on in it. Never the real preferences: a UI test must not leave the feature on for the user.
+    /// on in it, and with `-stubChapterHeadings`, *Find chapters*. Never the real preferences: a UI test must not leave the feature on for the user.
     static func settingsStore(arguments: [String] = ProcessInfo.processInfo.arguments) -> KeyValueStoring? {
         #if DEBUG
         if arguments.contains(LaunchArgument.resetSettings) {
             let store = InMemoryKeyValueStore()
             if arguments.contains(LaunchArgument.seedReadAlong) {
                 store.set(true, forKey: AppSettings.Key.readAlongEnabled)
+            }
+            if arguments.contains(LaunchArgument.stubChapterHeadings) {
+                store.set(true, forKey: AppSettings.Key.findChaptersEnabled)
             }
             return store
         }
@@ -141,15 +144,24 @@ enum DebugOverrides {
     ) -> ReadAlongTranscribing? {
         #if DEBUG
         if usesStubReadAlongEngine(arguments) {
-            return StubReadAlongTranscriber()
+            let stub = StubReadAlongTranscriber()
+            if arguments.contains(LaunchArgument.stubChapterHeadings) {
+                stub.lines = { StubReadAlongTranscriber.chapterHeadingLines(from: $0, to: $1) }
+                // Slow enough for the percentage, and the chapters showing before the end, to be
+                // seen: a 200 s book takes about 10 s, its first two chapters in about 4 s.
+                stub.chunkSeconds = 10
+                stub.chunkDelay = .milliseconds(500)
+            }
+            return stub
         }
         #endif
         return nil
     }
 
-    /// `-seedReadAlong` implies `-stubReadAlongEngine`.
+    /// `-seedReadAlong` and `-stubChapterHeadings` imply `-stubReadAlongEngine`.
     private static func usesStubReadAlongEngine(_ arguments: [String]) -> Bool {
         arguments.contains(LaunchArgument.seedReadAlong) || arguments.contains(LaunchArgument.stubReadAlongEngine)
+            || arguments.contains(LaunchArgument.stubChapterHeadings)
     }
 
     /// True for a UI test's launch (any `LaunchArgument`): the app then doesn't ask for Siri

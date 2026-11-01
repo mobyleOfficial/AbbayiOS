@@ -212,6 +212,34 @@ final class StubReadAlongTranscriber: ReadAlongTranscribing, @unchecked Sendable
         return result
     }
 
+    /// The headings `chapterHeadingLines` reads out, by book time.
+    static let chapterHeadings: [(start: Double, words: [String])] = [
+        (10, ["Chapter", "One."]),
+        (70, ["Chapter", "Two."]),
+        (130, ["Chapter", "Three."])
+    ]
+
+    /// `seededLines` with a chapter heading read out at each of `chapterHeadings`: the seeded lines
+    /// from 2 s before a heading to 3 s after its start are left out, so each heading follows a
+    /// pause, as a narrator's does.
+    static func chapterHeadingLines(from: Double, to: Double) -> [ReadAlongLine] {
+        let wordSeconds = 0.5
+        var result = seededLines(from: from, to: to).filter { line in
+            !chapterHeadings.contains { line.end > $0.start - 2 && line.start < $0.start + 3 }
+        }
+        for heading in chapterHeadings where from <= heading.start && heading.start < to {
+            let words = heading.words.enumerated().map { offset, text in
+                ReadAlongWord(
+                    text: text,
+                    start: heading.start + Double(offset) * wordSeconds,
+                    end: heading.start + Double(offset + 1) * wordSeconds
+                )
+            }
+            result.append(ReadAlongLine(start: heading.start, end: words.last?.end ?? heading.start, words: words))
+        }
+        return result.sorted { $0.start < $1.start }
+    }
+
     private func locked<T>(_ body: (inout State) -> T) -> T {
         lock.lock()
         defer { lock.unlock() }

@@ -48,6 +48,12 @@ struct SettingsView: View {
                    Self.showsExperimental(isAvailable: readAlong?.isAvailable == true, voiceOverOn: voiceOver) {
                     experimentalSection(settings: $settings)
                 }
+                if #available(iOS 26, *), Self.showsFindChapters(isAvailable: readAlong?.isAvailable == true) {
+                    findChaptersSection(
+                        settings: $settings,
+                        showsHeader: !Self.showsExperimental(isAvailable: true, voiceOverOn: voiceOver)
+                    )
+                }
                 aboutSection
             }
             .navigationTitle(Localizable.settingsTitle.localized)
@@ -247,6 +253,30 @@ struct SettingsView: View {
             Text(Localizable.experimentalTitle.localized)
         } footer: {
             Text(Localizable.readAlongFooter.localized)
+        }
+    }
+
+    /// *Find chapters* shows wherever the speech engine runs, VoiceOver or not: unlike Read-along's
+    /// highlighted text, found chapters help a listener who can't see the screen as much as one who
+    /// can.
+    static func showsFindChapters(isAvailable: Bool) -> Bool {
+        isAvailable
+    }
+
+    /// Experimental *Find chapters*: its own section under Read-along's, so each switch keeps its
+    /// own explanation. It carries the *Experimental* header itself when Read-along's section isn't
+    /// drawn (VoiceOver). Turning it off stops a search; chapters already found stay.
+    @available(iOS 26, *)
+    private func findChaptersSection(settings: Bindable<AppSettings>, showsHeader: Bool) -> some View {
+        Section {
+            Toggle(Localizable.findChapters.localized, isOn: settings.findChaptersEnabled)
+                .accessibilityIdentifier(AccessibilityID.Settings.findChapters)
+        } header: {
+            if showsHeader {
+                Text(Localizable.experimentalTitle.localized)
+            }
+        } footer: {
+            Text(Localizable.findChaptersFooter.localized)
         }
     }
 

@@ -156,6 +156,8 @@ enum AccessibilityID {
         static let linkedIn = "settings.about.linkedIn"
         /// The Experimental section's Read-along switch (iOS 26 and later only).
         static let readAlong = "settings.experimental.readAlong"
+        /// The Experimental section's *Find chapters* switch (iOS 26 and later only).
+        static let findChapters = "settings.experimental.findChapters"
 
         /// One option of the language picker; `language` is an `AppLanguage` raw value.
         static func language(_ language: String) -> String {
@@ -200,6 +202,13 @@ enum AccessibilityID {
         /// The open chapter panel's handle at its top (a leaf): VoiceOver's "Close chapters", and
         /// where a drag down closes the panel.
         static let chaptersPanel = "player.chapters.panel"
+        /// In the Chapters pill's place for an imported book with no chapters, with Read-along on:
+        /// *Find chapters*, and while it searches the percentage done (a tap stops it).
+        static let findChapters = "player.findChapters"
+        /// The chapter list's footer for chapters found in the audio: *Remove found chapters*.
+        static let removeFoundChapters = "player.chapters.removeFound"
+        /// The same footer while more chapters are being found: *Stop* (the ones found stay).
+        static let stopFindingChapters = "player.chapters.stopFinding"
         /// The prompt after a chapter tap resumed partway in (#299): "Resumed at 3:20", and its
         /// *Start over* button, which plays the chapter from its beginning.
         static let resumePrompt = "player.resumePrompt"

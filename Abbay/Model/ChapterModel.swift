@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct ChapterModel: Codable {
+struct ChapterModel: Codable, Equatable {
     var title = String()
     var startTime: Double = .zero
     var duration: Double = .zero

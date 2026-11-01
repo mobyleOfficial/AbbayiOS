@@ -48,6 +48,9 @@ protocol PlayerProtocol {
     var volume: Double { get }
     /// Sets and saves Abbay's volume, applied at once whether playing or not.
     func setVolume(_ volume: Double)
+    /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
+    /// an imported single-file book's chapters can change; anything else is ignored.
+    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
 }
 
 /// For players with no speed or volume control, or saved chapter positions (test doubles that
@@ -64,6 +67,8 @@ extension PlayerProtocol {
     var volume: Double { BookVolume.full }
 
     func setVolume(_ volume: Double) {}
+
+    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
 }
 
 final class Player: PlayerProtocol {
@@ -793,5 +798,16 @@ extension Player {
     func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double {
         guard book.chapters.indices.contains(index) else { return 0 }
         return chapterResume.resumeTime(ofChapter: index, in: book) ?? book.chapters[index].resumeTime
+    }
+
+    /// Next and previous chapter, chapter taps, Siri and the lock screen read the chapters from
+    /// `model`, so they follow at once. A LibriVox book's chapters are its files: never replaced.
+    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        guard var model, model.url == url, multiFileQueue == nil else { return }
+        model.chapters = chapters
+        self.model = model
+        if NowPlayingManager.shared.currentAudio?.url == url {
+            NowPlayingManager.shared.setPlayer(self, currentAudio: model)
+        }
     }
 }

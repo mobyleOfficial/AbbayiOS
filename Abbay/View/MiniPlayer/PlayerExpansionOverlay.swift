@@ -188,6 +188,12 @@ final class PlayerDetailsModels {
         currentPresentation = presentationID
         return model
     }
+
+    /// A book's chapters changed (`ChapterFinder`): the current screen's model takes them if it
+    /// shows that book.
+    func chaptersChanged(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        current?.presentedChaptersChanged(chapters, ofBookAt: url)
+    }
 }
 
 // MARK: - Drag

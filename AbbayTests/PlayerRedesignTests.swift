@@ -85,6 +85,18 @@ final class PlayerRedesignTests: XCTestCase {
         )
     }
 
+    /// Found chapters' footer (*Remove found chapters*) gets room under the rows, within the cap.
+    func test_panelHeight_makesRoomForTheFooter() {
+        XCTAssertEqual(
+            ChaptersPanelLayout.idealHeight(chapterCount: 3, rowHeight: 54, chromeHeight: 84, footerHeight: 84),
+            330
+        )
+        XCTAssertEqual(
+            ChaptersPanelLayout.idealHeight(chapterCount: 60, rowHeight: 54, chromeHeight: 84, footerHeight: 84),
+            ChaptersPanelLayout.maxHeight
+        )
+    }
+
     func test_panel_beforeThePillsReport_assumesTheBottom() {
         let frame = ChaptersPanelLayout.frame(container: CGSize(width: 402, height: 700), pillsTop: 0, idealHeight: 440)
 
