@@ -171,6 +171,24 @@ final class PlayerViewModel {
         player.playChapter(at: index)
     }
 
+    /// *Restart chapter*, the chapter-name menu under the scrubber (#299): plays the chapter from its
+    /// beginning, whatever was saved for it, where a chapter tap resumes it. Another book loaded: the
+    /// shown one is loaded at the chapter's start first, as for a tap.
+    func restartChapter(_ index: Int) {
+        guard let player, book.chapters.indices.contains(index) else { return }
+        let start = book.chapters[index].startTime
+        if isLoaded {
+            player.seek(start)
+        } else {
+            var book = book
+            book.currentTime = start
+            player.play(&book)
+            guard book.url != nil, player.url == book.url else { return }
+        }
+        // Now in that chapter, at its start: plays on from there.
+        player.playChapter(at: index)
+    }
+
     // MARK: - Private
 
     /// The loaded book, when this screen shows it.

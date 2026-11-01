@@ -113,4 +113,29 @@ extension MiniPlayerUITests {
 
         transportPlay.tap()
     }
+
+    /// #299: *Restart chapter*, in the chapter name's menu under the scrubber, plays the chapter
+    /// from its beginning. The book was left at 200 s, in chapter 2, which starts at 2:24.
+    func test_restartChapter_fromTheChapterMenu_playsFromTheChaptersStart() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedPlayableBook])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Playable Book"), "no playable seed")
+        element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
+        waitForPlayerToArrive()
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(elapsedSeconds()), 200, "the seed's saved position")
+
+        let menu = element(AccessibilityID.Player.chapterMenu)
+        XCTAssertTrue(menu.waitForExistence(timeout: 5), "the chapter name is not a menu")
+        menu.tap()
+        let restart = element(AccessibilityID.Player.restartChapter)
+        XCTAssertTrue(restart.waitForExistence(timeout: 5), "no Restart chapter item")
+        restart.tap()
+
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" }, "the restart did not start playback")
+        let restarted = try XCTUnwrap(elapsedSeconds())
+        XCTAssertGreaterThanOrEqual(restarted, 144, "before chapter 2's start")
+        XCTAssertLessThan(restarted, 160, "not back at chapter 2's start (2:24)")
+
+        transportPlay.tap()
+    }
 }

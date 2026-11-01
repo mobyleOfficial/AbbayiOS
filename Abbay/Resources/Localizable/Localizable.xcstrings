@@ -892,7 +892,7 @@
       }
     },
     "restartChapterAction" : {
-      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start",
+      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start. Also the item in the player's chapter-name menu under the scrubber (#299)",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {

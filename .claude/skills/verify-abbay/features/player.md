@@ -98,6 +98,14 @@ LibriVox page's Play all open it.
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the
   clock reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
+- **restart-chapter:** (#299) the chapter's name under the scrubber is a menu button
+  (`player.chapterMenu`, a small `chevron.down` after the name, in the times' grey). Its one item,
+  *Restart chapter* (`player.restartChapter`, `arrow.counterclockwise`; pt-BR *Reiniciar
+  capítulo*, the mini player's `restartChapterAction` string), plays the chapter shown **from its
+  beginning**, whatever was saved for it, paused or playing (`PlayerViewModel.restartChapter`). The
+  shown book not loaded: it is loaded at the chapter's start first, as for a chapter tap. A book
+  with no chapters has no name there, so no menu. Evidence: seed `-seedPlayableBook` (saved 3:20,
+  chapter 2 starts 2:24) → menu → *Restart chapter* → playing from ~2:24.
 - **read-along (#192, experimental; its own page is [read-along](read-along.md)):** with Read-along on in [Settings](settings.md) (iOS 26+ with an
   engine that runs here: `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
   `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
@@ -217,7 +225,9 @@ LibriVox page's Play all open it.
     saved book (`LoadChapterResumeUseCase`), not a screen's copy.
   - who resumes: a chapter tap in this panel, CarPlay's chapter list and Siri's
     *Play chapter N*. **Next and Previous chapter still go to a chapter's start**, and Previous
-    more than 15 s in restarts the chapter, which is the way to hear one from the beginning.
+    more than 15 s in restarts the chapter. On this screen *Restart chapter* (see
+    *restart-chapter*) is the way to hear one from the beginning; in the mini player, its swipe
+    right.
   - the book's own position (Continue card, library progress, Play) is unchanged: the last place
     listened, whatever chapter it's in. The chapter list's *finished* rows are still "before the
     current chapter".

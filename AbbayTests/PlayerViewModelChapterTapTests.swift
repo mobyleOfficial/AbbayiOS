@@ -101,4 +101,51 @@ final class PlayerViewModelChapterTapTests: XCTestCase {
         XCTAssertEqual(player.seekSeconds, [])
         XCTAssertEqual(player.url, loaded.url)
     }
+
+    // MARK: - Restart chapter (#299)
+
+    /// The loaded book goes back to the chapter's start, whatever was saved for it, and plays.
+    func test_restartChapter_shownBookLoaded_seeksToTheChaptersStartAndPlays() {
+        let book = ViewModelSupport.chaptered(currentTime: 150)
+        let player = MockPlayer()
+        player.url = book.url
+        player.resumeTimes[1] = 150
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        sut.restartChapter(1)
+        sut.restartChapter(9)
+
+        XCTAssertEqual(player.seekSeconds, [100], "chapter two's start, not where it was left; 9 is out of range")
+        XCTAssertEqual(player.playChapterCalls, [1])
+        XCTAssertEqual(player.playCalls.map(\.url), [], "not reloaded")
+    }
+
+    func test_restartChapter_anotherBookLoaded_loadsTheShownBookAtTheChaptersStart() {
+        let loaded = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        player.url = loaded.url
+        player.resumeTimes[1] = 160
+        let shown = otherBook(currentTime: 160)
+        let sut = PlayerViewModel(shown, state: loadedState(loaded), player: player, downloads: nil)
+
+        sut.restartChapter(1)
+
+        XCTAssertEqual(player.playCalls.map(\.url), [otherURL])
+        XCTAssertEqual(player.playCalls.first?.currentTime, 100, "the start, not the 160 s it was left at")
+        XCTAssertEqual(player.playChapterCalls, [1])
+        XCTAssertEqual(player.seekSeconds, [], "the loaded book is never moved on the shown one's behalf")
+    }
+
+    func test_restartChapter_shownBookCannotPlay_movesNothing() {
+        let loaded = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        player.url = loaded.url
+        player.loadsOnPlay = false
+        let sut = PlayerViewModel(libriVoxBook(), state: loadedState(loaded), player: player, downloads: nil)
+
+        sut.restartChapter(1)
+
+        XCTAssertEqual(player.playChapterCalls, [])
+        XCTAssertEqual(player.seekSeconds, [])
+    }
 }

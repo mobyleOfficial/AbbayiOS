@@ -577,12 +577,12 @@ private struct PlayerTimeline: View {
         let time = model.bookTime(in: clock)
         let book = model.book
         let shown = scrub.time ?? time
+        let chapter = book.currentChapter(for: shown).flatMap { book.chapters.indices.contains($0) ? $0 : nil }
         PlayerProgressView(
             currentTime: Binding(get: { scrub.time ?? time }, set: { scrub.drag(to: $0) }),
             totalTime: book.duration,
-            centerLabel: book.currentChapter(for: shown).flatMap { index in
-                book.chapters.indices.contains(index) ? book.chapters[index].title : nil
-            },
+            centerLabel: chapter.map { book.chapters[$0].title },
+            onRestartChapter: chapter.map { index in { model.restartChapter(index) } },
             onStartUpdate: { [clock] in
                 scrub.drag(to: model.bookTime(in: clock))
             },

@@ -10,6 +10,8 @@ import SwiftUI
 /// The player's scrubber (G1): a 6 pt capsule track with a white fill, and under it the elapsed
 /// time, an optional centre label (the current chapter's name, truncating) and the time remaining
 /// ("−28:07"). A touch anywhere along the track scrubs, as before; the thumb shows while it does.
+/// With `onRestartChapter`, the centre label is a menu (a small chevron after it) whose one item
+/// restarts that chapter (#299).
 struct PlayerProgressView: View {
     // MARK: - Properties
     @Binding
@@ -17,6 +19,8 @@ struct PlayerProgressView: View {
     var totalTime: Double
     /// Text between the two times, e.g. the current chapter's title.
     var centerLabel: String?
+    /// Restarts the chapter `centerLabel` names; `nil` leaves the label plain text.
+    var onRestartChapter: VoidCallback?
     var onStartUpdate: VoidCallback?
     var onUpdate: ((Double) -> Void)?
     var onFinishUpdate: ((Double) -> Void)?
@@ -97,9 +101,7 @@ struct PlayerProgressView: View {
                 Text(Self.clockText(currentTime))
                 Spacer(minLength: 0)
                 if let centerLabel {
-                    Text(centerLabel)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    center(centerLabel)
                         .layoutPriority(-1)
                     Spacer(minLength: 0)
                 }
@@ -107,6 +109,37 @@ struct PlayerProgressView: View {
             }
             .font(.caption.monospacedDigit())
             .foregroundColor(ColorConstants.white.value.opacity(0.6))
+        }
+    }
+}
+
+// MARK: - Centre label
+private extension PlayerProgressView {
+    @ViewBuilder
+    func center(_ label: String) -> some View {
+        if let onRestartChapter {
+            Menu {
+                Button(action: onRestartChapter) {
+                    Label(Localizable.restartChapterAction.localized, systemImage: "arrow.counterclockwise")
+                }
+                .accessibilityIdentifier(AccessibilityID.Player.restartChapter)
+            } label: {
+                HStack(spacing: SpaceConstants.sx4.value) {
+                    Text(label)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .accessibilityHidden(true)
+                }
+                // The same colour as the times, not the menu's tint.
+                .foregroundColor(ColorConstants.white.value.opacity(0.6))
+            }
+            .accessibilityIdentifier(AccessibilityID.Player.chapterMenu)
+        } else {
+            Text(label)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 }
@@ -121,7 +154,8 @@ struct ProgressView_Previews: PreviewProvider {
             PlayerProgressView(
                 currentTime: $currentTime,
                 totalTime: 3000,
-                centerLabel: "A Case of Identity"
+                centerLabel: "A Case of Identity",
+                onRestartChapter: {}
             )
             .padding(SpaceConstants.sx16.value)
         }
