@@ -8,14 +8,15 @@
 import SwiftUI
 
 /// The details screen, "Player A" of the Liquid Glass redesign (#166 G1): a large cover, a
-/// left-aligned title block, the scrubber, the transport and two glass pills (speed, chapters).
+/// left-aligned title block, the scrubber, the transport and glass pills (speed, volume, chapters).
 /// It is drawn inside the expansion overlay (`PlayerExpansionOverlay`), which paints the cover-tint
 /// gradient behind it and adds the header (glass close button, a drag strip) on top.
 ///
 /// The Chapters pill opens the chapter list as a glass panel floating over the cover (G2,
 /// `ChaptersPanel`); nothing else on the screen moves. With Read-along on (#192), a Text pill
 /// between the two flips the cover's square to the text being read (`ReadAlongView`), like lyrics
-/// in Apple Music; again, nothing else moves.
+/// in Apple Music; again, nothing else moves. The volume pill raises a glass capsule over the
+/// screen (`VolumeSlider`): Abbay's own volume, under the system's.
 ///
 /// What it reads, so a clock tick does as little as possible:
 /// - this body reads the slow state only (the book, playing or not, via `PlayerViewModel`);
@@ -33,8 +34,9 @@ struct PlayerView: View {
     private var hidesCover
     /// Where the cover is laid out, in `coordinateSpace`: the growing cover's destination.
     private let onCoverFrame: ((CGRect) -> Void)?
-    /// Told when the chapter panel opens or closes: the expansion's cover handle sits above this
-    /// screen, under the panel, and stands aside while it is open.
+    /// Told when the chapter panel or the volume capsule opens or closes: the expansion's cover
+    /// handle sits above this screen, under them, and stands aside while either is open, so the
+    /// panel's rows take their touches and a tap on the cover closes the capsule.
     private let onChaptersOpen: ((Bool) -> Void)?
     /// Told when the read-along text takes the cover's square, or gives it back: the same handle
     /// stands aside then too, so the lines and the language menu take their taps and drags.
@@ -49,6 +51,11 @@ struct PlayerView: View {
     private var verticalSizeClass
     @State
     private var isShowingSpeed = false
+    /// The volume capsule is up over the pills.
+    @State
+    private var isShowingVolume = false
+    /// Something floats over the cover that takes its touches: the chapter panel or the capsule.
+    private var coversHandle: Bool { showsPanel || isShowingVolume }
     /// The scrubbed time, shared by the scrubber and the read-along text, so the text follows the
     /// finger while it drags.
     @State
@@ -82,7 +89,8 @@ struct PlayerView: View {
     private var panelRowHeight: CGFloat = 58
     @ScaledMetric(relativeTo: .headline)
     private var panelChromeHeight: CGFloat = 92
-    private static let dimReach: CGFloat = 200
+    /// How far a dim (or the volume capsule's tap-catcher) reaches up under the header.
+    static let dimReach: CGFloat = 200
 
     /// The named space `onCoverFrame` reports in: the details screen's own frame.
     static let coordinateSpace = "player.details"
@@ -143,7 +151,8 @@ struct PlayerView: View {
             .overlayPreferenceValue(PillsAnchorKey.self) { pills in
                 chaptersOverlay(pills: pills)
             }
-            .onChange(of: showsPanel) { _, open in
+            .modifier(VolumeCapsuleOverlay(model: model, isShowing: $isShowingVolume, animation: panelAnimation))
+            .onChange(of: coversHandle) { _, open in
                 onChaptersOpen?(open)
             }
             .onChange(of: showsText) { _, shown in
@@ -152,7 +161,7 @@ struct PlayerView: View {
                 if !shown { presentation.endReadAlongFullScreen(of: readAlongSlot) }
             }
             .onAppear {
-                onChaptersOpen?(showsPanel)
+                onChaptersOpen?(coversHandle)
                 onTextShown?(showsText)
             }
             .onDisappear {
@@ -271,15 +280,84 @@ struct PlayerView: View {
         .foregroundColor(ColorConstants.white.value)
     }
 
-    // MARK: - Pills
-    /// Speed on the left, Chapters on the right, and Text between them while Read-along is on. A
-    /// book with no chapters has no Chapters pill.
+    // MARK: - Chapters panel (G2)
+
+    /// The compact panel is up: the chapters are open and the window is one pane.
+    private var showsPanel: Bool {
+        isShowingChapters && !paneLayout.isSplit
+    }
+
+    @ViewBuilder
+    private func chaptersOverlay(pills: Anchor<CGRect>?) -> some View {
+        if showsPanel {
+            GeometryReader { proxy in
+                let frame = ChaptersPanelLayout.frame(
+                    container: proxy.size,
+                    pillsTop: pills.map { proxy[$0].minY } ?? 0,
+                    idealHeight: ChaptersPanelLayout.idealHeight(
+                        chapterCount: model.book.chapters.count,
+                        rowHeight: panelRowHeight,
+                        chromeHeight: panelChromeHeight
+                    )
+                )
+                ZStack(alignment: .topLeading) {
+                    // The faint dim behind the panel; a tap outside the panel closes it.
+                    Color.black.opacity(0.18)
+                        // Up under the header too (drawn above this screen), so the dim has no edge.
+                        .padding(.top, -Self.dimReach)
+                        .contentShape(Rectangle())
+                        .onTapGesture { setChapters(open: false) }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                    ChaptersPanel(
+                        model: model,
+                        isPresented: chaptersBinding,
+                        closeAnimation: panelAnimation
+                    )
+                    .frame(width: frame.width, height: frame.height)
+                    // Laid out there (not offset), so its SwiftUI gestures hit-test where it draws.
+                    .padding(.leading, frame.minX)
+                    .padding(.top, frame.minY)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(panelTransition)
+                }
+            }
+        }
+    }
+
+    /// Grows from the Chapters pill (the panel's bottom-right corner) and fades; with Reduce
+    /// Motion it only fades.
+    private var panelTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity)
+    }
+
+    var panelAnimation: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.82)
+    }
+
+    private func setChapters(open: Bool) {
+        guard isShowingChapters != open else { return }
+        withAnimation(panelAnimation) {
+            presentation.setChapters(open: open)
+        }
+    }
+}
+
+// MARK: - Pills
+extension PlayerView {
+    /// Speed and volume on the left, Chapters on the right, and Text between them while Read-along
+    /// is on. A book with no chapters has no Chapters pill.
     /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
     /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
     /// panel off the bottom of the landscape screen, over the pills (#270).
     private func pills(compact: Bool) -> some View {
         HStack {
-            speedPill
+            HStack(spacing: SpaceConstants.sx8.value) {
+                speedPill
+                VolumePill(model: model, isShowing: $isShowingVolume, animation: panelAnimation)
+            }
             Spacer()
             if offersText {
                 textPill
@@ -358,70 +436,6 @@ struct PlayerView: View {
         )
         .accessibilityIdentifier(AccessibilityID.Player.chapters)
     }
-
-    // MARK: - Chapters panel (G2)
-
-    /// The compact panel is up: the chapters are open and the window is one pane.
-    private var showsPanel: Bool {
-        isShowingChapters && !paneLayout.isSplit
-    }
-
-    @ViewBuilder
-    private func chaptersOverlay(pills: Anchor<CGRect>?) -> some View {
-        if showsPanel {
-            GeometryReader { proxy in
-                let frame = ChaptersPanelLayout.frame(
-                    container: proxy.size,
-                    pillsTop: pills.map { proxy[$0].minY } ?? 0,
-                    idealHeight: ChaptersPanelLayout.idealHeight(
-                        chapterCount: model.book.chapters.count,
-                        rowHeight: panelRowHeight,
-                        chromeHeight: panelChromeHeight
-                    )
-                )
-                ZStack(alignment: .topLeading) {
-                    // The faint dim behind the panel; a tap outside the panel closes it.
-                    Color.black.opacity(0.18)
-                        // Up under the header too (drawn above this screen), so the dim has no edge.
-                        .padding(.top, -Self.dimReach)
-                        .contentShape(Rectangle())
-                        .onTapGesture { setChapters(open: false) }
-                        .accessibilityHidden(true)
-                        .transition(.opacity)
-                    ChaptersPanel(
-                        model: model,
-                        isPresented: chaptersBinding,
-                        closeAnimation: panelAnimation
-                    )
-                    .frame(width: frame.width, height: frame.height)
-                    // Laid out there (not offset), so its SwiftUI gestures hit-test where it draws.
-                    .padding(.leading, frame.minX)
-                    .padding(.top, frame.minY)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .transition(panelTransition)
-                }
-            }
-        }
-    }
-
-    /// Grows from the Chapters pill (the panel's bottom-right corner) and fades; with Reduce
-    /// Motion it only fades.
-    private var panelTransition: AnyTransition {
-        reduceMotion
-            ? .opacity
-            : .scale(scale: 0.2, anchor: .bottomTrailing).combined(with: .opacity)
-    }
-
-    private var panelAnimation: Animation {
-        reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.82)
-    }
-
-    private func setChapters(open: Bool) {
-        guard isShowingChapters != open else { return }
-        withAnimation(panelAnimation) {
-            presentation.setChapters(open: open)
-        }
-    }
 }
 
 // MARK: - Panel layout
@@ -483,18 +497,27 @@ private struct FrameReporter: ViewModifier {
     }
 }
 
-/// A glass capsule with a label, the look of the speed and chapters pills.
-private struct PlayerPill: View {
-    let text: String
+/// A glass capsule with a label, the look of the speed and chapters pills. The volume pill has
+/// only its icon, at a fixed width, so the pill keeps its size as the symbol changes.
+struct PlayerPill: View {
+    let text: String?
     var systemImage: String?
+    /// For a symbol that draws a level: the volume's waves.
+    var variableValue: Double?
+
+    @ScaledMetric(relativeTo: .subheadline)
+    private var iconOnlyWidth: CGFloat = 22
 
     var body: some View {
         HStack(spacing: SpaceConstants.sx4.value) {
             if let systemImage {
-                Image(systemName: systemImage)
+                Image(systemName: systemImage, variableValue: variableValue)
+                    .frame(width: text == nil ? iconOnlyWidth : nil)
                     .accessibilityHidden(true)
             }
-            Text(text)
+            if let text {
+                Text(text)
+            }
         }
         .font(.subheadline.weight(.semibold))
         .lineLimit(1)

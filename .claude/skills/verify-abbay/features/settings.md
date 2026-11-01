@@ -98,7 +98,8 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
 
 ## How to get to it (user POV)
 
-Library tab → gear (top right) → Settings. **Done** closes it; so does a swipe down.
+Library tab → gear (top right; top left while the player pane is open beside the library on an
+iPad or a Mac) → Settings. **Done** closes it; so does a swipe down.
 
 On iOS 27.1 (seen on the iPhone Duo, not on the iPhone 17 / iOS 27.0) the navigation bar hides
 its title and Done while the form is scrolled down, and they come back at the top. That is the
@@ -146,5 +147,8 @@ finished downloads, and the stub download manager writes nothing), the Safari pa
   the URL its row was saved under, so a book whose file moved keeps its speed; one saved under a
   moved file's resolved URL before #186 is moved to the row's URL on the first load
   (`MovedBookKeyMigration`, `AppSettings.moveSpeed(from:to:)`).
+- **The volume has no Settings row.** Abbay's own volume (see [player](player.md) *volume*) lives
+  in `AppSettings.volume` (`abbay.settings.volume`, 0–2 in 5% steps, default 1; above 1 is the boost, #297) and is set only from
+  the player's volume pill; `Player` applies it at init, before any book loads.
 - **Skip amounts apply to the lock screen at launch**: `AppSettings.init` pushes them through
   `LiveSettingsEffects`, so they don't wait for a change in Settings.

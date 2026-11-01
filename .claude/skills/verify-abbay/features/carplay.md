@@ -23,6 +23,9 @@ two of its original bugs (#90, #95) are still open.
   backgrounding) re-reads that one book and sets its row's progress, unless it is the playing row
   (the player drives that one). The stored copy is updated either way, so a row handed back when
   another book starts shows where its book was left.
+- **volume:** CarPlay has no volume control of Abbay's own. The level set on the phone's player
+  (see [player](player.md) *volume*) is the player's gain, so it applies in the car too: a book
+  dimmed on the phone plays quieter through CarPlay, under the car's own volume.
 - **rate-button (#150):** the Now Playing template has a `CPNowPlayingPlaybackRateButton`. CarPlay
   shows the rate from Now Playing info (the book's speed, see [now-playing](now-playing.md)); each
   tap moves the loaded book to the next preset (0.8, 1, 1.2, 1.5, 1.75, 2, 2.5, then back to 0.8;

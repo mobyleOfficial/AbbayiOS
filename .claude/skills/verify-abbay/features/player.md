@@ -1,8 +1,8 @@
 # Player (the details screen)
 
 `PlayerView` is the full-screen details screen, "Player A" of the Liquid Glass redesign (#166 G1):
-a large cover, a left-aligned title block, the scrubber, the transport, and two glass pills (speed
-and chapters), three with Read-along on (Text between them, #192). The chapters open as a glass
+a large cover, a left-aligned title block, the scrubber, the transport, and glass pills: speed and
+volume on the left, chapters on the right, and Text between them with Read-along on (#192). The chapters open as a glass
 panel over the cover (G2); the Text pill flips the cover's square to the text being read. It is **no longer a sheet**.
 It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of where it
 was opened (the tapped [library](library.md) cover, or the [mini player](mini-player.md)) and
@@ -59,6 +59,29 @@ LibriVox page's Play all open it.
   it applies at once (`Player.setPlaybackRate`); on another book it is remembered for when it plays.
   The player applies it through the one `AVQueuePlayer`'s `defaultRate`, so it holds across pause
   and resume, seeks and chapter-file advances, and publishes it to Now Playing.
+- **volume:** Abbay's **own** volume, a gain on its one `AVQueuePlayer` (`player.volume`), never the
+  system volume. On the Mac (the iPad app on Apple Silicon) the book can sit under a call, which the
+  system volume would dim too; on iPhone and iPad it is a level inside the hardware buttons' volume.
+  An icon-only glass pill right of the speed (`player.volume`, label *Book volume* / *Volume do
+  livro*, value e.g. *60%*): `speaker.wave.3.fill` with the level as its variable value (the waves
+  fill in by thirds at a constant width), `speaker.slash.fill` at 0%, white at 100%, malachite
+  below it (as the speed pill is away from 1.0×) and red (`maximumRed`) above it. A tap raises a **vertical glass capsule** above
+  it (`player.volume.slider`, `VolumeSlider`): the percent on top, a white fill to drag (a touch
+  anywhere on the track sets the level there), the speaker at the bottom. It grows up out of the pill
+  (only fades with Reduce Motion), is centred over it and kept on screen, shorter on a short screen
+  (`VolumeSliderLayout`). No dim; a tap anywhere else, or the pill again, closes it. Levels are
+  **0–200%** in 5% steps (#297): 0–100% fills the bottom two thirds of the track, 100–200% is
+  squeezed into the top third, past a white notch at 100% that a drag sticks to
+  (`BookVolume.stickiness`, a light haptic tick on landing there). Past 100% the whole fill, the
+  percent and the speaker turn red, and the **boost** is on: the queue player stays at
+  `volume` 1 and `VolumeBoost` multiplies the samples through an `MTAudioProcessingTap` on every
+  item (imported files and each LibriVox chapter), with a soft `tanh` limiter past 0.8 so loud
+  passages are squashed, not clipped. At or below 100% the tap leaves the samples untouched; an
+  item it can't read (no audio track, not 32-bit float) plays unchanged. **One level for the whole app**, not per book: it holds across books, chapter files,
+  pause and launches (`AppSettings.volume`, `abbay.settings.volume`, default 100%), and applies to
+  CarPlay playback too, which has no control of its own. VoiceOver: the pill and the capsule are
+  both adjustable (swipe up/down, 10% a step, through 200%), so the capsule never needs opening; the capsule also
+  closes on the escape scrub. Not in the mini player or Now Playing.
 - **loaded vs other book:**
   - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
     `PlaybackState`, time and chapter from `PlaybackClock`.
@@ -230,6 +253,9 @@ $B tap library.row.0.title && $B wait player.close       # grows out of the cell
 $B tap player.transport.play                              # a seeded book loads and plays (the Debug fixture's audio)
 $B tap player.transport.forward && $B snapshot
 $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed value "1.5×"
+$B tap player.volume && $B wait player.volume.slider    # the glass capsule above the pill; value "100%"
+$B drag player.volume.slider down && $B tap player.title  # dims the book (pill value e.g. "50%", green); a tap outside closes it
+$B drag player.volume.slider up                           # to the top: "200%", the whole fill and the pill red
 $B tap player.chapters && $B wait player.chapters.panel  # the glass chapter panel, at the current chapter
 $B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed); closes the panel
 $B tap player.close && $B wait library.list
@@ -248,6 +274,17 @@ $B drag player.close down                                 # planned: collapse un
 - the speed sheet's `speed.{value,increase,decrease,setDefault}` and `speed.preset.<n>`
   (`SettingsUITests.test_speedSheet_*`), and the forward button's label following Settings
   (`test_changingSkipForward_updatesThePlayersButton`)
+- the volume (`VolumeUITests`): `player.volume` reads *Book volume*, *100%*; a tap shows
+  `player.volume.slider` centred above it; a drag from near its top to its middle dims the book
+  (40–95%: 0–100% is two thirds of the track), and the pill follows; a drag to the top reads
+  *200%* on both; a tap on the title or a second tap on the pill closes it, keeping the level;
+  VoiceOver's decrement/increment on the pill moves 10% without opening the capsule
+  (`AccessibilityActions.decrement`/`increment`). The gain itself (applied at launch, across books
+  and chapter files, never resuming a paused book; past 100% the player stays at 1 and the boost
+  gains the rest) is unit-tested in `PlayerVolumeTests`, the track mapping, notch and limiter in
+  `BookVolumeTests` (and the tap attaching to a real m4b in `VolumeBoostAttachTests`), the
+  capsule's placement and the VoiceOver step in `VolumeSliderTests`, the stored level in
+  `AppSettingsTests`. No test measures the audio's loudness.
 - `player.chapters` (the pill), then `player.chapters.panel`, `player.chapters.title` and
   `player.chapter.<n>` in the panel
 - the panel (`ChaptersPanelUITests`): it opens at the current chapter (a tap on chapter 11 of the

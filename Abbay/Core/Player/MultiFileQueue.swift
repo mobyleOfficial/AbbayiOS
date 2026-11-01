@@ -25,6 +25,8 @@ final class MultiFileQueue {
     /// The chapter being played failed to load or play; `isStreaming` when it isn't downloaded.
     /// On main. A queued chapter failing ahead of time is reported only once it becomes current.
     private let onItemFailed: (_ isStreaming: Bool) -> Void
+    /// Called on every chapter item as it is made: the volume boost's tap (#297).
+    private let prepareItem: (AVPlayerItem) -> Void
 
     private(set) var currentIndex = 0
     /// Items this queue put on the player, by chapter index. Lets the end-of-item notification be
@@ -72,7 +74,8 @@ final class MultiFileQueue {
         downloadsRoot: URL,
         prioritizer: ChapterPrioritizing,
         onBookEnd: @escaping () -> Void,
-        onItemFailed: @escaping (_ isStreaming: Bool) -> Void = { _ in }
+        onItemFailed: @escaping (_ isStreaming: Bool) -> Void = { _ in },
+        prepareItem: @escaping (AVPlayerItem) -> Void = { _ in }
     ) {
         self.player = player
         self.chapters = chapters
@@ -82,6 +85,7 @@ final class MultiFileQueue {
         self.prioritizer = prioritizer
         self.onBookEnd = onBookEnd
         self.onItemFailed = onItemFailed
+        self.prepareItem = prepareItem
 
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
@@ -181,6 +185,7 @@ final class MultiFileQueue {
               let url = LibriVoxIdentity.playableURL(for: chapters[index], bookID: bookID, root: downloadsRoot)
         else { return nil }
         let item = AVPlayerItem(url: url)
+        prepareItem(item)
         failureObservations[ObjectIdentifier(item)] = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
             DispatchQueue.main.async { self?.itemFailed(item) }

@@ -2241,6 +2241,24 @@
         }
       }
     },
+    "bookVolume" : {
+      "comment" : "VoiceOver label of the player's volume pill and slider: Abbay's own volume, not the system's",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Book volume"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volume do livro"
+          }
+        }
+      }
+    },
     "cancel" : {
       "comment" : "Cancels an alert",
       "extractionState" : "manual",

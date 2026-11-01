@@ -22,6 +22,17 @@ final class NormalPlaybackSpeed: PlaybackSpeedStoring {
     func setSpeed(_ speed: Double, for url: URL?) {}
 }
 
+/// Where the player reads and writes Abbay's own volume: one level for the whole app, not per
+/// book. A protocol so the player's tests (and its default) need no settings.
+protocol PlaybackVolumeStoring: AnyObject {
+    var volume: Double { get set }
+}
+
+/// Always full volume and remembers nothing: `Player`'s default, for tests that don't care.
+final class FullPlaybackVolume: PlaybackVolumeStoring {
+    var volume = BookVolume.full
+}
+
 /// Pushes settings that something outside SwiftUI consumes: the skip intervals (lock screen and
 /// CarPlay, through `NowPlayingManager`) and the language (`AbbayBundle`).
 protocol SettingsEffects {
@@ -60,7 +71,7 @@ extension Notification.Name {
 /// Core Data and the player use; never where a moved file resolves, #186), rather than as a new Core Data attribute: see the Settings PR for why. Mutations happen
 /// on the main thread (UI and remote commands); `playbackSpeed(for:)` may be read from any thread.
 @Observable
-final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
+final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedRekeying {
     enum Key {
         static let skipBackward = "abbay.settings.skipBackward"
         static let skipForward = "abbay.settings.skipForward"
@@ -71,6 +82,7 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         static let readAlongEnabled = "abbay.settings.readAlong"
         static let readAlongShowsText = "abbay.settings.readAlongShowsText"
         static let readAlongLanguages = "abbay.settings.readAlongLanguages"
+        static let volume = "abbay.settings.volume"
     }
 
     @ObservationIgnored private let store: KeyValueStoring
@@ -99,6 +111,19 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
                 return
             }
             store.set(defaultSpeed, forKey: Key.defaultSpeed)
+        }
+    }
+
+    /// Abbay's own volume, under the system's (`BookVolume`). The player writes it; the player's
+    /// volume pill reads it. Snapped on write.
+    var volume: Double {
+        didSet {
+            let snapped = BookVolume.snap(volume)
+            if snapped != volume {
+                volume = snapped
+                return
+            }
+            store.set(volume, forKey: Key.volume)
         }
     }
 
@@ -138,6 +163,7 @@ final class AppSettings: PlaybackSpeedStoring, BookSpeedRekeying {
         skipBackward = (store.object(forKey: Key.skipBackward) as? Int).flatMap(SkipInterval.init) ?? .standard
         skipForward = (store.object(forKey: Key.skipForward) as? Int).flatMap(SkipInterval.init) ?? .standard
         defaultSpeed = Self.storedDefaultSpeed(in: store)
+        volume = (store.object(forKey: Key.volume) as? Double).map(BookVolume.snap) ?? BookVolume.full
         cellularPreference = (store.object(forKey: Key.cellularPreference) as? String)
             .flatMap(CellularDownloadPreference.init) ?? .ask
         language = (store.object(forKey: Key.language) as? String).flatMap(AppLanguage.init(languageCode:)) ?? .system

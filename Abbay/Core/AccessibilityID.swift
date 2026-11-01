@@ -182,6 +182,11 @@ enum AccessibilityID {
         static let close = "player.close"
         /// Opens the speed sheet; its label is the book's speed ("1.5×").
         static let speed = "player.speed"
+        /// The volume pill beside the speed: opens the volume capsule (and closes it). Its label is
+        /// "Book volume", its value the level ("60%"); VoiceOver adjusts it in place.
+        static let volume = "player.volume"
+        /// The open volume capsule above the pill: an adjustable slider, Abbay's own volume.
+        static let volumeSlider = "player.volume.slider"
         /// The header strip at the top of the details screen (it no longer draws a grabber bar):
         /// drag it down to collapse into the bar.
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.

@@ -132,6 +132,23 @@ final class PlayerViewModel {
         }
     }
 
+    // MARK: - Volume
+
+    /// Abbay's volume. The app's, not the shown book's: observable through the settings, which the
+    /// player writes.
+    func volume(in settings: AppSettings) -> Double {
+        settings.volume
+    }
+
+    /// The player takes it at once, whichever book is shown, and saves it.
+    func setVolume(_ volume: Double, in settings: AppSettings) {
+        if let player {
+            player.setVolume(volume)
+        } else {
+            settings.volume = BookVolume.snap(volume)
+        }
+    }
+
     /// A chapter's "Failed · Retry" status: restarts its download now. Works whether or not the
     /// book is loaded, since it touches only the download.
     func retryChapter(_ index: Int) {

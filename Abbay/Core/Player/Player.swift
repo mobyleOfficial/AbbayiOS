@@ -40,13 +40,21 @@ protocol PlayerProtocol {
     /// Sets the loaded book's speed, saves it for that book, and applies it at once when playing.
     /// It holds across pause and resume, seeks and chapter files.
     func setPlaybackRate(_ rate: Double)
+    /// Abbay's own volume, 0–1, under the system volume. One level for every book.
+    var volume: Double { get }
+    /// Sets and saves Abbay's volume, applied at once whether playing or not.
+    func setVolume(_ volume: Double)
 }
 
-/// For players with no speed control (test doubles that predate it).
+/// For players with no speed or volume control (test doubles that predate them).
 extension PlayerProtocol {
     var playbackRate: Double { PlaybackSpeed.normal }
 
     func setPlaybackRate(_ rate: Double) {}
+
+    var volume: Double { BookVolume.full }
+
+    func setVolume(_ volume: Double) {}
 }
 
 final class Player: PlayerProtocol {
@@ -73,6 +81,9 @@ final class Player: PlayerProtocol {
     private var lastPositionSave: Date?
     private var notificationObservers: [NSObjectProtocol] = []
     private let speeds: PlaybackSpeedStoring
+    private let volumes: PlaybackVolumeStoring
+    /// Past 100%: a tap on every item multiplies the samples (#297).
+    private let boost = VolumeBoost()
     private let lastPlayed: LastPlayedStore
     private let launchState: LaunchStateFlag
     /// Donations on pause, on an interruption and at chapter boundaries, and the context refresh
@@ -132,11 +143,6 @@ final class Player: PlayerProtocol {
         return player.currentTime().seconds
     }
 
-    internal var currentItemURL: URL? { (player.currentItem?.asset as? AVURLAsset)?.url }
-
-    /// What the queue player was asked for, for tests: `rate` is 0 while paused, `defaultRate` is
-    /// what the next `play()` starts at.
-    internal var requestedRates: (rate: Float, defaultRate: Float) { (player.rate, player.defaultRate) }
 
     private(set) var playbackRate: Double = PlaybackSpeed.normal
 
@@ -154,11 +160,13 @@ final class Player: PlayerProtocol {
         noticeReporter: NoticeReporting = NoticeCenter.shared,
         networkPath: NetworkPathProviding = NetworkPathMonitor.shared,
         speeds: PlaybackSpeedStoring = NormalPlaybackSpeed(),
+        volumes: PlaybackVolumeStoring = FullPlaybackVolume(),
         lastPlayed: LastPlayedStore = .shared,
         launchState: LaunchStateFlag = .shared,
         siriContext: SiriContextRefreshing = NoopSiriContextRefresher()
     ) {
         self.speeds = speeds
+        self.volumes = volumes
         self.lastPlayed = lastPlayed
         self.launchState = launchState
         self.siriSignals = PlayerSiriSignals(donor: intentDonor, context: siriContext)
@@ -173,6 +181,7 @@ final class Player: PlayerProtocol {
         self.now = now
         self.noticeReporter = noticeReporter
         self.networkPath = networkPath
+        apply(volume: volumes.volume)
         setupTimeObserver()
         setupSaveObservers()
 
@@ -375,6 +384,7 @@ final class Player: PlayerProtocol {
         lastPositionSave = now()
 
         let playerItem = AVPlayerItem(url: url)
+        boost.attach(to: playerItem)
         observeFailure(of: playerItem, book: item)
 
         // A queue player advances (dropping the item) at its end by default; a single file must
@@ -400,7 +410,8 @@ final class Player: PlayerProtocol {
                 downloadsRoot: downloadsRoot,
                 prioritizer: chapterPrioritizer,
                 onBookEnd: { [weak self] in self?.pause() },
-                onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) }
+                onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) },
+                prepareItem: { [boost] in boost.attach(to: $0) }
             )
         }
         applyBookSpeed(item.url)
@@ -619,6 +630,20 @@ extension Player {
     }
 }
 
+// MARK: - For tests
+extension Player {
+    internal var currentItemURL: URL? { (player.currentItem?.asset as? AVURLAsset)?.url }
+
+    /// What the queue player was asked for, for tests: `rate` is 0 while paused, `defaultRate` is
+    /// what the next `play()` starts at.
+    internal var requestedRates: (rate: Float, defaultRate: Float) { (player.rate, player.defaultRate) }
+
+    /// The queue player's own gain, for tests.
+    internal var requestedVolume: Float { player.volume }
+    /// The boost's gain past 100%, for tests.
+    internal var boostGain: Double { boost.gain }
+}
+
 // MARK: - Speed
 extension Player {
     func setPlaybackRate(_ rate: Double) {
@@ -654,6 +679,26 @@ extension Player {
         if player.rate != 0 {
             player.rate = Float(speed)
         }
+    }
+}
+
+// MARK: - Volume
+extension Player {
+    var volume: Double { volumes.volume }
+
+    /// One `AVQueuePlayer` plays every book and chapter file, so its `volume` holds across them.
+    /// It is the player's gain, not the system volume: other apps (a call) stay as loud as they were.
+    func setVolume(_ volume: Double) {
+        let level = BookVolume.snap(volume)
+        volumes.volume = level
+        apply(volume: level)
+    }
+
+    /// Up to 100% the queue player's `volume`; past it the player stays at full and the boost
+    /// carries the rest.
+    private func apply(volume: Double) {
+        player.volume = Float(BookVolume.playerVolume(volume))
+        boost.gain = BookVolume.boostGain(volume)
     }
 }
 

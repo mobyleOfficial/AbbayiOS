@@ -101,4 +101,13 @@ final class MockPlayer: PlayerProtocol {
         rateCalls.append(rate)
         playbackRate = rate
     }
+
+    /// Levels passed to `setVolume(_:)`.
+    var volumeCalls = [Double]()
+    var volume: Double = 1
+
+    func setVolume(_ volume: Double) {
+        volumeCalls.append(volume)
+        self.volume = volume
+    }
 }
