@@ -171,6 +171,13 @@ LibriVox page's Play all open it.
   chapter panel; while it is open it shows *✕* and its label is *Close chapters*. **A book with no
   chapter markers (a plain MP3) has no pill**, so there is no "No chapters" message on this screen
   any more (`player.chapters.empty` is gone).
+- **pill-row-fit:** with Read-along on, four pills share the row. The speed pill never shrinks
+  (`fixedSize`: it read *1…* on a 393 pt iPhone before). The pills' side padding is 12 pt, so all
+  four keep their words on a 393 pt iPhone in en and pt-BR, and on a 375 pt iPhone SE in en. When
+  the row still runs short (pt-BR on the SE, a long speed like *1.75×*, larger text), the Text
+  pill and then Chapters (`layoutPriority(1)`) show only their icon (`PlayerPill.collapsesToIcon`,
+  a `ViewThatFits`); their buttons keep their VoiceOver labels. Evidence: `-seedLibrary
+  -seedPlayableBook -resetSettings -seedReadAlong`, open the book, look at the row.
 - **landscape (#270):** at a compact height (an iPhone in landscape), the cover fills the height on
   the leading side, and the title, scrubber, transport and pills stack on the trailing side
   (`verticalSizeClass == .compact`). The expansion's cover lands on that cover frame, and the chapter
