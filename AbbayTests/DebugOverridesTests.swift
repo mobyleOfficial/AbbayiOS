@@ -112,7 +112,8 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 26, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 27, "a new launch argument belongs in `all`")
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubChapterHeadings))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.readAlongControlsHideAfter))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubReadAlongEngine))
     }
@@ -280,6 +281,19 @@ final class DebugOverridesTests: XCTestCase {
         let store = try XCTUnwrap(DebugOverrides.settingsStore(arguments: [LaunchArgument.resetSettings]))
 
         XCTAssertFalse(AppSettings(store: store).readAlongEnabled)
+    }
+
+    /// *Find chapters* on, Read-along left off, and the stub engine reading out three headings.
+    func test_stubChapterHeadings_turnsFindChaptersOn_withTheStubEngine() throws {
+        let arguments = [LaunchArgument.resetSettings, LaunchArgument.stubChapterHeadings]
+        let settings = AppSettings(store: try XCTUnwrap(DebugOverrides.settingsStore(arguments: arguments)))
+        let stub = try XCTUnwrap(DebugOverrides.readAlongTranscriber(arguments: arguments) as? StubReadAlongTranscriber)
+
+        XCTAssertTrue(settings.findChaptersEnabled)
+        XCTAssertFalse(settings.readAlongEnabled)
+        let text = stub.lines(0, 200).map(\.text)
+        XCTAssertTrue(text.contains("Chapter One."))
+        XCTAssertTrue(text.contains("Chapter Three."))
     }
 
     /// Three chapters, like the stub book with `-stubDownloadStates`.

@@ -76,6 +76,13 @@ persisted through the storage layer's `KeyValueStoring` (`LocalStorage.preferenc
   and iOS may download a language's speech model the first time. Switching it off deletes every
   transcript. Between Language and About. Value `"0"` / `"1"`. What the switch turns on is in
   [read-along](read-along.md) and the [player](player.md)'s Text pill.
+  **Find chapters** (`settings.experimental.findChapters`, pt-BR *Buscar capítulos*): a section of
+  its own under Read-along's, bound to `AppSettings.findChaptersEnabled`, off by default, independent
+  of Read-along. The footer: it listens to the whole book on this iPhone for headings such as
+  "Chapter One", can miss or misplace some, found chapters can be removed from the chapter list,
+  nothing is sent. **Shown while VoiceOver runs** (`SettingsView.showsFindChapters`), and then it
+  carries the *Experimental* header. Switching it off stops a search and keeps chapters found. See
+  [find-chapters](find-chapters.md).
 - **about:**
   - **Privacy policy** (`settings.about.privacyPolicy`): https://mobyleapps.com/abbay/privacy-policy/
     in an `SFSafariViewController`.

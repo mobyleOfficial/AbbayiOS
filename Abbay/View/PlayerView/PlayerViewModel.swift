@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 
 /// Adapts the app-wide stores for the details screen. It holds no player subscriptions and no
 /// download sink: everything it shows is read from `PlaybackState`, `PlaybackClock` and the book's
@@ -19,17 +20,36 @@ import Foundation
 ///   loaded book.
 /// - Opened on the loaded book, the screen **follows the loaded book**: if Siri or CarPlay switches
 ///   books while it's open, it shows the new one. Pressing Play on another book does the same.
+///
+/// Observable for one thing only: the presented book itself, whose chapters change when they are
+/// found in its audio or removed (`presentedChaptersChanged`), and whose title changes when it is
+/// renamed (`presentedTitleChanged`, #322). Everything else it shows comes from the
+/// stores above.
 @MainActor
+@Observable
 final class PlayerViewModel {
-    private let presented: AudioModel
-    private let state: PlaybackState
-    private let player: PlayerProtocol?
-    private let downloads: DownloadStateStore?
+    private var presented: AudioModel
+    @ObservationIgnored private let state: PlaybackState
+    @ObservationIgnored private let player: PlayerProtocol?
+    @ObservationIgnored private let downloads: DownloadStateStore?
     /// Latched the first time the presented book is seen loaded; from then on the screen shows
     /// whatever is loaded. A cache of what `PlaybackState` already said, so it isn't observed, and
     /// it isn't read in `init`: the view model is built in a parent's body, which must not start
     /// depending on `loadedBook`.
-    private var followsLoadedBook = false
+    @ObservationIgnored private var followsLoadedBook = false
+
+    /// The presented book's chapters changed (`ChapterFinder`). A loaded book's come from
+    /// `PlaybackState`; this is for a book opened without playing it.
+    func presentedChaptersChanged(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        guard presented.url == url, presented.chapters != chapters else { return }
+        presented.chapters = chapters
+    }
+
+    /// The presented book was renamed. A loaded book's title comes from `PlaybackState`.
+    func presentedTitleChanged(_ title: String, ofBookAt url: URL) {
+        guard presented.url == url, presented.title != title else { return }
+        presented.title = title
+    }
 
     init(_ book: AudioModel, state: PlaybackState, player: PlayerProtocol?, downloads: DownloadStateStore?) {
         presented = book

@@ -89,6 +89,17 @@ struct PlayerView: View {
     private var panelRowHeight: CGFloat = 58
     @ScaledMetric(relativeTo: .headline)
     private var panelChromeHeight: CGFloat = 92
+    /// The list's footer for chapters found in the audio: a caption and *Remove found chapters*.
+    /// Only for the estimate.
+    @ScaledMetric(relativeTo: .subheadline)
+    private var panelFooterHeight: CGFloat = 84
+    /// The panel list's measured content height (iOS 18 and later), and the book and chapter count
+    /// it was measured for: it sizes the panel exactly, where the rows' estimate is only a guess.
+    @State private var panelListHeight: PanelListHeight?
+    /// The book the *Rename book* box is open for (#322).
+    @State private var renaming: AudioModel?
+    @Environment(\.playbackCenter)
+    private var center
     /// How far a dim (or the volume capsule's tap-catcher) reaches up under the header.
     static let dimReach: CGFloat = 200
 
@@ -259,17 +270,37 @@ struct PlayerView: View {
 
     // MARK: - Title
     /// Left-aligned: the title in white (it no longer turns green while playing), then the author
-    /// and "Ch N of M".
+    /// and "Ch N of M". An imported book's title has a ✎ beside it that renames the book (#322):
+    /// visible, since an MP3 without title metadata is called by its file's name.
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: SpaceConstants.sx2.value) {
-            Text(model.book.title)
-                .font(.title3.bold())
-                .foregroundColor(ColorConstants.white.value)
-                .lineLimit(2)
-                .accessibilityIdentifier(AccessibilityID.Player.title)
+            HStack(alignment: .firstTextBaseline, spacing: SpaceConstants.sx8.value) {
+                Text(model.book.title)
+                    .font(.title3.bold())
+                    .foregroundColor(ColorConstants.white.value)
+                    .lineLimit(2)
+                    .accessibilityIdentifier(AccessibilityID.Player.title)
+                if BookRenamer.canRename(model.book) {
+                    Button {
+                        renaming = model.book
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(ColorConstants.white.value.opacity(0.6))
+                            .frame(side: SpaceConstants.sx32.value)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Localizable.renameBook.localized)
+                    .accessibilityIdentifier(AccessibilityID.Player.rename)
+                }
+            }
             PlayerSubtitle(model: model)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .renameBookAlert(for: $renaming) { book, name in
+            BookRenamer(playback: center).rename(book, to: name)
+        }
     }
 
     // MARK: - Player buttons
@@ -318,11 +349,7 @@ struct PlayerView: View {
                 let frame = ChaptersPanelLayout.frame(
                     container: proxy.size,
                     pillsTop: pills.map { proxy[$0].minY } ?? 0,
-                    idealHeight: ChaptersPanelLayout.idealHeight(
-                        chapterCount: model.book.chapters.count,
-                        rowHeight: panelRowHeight,
-                        chromeHeight: panelChromeHeight
-                    )
+                    idealHeight: panelIdealHeight
                 )
                 ZStack(alignment: .topLeading) {
                     // The faint dim behind the panel; a tap outside the panel closes it.
@@ -336,7 +363,11 @@ struct PlayerView: View {
                     ChaptersPanel(
                         model: model,
                         isPresented: chaptersBinding,
-                        closeAnimation: panelAnimation
+                        closeAnimation: panelAnimation,
+                        onListHeight: { [key = panelListKey] height in
+                            let measured = PanelListHeight(key: key, height: height)
+                            if panelListHeight != measured { panelListHeight = measured }
+                        }
                     )
                     .frame(width: frame.width, height: frame.height)
                     // Laid out there (not offset), so its SwiftUI gestures hit-test where it draws.
@@ -347,6 +378,28 @@ struct PlayerView: View {
                 }
             }
         }
+    }
+
+    /// What a measured list height belongs to: another book, more or fewer chapters, or the found
+    /// chapters' footer coming or going make it stale.
+    private var panelListKey: String {
+        let footer = readAlong?.chapters.hasFoundChapters(model.book) == true
+        return "\(model.book.url?.absoluteString ?? "")|\(model.book.chapters.count)|\(footer)"
+    }
+
+    /// The header and handle over the measured list, up to `maxHeight`; the estimate until the
+    /// list has been measured (its first frame, and always on iOS 17).
+    private var panelIdealHeight: CGFloat {
+        if let measured = panelListHeight, measured.key == panelListKey {
+            return ChaptersPanelLayout.idealHeight(listHeight: measured.height, chromeHeight: panelChromeHeight)
+        }
+        let hasFooter = readAlong?.chapters.hasFoundChapters(model.book) == true
+        return ChaptersPanelLayout.idealHeight(
+            chapterCount: model.book.chapters.count,
+            rowHeight: panelRowHeight,
+            chromeHeight: panelChromeHeight,
+            footerHeight: hasFooter ? panelFooterHeight : 0
+        )
     }
 
     /// Grows from the Chapters pill (the panel's bottom-right corner) and fades; with Reduce
@@ -372,7 +425,8 @@ struct PlayerView: View {
 // MARK: - Pills
 extension PlayerView {
     /// Speed and volume on the left, Chapters on the right, and Text between them while Read-along
-    /// is on. A book with no chapters has no Chapters pill.
+    /// is on. A book with no chapters has no Chapters pill; an imported one offers *Find chapters*
+    /// in its place while that experimental switch is on (`ChapterFinder`).
     /// The speed never shrinks: it read "1…" on a 393 pt iPhone with all four pills. When the row
     /// runs short, Text and then Chapters drop their words and keep their icons (VoiceOver still
     /// reads their names).
@@ -392,6 +446,8 @@ extension PlayerView {
             }
             if !model.book.chapters.isEmpty {
                 chaptersPill
+            } else if let finder = readAlong?.chapters, finder.offers(model.book) {
+                FindChaptersPill(book: model.book, finder: finder)
             }
         }
         .anchorPreference(key: PillsAnchorKey.self, value: .bounds) { $0 }
@@ -449,15 +505,20 @@ extension PlayerView {
     }
 
     /// "☰ Chapters", or "✕ Chapters" while the panel is open; a tap toggles it.
+    /// While more chapters are being found in the audio (`ChapterFinder`), it carries the search's
+    /// percentage: *Chapters 34%*.
     private var chaptersPill: some View {
-        Button {
+        let search = readAlong?.chapters.progress(of: model.book).map(FindChaptersPill.percent)
+        return Button {
             setChapters(open: !isShowingChapters)
         } label: {
             PlayerPill(
-                text: Localizable.chaptersTitle.localized,
+                text: search.map { Localizable.chaptersFinding.localized(with: $0) }
+                    ?? Localizable.chaptersTitle.localized,
                 systemImage: isShowingChapters ? "xmark" : "list.bullet",
                 collapsesToIcon: true
             )
+            .monospacedDigit()
         }
         // Keeps its word longer than Text: the row's own way in to the chapters.
         .layoutPriority(1)
@@ -466,8 +527,57 @@ extension PlayerView {
         .accessibilityLabel(
             isShowingChapters ? Localizable.closeChapters.localized : Localizable.chaptersTitle.localized
         )
+        .accessibilityValue(search.map { Localizable.chaptersFindingValue.localized(with: $0) } ?? "")
         .accessibilityIdentifier(AccessibilityID.Player.chapters)
     }
+}
+
+/// *Find chapters* for an imported book with no chapters; while its audio is searched, the
+/// percentage done, and a tap stops the search. Found chapters replace it with the Chapters pill.
+struct FindChaptersPill: View {
+    let book: AudioModel
+    let finder: ChapterFinder
+
+    var body: some View {
+        let progress = finder.progress(of: book)
+        Button {
+            if progress == nil {
+                finder.find(book)
+            } else {
+                finder.cancel(book)
+            }
+        } label: {
+            PlayerPill(
+                text: progress.map { Localizable.findingChapters.localized(with: Self.percent($0)) }
+                    ?? Localizable.findChapters.localized,
+                systemImage: progress == nil ? "text.magnifyingglass" : "xmark",
+                collapsesToIcon: true
+            )
+            .monospacedDigit()
+        }
+        .layoutPriority(1)
+        .buttonStyle(.plain)
+        .foregroundColor(ColorConstants.white.value)
+        .accessibilityLabel(
+            progress.map { Localizable.findingChaptersLabel.localized(with: Self.percent($0)) }
+                ?? Localizable.findChapters.localized
+        )
+        .accessibilityHint(
+            progress == nil ? Localizable.findChaptersHint.localized : Localizable.findingChaptersHint.localized
+        )
+        .accessibilityIdentifier(AccessibilityID.Player.findChapters)
+    }
+
+    /// "34%" in the in-app language, whole percents.
+    static func percent(_ fraction: Double) -> String {
+        fraction.formatted(.percent.precision(.fractionLength(0)).locale(AbbayBundle.locale))
+    }
+}
+
+/// A measured panel list height and what it was measured for (`PlayerView.panelListKey`).
+struct PanelListHeight: Equatable {
+    let key: String
+    let height: CGFloat
 }
 
 // MARK: - Panel layout
@@ -483,9 +593,20 @@ enum ChaptersPanelLayout {
     static let leadingInset: CGFloat = SpaceConstants.sx40.value
     static let trailingInset: CGFloat = SpaceConstants.sx16.value
 
-    /// Tall enough for the book's rows (estimated), up to `maxHeight`; the list scrolls past that.
-    static func idealHeight(chapterCount: Int, rowHeight: CGFloat, chromeHeight: CGFloat) -> CGFloat {
-        min(maxHeight, chromeHeight + CGFloat(max(chapterCount, 1)) * rowHeight)
+    /// The list as measured under the header, up to `maxHeight`; the list scrolls past that.
+    static func idealHeight(listHeight: CGFloat, chromeHeight: CGFloat) -> CGFloat {
+        min(maxHeight, chromeHeight + listHeight)
+    }
+
+    /// Tall enough for the book's rows (estimated) and the list's footer, if any, up to
+    /// `maxHeight`; the list scrolls past that.
+    static func idealHeight(
+        chapterCount: Int,
+        rowHeight: CGFloat,
+        chromeHeight: CGFloat,
+        footerHeight: CGFloat = 0
+    ) -> CGFloat {
+        min(maxHeight, chromeHeight + CGFloat(max(chapterCount, 1)) * rowHeight + footerHeight)
     }
 
     static func frame(container: CGSize, pillsTop: CGFloat, idealHeight: CGFloat) -> CGRect {

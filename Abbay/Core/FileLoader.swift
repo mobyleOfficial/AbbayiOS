@@ -91,6 +91,8 @@ final class FileLoader: FileLoaderProtocol {
         var file = AudioModel(url: url)
         await loadDuration(file: &file, asset: asset)
         await loadMetadata(file: &file, asset: asset)
+        // No title metadata (common for MP3s): the file's name, so the book never shows blank (#322).
+        file.title = AudioModel.title(file.title, orFileTitleOf: url)
         await loadChapterMetadata(file: &file, asset: asset)
 
         // Create bookmark while we have security-scoped access

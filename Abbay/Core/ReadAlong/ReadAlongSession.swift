@@ -52,7 +52,7 @@ final class ReadAlongSession {
     /// few minutes of listening.
     nonisolated static let runAhead = 600.0
     /// Seconds of audio each candidate language transcribes for detection.
-    static let detectionSeconds = 20.0
+    static let detectionSeconds = ReadAlongLanguageResolver.detectionSeconds
 
     private(set) var state: ReadAlongState = .preparing
     private(set) var transcript: ReadAlongTranscript?
@@ -329,86 +329,34 @@ extension ReadAlongSession {
         }
     }
 
-    /// The book's language: its own setting (a bare code from LibriVox is matched to a supported
-    /// locale and saved back as one), else detected among the installed models, else the in-app
-    /// language. Detection reads the audio, so without it this waits (nil) like a run would. The
-    /// result is saved for the book, so a book is detected once and its text stays in one language.
+    /// The book's language (`ReadAlongLanguageResolver`). Detection reads the audio, so without it
+    /// this waits (nil) like a run would, saying the audio is missing.
     private func resolveLanguage(
         url: URL,
         supported: [String],
         transcriber: ReadAlongTranscribing,
         generation: Int
     ) async -> String? {
-        if let stored = settings.readAlongLanguage(for: url) {
-            guard Self.isBareCode(stored) else { return stored }
-            let installed = await transcriber.installedLocales()
-            guard isCurrent(generation) else { return nil }
-            guard let locale = ReadAlongLanguage.locale(
-                forLanguageCode: stored,
-                in: supported,
-                installed: installed,
-                preferredRegion: preferredRegion(for: stored)
-            ) else { return stored }
-            settings.setReadAlongLanguage(locale, for: url)
+        let resolver = ReadAlongLanguageResolver(
+            transcriber: transcriber,
+            settings: settings,
+            preferredLanguages: preferredLanguages
+        )
+        let outcome = await resolver.resolve(
+            url: url,
+            supported: supported,
+            source: source,
+            at: shownTime
+        ) { isCurrent(generation) }
+        switch outcome {
+        case .resolved(let locale):
             return locale
-        }
-
-        guard let source, source.isOnDevice(at: shownTime) else {
+        case .audioMissing:
             state = missingAudioState
             return nil
+        case .cancelled:
+            return nil
         }
-        let time = shownTime
-        let installed = await transcriber.installedLocales()
-        guard isCurrent(generation) else { return nil }
-        let candidates = ReadAlongLanguage.candidates(
-            appLanguage: settings.language.languageCode,
-            preferred: preferredLanguages(),
-            installed: installed
-        )
-        var scores: [String: Double] = [:]
-        for candidate in candidates {
-            // A locale the engine can't score (its model isn't usable) just has no score.
-            let score = try? await transcriber.confidence(
-                source,
-                from: time,
-                seconds: Self.detectionSeconds,
-                locale: candidate
-            )
-            guard isCurrent(generation) else { return nil }
-            scores[candidate] = score
-        }
-        let locale = ReadAlongLanguage.best(scores) ?? appLanguageLocale(in: supported, installed: installed)
-        settings.setReadAlongLanguage(locale, for: url)
-        return locale
-    }
-
-    /// The in-app language's locale among the supported ones, chosen as `ReadAlongLanguage.locale`
-    /// does (the device's region, an installed model, the likely region); the language id itself
-    /// (which the model check then reports as unsupported) when iOS has none.
-    private func appLanguageLocale(in supported: [String], installed: [String]) -> String {
-        let id = settings.language.languageCode ?? AbbayBundle.locale.identifier
-        let language = Locale(identifier: id).language
-        let code = language.languageCode?.identifier ?? "en"
-        let region = language.region?.identifier ?? preferredRegion(for: code)
-        let locale = ReadAlongLanguage.locale(
-            forLanguageCode: code,
-            in: supported,
-            installed: installed,
-            preferredRegion: region
-        )
-        return locale ?? id.replacingOccurrences(of: "_", with: "-")
-    }
-
-    /// The region of the first device language in `code`: "pt" on a Brazilian device is "BR".
-    private func preferredRegion(for code: String) -> String? {
-        preferredLanguages().lazy
-            .map { Locale(identifier: $0).language }
-            .first { $0.languageCode?.identifier == code.lowercased() && $0.region != nil }?
-            .region?.identifier
-    }
-
-    private static func isBareCode(_ id: String) -> Bool {
-        !id.contains("-") && !id.contains("_")
     }
 
 }

@@ -19,12 +19,21 @@ final class ReadAlongCenter {
     @ObservationIgnored private let transcriber: ReadAlongTranscribing?
     @ObservationIgnored private let store: ReadAlongStore
     @ObservationIgnored private let settings: AppSettings
+    /// Finds chapters in the audio of imported books that have none, with the same engine.
+    let chapters: ChapterFinder
 
     /// Built by the dependency container, off the main actor's checks like `PlaybackCenter`.
-    nonisolated init(transcriber: ReadAlongTranscribing?, store: ReadAlongStore, settings: AppSettings) {
+    /// `playback` is where found chapters reach the loaded book; nil in tests that don't need it.
+    nonisolated init(
+        transcriber: ReadAlongTranscribing?,
+        store: ReadAlongStore,
+        settings: AppSettings,
+        playback: PlaybackCenter? = nil
+    ) {
         self.transcriber = transcriber
         self.store = store
         self.settings = settings
+        chapters = ChapterFinder(transcriber: transcriber, settings: settings, playback: playback)
     }
 
     /// Whether this device can transcribe at all (iOS 26+, with an engine that runs here).

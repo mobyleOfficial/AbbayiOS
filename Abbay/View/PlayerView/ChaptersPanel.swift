@@ -36,9 +36,16 @@ struct ChaptersPanel: View {
     @Binding var isPresented: Bool
     let closeAnimation: Animation
     var style: Style = .floating
+    /// The list's real content height, as it is laid out (iOS 18 and later): the floating panel
+    /// is sized from it rather than from an estimate per row. Nil: not reported.
+    var onListHeight: ((CGFloat) -> Void)?
 
     @Environment(PlaybackClock.self)
     private var clock
+    /// The chapter search, if one is finding more of this book's chapters. Optional so previews can
+    /// omit it.
+    @Environment(ReadAlongCenter.self)
+    private var readAlong: ReadAlongCenter?
 
     /// The handle and the header: a drag down that starts here closes the panel.
     static let dragHandleHeight: CGFloat = SpaceConstants.sx64.value
@@ -64,7 +71,10 @@ struct ChaptersPanel: View {
                 duration: book.duration,
                 progress: book.duration > 0 ? time / book.duration : 0
             ),
-            downloadState: model.downloadEntry?.state
+            downloadState: model.downloadEntry?.state,
+            searchProgress: readAlong?.chapters.progress(of: book).map { ($0 * 100).rounded(.down) / 100 },
+            searchedFraction: readAlong?.chapters.searchedFraction(of: book).map { ($0 * 100).rounded(.down) / 100 },
+            onListHeight: onListHeight
         )
         .equatable()
     }
@@ -102,10 +112,20 @@ private struct ChaptersPanelContent: View, Equatable {
     let progress: Double?
     let headerDetail: String
     let downloadState: BookDownloadState?
+    /// How far a search for more chapters is, in whole percents; nil when none runs.
+    let searchProgress: Double?
+    /// How much of the book a search that didn't finish covered, in whole percents; nil when the
+    /// whole audio was analysed (or no search ran).
+    let searchedFraction: Double?
+    /// Not compared: SwiftUI keeps the first instance's, and the receiver is the player's state.
+    let onListHeight: ((CGFloat) -> Void)?
     /// Where a chapter tap that resumed partway in leaves its prompt (#299). Optional so previews
     /// can omit it.
     @Environment(PlayerPresentation.self)
     private var presentation: PlayerPresentation?
+    /// Offers to remove chapters found in the book's audio. Optional so previews can omit it.
+    @Environment(ReadAlongCenter.self)
+    private var readAlong: ReadAlongCenter?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.bookURL == rhs.bookURL
@@ -113,6 +133,8 @@ private struct ChaptersPanelContent: View, Equatable {
             && lhs.progress == rhs.progress
             && lhs.headerDetail == rhs.headerDetail
             && lhs.downloadState == rhs.downloadState
+            && lhs.searchProgress == rhs.searchProgress
+            && lhs.searchedFraction == rhs.searchedFraction
     }
 
     private func onClose() {
@@ -199,13 +221,55 @@ private struct ChaptersPanelContent: View, Equatable {
                     }
                     if closesOnSelect { onClose() }
                 },
-                retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) })
+                retry: (AccessibilityID.Player.chapterRetry, { model.retryChapter($0) }),
+                footer: foundChaptersFooter
             )
             .onAppear {
                 // Opens with the current chapter in view (the rows' ids are their indices).
                 proxy.scrollTo(currentIndex, anchor: .center)
             }
+            .modifier(ListContentHeight(onChange: onListHeight))
         }
+    }
+
+    /// For chapters found in the book's audio. While more are being found: how far, and *Stop*
+    /// (the chapters found so far stay). Stopped short of the end (stopped, failed, the app ended):
+    /// how far it got, *Continue finding* (#316) and *Remove found chapters*. Done: where they came
+    /// from, and *Remove* (the panel then closes, and the player offers *Find chapters* again).
+    private var foundChaptersFooter: ChapterListView.Footer? {
+        guard let finder = readAlong?.chapters, !model.book.chapters.isEmpty else { return nil }
+        let book = model.book
+        if let searchProgress {
+            return ChapterListView.Footer(
+                note: Localizable.findingMoreChapters.localized(with: FindChaptersPill.percent(searchProgress)),
+                actions: [ChapterListView.Footer.Action(
+                    title: Localizable.stopFindingChapters.localized,
+                    systemImage: "stop.circle",
+                    identifier: AccessibilityID.Player.stopFindingChapters
+                ) { finder.cancel(book) }]
+            )
+        }
+        guard finder.hasFoundChapters(book) else { return nil }
+        let remove = ChapterListView.Footer.Action(
+            title: Localizable.removeFoundChapters.localized,
+            systemImage: "trash",
+            identifier: AccessibilityID.Player.removeFoundChapters,
+            role: .destructive
+        ) {
+            withAnimation(closeAnimation) { finder.removeFoundChapters(book) }
+        }
+        if let searchedFraction, finder.canContinue(book) {
+            let resume = ChapterListView.Footer.Action(
+                title: Localizable.continueFindingChapters.localized,
+                systemImage: "arrow.clockwise.circle",
+                identifier: AccessibilityID.Player.continueFindingChapters
+            ) { finder.continueFinding(book) }
+            return ChapterListView.Footer(
+                note: Localizable.chapterSearchStopped.localized(with: FindChaptersPill.percent(searchedFraction)),
+                actions: [resume, remove]
+            )
+        }
+        return ChapterListView.Footer(note: Localizable.foundChaptersNote.localized, actions: [remove])
     }
 
     /// Transparent, over the handle and the header. One gesture: a drag down closes the panel,
@@ -244,5 +308,24 @@ private struct ChaptersPanelContent: View, Equatable {
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { onClose() }
             .accessibilityIdentifier(AccessibilityID.Player.chaptersPanel)
+    }
+}
+
+/// Reports the height of everything the list holds (its rows and footer, and its insets) as it is
+/// laid out, so the panel can be exactly as tall as its content. iOS 18's scroll geometry; on
+/// iOS 17 nothing is reported and the panel keeps its estimate.
+private struct ListContentHeight: ViewModifier {
+    let onChange: ((CGFloat) -> Void)?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *), let onChange {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
+            } action: { _, height in
+                onChange(height)
+            }
+        } else {
+            content
+        }
     }
 }
