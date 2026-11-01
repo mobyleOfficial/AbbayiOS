@@ -373,6 +373,9 @@ struct PlayerView: View {
 extension PlayerView {
     /// Speed and volume on the left, Chapters on the right, and Text between them while Read-along
     /// is on. A book with no chapters has no Chapters pill.
+    /// The speed never shrinks: it read "1…" on a 393 pt iPhone with all four pills. When the row
+    /// runs short, Text and then Chapters drop their words and keep their icons (VoiceOver still
+    /// reads their names).
     /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
     /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
     /// panel off the bottom of the landscape screen, over the pills (#270).
@@ -385,7 +388,7 @@ extension PlayerView {
             Spacer()
             if offersText {
                 textPill
-                Spacer()
+                Spacer(minLength: SpaceConstants.sx8.value)
             }
             if !model.book.chapters.isEmpty {
                 chaptersPill
@@ -402,6 +405,7 @@ extension PlayerView {
             PlayerPill(text: PlaybackSpeed.label(speed))
                 .monospacedDigit()
         }
+        .fixedSize()
         .buttonStyle(.plain)
         .foregroundColor(speed == PlaybackSpeed.normal ? ColorConstants.white.value : ColorConstants.malachite.value)
         .accessibilityLabel(Localizable.playbackSpeed.localized)
@@ -427,7 +431,8 @@ extension PlayerView {
         } label: {
             PlayerPill(
                 text: Self.textPillTitle(showsText: showsText),
-                systemImage: showsText ? "photo" : "text.quote"
+                systemImage: showsText ? "photo" : "text.quote",
+                collapsesToIcon: true
             )
         }
         .buttonStyle(.plain)
@@ -450,9 +455,12 @@ extension PlayerView {
         } label: {
             PlayerPill(
                 text: Localizable.chaptersTitle.localized,
-                systemImage: isShowingChapters ? "xmark" : "list.bullet"
+                systemImage: isShowingChapters ? "xmark" : "list.bullet",
+                collapsesToIcon: true
             )
         }
+        // Keeps its word longer than Text: the row's own way in to the chapters.
+        .layoutPriority(1)
         .buttonStyle(.plain)
         .foregroundColor(ColorConstants.white.value)
         .accessibilityLabel(
@@ -522,33 +530,51 @@ private struct FrameReporter: ViewModifier {
 }
 
 /// A glass capsule with a label, the look of the speed and chapters pills. The volume pill has
-/// only its icon, at a fixed width, so the pill keeps its size as the symbol changes.
+/// only its icon, at a fixed width, so the pill keeps its size as the symbol changes. With
+/// `collapsesToIcon`, a pill offered less than its full width shows only its icon, at that same
+/// width, instead of truncating its word; its button keeps its accessibility label.
 struct PlayerPill: View {
     let text: String?
     var systemImage: String?
     /// For a symbol that draws a level: the volume's waves.
     var variableValue: Double?
+    var collapsesToIcon = false
 
     @ScaledMetric(relativeTo: .subheadline)
     private var iconOnlyWidth: CGFloat = 22
 
     var body: some View {
-        HStack(spacing: SpaceConstants.sx4.value) {
-            if let systemImage {
-                Image(systemName: systemImage, variableValue: variableValue)
-                    .frame(width: text == nil ? iconOnlyWidth : nil)
-                    .accessibilityHidden(true)
-            }
-            if let text {
-                Text(text)
+        Group {
+            if collapsesToIcon, systemImage != nil, text != nil {
+                ViewThatFits(in: .horizontal) {
+                    content(showsText: true)
+                    content(showsText: false)
+                }
+            } else {
+                content(showsText: true)
             }
         }
         .font(.subheadline.weight(.semibold))
         .lineLimit(1)
-        .padding(.horizontal, SpaceConstants.sx16.value)
+        // 12, not 16: with Read-along on, four pills share a 393 pt iPhone's row with their words.
+        .padding(.horizontal, SpaceConstants.sx12.value)
         .padding(.vertical, SpaceConstants.sx8.value + SpaceConstants.sx2.value)
         .abbayGlass(in: Capsule(), interactive: true)
         .contentShape(Capsule())
+    }
+
+    private func content(showsText: Bool) -> some View {
+        let shownText = showsText ? text : nil
+        return HStack(spacing: SpaceConstants.sx4.value) {
+            if let systemImage {
+                Image(systemName: systemImage, variableValue: variableValue)
+                    .frame(width: shownText == nil ? iconOnlyWidth : nil)
+                    .accessibilityHidden(true)
+            }
+            if let shownText {
+                Text(shownText)
+            }
+        }
     }
 }
 
