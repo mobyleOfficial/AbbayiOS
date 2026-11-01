@@ -48,6 +48,22 @@ enum ChapterHeadingDetector {
         }
     }
 
+    /// A search continued from `chapters.last`'s start (#316): the chapters before stay as they are,
+    /// and the headings in the new `lines` after that chapter's own (re-heard at the start) are
+    /// added, each chapter running until the next and the last to `duration`. Unchanged when no
+    /// new heading is heard.
+    static func extending(_ chapters: [ChapterModel], with lines: [ReadAlongLine], duration: Double) -> [ChapterModel] {
+        guard let last = chapters.last else { return [] }
+        let new = headings(in: lines).filter { $0.start >= last.startTime + minimumChapterLength }
+        let starts = chapters.map { (title: $0.title, start: $0.startTime) } + new
+        let end = max(duration, starts.last?.start ?? 0)
+        return starts.indices.map { index in
+            let next = index + 1 < starts.count ? starts[index + 1].start : end
+            let start = starts[index].start
+            return ChapterModel(title: starts[index].title, startTime: start, duration: next - start)
+        }
+    }
+
     /// Every heading in the transcript, in order, with what to call it ("Chapter Three") and when
     /// its first word starts. A heading within `minimumChapterLength` of the one before is dropped
     /// when it is the same kind ("Chapter" again), and joins that one's title when it isn't.

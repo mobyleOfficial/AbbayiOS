@@ -140,8 +140,8 @@ final class FindChaptersUITests: XCTestCase {
     }
 
     /// Stop from the list once chapters are showing: they stay, the search ends, and the list
-    /// offers to remove them.
-    func test_stopFromTheList_keepsTheChaptersFound() throws {
+    /// offers to continue it or remove them; Continue finds the rest.
+    func test_stopFromTheList_keepsTheChaptersFound_andContinueFindsTheRest() throws {
         launch([LaunchArgument.stubChapterHeadings])
         try openPlainBook()
         XCTAssertTrue(findPill.waitForExistence(timeout: 5))
@@ -158,6 +158,18 @@ final class FindChaptersUITests: XCTestCase {
             "the search didn't end"
         )
         XCTAssertTrue(element(AccessibilityID.Player.chapter(0)).exists, "the chapters found went")
+
+        // It stopped short of the end (#316): the list offers to continue, which finds the rest.
+        let resume = element(AccessibilityID.Player.continueFindingChapters)
+        XCTAssertTrue(resume.waitForExistence(timeout: 5), "no Continue finding after a stop")
+        resume.tap()
+        XCTAssertTrue(stop.waitForExistence(timeout: 5), "Continue didn't start a search")
+        XCTAssertTrue(
+            element(AccessibilityID.Player.chapter(2)).waitForExistence(timeout: 20),
+            "the third chapter wasn't found"
+        )
+        XCTAssertTrue(element(AccessibilityID.Player.removeFoundChapters).waitForExistence(timeout: 20))
+        XCTAssertFalse(resume.exists, "the whole book is searched: nothing to continue")
     }
 
     private func waitForLabel(of element: XCUIElement, _ label: String, timeout: TimeInterval = 10) -> Bool {

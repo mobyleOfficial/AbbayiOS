@@ -30,6 +30,10 @@ extension Notification.Name {
 /// engine failing part way, keeps what was shown. Nothing found, or the file missing: a notice says
 /// so and the book is left as it was.
 ///
+/// How far the transcription got is saved with the book (`AppSettings.chapterSearchCoverage`): short
+/// of the book's end, the chapter list offers *Continue finding* (#316), which picks up from the
+/// start of the last chapter found.
+///
 /// The transcript the search makes is not kept: the player's read-along session may be writing the
 /// same book's text, and two writers would overwrite each other's lines.
 @MainActor
@@ -65,6 +69,23 @@ final class ChapterFinder {
     /// What each search has shown so far, as the detector gave it: a new detection that is the
     /// same publishes nothing.
     @ObservationIgnored private var published: [URL: [ChapterModel]] = [:]
+    /// How far each running search has transcribed, in book seconds, and how far that was when it
+    /// was last saved (`AppSettings.chapterSearchCoverage`).
+    @ObservationIgnored private var covered: [URL: Double] = [:]
+    @ObservationIgnored private var savedCoverage: [URL: Double] = [:]
+
+    /// Coverage is saved at least this often, in seconds of audio, so a killed app loses little.
+    static let coverageSaveInterval = 120.0
+    /// Coverage this close to the book's end is the whole book.
+    static let wholeBookTolerance = 1.0
+
+    /// Where a search starts, and the chapters it builds on: none from the start; the chapters
+    /// found so far when it continues from the start of the last one (#316). With the book's audio.
+    private struct Run {
+        let from: Double
+        let base: [ChapterModel]
+        var source = ReadAlongAudioSource(segments: [], isLibriVox: false)
+    }
 
     /// Built by `ReadAlongCenter`, off the main actor's checks like it. `makeSource` and
     /// `preferredLanguages` are for tests.
@@ -109,33 +130,89 @@ final class ChapterFinder {
         !book.chapters.isEmpty && settings.hasFoundChapters(for: book.url)
     }
 
+    /// How much of the book its chapter search has transcribed, 0…1, when that is short of the
+    /// whole book (a search stopped, failed or cut off by the app ending); nil when the whole audio
+    /// was analysed, or it isn't known (owner: offer to continue exactly when the transcription
+    /// didn't analyse the whole audio).
+    func searchedFraction(of book: AudioModel) -> Double? {
+        guard hasFoundChapters(book), book.duration > 0,
+              let coverage = settings.chapterSearchCoverage(for: book.url),
+              coverage < book.duration - Self.wholeBookTolerance
+        else { return nil }
+        return min(max(coverage / book.duration, 0), 1)
+    }
+
+    /// Whether the chapter list offers *Continue finding*: found chapters, a search that didn't
+    /// cover the whole book, none running, and the switch on where the engine runs.
+    func canContinue(_ book: AudioModel) -> Bool {
+        transcriber != nil && settings.findChaptersEnabled && progress(of: book) == nil
+            && searchedFraction(of: book) != nil
+    }
+
     // MARK: - Actions
 
     func find(_ book: AudioModel) {
-        guard offers(book), let url = book.url, tasks[url] == nil, let transcriber else { return }
-        progress[url] = 0
-        let source = makeSource(book)
+        guard offers(book) else { return }
+        start(book, run: Run(from: 0, base: []))
+    }
+
+    /// Picks the search up from the start of the last chapter found, which ran to the end of the
+    /// book because the next heading hadn't been heard: a heading cut off where it stopped is heard
+    /// whole, and the chapters before it stay as they are.
+    func continueFinding(_ book: AudioModel) {
+        guard canContinue(book), let last = book.chapters.last else { return }
+        start(book, run: Run(from: last.startTime, base: book.chapters))
+    }
+
+    private func start(_ book: AudioModel, run: Run) {
+        guard let url = book.url, tasks[url] == nil, let transcriber else { return }
+        var run = run
+        run.source = makeSource(book)
+        progress[url] = book.duration > 0 ? min(max(run.from / book.duration, 0), 1) : 0
+        published[url] = run.base
+        covered[url] = run.from
+        savedCoverage[url] = settings.chapterSearchCoverage(for: url)
         let title = Notice.title(of: book)
         tasks[url] = Task { [weak self] in
             guard let self else { return }
-            let outcome = await self.search(book, url: url, source: source, transcriber: transcriber)
+            let outcome = await self.search(book, url: url, transcriber: transcriber, run: run)
             self.finish(url: url, title: title, outcome: outcome)
         }
     }
 
-    /// Stops the search. Chapters it already showed stay (and can be removed).
+    /// Stops the search. Chapters it already showed stay (and can be removed), with how far it got,
+    /// so it can be continued.
     func cancel(_ book: AudioModel) {
         guard let url = book.url else { return }
         tasks[url]?.cancel()
+        end(url)
+    }
+
+    /// Forgets a search that has ended, saving how far it got.
+    private func end(_ url: URL) {
+        saveCoverage(url, force: true)
         tasks[url] = nil
         progress[url] = nil
         published[url] = nil
+        covered[url] = nil
+        savedCoverage[url] = nil
+    }
+
+    /// Saves how far the search has transcribed, for books with chapters to show for it: at least
+    /// every `coverageSaveInterval` of audio, and whenever `force`d (a new chapter, the end).
+    private func saveCoverage(_ url: URL, force: Bool = false) {
+        guard let seconds = covered[url], settings.hasFoundChapters(for: url) else { return }
+        let last = savedCoverage[url] ?? 0
+        guard seconds > last, force || seconds - last >= Self.coverageSaveInterval else { return }
+        settings.setChapterSearchCoverage(seconds, for: url)
+        savedCoverage[url] = seconds
     }
 
     /// The found chapters go: the book is as it was imported.
     func removeFoundChapters(_ book: AudioModel) {
         guard let url = book.url, settings.hasFoundChapters(for: url), progress[url] == nil else { return }
         settings.setHasFoundChapters(false, for: url)
+        settings.setChapterSearchCoverage(nil, for: url)
         guard let saved = saveChapters.execute([], bookURL: url) else { return }
         changed(saved, url: url)
     }
@@ -150,10 +227,11 @@ final class ChapterFinder {
     private func search(
         _ book: AudioModel,
         url: URL,
-        source: ReadAlongAudioSource,
-        transcriber: ReadAlongTranscribing
+        transcriber: ReadAlongTranscribing,
+        run: Run
     ) async -> Outcome {
-        guard source.isOnDevice(at: 0) else { return .fileMissing }
+        let source = run.source
+        guard source.isOnDevice(at: run.from) else { return .fileMissing }
         let supported = await transcriber.supportedLocales()
         guard !Task.isCancelled else { return .cancelled }
         let resolver = ReadAlongLanguageResolver(
@@ -175,7 +253,7 @@ final class ChapterFinder {
         }
 
         if let failure = await installModel(locale, transcriber: transcriber) { return failure }
-        return await transcribe(book, url: url, source: source, locale: locale, transcriber: transcriber)
+        return await transcribe(book, url: url, locale: locale, transcriber: transcriber, run: run)
     }
 
     /// Nil once the language's model is on the device (downloaded first if iOS offers it); else how
@@ -196,7 +274,8 @@ final class ChapterFinder {
         return Task.isCancelled ? .cancelled : nil
     }
 
-    /// Transcribes the whole book from its start, reporting progress as the audio is covered, and
+    /// Transcribes the book from the run's start to its end, reporting progress as the audio is
+    /// covered (and saving how far, `saveCoverage`), and
     /// shows the chapters as they are heard: once two headings are in, and again at each heading
     /// after (the last chapter found runs to the end of the book until the next one is heard). The
     /// detector runs again only after a chunk that may hold a heading, or the one after it (a
@@ -204,48 +283,56 @@ final class ChapterFinder {
     private func transcribe(
         _ book: AudioModel,
         url: URL,
-        source: ReadAlongAudioSource,
         locale: String,
-        transcriber: ReadAlongTranscribing
+        transcriber: ReadAlongTranscribing,
+        run: Run
     ) async -> Outcome {
         var lines: [ReadAlongLine] = []
         var detectNext = false
         do {
-            for try await chunk in transcriber.transcribe(source, from: 0, locale: locale) {
+            for try await chunk in transcriber.transcribe(run.source, from: run.from, locale: locale) {
                 guard !Task.isCancelled else { return .cancelled }
                 lines += chunk.lines
+                covered[url] = max(covered[url] ?? 0, chunk.covered.end)
                 if book.duration > 0 {
                     progress[url] = min(max(chunk.covered.end / book.duration, 0), 1)
                 }
                 let mayHoldHeading = chunk.lines.contains { line in
                     line.words.contains { ChapterHeadingDetector.mayStartHeading($0.text) }
                 }
-                if mayHoldHeading || detectNext, !publishDetected(in: lines, book: book, url: url) {
+                if mayHoldHeading || detectNext, !publishDetected(in: lines, book: book, url: url, run: run) {
                     return .bookGone
                 }
                 detectNext = mayHoldHeading
+                saveCoverage(url)
             }
         } catch {
             return Task.isCancelled ? .cancelled : .failed
         }
         guard !Task.isCancelled else { return .cancelled }
-        guard publishDetected(in: lines, book: book, url: url) else { return .bookGone }
+        guard publishDetected(in: lines, book: book, url: url, run: run) else { return .bookGone }
+        // The stream ended at the end of the audio: the whole book has been analysed.
+        covered[url] = max(covered[url] ?? 0, book.duration)
         return published[url]?.isEmpty == false ? .found : .noneFound
     }
 
-    /// Runs the detector over the lines so far and shows its chapters if they changed. False when
-    /// the book has no row to save them to any more.
-    private func publishDetected(in lines: [ReadAlongLine], book: AudioModel, url: URL) -> Bool {
-        let chapters = ChapterHeadingDetector.chapters(
-            in: lines,
-            duration: book.duration,
-            openingTitle: Localizable.chapterOpening.localized
-        )
+    /// Runs the detector over the lines so far (from the start, or after the chapters a continued
+    /// run builds on) and shows its chapters if they changed. False when the book has no row to
+    /// save them to any more.
+    private func publishDetected(in lines: [ReadAlongLine], book: AudioModel, url: URL, run: Run) -> Bool {
+        let chapters = run.base.isEmpty
+            ? ChapterHeadingDetector.chapters(
+                in: lines,
+                duration: book.duration,
+                openingTitle: Localizable.chapterOpening.localized
+            )
+            : ChapterHeadingDetector.extending(run.base, with: lines, duration: book.duration)
         guard !chapters.isEmpty, chapters != published[url] else { return true }
         guard let saved = saveChapters.execute(chapters, bookURL: url) else { return false }
         published[url] = chapters
         settings.setHasFoundChapters(true, for: url)
         changed(saved, url: url)
+        saveCoverage(url, force: true)
         return true
     }
 
@@ -253,9 +340,9 @@ final class ChapterFinder {
         // A cancelled search was already cleared by `cancel` (or the off switch), and a new one
         // may have started since.
         guard outcome != .cancelled, !Task.isCancelled else { return }
-        tasks[url] = nil
-        progress[url] = nil
-        published[url] = nil
+        // A deleted book keeps no record of its search.
+        if outcome == .bookGone { covered[url] = nil }
+        end(url)
         switch outcome {
         case .found, .bookGone:
             // Already shown as found; a deleted book has nothing to say.
@@ -290,10 +377,10 @@ final class ChapterFinder {
 
     private func enabledChanged() {
         if !settings.findChaptersEnabled {
-            for task in tasks.values { task.cancel() }
-            tasks = [:]
-            progress = [:]
-            published = [:]
+            for (url, task) in tasks {
+                task.cancel()
+                end(url)
+            }
         }
         observeEnabled()
     }

@@ -73,6 +73,7 @@ struct ChaptersPanel: View {
             ),
             downloadState: model.downloadEntry?.state,
             searchProgress: readAlong?.chapters.progress(of: book).map { ($0 * 100).rounded(.down) / 100 },
+            searchedFraction: readAlong?.chapters.searchedFraction(of: book).map { ($0 * 100).rounded(.down) / 100 },
             onListHeight: onListHeight
         )
         .equatable()
@@ -113,6 +114,9 @@ private struct ChaptersPanelContent: View, Equatable {
     let downloadState: BookDownloadState?
     /// How far a search for more chapters is, in whole percents; nil when none runs.
     let searchProgress: Double?
+    /// How much of the book a search that didn't finish covered, in whole percents; nil when the
+    /// whole audio was analysed (or no search ran).
+    let searchedFraction: Double?
     /// Not compared: SwiftUI keeps the first instance's, and the receiver is the player's state.
     let onListHeight: ((CGFloat) -> Void)?
     /// Where a chapter tap that resumed partway in leaves its prompt (#299). Optional so previews
@@ -130,6 +134,7 @@ private struct ChaptersPanelContent: View, Equatable {
             && lhs.headerDetail == rhs.headerDetail
             && lhs.downloadState == rhs.downloadState
             && lhs.searchProgress == rhs.searchProgress
+            && lhs.searchedFraction == rhs.searchedFraction
     }
 
     private func onClose() {
@@ -228,31 +233,43 @@ private struct ChaptersPanelContent: View, Equatable {
     }
 
     /// For chapters found in the book's audio. While more are being found: how far, and *Stop*
-    /// (the chapters found so far stay). Once done: where they came from, and *Remove found
-    /// chapters* (the panel then closes, and the player offers *Find chapters* again).
+    /// (the chapters found so far stay). Stopped short of the end (stopped, failed, the app ended):
+    /// how far it got, *Continue finding* (#316) and *Remove found chapters*. Done: where they came
+    /// from, and *Remove* (the panel then closes, and the player offers *Find chapters* again).
     private var foundChaptersFooter: ChapterListView.Footer? {
         guard let finder = readAlong?.chapters, !model.book.chapters.isEmpty else { return nil }
         let book = model.book
         if let searchProgress {
             return ChapterListView.Footer(
                 note: Localizable.findingMoreChapters.localized(with: FindChaptersPill.percent(searchProgress)),
-                actionTitle: Localizable.stopFindingChapters.localized,
-                systemImage: "stop.circle",
-                actionIdentifier: AccessibilityID.Player.stopFindingChapters
-            ) {
-                finder.cancel(book)
-            }
+                actions: [ChapterListView.Footer.Action(
+                    title: Localizable.stopFindingChapters.localized,
+                    systemImage: "stop.circle",
+                    identifier: AccessibilityID.Player.stopFindingChapters
+                ) { finder.cancel(book) }]
+            )
         }
         guard finder.hasFoundChapters(book) else { return nil }
-        return ChapterListView.Footer(
-            note: Localizable.foundChaptersNote.localized,
-            actionTitle: Localizable.removeFoundChapters.localized,
+        let remove = ChapterListView.Footer.Action(
+            title: Localizable.removeFoundChapters.localized,
             systemImage: "trash",
-            actionIdentifier: AccessibilityID.Player.removeFoundChapters,
+            identifier: AccessibilityID.Player.removeFoundChapters,
             role: .destructive
         ) {
             withAnimation(closeAnimation) { finder.removeFoundChapters(book) }
         }
+        if let searchedFraction, finder.canContinue(book) {
+            let resume = ChapterListView.Footer.Action(
+                title: Localizable.continueFindingChapters.localized,
+                systemImage: "arrow.clockwise.circle",
+                identifier: AccessibilityID.Player.continueFindingChapters
+            ) { finder.continueFinding(book) }
+            return ChapterListView.Footer(
+                note: Localizable.chapterSearchStopped.localized(with: FindChaptersPill.percent(searchedFraction)),
+                actions: [resume, remove]
+            )
+        }
+        return ChapterListView.Footer(note: Localizable.foundChaptersNote.localized, actions: [remove])
     }
 
     /// Transparent, over the handle and the header. One gesture: a drag down closes the panel,

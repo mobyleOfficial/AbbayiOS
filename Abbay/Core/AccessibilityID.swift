@@ -209,6 +209,8 @@ enum AccessibilityID {
         static let removeFoundChapters = "player.chapters.removeFound"
         /// The same footer while more chapters are being found: *Stop* (the ones found stay).
         static let stopFindingChapters = "player.chapters.stopFinding"
+        /// The same footer when a search stopped short of the book's end: *Continue finding* (#316).
+        static let continueFindingChapters = "player.chapters.continueFinding"
         /// The prompt after a chapter tap resumed partway in (#299): "Resumed at 3:20", and its
         /// *Start over* button, which plays the chapter from its beginning.
         static let resumePrompt = "player.resumePrompt"

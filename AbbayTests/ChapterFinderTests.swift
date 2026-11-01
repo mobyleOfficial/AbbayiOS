@@ -304,6 +304,7 @@ final class ChapterFinderTests: XCTestCase {
 
         XCTAssertEqual(saves.saved.last?.chapters, [])
         XCTAssertFalse(settings.hasFoundChapters(for: url))
+        XCTAssertNil(settings.chapterSearchCoverage(for: url), "a new search starts from nothing")
         XCTAssertEqual(player.replacedChapters.last?.chapters, [])
     }
 
@@ -355,6 +356,104 @@ final class ChapterFinderTests: XCTestCase {
         for _ in 0..<attempts where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
+    }
+}
+
+// MARK: - Continuing (#316)
+
+extension ChapterFinderTests {
+    /// Stopped after the first chapters: how far it got is kept, so the list offers to continue,
+    /// which picks up at the last chapter found and finds the rest.
+    func test_continue_afterAStop_picksUpAtTheLastChapter_andFindsTheRest() async throws {
+        stub.chunkSeconds = 10
+        stub.chunkDelay = .milliseconds(50)
+        let sut = makeFinder()
+        var book = try importedBook()
+        let url = try XCTUnwrap(book.url)
+        sut.find(book)
+        await waitUntil { !saves.saved.isEmpty }
+        sut.cancel(book)
+        book.chapters = try XCTUnwrap(saves.saved.last?.chapters)
+
+        let coverage = try XCTUnwrap(settings.chapterSearchCoverage(for: url))
+        XCTAssertGreaterThanOrEqual(coverage, 80, "past the second heading")
+        XCTAssertLessThan(coverage, 200)
+        XCTAssertEqual(sut.searchedFraction(of: book), coverage / 200)
+        XCTAssertTrue(sut.canContinue(book))
+
+        stub.chunkDelay = nil
+        sut.continueFinding(book)
+        XCTAssertFalse(sut.canContinue(book), "not while it runs")
+        await waitUntil { sut.progress(of: book) == nil }
+
+        XCTAssertEqual(stub.transcribeStarts, [0, 70], "from the start of Chapter Two, the last one found")
+        let chapters = try XCTUnwrap(saves.saved.last?.chapters)
+        XCTAssertEqual(chapters.map(\.title), ["Chapter One", "Chapter Two", "Chapter Three"])
+        XCTAssertEqual(chapters.map(\.startTime), [0, 70, 130])
+        XCTAssertEqual(settings.chapterSearchCoverage(for: url), 200, "the whole book now")
+        book.chapters = chapters
+        XCTAssertNil(sut.searchedFraction(of: book))
+        XCTAssertFalse(sut.canContinue(book))
+        XCTAssertTrue(notices.notices.isEmpty)
+    }
+
+    func test_aSearchThatFinished_offersNoContinue() async throws {
+        let sut = makeFinder()
+        var book = try importedBook()
+        sut.find(book)
+        await waitUntil { sut.progress(of: book) == nil }
+        book.chapters = try XCTUnwrap(saves.saved.last?.chapters)
+
+        XCTAssertEqual(settings.chapterSearchCoverage(for: book.url), 200)
+        XCTAssertFalse(sut.canContinue(book))
+    }
+
+    /// The engine failing part way leaves the chapters found, and the rest to continue.
+    func test_aSearchThatFailedPartWay_canBeContinued() async throws {
+        // One 80 s chunk holds the first two headings; the run then fails.
+        stub.chunkSeconds = 80
+        stub.runError = CocoaError(.fileReadCorruptFile)
+        let sut = makeFinder()
+        var book = try importedBook()
+        let url = try XCTUnwrap(book.url)
+        sut.find(book)
+        await waitUntil { sut.progress(of: book) == nil }
+        book.chapters = try XCTUnwrap(saves.saved.last?.chapters)
+
+        XCTAssertEqual(notices.notices, [.chapterSearchFailed])
+        XCTAssertLessThan(try XCTUnwrap(settings.chapterSearchCoverage(for: url)), 200)
+        XCTAssertTrue(sut.canContinue(book))
+    }
+
+    /// Chapters found before #316 have no coverage saved: taken as complete.
+    func test_foundChaptersWithoutCoverage_offerNoContinue() throws {
+        let sut = makeFinder()
+        var book = try importedBook()
+        book.chapters = [
+            ChapterModel(title: "Chapter One", startTime: 0, duration: 70),
+            ChapterModel(title: "Chapter Two", startTime: 70, duration: 130)
+        ]
+        settings.setHasFoundChapters(true, for: book.url)
+
+        XCTAssertNil(sut.searchedFraction(of: book))
+        XCTAssertFalse(sut.canContinue(book))
+    }
+
+    func test_continue_isOffered_onlyWithTheSwitchOn() throws {
+        let sut = makeFinder()
+        var book = try importedBook()
+        book.chapters = [
+            ChapterModel(title: "Chapter One", startTime: 0, duration: 70),
+            ChapterModel(title: "Chapter Two", startTime: 70, duration: 130)
+        ]
+        settings.setHasFoundChapters(true, for: book.url)
+        settings.setChapterSearchCoverage(90, for: book.url)
+        XCTAssertTrue(sut.canContinue(book))
+
+        settings.findChaptersEnabled = false
+
+        XCTAssertFalse(sut.canContinue(book))
+        XCTAssertEqual(sut.searchedFraction(of: book), 0.45, "still says how far it got")
     }
 }
 #endif

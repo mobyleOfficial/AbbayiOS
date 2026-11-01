@@ -47,6 +47,19 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(effects.clearReadAlongCount, 0, "no transcript is touched")
     }
 
+    func test_chapterSearchCoverage_persists_andGoesWithTheBook() throws {
+        let url = try XCTUnwrap(bookURL)
+        let store = InMemoryKeyValueStore()
+        let sut = AppSettings(store: store)
+
+        XCTAssertNil(sut.chapterSearchCoverage(for: url))
+        sut.setChapterSearchCoverage(1234.5, for: url)
+        XCTAssertEqual(AppSettings(store: store).chapterSearchCoverage(for: url), 1234.5)
+
+        sut.forgetReadAlong(for: url)
+        XCTAssertNil(AppSettings(store: store).chapterSearchCoverage(for: url), "the book was deleted")
+    }
+
     // MARK: - Defaults
 
     func test_freshStore_hasTheDefaults() {
