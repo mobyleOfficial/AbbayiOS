@@ -408,8 +408,37 @@ extension CarPlaySceneDelegate {
 extension CarPlaySceneDelegate {
     /// The Now Playing template's own buttons. The rate button shows the rate the app reports in
     /// Now Playing info (`NowPlayingManager`, the book's speed) and leaves the cycling to the app.
+    /// The ↺ button starts the chapter playing over (#299): CarPlay has no room for the app's
+    /// "Resumed at · Start over" prompt, and with the ±15 s skips shown its previous-track control
+    /// isn't on screen.
     func makeNowPlayingButtons() -> [CPNowPlayingButton] {
-        [CPNowPlayingPlaybackRateButton { [weak self] _ in self?.rateButtonTapped() }]
+        [
+            CPNowPlayingPlaybackRateButton { [weak self] _ in self?.rateButtonTapped() },
+            CPNowPlayingImageButton(image: Self.startOverImage) { [weak self] _ in self?.startOverTapped() }
+        ]
+    }
+
+    static var startOverImage: UIImage {
+        UIImage(systemName: "arrow.counterclockwise", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
+            ?? UIImage()
+    }
+
+    /// ↺: the chapter playing, from its beginning, playing.
+    func startOverTapped() {
+        guard let book = currentAudio else { return }
+        Self.startOver(player: playerObserver.player, book: book)
+    }
+
+    /// Plays the chapter `book` is in from its start: the app's *Start over*. Does nothing unless
+    /// `book` is the loaded one and has chapters. Returns whether it moved.
+    @discardableResult
+    static func startOver(player: PlayerProtocol, book: AudioModel) -> Bool {
+        guard player.url != nil, player.url == book.url,
+              let index = book.currentChapter(for: player.currentTime),
+              book.chapters.indices.contains(index) else { return false }
+        player.seek(book.chapters[index].startTime)
+        player.playChapter(at: index)
+        return true
     }
 
     /// Moves the loaded book to the next preset, saved as that book's speed exactly as the

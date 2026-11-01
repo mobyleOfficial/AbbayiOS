@@ -32,6 +32,14 @@ two of its original bugs (#90, #95) are still open.
   a speed between presets goes to the next one up), saved as that book's speed through
   `Player.setPlaybackRate`, the same path as the speed sheet and the lock screen. Nothing loaded:
   no-op.
+- **start-over-button (#299):** beside the rate button, a `CPNowPlayingImageButton` with
+  `arrow.counterclockwise` (↺). A tap plays the chapter playing from its beginning
+  (`CarPlaySceneDelegate.startOver`: seek to the chapter's start, then `playChapter(at:)`). It's the
+  CarPlay form of the app's *Start over* prompt: CarPlay has no room for the prompt, and with the
+  ±15 s skip commands enabled the Now Playing screen shows those, not previous/next track, so
+  previous-track's "restart past 15 s" isn't on screen. Another book than `currentAudio`, or a book
+  without chapters: no-op. Driven in the iOS Simulator's CarPlay display: 2:53 in chapter 2 → ↺ →
+  2:25 (chapter 2 starts 2:24), still playing.
 - **language (#152):** CarPlay's own strings (library title, empty state, *Chapter selection*) come
   from `Localizable`, so they follow the **in-app** language, applied at launch before the scene
   connects. A change on the phone while connected (`.appLanguageDidChange`) updates the empty state
@@ -63,10 +71,20 @@ Connect the iPhone to a CarPlay head unit, open Abbay from the CarPlay home scre
 
 ## Driving it with abbay-ctl
 
-**`verified-unreachable`.** There is no first-party UI automation for `CPTemplate` surfaces, and
-Appium's XCUITest driver has a long-standing unresolved problem tapping CarPlay elements. The
-options are a real head unit, or Apple's **CarPlay Simulator** — a separate Mac app shipped in
-"Additional Tools for Xcode" that cables to a physical iPhone. The iOS Simulator cannot do it.
+**No automation, but the iOS Simulator shows it** (corrected in #299; this page used to say it
+couldn't). There is no first-party UI automation for `CPTemplate` surfaces, and Appium's XCUITest
+driver has a long-standing unresolved problem tapping CarPlay elements. By hand:
+
+1. In Simulator: **I/O › External Displays › CarPlay…**, then **Run** in *TV Out Extended Setup*
+   (default 1920×720, scale 2). A *iPhone NN – CarPlay* window opens with Abbay on its home screen.
+2. Screenshot it: `xcrun simctl io <udid> screenshot --display=external out.png`.
+3. Clicks reach CarPlay's buttons and home-screen icons (System Events `click at`), but **not its
+   list rows**: a click only focuses a row. To get to Now Playing, start playback on the phone (a
+   throwaway XCUITest that taps `library.continue.resume` works), open Abbay in CarPlay, then its
+   Now Playing button (top right).
+
+A real head unit, or Apple's separate **CarPlay Simulator** app (cabled to a physical iPhone), is
+still needed for list taps, Siri and the steering-wheel buttons.
 
 What *is* assertable without a car:
 
