@@ -85,6 +85,13 @@ final class PlaybackCenter {
         Self.apply(bookTime: clock.bookTime, book: state.loadedBook, to: clock)
     }
 
+    /// A book was renamed (#322): if it is the loaded one, the player and the screens reading from
+    /// here take the new title.
+    func replaceTitle(_ title: String, ofBookAt url: URL) {
+        player.replaceTitle(title, ofBookAt: url)
+        state.setLoadedBookTitle(title, ofBookAt: url)
+    }
+
     // MARK: - Deliveries
     private func receive(book: AudioModel) {
         let isNewBook = book.url != state.loadedBook?.url

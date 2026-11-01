@@ -29,6 +29,12 @@ final class PlaybackState {
         loadedBook?.chapters = chapters
     }
 
+    /// The loaded book was renamed (#322).
+    func setLoadedBookTitle(_ title: String, ofBookAt url: URL) {
+        guard loadedBook?.url == url, loadedBook?.title != title else { return }
+        loadedBook?.title = title
+    }
+
     func setIsPlaying(_ isPlaying: Bool) {
         guard isPlaying != self.isPlaying else { return }
         self.isPlaying = isPlaying

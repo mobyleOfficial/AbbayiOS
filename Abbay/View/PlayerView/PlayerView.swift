@@ -96,6 +96,10 @@ struct PlayerView: View {
     /// The panel list's measured content height (iOS 18 and later), and the book and chapter count
     /// it was measured for: it sizes the panel exactly, where the rows' estimate is only a guess.
     @State private var panelListHeight: PanelListHeight?
+    /// The book the *Rename book* box is open for (#322).
+    @State private var renaming: AudioModel?
+    @Environment(\.playbackCenter)
+    private var center
     /// How far a dim (or the volume capsule's tap-catcher) reaches up under the header.
     static let dimReach: CGFloat = 200
 
@@ -266,17 +270,37 @@ struct PlayerView: View {
 
     // MARK: - Title
     /// Left-aligned: the title in white (it no longer turns green while playing), then the author
-    /// and "Ch N of M".
+    /// and "Ch N of M". An imported book's title has a ✎ beside it that renames the book (#322):
+    /// visible, since an MP3 without title metadata is called by its file's name.
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: SpaceConstants.sx2.value) {
-            Text(model.book.title)
-                .font(.title3.bold())
-                .foregroundColor(ColorConstants.white.value)
-                .lineLimit(2)
-                .accessibilityIdentifier(AccessibilityID.Player.title)
+            HStack(alignment: .firstTextBaseline, spacing: SpaceConstants.sx8.value) {
+                Text(model.book.title)
+                    .font(.title3.bold())
+                    .foregroundColor(ColorConstants.white.value)
+                    .lineLimit(2)
+                    .accessibilityIdentifier(AccessibilityID.Player.title)
+                if BookRenamer.canRename(model.book) {
+                    Button {
+                        renaming = model.book
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(ColorConstants.white.value.opacity(0.6))
+                            .frame(side: SpaceConstants.sx32.value)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Localizable.renameBook.localized)
+                    .accessibilityIdentifier(AccessibilityID.Player.rename)
+                }
+            }
             PlayerSubtitle(model: model)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .renameBookAlert(for: $renaming) { book, name in
+            BookRenamer(playback: center).rename(book, to: name)
+        }
     }
 
     // MARK: - Player buttons

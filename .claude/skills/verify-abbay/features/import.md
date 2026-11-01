@@ -12,7 +12,9 @@ security-scoped bookmark that makes the file playable again after relaunch.
   fills its sheet (the unfolded iPhone Duo), however it is presented; full screen it does the same
   (#268).
 - **metadata-extraction:** `FileLoader.load(urls:)` reads duration, title, album, artist and
-  artwork from the asset, then chapter groups via `loadChapterMetadata`.
+  artwork from the asset, then chapter groups via `loadChapterMetadata`. No title metadata (common
+  for MP3s): the book is called by its file's name without the extension (#322); it can be renamed
+  from the player or the library ([library](library.md) *rename*).
 - **chapter-parsing:** `AVTimedMetadataGroup`s become `[ChapterModel]` (`title`, `startTime`,
   `duration`). A file with no chapter metadata yields an empty array, which disables every
   chapter feature for that book.

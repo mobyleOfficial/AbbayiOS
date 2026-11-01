@@ -522,4 +522,10 @@ extension PlayerPresentation {
         presentedBook?.chapters = chapters
         if chapters.isEmpty { setChapters(open: false) }
     }
+
+    /// The book was renamed (#322): the presented copy takes the new title.
+    func titleChanged(_ title: String, ofBookAt url: URL) {
+        guard presentedBook?.url == url else { return }
+        presentedBook?.title = title
+    }
 }

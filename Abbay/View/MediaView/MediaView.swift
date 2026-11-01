@@ -27,6 +27,8 @@ struct MediaView: View {
     private var downloads
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+    /// The book the *Rename book* box is open for (#322).
+    @State private var renaming: AudioModel?
 
     // MARK: - Stored properties
     private let book: AudioModel
@@ -94,10 +96,21 @@ struct MediaView: View {
                 )
             }
             .accessibilityIdentifier(AccessibilityID.Element.play(namespace))
+            if BookRenamer.canRename(book) {
+                Button {
+                    renaming = book
+                } label: {
+                    Label(Localizable.rename.localized, systemImage: "pencil")
+                }
+                .accessibilityIdentifier(AccessibilityID.Element.rename(namespace))
+            }
             Button(role: .destructive, action: onDelete) {
                 Label(Localizable.delete.localized, systemImage: "trash")
             }
             .accessibilityIdentifier(AccessibilityID.Element.delete(namespace))
+        }
+        .renameBookAlert(for: $renaming) { book, name in
+            BookRenamer(playback: center).rename(book, to: name)
         }
     }
 
