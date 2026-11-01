@@ -71,8 +71,21 @@ saved book's chapters); `PlayerView`'s `FindChaptersPill`; the chapter list's fo
 - **failed** (no speech model for the language, the engine failed, the app was suspended mid-run):
   banner *Couldn't search this book for chapters. Try again in a moment.* Chapters already shown
   stay, as they do after **Stop finding**, the switch going off, or the app being killed.
+- **continue** (#316, `player.chapters.continueFinding`): how far the transcription got is saved
+  with the book (`AppSettings.chapterSearchCoverage`, seconds; at each new chapter, at least every
+  120 s of audio, and when the search ends). While that is short of the book's end (owner: "just
+  look if the transcription analyzed the whole audio"), the chapter list ends with *Stopped at 45%
+  of the book.* / *Parou em 45% do livro.* and two buttons: **Continue finding** / *Continuar a
+  busca* and *Remove found chapters*. Continue starts from the **start of the last chapter found**
+  (it ran to the end of the book because its successor hadn't been heard, and a heading cut off at
+  the stop is heard whole); the chapters before stay, its own heading isn't added twice
+  (`ChapterHeadingDetector.extending`), and the ones after are added as found. A search that
+  reaches the end saves the book's whole length: no Continue. Chapters found before #316 have no
+  coverage and count as complete. Removing the chapters forgets the coverage. Continue needs the
+  switch on; the *Stopped at* line shows either way.
 - **remove** (`player.chapters.removeFound`): at the end of the chapter panel (and the chapters
-  pane), only for found chapters and once the search has ended: *Found by listening to the
+  pane), only for found chapters and once the search has ended (beside Continue when it stopped
+  short): *Found by listening to the
   audio.* and a button *Remove found chapters* / *Remover capítulos encontrados* (trash). A tap removes them (row, mark, player), the
   panel closes and *Find chapters* comes back. A file's own chapters never show it. The panel grows to
   fit the footer (it is sized from its measured content, see [player](player.md) *chapter-panel*).
@@ -94,6 +107,8 @@ $B tap player.findChapters                # label "Finding chapters, N%" for abo
 $B wait player.chapters                   # Chapter One, Chapter Two while it goes on (value "Finding more, N%")
 $B tap player.chapters                    # player.chapters.stopFinding at the list's end
 $B wait player.chapters.removeFound       # done: Chapter One 0:00, Chapter Two 1:10, Chapter Three 2:10
+# or: $B tap player.chapters.stopFinding → player.chapters.continueFinding appears ("Stopped at N% of the book.")
+#     $B tap player.chapters.continueFinding → transcribes from Chapter Two's start, adds Chapter Three
 $B tap player.chapters
 $B tap player.chapters.removeFound        # panel closes, player.findChapters is back
 ```
@@ -106,7 +121,7 @@ headings were heard*.
 
 **Evidence:** `AbbayUITests/FindChaptersUITests` (switch off → no pill; progress, the first
 chapters with Stop while it goes on, three chapters, remove; stop before any heading; Stop from the
-list keeps them; the Settings switch and footer in en and pt-BR). Unit: `ChapterHeadingDetectorTests`,
+list keeps them and Continue finds the rest; the Settings switch and footer in en and pt-BR). Unit: `ChapterHeadingDetectorTests`,
 `ChapterFinderTests`, `FoundChaptersTests`, `SettingsViewExperimentalTests`.
 
 ## Gotchas

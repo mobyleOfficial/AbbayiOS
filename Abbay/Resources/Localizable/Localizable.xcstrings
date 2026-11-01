@@ -3878,6 +3878,42 @@
           }
         }
       }
+    },
+    "continueFindingChapters" : {
+      "comment" : "Chapter list footer button: continues a chapter search that stopped before the end of the book",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue finding"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar a busca"
+          }
+        }
+      }
+    },
+    "chapterSearchStopped" : {
+      "comment" : "Chapter list footer when a chapter search stopped before the end of the book; the argument is how much of the book was searched, e.g. 34%",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped at %@ of the book."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parou em %@ do livro."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

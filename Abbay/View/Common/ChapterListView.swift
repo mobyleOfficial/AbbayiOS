@@ -506,14 +506,18 @@ struct ChapterListView_Previews: PreviewProvider {
 // MARK: - Footer
 
 extension ChapterListView {
-    /// What sits after the rows: a line saying where the chapters came from, and a button.
+    /// What sits after the rows: a line saying where the chapters came from, and its buttons.
     struct Footer {
+        struct Action {
+            let title: String
+            let systemImage: String
+            let identifier: String
+            var role: ButtonRole?
+            let perform: () -> Void
+        }
+
         let note: String
-        let actionTitle: String
-        let systemImage: String
-        let actionIdentifier: String
-        var role: ButtonRole?
-        let action: () -> Void
+        let actions: [Action]
     }
 
     fileprivate func footerView(_ footer: Footer) -> some View {
@@ -521,13 +525,17 @@ extension ChapterListView {
             Text(footer.note)
                 .font(.caption.monospacedDigit())
                 .foregroundColor(Self.secondary)
-            Button(role: footer.role, action: footer.action) {
-                Label(footer.actionTitle, systemImage: footer.systemImage)
-                    .font(.subheadline.weight(.semibold))
+            ForEach(footer.actions.indices, id: \.self) { index in
+                let action = footer.actions[index]
+                Button(role: action.role, action: action.perform) {
+                    Label(action.title, systemImage: action.systemImage)
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(ColorConstants.white.value)
+                .padding(.top, index == 0 ? 0 : SpaceConstants.sx4.value)
+                .accessibilityIdentifier(action.identifier)
             }
-            .buttonStyle(.plain)
-            .foregroundColor(ColorConstants.white.value)
-            .accessibilityIdentifier(footer.actionIdentifier)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // Under a row's own insets: a little space after the last chapter, none after the button.

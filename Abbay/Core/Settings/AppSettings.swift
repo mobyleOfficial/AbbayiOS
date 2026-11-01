@@ -84,6 +84,7 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
         static let readAlongLanguages = "abbay.settings.readAlongLanguages"
         static let foundChapterBooks = "abbay.settings.foundChapterBooks"
         static let findChaptersEnabled = "abbay.settings.findChapters"
+        static let chapterSearchCoverage = "abbay.settings.chapterSearchCoverage"
         static let volume = "abbay.settings.volume"
     }
 
@@ -169,6 +170,11 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
     /// chapter list offers to remove them. Observable, so the list's button follows.
     private(set) var foundChapterBooks: Set<String>
 
+    /// How far into each book (by URL string) the search for its chapters has transcribed, in
+    /// seconds: short of the book's end, the chapter list offers to continue (#316). Observable, so
+    /// the list's buttons follow.
+    private(set) var chapterSearchCoverage: [String: Double]
+
     init(store: KeyValueStoring, effects: SettingsEffects? = nil) {
         self.store = store
         self.effects = effects
@@ -184,6 +190,7 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
         findChaptersEnabled = store.object(forKey: Key.findChaptersEnabled) as? Bool ?? false
         bookSpeeds = Self.storedBookSpeeds(in: store)
         foundChapterBooks = Set(store.object(forKey: Key.foundChapterBooks) as? [String] ?? [])
+        chapterSearchCoverage = store.object(forKey: Key.chapterSearchCoverage) as? [String: Double] ?? [:]
         applySkipIntervals()
         effects?.apply(language: language)
     }
@@ -278,6 +285,7 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
     func forgetReadAlong(for url: URL?) {
         setReadAlongLanguage(nil, for: url)
         setHasFoundChapters(false, for: url)
+        setChapterSearchCoverage(nil, for: url)
     }
 
     // MARK: - Chapters found in the audio
@@ -297,6 +305,20 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
             foundChapterBooks.remove(key)
         }
         store.set(foundChapterBooks.sorted(), forKey: Key.foundChapterBooks)
+    }
+
+    /// Seconds of the book its chapter search has transcribed from the start; nil when unknown
+    /// (no search, or one from before #316, taken as complete).
+    func chapterSearchCoverage(for url: URL?) -> Double? {
+        guard let key = url?.absoluteString else { return nil }
+        return chapterSearchCoverage[key]
+    }
+
+    /// nil forgets it. Main thread, like the other writes.
+    func setChapterSearchCoverage(_ seconds: Double?, for url: URL?) {
+        guard let key = url?.absoluteString, chapterSearchCoverage[key] != seconds else { return }
+        chapterSearchCoverage[key] = seconds
+        store.set(chapterSearchCoverage, forKey: Key.chapterSearchCoverage)
     }
 
     // MARK: - Private

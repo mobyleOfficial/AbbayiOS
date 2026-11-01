@@ -140,6 +140,27 @@ final class ChapterHeadingDetectorTests: XCTestCase {
         XCTAssertTrue(ChapterHeadingDetector.chapters(in: [], duration: 500, openingTitle: "Opening").isEmpty)
     }
 
+    /// A search continued from the last chapter found (#316): its own heading is heard again at the
+    /// start and isn't added twice; the chapters before stay; new ones are added after it.
+    func test_extending_addsTheHeadingsAfterTheLastChapter() {
+        let found = [
+            ChapterModel(title: "Opening", startTime: 0, duration: 90),
+            ChapterModel(title: "Chapter One", startTime: 90, duration: 510)
+        ]
+        let lines = transcript([(90, "Chapter One"), (300, "Chapter Two"), (450, "Chapter Three")])
+
+        let chapters = ChapterHeadingDetector.extending(found, with: lines, duration: 600)
+
+        XCTAssertEqual(chapters.map(\.title), ["Opening", "Chapter One", "Chapter Two", "Chapter Three"])
+        XCTAssertEqual(chapters.map(\.startTime), [0, 90, 300, 450])
+        XCTAssertEqual(chapters.map(\.duration), [90, 210, 150, 150])
+        XCTAssertEqual(
+            ChapterHeadingDetector.extending(found, with: transcript([(90, "Chapter One")]), duration: 600),
+            found,
+            "nothing new heard: unchanged"
+        )
+    }
+
     func test_stubHeadingLines_giveThreeChapters() {
         let lines = StubReadAlongTranscriber.chapterHeadingLines(from: 0, to: 200)
 

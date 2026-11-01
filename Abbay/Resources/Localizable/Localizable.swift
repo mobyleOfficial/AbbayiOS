@@ -178,6 +178,8 @@ enum Localizable: String {
     case chaptersFindingValue
     case findingMoreChapters
     case stopFindingChapters
+    case continueFindingChapters
+    case chapterSearchStopped
     case noticeNoChaptersFound
     case noticeChapterSearchFailed
 }
