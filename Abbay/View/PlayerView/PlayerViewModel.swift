@@ -21,8 +21,9 @@ import Observation
 /// - Opened on the loaded book, the screen **follows the loaded book**: if Siri or CarPlay switches
 ///   books while it's open, it shows the new one. Pressing Play on another book does the same.
 ///
-/// Observable for one thing only: the presented book's chapters, which change when they are found
-/// in its audio or removed (`presentedChaptersChanged`). Everything else it shows comes from the
+/// Observable for one thing only: the presented book itself, whose chapters change when they are
+/// found in its audio or removed (`presentedChaptersChanged`), and whose title changes when it is
+/// renamed (`presentedTitleChanged`, #322). Everything else it shows comes from the
 /// stores above.
 @MainActor
 @Observable
@@ -42,6 +43,12 @@ final class PlayerViewModel {
     func presentedChaptersChanged(_ chapters: [ChapterModel], ofBookAt url: URL) {
         guard presented.url == url, presented.chapters != chapters else { return }
         presented.chapters = chapters
+    }
+
+    /// The presented book was renamed. A loaded book's title comes from `PlaybackState`.
+    func presentedTitleChanged(_ title: String, ofBookAt url: URL) {
+        guard presented.url == url, presented.title != title else { return }
+        presented.title = title
     }
 
     init(_ book: AudioModel, state: PlaybackState, player: PlayerProtocol?, downloads: DownloadStateStore?) {

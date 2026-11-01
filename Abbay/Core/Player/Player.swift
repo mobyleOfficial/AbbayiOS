@@ -51,6 +51,8 @@ protocol PlayerProtocol {
     /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
     /// an imported single-file book's chapters can change; anything else is ignored.
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
+    /// The loaded book was renamed (#322): Now Playing and Siri's donations use the new title.
+    func replaceTitle(_ title: String, ofBookAt url: URL)
 }
 
 /// For players with no speed or volume control, or saved chapter positions (test doubles that
@@ -69,6 +71,8 @@ extension PlayerProtocol {
     func setVolume(_ volume: Double) {}
 
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
+
+    func replaceTitle(_ title: String, ofBookAt url: URL) {}
 }
 
 final class Player: PlayerProtocol {
@@ -805,6 +809,16 @@ extension Player {
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {
         guard var model, model.url == url, multiFileQueue == nil else { return }
         model.chapters = chapters
+        self.model = model
+        if NowPlayingManager.shared.currentAudio?.url == url {
+            NowPlayingManager.shared.setPlayer(self, currentAudio: model)
+        }
+    }
+
+    /// The lock screen takes it from `model` on the next tick.
+    func replaceTitle(_ title: String, ofBookAt url: URL) {
+        guard var model, model.url == url else { return }
+        model.title = title
         self.model = model
         if NowPlayingManager.shared.currentAudio?.url == url {
             NowPlayingManager.shared.setPlayer(self, currentAudio: model)

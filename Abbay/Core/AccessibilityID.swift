@@ -202,6 +202,8 @@ enum AccessibilityID {
         /// The open chapter panel's handle at its top (a leaf): VoiceOver's "Close chapters", and
         /// where a drag down closes the panel.
         static let chaptersPanel = "player.chapters.panel"
+        /// The ✎ beside an imported book's title: opens *Rename book* (#322).
+        static let rename = "player.rename"
         /// In the Chapters pill's place for an imported book with no chapters, with Read-along on:
         /// *Find chapters*, and while it searches the percentage done (a tap stops it).
         static let findChapters = "player.findChapters"
@@ -281,6 +283,11 @@ enum AccessibilityID {
         /// A library cell's context-menu Delete item.
         static func delete(_ namespace: String) -> String {
             "\(namespace).delete"
+        }
+
+        /// A library cell's context-menu Rename item (imported books, #322).
+        static func rename(_ namespace: String) -> String {
+            "\(namespace).rename"
         }
 
         /// A library cell's status line: New, Ch N/M, the time left, or Finished.

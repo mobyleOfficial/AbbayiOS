@@ -74,7 +74,7 @@ final class MediaListViewModel: ObservableObject {
         refreshFromStorage(book?.url)
     }
 
-    /// A book's chapters were found in its audio, or removed: its row re-reads it.
+    /// A book's chapters were found in its audio or removed, or it was renamed: its row re-reads it.
     func chaptersChanged(ofBookAt url: URL) {
         refreshFromStorage(url)
     }

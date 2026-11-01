@@ -41,7 +41,9 @@ LibriVox page's Play all open it.
 - **title:** left-aligned. The title (`player.title`) in `.title3.bold()`, white, up to two lines
   (it no longer turns green while playing or slides). Under it, `PlayerSubtitle`: *author · Ch N
   of M* (pt-BR *Cap. N de M*), the author alone for a book with no chapters, the position alone
-  without an author.
+  without an author. An imported book's title has a ✎ beside it (`player.rename`, VoiceOver *Rename
+  book* / *Renomear livro*; not for LibriVox books) that opens *Rename book* (#322, see
+  [library](library.md) *rename*); the new title shows at once, here and everywhere else.
 - **transport:** three controls in a row, larger than before (32 pt skips, a 44 pt play/pause,
   white in both states): back, play/pause, forward. The skips jump by the
   [Settings](settings.md) amounts (10/15/30/45 s, default 15), seek relative to the current

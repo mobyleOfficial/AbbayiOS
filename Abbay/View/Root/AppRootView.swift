@@ -142,6 +142,7 @@ private final class RootModels: ObservableObject {
     let details = PlayerDetailsModels()
 
     private var chapterChanges: AnyCancellable?
+    private var titleChanges: AnyCancellable?
 
     init(playback: PlaybackCenter) {
         let presentation = PlayerPresentation(playback: playback.state)
@@ -160,6 +161,18 @@ private final class RootModels: ObservableObject {
                     library.chaptersChanged(ofBookAt: url)
                     presentation.chaptersChanged(chapters, ofBookAt: url)
                     details.chaptersChanged(chapters, ofBookAt: url)
+                }
+            }
+        // A book renamed (#322): the same holders take its new title.
+        titleChanges = NotificationCenter.default.publisher(for: .bookTitleDidChange)
+            .sink { notification in
+                guard let url = notification.object as? URL,
+                      let title = notification.userInfo?[BookRenamer.titleKey] as? String
+                else { return }
+                MainActor.assumeIsolated {
+                    library.chaptersChanged(ofBookAt: url)
+                    presentation.titleChanged(title, ofBookAt: url)
+                    details.titleChanged(title, ofBookAt: url)
                 }
             }
     }

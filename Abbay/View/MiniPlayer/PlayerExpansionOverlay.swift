@@ -194,6 +194,11 @@ final class PlayerDetailsModels {
     func chaptersChanged(_ chapters: [ChapterModel], ofBookAt url: URL) {
         current?.presentedChaptersChanged(chapters, ofBookAt: url)
     }
+
+    /// A book was renamed (#322): the current screen's model takes it if it shows that book.
+    func titleChanged(_ title: String, ofBookAt url: URL) {
+        current?.presentedTitleChanged(title, ofBookAt: url)
+    }
 }
 
 // MARK: - Drag

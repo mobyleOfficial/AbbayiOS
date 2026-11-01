@@ -179,6 +179,12 @@ enum Localizable: String {
     case findingMoreChapters
     case stopFindingChapters
     case continueFindingChapters
+    // Renaming a book (#322)
+    case rename
+    case renameBook
+    case renameBookMessage
+    case bookNamePlaceholder
+    case save
     case chapterSearchStopped
     case noticeNoChaptersFound
     case noticeChapterSearchFailed

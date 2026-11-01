@@ -3914,6 +3914,96 @@
           }
         }
       }
+    },
+    "rename" : {
+      "comment" : "Library cell context menu: renames the book",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renomear"
+          }
+        }
+      }
+    },
+    "renameBook" : {
+      "comment" : "Title of the box that renames a book, and VoiceOver label of the player's pencil button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename book"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renomear livro"
+          }
+        }
+      }
+    },
+    "renameBookMessage" : {
+      "comment" : "Message in the Rename book box",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave it empty to use the file's name."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixe vazio para usar o nome do arquivo."
+          }
+        }
+      }
+    },
+    "bookNamePlaceholder" : {
+      "comment" : "Placeholder of the text field in the Rename book box",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Book name"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome do livro"
+          }
+        }
+      }
+    },
+    "save" : {
+      "comment" : "Button that saves a change (the Rename book box)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salvar"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
