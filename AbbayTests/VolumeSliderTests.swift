@@ -43,13 +43,26 @@ final class VolumeSliderTests: XCTestCase {
         XCTAssertEqual(frame.maxY, 120 - VolumeSliderLayout.gap)
     }
 
+    /// The capsule grows out of the volume pill, not from the screen's bottom centre (which on a
+    /// phone sits near the Chapters pill).
+    func test_capsule_growsFromThePillsTopCentre() {
+        let pill = CGRect(x: 100, y: 640, width: 50, height: 40)
+
+        let anchor = VolumeSliderLayout.growthAnchor(container: screen, pill: pill)
+
+        XCTAssertEqual(anchor.x, 125.0 / 390, accuracy: 0.0001)
+        XCTAssertEqual(anchor.y, 640.0 / 700, accuracy: 0.0001)
+    }
+
     // MARK: - VoiceOver
 
     func test_voiceOverSwipe_movesTenPercent_andStopsAtTheEnds() {
         XCTAssertEqual(BookVolume.adjusted(0.5, .increment), 0.6)
         XCTAssertEqual(BookVolume.adjusted(0.5, .decrement), 0.4)
-        XCTAssertEqual(BookVolume.adjusted(0.95, .increment), 1)
-        XCTAssertNil(BookVolume.adjusted(1, .increment), "already full")
+        XCTAssertEqual(BookVolume.adjusted(0.95, .increment), 1.05)
+        XCTAssertEqual(BookVolume.adjusted(1, .increment), 1.1, "on into the boost")
+        XCTAssertEqual(BookVolume.adjusted(1.95, .increment), 2)
+        XCTAssertNil(BookVolume.adjusted(2, .increment), "already at the most")
         XCTAssertNil(BookVolume.adjusted(0, .decrement), "already muted")
     }
 }
