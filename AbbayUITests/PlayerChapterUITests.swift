@@ -114,27 +114,37 @@ extension MiniPlayerUITests {
         transportPlay.tap()
     }
 
-    /// #299: *Restart chapter*, in the chapter name's menu under the scrubber, plays the chapter
-    /// from its beginning. The book was left at 200 s, in chapter 2, which starts at 2:24.
-    func test_restartChapter_fromTheChapterMenu_playsFromTheChaptersStart() throws {
+    /// #299: a chapter tap that resumed partway in shows "Resumed at …" with *Start over*, which
+    /// plays the chapter from its beginning. The book plays from 3:20, in chapter 2 (starts 2:24).
+    func test_resumePrompt_startOver_playsTheChapterFromItsStart() throws {
         launch([LaunchArgument.seedLibrary, LaunchArgument.seedPlayableBook])
         assertResolves(AccessibilityID.Library.list)
         let index = try XCTUnwrap(rowIndex(titled: "Seeded Playable Book"), "no playable seed")
         element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
         waitForPlayerToArrive()
-        XCTAssertGreaterThanOrEqual(try XCTUnwrap(elapsedSeconds()), 200, "the seed's saved position")
+        transportPlay.tap()
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" }, "Play did not start playback")
 
-        let menu = element(AccessibilityID.Player.chapterMenu)
-        XCTAssertTrue(menu.waitForExistence(timeout: 5), "the chapter name is not a menu")
-        menu.tap()
-        let restart = element(AccessibilityID.Player.restartChapter)
-        XCTAssertTrue(restart.waitForExistence(timeout: 5), "no Restart chapter item")
-        restart.tap()
+        tapChapter(3)
+        XCTAssertFalse(
+            element(AccessibilityID.Player.resumePrompt).waitForExistence(timeout: 2),
+            "chapter 4 was never started: it starts at its start, with no prompt"
+        )
+        tapChapter(1)
+        let prompt = element(AccessibilityID.Player.resumePrompt)
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5), "no prompt after resuming chapter 2")
+        XCTAssertTrue(prompt.label.hasPrefix("Resumed at 3:"), "\"\(prompt.label)\"")
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = "resume prompt: \(prompt.label)"
+        evidence.lifetime = .keepAlways
+        add(evidence)
 
-        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" }, "the restart did not start playback")
+        element(AccessibilityID.Player.resumePromptStartOver).tap()
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" })
         let restarted = try XCTUnwrap(elapsedSeconds())
         XCTAssertGreaterThanOrEqual(restarted, 144, "before chapter 2's start")
         XCTAssertLessThan(restarted, 160, "not back at chapter 2's start (2:24)")
+        XCTAssertFalse(prompt.exists, "Start over dismisses the prompt")
 
         transportPlay.tap()
     }

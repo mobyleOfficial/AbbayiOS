@@ -173,6 +173,48 @@ final class ChapterResumeTests: XCTestCase {
         XCTAssertEqual(resume.asked, [])
     }
 
+    /// The chapter playing, but listened to its end (the book ended there, or paused in its last
+    /// seconds): a tap starts it over instead of playing on at its end.
+    func test_playChapter_theCurrentChapterListenedToItsEnd_startsItOver() {
+        let player = loaded(at: 398)
+
+        XCTAssertTrue(player.playChapter(at: 2))
+
+        XCTAssertEqual(player.currentTime, 200, "chapter three's start")
+    }
+
+    func test_isFinished_isTheLastSecondsOrPast() {
+        let two = chapter(offset: nil)
+
+        XCTAssertFalse(two.isFinished(at: 194))
+        XCTAssertTrue(two.isFinished(at: 200 - ChapterModel.finishedTolerance))
+        XCTAssertTrue(two.isFinished(at: 230), "past its end")
+    }
+
+    // MARK: - Player: the book's end
+
+    /// The last chapter has no next chapter to play into: the book's end saves it at its full
+    /// length, so it starts over next time.
+    func test_bookDidEnd_savesTheLastChapterAsFinished() throws {
+        let player = loaded(at: 391)
+
+        player.bookDidEnd()
+
+        XCTAssertEqual(try XCTUnwrap(save.calls.last).chapter, ChapterPosition(index: 2, offset: 200))
+    }
+
+    func test_bookDidEnd_noChapters_savesThePositionOnly() throws {
+        var book = chaptered()
+        book.chapters = []
+        let player = loaded(book, at: 391)
+
+        player.bookDidEnd()
+
+        let saved = try XCTUnwrap(save.calls.last)
+        XCTAssertEqual(saved.currentTime, 391)
+        XCTAssertNil(saved.chapter)
+    }
+
     // MARK: - Helpers
 
     private func chapter(offset: Double?) -> ChapterModel {

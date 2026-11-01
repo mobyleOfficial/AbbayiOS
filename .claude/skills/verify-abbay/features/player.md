@@ -98,14 +98,19 @@ LibriVox page's Play all open it.
   (centre, truncating) and the time remaining with a minus sign, in compact form ("17:12",
   "−1:05:09"). A touch anywhere along the track scrubs. While the finger scrubs, and until the
   clock reports the seek, the slider shows the scrubbed time, so it doesn't jump back for a tick.
-- **restart-chapter:** (#299) the chapter's name under the scrubber is a menu button
-  (`player.chapterMenu`, a small `chevron.down` after the name, in the times' grey). Its one item,
-  *Restart chapter* (`player.restartChapter`, `arrow.counterclockwise`; pt-BR *Reiniciar
-  capítulo*, the mini player's `restartChapterAction` string), plays the chapter shown **from its
-  beginning**, whatever was saved for it, paused or playing (`PlayerViewModel.restartChapter`). The
-  shown book not loaded: it is loaded at the chapter's start first, as for a chapter tap. A book
-  with no chapters has no name there, so no menu. Evidence: seed `-seedPlayableBook` (saved 3:20,
-  chapter 2 starts 2:24) → menu → *Restart chapter* → playing from ~2:24.
+- **resume-prompt:** (#299) after a chapter tap that resumed partway into the chapter, a glass
+  capsule over the bottom of the cover (above the title) says *Resumed at 3:20* (`player.resumePrompt`;
+  pt-BR *Retomado em 3:20*; the time is book time, as the scrubber shows) with **Start over**
+  (`player.resumePrompt.startOver`, `arrow.counterclockwise`; pt-BR *Recomeçar*). Start over plays
+  the chapter from its beginning, whatever was saved for it (`PlayerViewModel.restartChapter`; the
+  shown book not loaded: loaded at the chapter's start first). The prompt goes after 6 s
+  (`ResumePrompt.duration`) or on Start over, never shows under the open panel, and only on its own
+  book's player. Nothing else on the screen moves. No prompt when the chapter starts at its start
+  (never started, played through, within 1 s of it) or was already playing. The state is
+  `PlayerPresentation.resumePrompt`, set by the panel's tap (`selectChapter` returns it). VoiceOver
+  announces the message. CarPlay and Siri resume without a prompt. Evidence: `-seedPlayableBook`
+  (3:20, chapter 2 starts 2:24) → Play → chapter 4 (no prompt) → chapter 2 → *Resumed at 3:2x* →
+  Start over → playing from ~2:24.
 - **read-along (#192, experimental; its own page is [read-along](read-along.md)):** with Read-along on in [Settings](settings.md) (iOS 26+ with an
   engine that runs here: `ReadAlongCenter.isAvailable`), a **Text pill** (`player.text`, *Text* / *Texto* with a
   `text.quote` icon) sits between speed and Chapters, the three spread across the row. A tap flips
@@ -219,15 +224,19 @@ LibriVox page's Play all open it.
     pause, book switch, backgrounding), and before every chapter jump: a chapter tap, Next or
     Previous chapter.
   - played through: a chapter that plays on into the next one is saved at its full length
-    (`ChapterCompletion`, from the 1 s ticks; a seek across the boundary doesn't count).
+    (`ChapterCompletion`, from the 1 s ticks; a seek across the boundary doesn't count). The
+    book's last chapter, with no next one, is saved at its full length when the book ends
+    (`Player.bookDidEnd`: a single file's `AVPlayerItemDidPlayToEndTime`, a LibriVox book's
+    `onBookEnd`).
+  - a tap on the chapter already loaded plays on from the playhead, unless the playhead is in its
+    last 5 s or past (`ChapterModel.isFinished(at:)`, e.g. the book ended there): it starts over.
   - resumed (`ChapterModel.resumeTime`): at the saved offset; from the start when never started,
     played through, or left in its last 5 s (`ChapterModel.finishedTolerance`). Read from the
     saved book (`LoadChapterResumeUseCase`), not a screen's copy.
   - who resumes: a chapter tap in this panel, CarPlay's chapter list and Siri's
     *Play chapter N*. **Next and Previous chapter still go to a chapter's start**, and Previous
-    more than 15 s in restarts the chapter. On this screen *Restart chapter* (see
-    *restart-chapter*) is the way to hear one from the beginning; in the mini player, its swipe
-    right.
+    more than 15 s in restarts the chapter. On this screen the *resume-prompt*'s Start over
+    is the way to hear one from the beginning; in the mini player, its swipe right.
   - the book's own position (Continue card, library progress, Play) is unchanged: the last place
     listened, whatever chapter it's in. The chapter list's *finished* rows are still "before the
     current chapter".

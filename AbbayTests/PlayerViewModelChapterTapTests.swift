@@ -102,7 +102,7 @@ final class PlayerViewModelChapterTapTests: XCTestCase {
         XCTAssertEqual(player.url, loaded.url)
     }
 
-    // MARK: - Restart chapter (#299)
+    // MARK: - Start over (#299)
 
     /// The loaded book goes back to the chapter's start, whatever was saved for it, and plays.
     func test_restartChapter_shownBookLoaded_seeksToTheChaptersStartAndPlays() {
@@ -147,5 +147,71 @@ final class PlayerViewModelChapterTapTests: XCTestCase {
 
         XCTAssertEqual(player.playChapterCalls, [])
         XCTAssertEqual(player.seekSeconds, [])
+    }
+
+    // MARK: - Resume prompt (#299)
+
+    /// A tap that resumes partway in returns the prompt: which book and chapter, and where.
+    func test_selectChapter_resumedPartwayIn_returnsThePrompt() throws {
+        let loaded = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        player.url = loaded.url
+        player.resumeTimes[1] = 160
+        let shown = otherBook(currentTime: 250)
+        let sut = PlayerViewModel(shown, state: loadedState(loaded), player: player, downloads: nil)
+
+        let prompt = try XCTUnwrap(sut.selectChapter(1))
+
+        XCTAssertEqual(prompt.bookURL, otherURL)
+        XCTAssertEqual(prompt.chapterIndex, 1)
+        XCTAssertEqual(prompt.time, 160)
+    }
+
+    func test_selectChapter_fromItsStart_returnsNoPrompt() {
+        let book = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        player.url = book.url
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        XCTAssertNil(sut.selectChapter(2), "never started: from its start, nothing to offer")
+        player.resumeTimes[2] = 200.5
+        XCTAssertNil(sut.selectChapter(2), "half a second in reads as its start")
+    }
+
+    /// The chapter already playing plays on: nothing resumed, so no prompt.
+    func test_selectChapter_theChapterPlaying_returnsNoPrompt() {
+        let book = ViewModelSupport.chaptered(currentTime: 150)
+        let player = MockPlayer()
+        player.url = book.url
+        player.currentTime = 150
+        player.resumeTimes[1] = 140
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        XCTAssertNil(sut.selectChapter(1))
+        XCTAssertEqual(player.playChapterCalls, [1])
+    }
+
+    func test_selectChapter_cannotLoad_returnsNoPrompt() {
+        let loaded = ViewModelSupport.chaptered()
+        let player = MockPlayer()
+        player.url = loaded.url
+        player.loadsOnPlay = false
+        player.resumeTimes[1] = 160
+        let sut = PlayerViewModel(libriVoxBook(), state: loadedState(loaded), player: player, downloads: nil)
+
+        XCTAssertNil(sut.selectChapter(1))
+    }
+
+    /// The chapter playing but listened to its end isn't "playing on": the tap starts it over, so
+    /// there's nothing resumed to offer.
+    func test_selectChapter_theChapterPlayingAtItsEnd_playsItAgain_withNoPrompt() {
+        let book = ViewModelSupport.chaptered(currentTime: 398)
+        let player = MockPlayer()
+        player.url = book.url
+        player.currentTime = 398
+        let sut = PlayerViewModel(book, state: loadedState(book), player: player, downloads: nil)
+
+        XCTAssertNil(sut.selectChapter(2))
+        XCTAssertEqual(player.playChapterCalls, [2])
     }
 }

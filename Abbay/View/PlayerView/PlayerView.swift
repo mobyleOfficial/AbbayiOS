@@ -128,6 +128,7 @@ struct PlayerView: View {
                     // rest stacks on the trailing side.
                     HStack(spacing: SpaceConstants.sx24.value) {
                         coverView
+                            .overlay(alignment: .bottom) { resumePromptOverlay }
                         VStack(spacing: SpaceConstants.sx12.value) {
                             Spacer(minLength: 0)
                             controls(compact: true)
@@ -140,6 +141,7 @@ struct PlayerView: View {
                         // The cover is offered space first, but only what is left once the rest
                         // has its own: it shrinks (staying square) on a short screen.
                         coverView
+                            .overlay(alignment: .bottom) { resumePromptOverlay }
                             .layoutPriority(1)
                         controls(compact: false)
                     }
@@ -219,6 +221,28 @@ struct PlayerView: View {
         } else {
             ArtworkView(book: model.book, cornerRadius: Self.coverRadius, shadow: true)
         }
+    }
+
+    // MARK: - Resume prompt (#299)
+    /// "Resumed at 3:20 · Start over" over the bottom of the cover, after a chapter tap resumed
+    /// partway in: for this screen's book only, never under the open panel, gone after
+    /// `ResumePrompt.duration` or a tap on *Start over*. Nothing else on the screen moves.
+    private var resumePromptOverlay: some View {
+        VStack {
+            if let prompt = presentation.resumePrompt, prompt.bookURL == model.book.url, !showsPanel {
+                ResumePromptView(prompt: prompt) {
+                    model.restartChapter(prompt.chapterIndex)
+                    presentation.dismissResumePrompt()
+                }
+                .padding(.bottom, SpaceConstants.sx12.value)
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .task(id: prompt.id) {
+                    try? await Task.sleep(for: ResumePrompt.duration)
+                    presentation.dismissResumePrompt(prompt.id)
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: presentation.resumePrompt?.id)
     }
 
     // MARK: - Read-along (#192)
@@ -577,12 +601,12 @@ private struct PlayerTimeline: View {
         let time = model.bookTime(in: clock)
         let book = model.book
         let shown = scrub.time ?? time
-        let chapter = book.currentChapter(for: shown).flatMap { book.chapters.indices.contains($0) ? $0 : nil }
         PlayerProgressView(
             currentTime: Binding(get: { scrub.time ?? time }, set: { scrub.drag(to: $0) }),
             totalTime: book.duration,
-            centerLabel: chapter.map { book.chapters[$0].title },
-            onRestartChapter: chapter.map { index in { model.restartChapter(index) } },
+            centerLabel: book.currentChapter(for: shown).flatMap { index in
+                book.chapters.indices.contains(index) ? book.chapters[index].title : nil
+            },
             onStartUpdate: { [clock] in
                 scrub.drag(to: model.bookTime(in: clock))
             },

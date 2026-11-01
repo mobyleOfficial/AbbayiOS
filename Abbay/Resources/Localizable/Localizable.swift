@@ -92,6 +92,8 @@ enum Localizable: String {
     case chaptersTitle
     case chapterPosition
     case closeChapters
+    case resumedAt
+    case startOver
     // Settings
     case settingsTitle
     case done

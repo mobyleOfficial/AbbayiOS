@@ -547,6 +547,24 @@
         }
       }
     },
+    "resumedAt" : {
+      "comment" : "Player: the prompt after a chapter tap resumed partway into the chapter (#299). The argument is the book time it resumed at, e.g. 3:20",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumed at %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retomado em %@"
+          }
+        }
+      }
+    },
     "retry" : {
       "comment" : "LibriVox details page",
       "extractionState" : "manual",
@@ -615,6 +633,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar"
+          }
+        }
+      }
+    },
+    "startOver" : {
+      "comment" : "Player: the resume prompt's button, which plays the chapter from its beginning (#299)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start over"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recomeçar"
           }
         }
       }
@@ -892,7 +928,7 @@
       }
     },
     "restartChapterAction" : {
-      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start. Also the item in the player's chapter-name menu under the scrubber (#299)",
+      "comment" : "Accessibility action on the mini player (swipe right): back to the chapter start",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {

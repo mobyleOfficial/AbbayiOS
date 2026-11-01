@@ -357,6 +357,11 @@ final class Player: PlayerProtocol {
         let playerItem = AVPlayerItem(url: url)
         boost.attach(to: playerItem)
         observeFailure(of: playerItem, book: item)
+        // A single file's end is the book's: it pauses there by itself (`actionAtItemEnd`).
+        NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: playerItem)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.bookDidEnd() }
+            .store(in: &cancellables)
 
         // A queue player advances (dropping the item) at its end by default; a single file must
         // stay put at the end the way the plain `AVPlayer` did, or the saved position resets.
@@ -380,7 +385,10 @@ final class Player: PlayerProtocol {
                 bookID: bookID,
                 downloadsRoot: downloadsRoot,
                 prioritizer: chapterPrioritizer,
-                onBookEnd: { [weak self] in self?.pause() },
+                onBookEnd: { [weak self] in
+                    self?.pause()
+                    self?.bookDidEnd()
+                },
                 onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) },
                 prepareItem: { [boost] in boost.attach(to: $0) }
             )
@@ -509,6 +517,24 @@ extension Player {
     /// How often a playing book's position is written (#117). Pausing, switching books and
     /// jumping to a chapter save at once; this bounds what a crash, jetsam or power loss can lose.
     static let positionSaveInterval: TimeInterval = 10
+
+    /// The book played to its end (#299). Its last chapter has no next chapter to play into, so
+    /// `ChapterCompletion` never sees it finish, and the last save while playing can be seconds
+    /// before the end (a LibriVox file can also be shorter than its listed duration): it is saved
+    /// at its full length here, so a tap on it starts it over. Internal for tests.
+    func bookDidEnd() {
+        guard let model, let last = model.chapters.indices.last else {
+            saveTime()
+            return
+        }
+        savePlaybackPositionUseCase.execute(
+            url: model.url,
+            currentTime: currentTime,
+            bookmarkData: nil,
+            chapter: ChapterPosition(index: last, offset: model.chapters[last].duration)
+        )
+        lastPositionSave = now()
+    }
 
     /// Called on every periodic-observer tick. Saves while playing, at most once per
     /// `positionSaveInterval`. Internal for tests: the observer only fires while an item plays.
@@ -741,19 +767,24 @@ extension Player {
     }
 
     /// Jumps the loaded book to a chapter, where it was left (#299), and resumes playback. The
-    /// chapter already playing isn't moved: its saved offset trails the playhead by up to
-    /// `positionSaveInterval`. Next and previous chapter still go to a chapter's start.
+    /// chapter already playing isn't moved (its saved offset trails the playhead by up to
+    /// `positionSaveInterval`), unless it was listened to its end: then it starts over. Next and
+    /// previous chapter still go to a chapter's start.
     /// Returns `false` when no book is loaded or the index is out of range, so
     /// callers (Siri's "play chapter N") can speak the right failure instead of
     /// silently doing nothing.
     @discardableResult
     func playChapter(at index: Int) -> Bool {
         guard let model = model, model.chapters.indices.contains(index) else { return false }
+        let chapter = model.chapters[index]
         if model.currentChapter(for: currentTime) != index {
             // Read first: saving writes the chapter being left, never this one.
             let target = resumeTime(ofChapter: index, in: model)
             saveTime()
             seek(target)
+        } else if chapter.isFinished(at: currentTime) {
+            saveTime()
+            seek(chapter.startTime)
         }
         player.play()
         return true

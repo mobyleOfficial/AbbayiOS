@@ -24,6 +24,12 @@ struct ChapterModel: Codable {
     /// Closer than this to a chapter's end counts as listened to the end: a tap starts it over.
     static let finishedTolerance: Double = 5
 
+    /// Whether `bookTime` is in the chapter's last `finishedTolerance` seconds or past its end: a
+    /// tap on the chapter there starts it over rather than playing on (#299).
+    func isFinished(at bookTime: Double) -> Bool {
+        bookTime >= endTime - Self.finishedTolerance
+    }
+
     /// Where playing this chapter starts (#299): where it was left, unless it was never started or
     /// was listened to the end, which start it from the beginning.
     var resumeTime: Double {
