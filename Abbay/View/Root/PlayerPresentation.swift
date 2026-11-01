@@ -45,6 +45,10 @@ final class PlayerPresentation {
     /// player always opens with the square. It ends with the player, with another book, and with
     /// a change of split (the other layout's player has a session of its own).
     private(set) var readAlongFullScreen: ReadAlongFullScreen?
+    /// "Resumed at 3:20 · Start over", after a chapter tap resumed partway in (#299). Here so the
+    /// panel that took the tap and the player that shows the prompt share it; the player shows it
+    /// only for its own book, and dismisses it after `ResumePrompt.duration`.
+    private(set) var resumePrompt: ResumePrompt?
     /// The bar's global frame, written by the bar every time it moves (including each frame of
     /// its insertion transition). The overlay never reads it: it reads `expansionStart`.
     private(set) var barFrame: CGRect?
@@ -291,6 +295,17 @@ final class PlayerPresentation {
     }
 
     // MARK: - Chapters and layout
+
+    func showResumePrompt(_ prompt: ResumePrompt) {
+        resumePrompt = prompt
+    }
+
+    /// Dismisses the prompt; given an id, only if that prompt is still the one showing, so an
+    /// older prompt's timer can't take down a newer one.
+    func dismissResumePrompt(_ id: ResumePrompt.ID? = nil) {
+        guard let prompt = resumePrompt, id == nil || prompt.id == id else { return }
+        resumePrompt = nil
+    }
 
     /// Opens or closes the chapters of the presented book. Without a presented book, or a book
     /// without chapters, they stay closed.

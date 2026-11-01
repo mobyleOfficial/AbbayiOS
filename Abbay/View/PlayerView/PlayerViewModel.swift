@@ -157,17 +157,46 @@ final class PlayerViewModel {
     }
 
     /// Tapping a chapter always plays that chapter of the shown book, paused or not (owner
-    /// decision, #166). Another book loaded: the shown one is loaded first, at the chapter's start,
-    /// then played from it. If it doesn't load (`Player.play` reported why), nothing else happens:
-    /// the loaded book is never seeked on the shown one's behalf.
-    func selectChapter(_ index: Int) {
-        guard let player, book.chapters.indices.contains(index) else { return }
+    /// decision, #166), from where it was left (#299). Another book loaded: the shown one is loaded
+    /// first, at that point, then played from it. If it doesn't load (`Player.play` reported why),
+    /// nothing else happens: the loaded book is never seeked on the shown one's behalf.
+    ///
+    /// Returns the prompt to show when the chapter resumed partway in ("Resumed at 3:20 · Start
+    /// over"); `nil` when it starts at its start, or is the chapter already playing (it plays on;
+    /// one listened to its end starts over, as `Player.playChapter` does).
+    @discardableResult
+    func selectChapter(_ index: Int) -> ResumePrompt? {
+        guard let player, book.chapters.indices.contains(index) else { return nil }
+        let shown = book
+        let resumesAt = player.resumeTime(ofChapter: index, in: shown)
+        let now = liveBookTime()
+        let playsOn = isLoaded && shown.currentChapter(for: now) == index && !shown.chapters[index].isFinished(at: now)
         if !isLoaded {
+            var book = shown
+            book.currentTime = resumesAt
+            player.play(&book)
+            guard book.url != nil, player.url == book.url else { return nil }
+        }
+        player.playChapter(at: index)
+        guard !playsOn, resumesAt >= shown.chapters[index].startTime + ResumePrompt.minimumOffset else { return nil }
+        return ResumePrompt(bookURL: shown.url, chapterIndex: index, time: resumesAt)
+    }
+
+    /// *Start over*, the resume prompt's button (#299): plays the chapter from its beginning,
+    /// whatever was saved for it, where a chapter tap resumes it. Another book loaded: the shown one
+    /// is loaded at the chapter's start first, as for a tap.
+    func restartChapter(_ index: Int) {
+        guard let player, book.chapters.indices.contains(index) else { return }
+        let start = book.chapters[index].startTime
+        if isLoaded {
+            player.seek(start)
+        } else {
             var book = book
-            book.currentTime = book.chapters[index].startTime
+            book.currentTime = start
             player.play(&book)
             guard book.url != nil, player.url == book.url else { return }
         }
+        // Now in that chapter, at its start: plays on from there.
         player.playChapter(at: index)
     }
 

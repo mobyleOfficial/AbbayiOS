@@ -397,4 +397,22 @@ final class PlayerPresentationTests: XCTestCase {
     func test_settle_usesTheSpecSpring() {
         XCTAssertEqual(PlayerPresentation.animation, .spring(response: 0.35, dampingFraction: 0.86))
     }
+
+    // MARK: - Resume prompt (#299)
+
+    /// An older prompt's timer ending doesn't take down a newer prompt; dismissing without an id
+    /// (Start over) always does.
+    func test_resumePrompt_staleDismissKeepsTheNewerOne() {
+        let sut = PlayerPresentation()
+        let first = ResumePrompt(bookURL: nil, chapterIndex: 1, time: 160)
+        let second = ResumePrompt(bookURL: nil, chapterIndex: 2, time: 250)
+
+        sut.showResumePrompt(first)
+        sut.showResumePrompt(second)
+        sut.dismissResumePrompt(first.id)
+        XCTAssertEqual(sut.resumePrompt, second)
+
+        sut.dismissResumePrompt()
+        XCTAssertNil(sut.resumePrompt)
+    }
 }

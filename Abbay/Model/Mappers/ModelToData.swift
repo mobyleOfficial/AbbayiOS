@@ -17,6 +17,7 @@ extension ChapterModel {
         model.setValue(duration, forKey: #keyPath(ChapterDataModel.duration))
         model.setValue(remoteURL, forKey: #keyPath(ChapterDataModel.remoteURL))
         model.setValue(expectedBytes, forKey: #keyPath(ChapterDataModel.expectedBytes))
+        model.setValue(resumeOffset.map(NSNumber.init(value:)), forKey: #keyPath(ChapterDataModel.resumeOffset))
         return model
     }
 }
