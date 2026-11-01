@@ -62,4 +62,55 @@ extension MiniPlayerUITests {
         )
         pauseFromBar()
     }
+
+    /// The player's elapsed time in seconds, from its `m:ss` label (the remaining one has a minus).
+    private func elapsedSeconds() -> Int? {
+        let clock = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "^[0-9]+:[0-9]{2}$")).firstMatch
+        guard clock.waitForExistence(timeout: 5) else { return nil }
+        let parts = clock.label.split(separator: ":").compactMap { Int($0) }
+        return parts.count == 2 ? parts[0] * 60 + parts[1] : nil
+    }
+
+    private func tapChapter(_ index: Int) {
+        openChaptersPanel()
+        let chapter = element(AccessibilityID.Player.chapter(index))
+        if !chapter.waitForExistence(timeout: 5) {
+            element(AccessibilityID.Player.chapter(0)).swipeUp()
+        }
+        XCTAssertTrue(chapter.waitForExistence(timeout: 5), "no row for chapter \(index + 1)")
+        chapter.tap()
+    }
+
+    /// #299: a chapter left for another one resumes where it was left. The book plays from 200 s,
+    /// 56 s into chapter 2 (which starts at 2:24); a tap on chapter 4 and back on chapter 2 lands
+    /// at 3:20 or a little after, not at 2:24.
+    func test_chapterTap_backToAChapterLeft_resumesWhereItWasLeft() throws {
+        launch([LaunchArgument.seedLibrary, LaunchArgument.seedPlayableBook])
+        assertResolves(AccessibilityID.Library.list)
+        let index = try XCTUnwrap(rowIndex(titled: "Seeded Playable Book"), "no playable seed")
+        element(AccessibilityID.Element.title(AccessibilityID.Library.row(index))).tap()
+        waitForPlayerToArrive()
+
+        transportPlay.tap()
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" }, "Play did not start playback")
+        sleep(2)
+
+        tapChapter(3)
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" })
+        let inChapterFour = try XCTUnwrap(elapsedSeconds())
+        XCTAssertGreaterThanOrEqual(inChapterFour, 511, "chapter 4 never started, so from its start (8:31)")
+        sleep(2)
+
+        tapChapter(1)
+        XCTAssertTrue(waitForLabel(of: transportPlay) { $0 == "Pause" })
+        let backInChapterTwo = try XCTUnwrap(elapsedSeconds())
+        XCTAssertGreaterThanOrEqual(backInChapterTwo, 200, "chapter 2 restarted at 2:24 instead of resuming")
+        XCTAssertLessThan(backInChapterTwo, 240, "resumed past where chapter 2 was left")
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = "chapter 4 at \(inChapterFour) s, back in chapter 2 at \(backInChapterTwo) s"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+
+        transportPlay.tap()
+    }
 }

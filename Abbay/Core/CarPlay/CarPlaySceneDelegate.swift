@@ -307,8 +307,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
                 item.setImage(UIImage(systemName: "book.pages"))
             }
 
+            // As a tap in the app's chapter list: from where the chapter was left, playing (#299).
             item.handler = { [weak self] _, completion in
-                player.seek(chapter.startTime)
+                player.playChapter(at: index)
                 self?.interfaceController?.popTemplate(animated: true, completion: nil)
                 completion()
             }

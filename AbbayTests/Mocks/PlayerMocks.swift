@@ -68,12 +68,13 @@ final class MockSavePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol
         let url: URL?
         let currentTime: Double
         let bookmarkData: Data?
+        var chapter: ChapterPosition?
     }
 
     var calls: [Call] = []
 
-    func execute(url: URL?, currentTime: Double, bookmarkData: Data?) {
-        calls.append(Call(url: url, currentTime: currentTime, bookmarkData: bookmarkData))
+    func execute(url: URL?, currentTime: Double, bookmarkData: Data?, chapter: ChapterPosition?) {
+        calls.append(Call(url: url, currentTime: currentTime, bookmarkData: bookmarkData, chapter: chapter))
     }
 }
 

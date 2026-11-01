@@ -54,4 +54,11 @@ struct AudioModel {
         guard !chapters.isEmpty, time.isFinite else { return nil }
         return chapters.lastIndex { $0.startTime <= time } ?? 0
     }
+
+    /// The chapter that holds `time` and how far into it `time` is, for saving (#299). `nil` with
+    /// no chapter to report, as for `currentChapter(for:)`.
+    func chapterPosition(at time: Double) -> ChapterPosition? {
+        guard let index = currentChapter(for: time) else { return nil }
+        return ChapterPosition(index: index, offset: max(time - chapters[index].startTime, 0))
+    }
 }

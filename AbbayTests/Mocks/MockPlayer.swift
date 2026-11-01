@@ -93,6 +93,13 @@ final class MockPlayer: PlayerProtocol {
         return playChapterResult
     }
 
+    /// Where `resumeTime(ofChapter:in:)` says a chapter resumes; its start when not set.
+    var resumeTimes: [Int: Double] = [:]
+
+    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double {
+        resumeTimes[index] ?? book.chapters[index].startTime
+    }
+
     /// Rates passed to `setPlaybackRate(_:)`.
     var rateCalls = [Double]()
     var playbackRate: Double = 1

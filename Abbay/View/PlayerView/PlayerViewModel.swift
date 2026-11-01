@@ -157,14 +157,14 @@ final class PlayerViewModel {
     }
 
     /// Tapping a chapter always plays that chapter of the shown book, paused or not (owner
-    /// decision, #166). Another book loaded: the shown one is loaded first, at the chapter's start,
-    /// then played from it. If it doesn't load (`Player.play` reported why), nothing else happens:
-    /// the loaded book is never seeked on the shown one's behalf.
+    /// decision, #166), from where it was left (#299). Another book loaded: the shown one is loaded
+    /// first, at that point, then played from it. If it doesn't load (`Player.play` reported why),
+    /// nothing else happens: the loaded book is never seeked on the shown one's behalf.
     func selectChapter(_ index: Int) {
         guard let player, book.chapters.indices.contains(index) else { return }
         if !isLoaded {
             var book = book
-            book.currentTime = book.chapters[index].startTime
+            book.currentTime = player.resumeTime(ofChapter: index, in: book)
             player.play(&book)
             guard book.url != nil, player.url == book.url else { return }
         }

@@ -195,13 +195,35 @@ LibriVox page's Play all open it.
   that chapter of the book the screen shows**, playing or paused, and the rows are never dimmed
   (they were dimmed to 50% while not playing, and the tap did nothing then).
   `PlayerViewModel.selectChapter`:
-  - the shown book is loaded: `Player.playChapter(at:)` seeks to the chapter's start and plays;
-  - another book (or none) is loaded: the shown book is loaded first with `Player.play`, at the
-    chapter's start rather than its saved position, then `playChapter(at:)`. The screen then
-    follows it as the loaded book;
+  - the shown book is loaded: `Player.playChapter(at:)` seeks to the chapter **where it was left**
+    (see *chapter-resume*) and plays; a tap on the chapter already playing just plays on;
+  - another book (or none) is loaded: the shown book is loaded first with `Player.play`, at that
+    chapter's resume point (`Player.resumeTime(ofChapter:in:)`) rather than the book's saved
+    position, then `playChapter(at:)`. The screen then follows it as the loaded book;
   - the shown book doesn't load (no file, offline and not downloaded, no audio session):
     `Player.play` reports why, as Play does, and nothing seeks the loaded book on its behalf.
     (Before the gate, a tap seeked the *loaded* book: the wrong chapter of the wrong book.)
+- **chapter-resume:** (#299) every chapter remembers where listening got in it, so jumping to
+  another chapter and back picks up where it was left, not at its start.
+  - saved: `ChapterDataModel.resumeOffset` (seconds from the chapter's start; optional, model
+    version 3; a chapter saved before #299 reads `nil`, never started). Written by
+    `SavePlaybackPositionUseCase` with the book's position at every save (every 10 s while playing,
+    pause, book switch, backgrounding), and before every chapter jump: a chapter tap, Next or
+    Previous chapter.
+  - played through: a chapter that plays on into the next one is saved at its full length
+    (`ChapterCompletion`, from the 1 s ticks; a seek across the boundary doesn't count).
+  - resumed (`ChapterModel.resumeTime`): at the saved offset; from the start when never started,
+    played through, or left in its last 5 s (`ChapterModel.finishedTolerance`). Read from the
+    saved book (`LoadChapterResumeUseCase`), not a screen's copy.
+  - who resumes: a chapter tap in this panel, CarPlay's chapter list and Siri's
+    *Play chapter N*. **Next and Previous chapter still go to a chapter's start**, and Previous
+    more than 15 s in restarts the chapter, which is the way to hear one from the beginning.
+  - the book's own position (Continue card, library progress, Play) is unchanged: the last place
+    listened, whatever chapter it's in. The chapter list's *finished* rows are still "before the
+    current chapter".
+  - evidence: play chapter 1 to ~0:40, tap chapter 3, tap chapter 1 → the scrubber reads ~0:40
+    into chapter 1, not 0:00. Unit: `ChapterResumeTests`, `ChapterProgressPersistenceTests`
+    (version 1 and 2 stores migrate through `DataStack`), `PlayerViewModelChapterTapTests`.
 - **download-status:** for a LibriVox book whose download is **incomplete**, a thin overall
   progress line (`player.download.progress`) sits under the scrubber's labels on the screen itself,
   always visible, with why under it while a *Wait for Wi-Fi* book is held by the network: cellular

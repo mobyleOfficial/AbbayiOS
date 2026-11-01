@@ -42,8 +42,10 @@ two of its original bugs (#90, #95) are still open.
 - **selection:** the row handler re-fetches the model from Core Data (to pick up the latest saved
   position), plays it, and pushes the now-playing template.
 - **chapter-list:** reachable from the now-playing template's Up Next **or** album-artist button.
-  Marks the current chapter with `speaker.wave.2.fill`, others with `book.pages`. Tapping seeks and
-  pops back.
+  Marks the current chapter with `speaker.wave.2.fill`, others with `book.pages`. Tapping plays that
+  chapter through `Player.playChapter(at:)`, where it was left (#299, see
+  [player](player.md) *chapter-resume*), and pops back. It used to seek to the chapter's start
+  without playing.
 - **live-progress:** the time subscription writes progress into `currentPlayingItem`, the row for the
   book now playing (re-resolved by URL when playback moves to another book). The URL is the book's
   identity on both sides (`player.url` and the row's book), so a book whose file moved is still
@@ -100,7 +102,7 @@ and `NowPlayingManager`; each fix is unit-tested, none was driven on a head unit
 **LibriVox books in CarPlay are assumed, not verified.** The delegate is unchanged on this branch. A
 LibriVox book is an ordinary `AudioModel` (URL `librivox://book/<id>`, book-wide `duration`,
 `currentTime` and chapters), so it lists with its cover, shows progress from `currentTime / duration`,
-plays through `Player.play`, and its chapter list seeks by `startTime` in book time. No test builds
+plays through `Player.play`, and its chapter list plays through `Player.playChapter(at:)` in book time. No test builds
 the CarPlay templates from a LibriVox model.
 
 Other notes:

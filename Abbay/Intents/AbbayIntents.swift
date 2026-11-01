@@ -318,9 +318,9 @@ struct PlayChapterIntent: AudioPlaybackIntent {
             return .result(dialog: IntentDialog(playingDialog))
         }
 
-        // Cold: resume the last-played book, but start it at the requested chapter.
-        // Setting `currentTime` before `play` avoids racing the seek against
-        // AVPlayerItem loading.
+        // Cold: resume the last-played book, but start it at the requested chapter, where that
+        // chapter was left (#299). Setting `currentTime` before `play` avoids racing the seek
+        // against AVPlayerItem loading.
         guard let url = DependencyContainer.lastPlayed.lastPlayedURL(),
               var model = DependencyContainer.shared.loadAudio.execute(url: url) else {
             return .result(dialog: IntentDialog(Self.nothingToPlayDialog))
@@ -328,7 +328,7 @@ struct PlayChapterIntent: AudioPlaybackIntent {
         guard model.chapters.indices.contains(index) else {
             return .result(dialog: IntentDialog(Self.noChapterDialog(chapter.spokenNumber)))
         }
-        model.currentTime = model.chapters[index].startTime
+        model.currentTime = DependencyContainer.shared.player.resumeTime(ofChapter: index, in: model)
         DependencyContainer.shared.player.play(&model)
         return .result(dialog: IntentDialog(playingDialog))
     }

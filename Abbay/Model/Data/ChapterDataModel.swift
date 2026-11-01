@@ -25,6 +25,8 @@ extension ChapterDataModel {
     @NSManaged var duration: Double
     @NSManaged var remoteURL: URL?
     @NSManaged var expectedBytes: Int64
+    /// Optional, so a book saved before #299 reads as never started rather than at 0:00.
+    @NSManaged var resumeOffset: NSNumber?
     @NSManaged var audio: AudioDataModel?
 
 }

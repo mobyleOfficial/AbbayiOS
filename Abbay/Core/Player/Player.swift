@@ -33,8 +33,12 @@ protocol PlayerProtocol {
     func unload()
     func skipToNextChapter()
     func skipToPreviousChapter()
+    /// Plays a chapter of the loaded book from where it was left (#299); the chapter already
+    /// playing just keeps playing.
     @discardableResult
     func playChapter(at index: Int) -> Bool
+    /// Where `playChapter(at:)` would start chapter `index` of `book`, for loading a book there.
+    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double
     /// The loaded book's speed; normal speed when nothing is loaded.
     var playbackRate: Double { get }
     /// Sets the loaded book's speed, saves it for that book, and applies it at once when playing.
@@ -46,8 +50,13 @@ protocol PlayerProtocol {
     func setVolume(_ volume: Double)
 }
 
-/// For players with no speed or volume control (test doubles that predate them).
+/// For players with no speed or volume control, or saved chapter positions (test doubles that
+/// predate them).
 extension PlayerProtocol {
+    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double {
+        book.chapters.indices.contains(index) ? book.chapters[index].resumeTime : 0
+    }
+
     var playbackRate: Double { PlaybackSpeed.normal }
 
     func setPlaybackRate(_ rate: Double) {}
@@ -65,6 +74,9 @@ final class Player: PlayerProtocol {
     private var model: AudioModel?
     /// Update-only: a book deleted while it's loaded here must not be re-inserted.
     private let savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol
+    private let chapterResume: LoadChapterResumeUseCaseProtocol
+    /// Notes chapters played through to their end, which then start over (#299).
+    private let chapterCompletion = ChapterCompletion()
     private let intentDonor: IntentDonorProtocol
     private let librarySnapshotWriter: LibrarySnapshotWriterProtocol
     private let audioSessionActivator: AudioSessionActivatorProtocol
@@ -149,6 +161,7 @@ final class Player: PlayerProtocol {
     // MARK: - Init
     init(
         savePlaybackPositionUseCase: SavePlaybackPositionUseCaseProtocol = SavePlaybackPositionUseCase(),
+        chapterResume: LoadChapterResumeUseCaseProtocol = LoadChapterResumeUseCase(),
         intentDonor: IntentDonorProtocol = IntentDonor.shared,
         librarySnapshotWriter: LibrarySnapshotWriterProtocol = LibrarySnapshotWriter.shared,
         audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator(),
@@ -171,6 +184,7 @@ final class Player: PlayerProtocol {
         self.launchState = launchState
         self.siriSignals = PlayerSiriSignals(donor: intentDonor, context: siriContext)
         self.savePlaybackPositionUseCase = savePlaybackPositionUseCase
+        self.chapterResume = chapterResume
         self.intentDonor = intentDonor
         self.librarySnapshotWriter = librarySnapshotWriter
         self.audioSessionActivator = audioSessionActivator
@@ -315,49 +329,6 @@ final class Player: PlayerProtocol {
         return Self.isPlaying(status: player.timeControlStatus, reason: player.reasonForWaitingToPlay)
     }
 
-    func skipToNextChapter() {
-        guard let model, let currentChapterIndex = model.currentChapter(for: currentTime) else { return }
-        let nextChapterIndex = currentChapterIndex + 1
-        guard nextChapterIndex < model.chapters.count else { return }
-        seek(model.chapters[nextChapterIndex].startTime)
-    }
-
-    func skipToPreviousChapter() {
-        guard let model = model else { return }
-        // A book with no chapter metadata -- a plain MP3, the common case rather than an edge
-        // case (#102) -- has no current chapter: go to the start. Reachable from
-        // PreviousChapterIntent and from the lock-screen / CarPlay previous-track handler.
-        guard let currentChapterIndex = model.currentChapter(for: currentTime),
-              model.chapters.indices.contains(currentChapterIndex) else {
-            seek(0)
-            return
-        }
-        let currentChapter = model.chapters[currentChapterIndex]
-
-        // If more than 15 seconds into the chapter, go to start of current chapter
-        // Otherwise, go to previous chapter
-        if currentTime - currentChapter.startTime > 15 {
-            seek(currentChapter.startTime)
-        } else if currentChapterIndex > 0 {
-            seek(model.chapters[currentChapterIndex - 1].startTime)
-        } else {
-            seek(0)
-        }
-    }
-
-    /// Jumps the loaded book to the start of a chapter and resumes playback.
-    /// Returns `false` when no book is loaded or the index is out of range, so
-    /// callers (Siri's "play chapter N") can speak the right failure instead of
-    /// silently doing nothing.
-    @discardableResult
-    func playChapter(at index: Int) -> Bool {
-        guard let model = model, model.chapters.indices.contains(index) else { return false }
-        saveTime()
-        seek(model.chapters[index].startTime)
-        player.play()
-        return true
-    }
-
     // MARK: - Helpers
     private func updatePlayItem(_ item: AudioModel) {
         // Where the file is now: a moved book's differs from its identity, `item.url` (#186).
@@ -431,11 +402,17 @@ final class Player: PlayerProtocol {
     }
 
     /// Update-only (`SavePlaybackPositionUseCase`), so no caller can re-insert a deleted book.
+    /// Writes the chapter it's in too, so that chapter can be resumed after a jump away (#299).
     private func saveTime() {
         let currentTime = self.currentTime
         if !currentTime.isNaN, let model = model {
             // Under the book's identity, not where its file is: a moved book's differ (#176).
-            savePlaybackPositionUseCase.execute(url: model.url, currentTime: currentTime, bookmarkData: nil)
+            savePlaybackPositionUseCase.execute(
+                url: model.url,
+                currentTime: currentTime,
+                bookmarkData: nil,
+                chapter: model.chapterPosition(at: currentTime)
+            )
             lastPositionSave = now()
         }
     }
@@ -479,6 +456,8 @@ private struct PendingSeek {
 
 extension Player {
     func seek(_ seconds: Double) {
+        // A jump, not playback: a chapter left this way isn't finished (#299).
+        chapterCompletion.jumped()
         if let multiFileQueue {
             multiFileQueue.seek(toBookTime: seconds)
             return
@@ -506,12 +485,22 @@ extension Player {
     }
 }
 
-// MARK: - Siri donations at chapter boundaries
+// MARK: - Chapter boundaries: Siri donations and finished chapters
 extension Player {
     /// Called on every periodic-observer tick, to donate when playback crosses into another
     /// chapter (#127). Internal for tests: the observer only fires while an item plays.
     func noteChapter(atBookTime time: Double, isPlaying: Bool) {
         siriSignals.tick(model, bookTime: time, isPlaying: isPlaying)
+        // A chapter played into the next one is finished: saved as its full length (#299).
+        for index in chapterCompletion.tick(model, bookTime: time, isPlaying: isPlaying) {
+            guard let model, model.chapters.indices.contains(index) else { continue }
+            savePlaybackPositionUseCase.execute(
+                url: model.url,
+                currentTime: time,
+                bookmarkData: nil,
+                chapter: ChapterPosition(index: index, offset: model.chapters[index].duration)
+            )
+        }
     }
 }
 
@@ -714,5 +703,64 @@ extension Player {
         let currentSeconds = currentTime
         let newSeconds = currentSeconds.advanced(by: -seconds)
         seek(newSeconds)
+    }
+}
+
+// MARK: - Chapter navigation
+extension Player {
+    func skipToNextChapter() {
+        guard let model, let currentChapterIndex = model.currentChapter(for: currentTime) else { return }
+        let nextChapterIndex = currentChapterIndex + 1
+        guard nextChapterIndex < model.chapters.count else { return }
+        saveTime()
+        seek(model.chapters[nextChapterIndex].startTime)
+    }
+
+    func skipToPreviousChapter() {
+        guard let model = model else { return }
+        // A book with no chapter metadata -- a plain MP3, the common case rather than an edge
+        // case (#102) -- has no current chapter: go to the start. Reachable from
+        // PreviousChapterIntent and from the lock-screen / CarPlay previous-track handler.
+        guard let currentChapterIndex = model.currentChapter(for: currentTime),
+              model.chapters.indices.contains(currentChapterIndex) else {
+            seek(0)
+            return
+        }
+        let currentChapter = model.chapters[currentChapterIndex]
+        saveTime()
+
+        // If more than 15 seconds into the chapter, go to start of current chapter
+        // Otherwise, go to previous chapter
+        if currentTime - currentChapter.startTime > 15 {
+            seek(currentChapter.startTime)
+        } else if currentChapterIndex > 0 {
+            seek(model.chapters[currentChapterIndex - 1].startTime)
+        } else {
+            seek(0)
+        }
+    }
+
+    /// Jumps the loaded book to a chapter, where it was left (#299), and resumes playback. The
+    /// chapter already playing isn't moved: its saved offset trails the playhead by up to
+    /// `positionSaveInterval`. Next and previous chapter still go to a chapter's start.
+    /// Returns `false` when no book is loaded or the index is out of range, so
+    /// callers (Siri's "play chapter N") can speak the right failure instead of
+    /// silently doing nothing.
+    @discardableResult
+    func playChapter(at index: Int) -> Bool {
+        guard let model = model, model.chapters.indices.contains(index) else { return false }
+        if model.currentChapter(for: currentTime) != index {
+            // Read first: saving writes the chapter being left, never this one.
+            let target = resumeTime(ofChapter: index, in: model)
+            saveTime()
+            seek(target)
+        }
+        player.play()
+        return true
+    }
+
+    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double {
+        guard book.chapters.indices.contains(index) else { return 0 }
+        return chapterResume.resumeTime(ofChapter: index, in: book) ?? book.chapters[index].resumeTime
     }
 }
