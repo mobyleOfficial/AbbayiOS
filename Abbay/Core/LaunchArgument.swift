@@ -99,6 +99,13 @@ enum LaunchArgument {
     /// interaction before they hide, instead of 3 s. The UI tests give most launches a long delay, so
     /// a slow step never finds a control gone, and the auto-hide tests a short one.
     static let readAlongControlsHideAfter = "-readAlongControlsHideAfter"
+    /// The stub engine (implies `stubReadAlongEngine`) with *Find chapters* on (use with
+    /// `resetSettings`), and the stub's text reads out three chapter headings ("Chapter One." at
+    /// 10 s, "Chapter Two." at 70 s, "Chapter Three." at 130 s, each after a pause), and it works
+    /// through a book in 10 s steps half a second apart, so *Find chapters* on *Seeded Plain Book*
+    /// shows its progress, two chapters about 4 s in while it goes on, and then the third. Without it the canned text has no
+    /// headings: the search finds none.
+    static let stubChapterHeadings = "-stubChapterHeadings"
 
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
@@ -107,6 +114,6 @@ enum LaunchArgument {
         stubSlowLibriVox,
         stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
         stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion, seedReadAlong, stubReadAlongEngine,
-        readAlongControlsHideAfter
+        readAlongControlsHideAfter, stubChapterHeadings
     ]
 }

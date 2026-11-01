@@ -113,6 +113,7 @@ picker's own contents are system-owned and carry no identifiers of ours).
 - The bookmark is created on first **play**, not on import. A book imported and never played has
   `bookmarkData == nil` in the snapshot; Siri still loads it by its identifier.
 - A file with no embedded chapters silently disables next/previous chapter, the chapter list, and
-  `PlayChapterIntent` for that book. The test fixture must have real chapters for this reason.
+  `PlayChapterIntent` for that book, until the experimental *Find chapters* finds them in its audio
+  ([find-chapters](find-chapters.md)). The test fixture must have real chapters for this reason.
 - `importAudio` is `@MainActor` and awaits metadata loading per file; a large multi-select blocks
   the picker dismissal.

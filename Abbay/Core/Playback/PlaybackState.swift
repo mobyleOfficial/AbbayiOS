@@ -22,6 +22,13 @@ final class PlaybackState {
         loadedBook = book
     }
 
+    /// The loaded book's chapters changed (found in its audio, or removed): the one change to the
+    /// same book that is announced, since `setLoadedBook` ignores a book with the same URL.
+    func setLoadedBookChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        guard loadedBook?.url == url else { return }
+        loadedBook?.chapters = chapters
+    }
+
     func setIsPlaying(_ isPlaying: Bool) {
         guard isPlaying != self.isPlaying else { return }
         self.isPlaying = isPlaying

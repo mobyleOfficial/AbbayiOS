@@ -79,6 +79,8 @@ struct ChapterListView: View {
     var titlesLoading = false
     /// The shimmering title's identifier, by row, while `titlesLoading`.
     var titleLoadingIdentifier: ((Int) -> String)?
+    /// A note and a button after the last row: the player's *Remove found chapters*.
+    var footer: Footer?
 
     /// The leading column (number or ▶︎), wide enough for "999" at the current text size.
     @ScaledMetric(relativeTo: .subheadline)
@@ -264,6 +266,11 @@ struct ChapterListView: View {
                         // Otherwise the separator starts under the number, the row's first `Text`.
                         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 }
+                if let footer {
+                    footerView(footer)
+                        .listRowBackground(ColorConstants.clear.value)
+                        .listRowSeparator(.hidden)
+                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -276,6 +283,10 @@ struct ChapterListView: View {
                         .background(rowFill(index))
                     // Stands in for the plain `List`'s separator, which follows every row.
                     Divider()
+                        .padding(.horizontal, spacing)
+                }
+                if let footer {
+                    footerView(footer)
                         .padding(.horizontal, spacing)
                 }
             }
@@ -489,5 +500,37 @@ struct ChapterListView_Previews: PreviewProvider {
         )
         .padding()
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Footer
+
+extension ChapterListView {
+    /// What sits after the rows: a line saying where the chapters came from, and a button.
+    struct Footer {
+        let note: String
+        let actionTitle: String
+        let systemImage: String
+        let actionIdentifier: String
+        var role: ButtonRole?
+        let action: () -> Void
+    }
+
+    fileprivate func footerView(_ footer: Footer) -> some View {
+        VStack(alignment: .leading, spacing: SpaceConstants.sx8.value) {
+            Text(footer.note)
+                .font(.caption.monospacedDigit())
+                .foregroundColor(Self.secondary)
+            Button(role: footer.role, action: footer.action) {
+                Label(footer.actionTitle, systemImage: footer.systemImage)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(ColorConstants.white.value)
+            .accessibilityIdentifier(footer.actionIdentifier)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Under a row's own insets: a little space after the last chapter, none after the button.
+        .padding(.top, SpaceConstants.sx8.value)
     }
 }

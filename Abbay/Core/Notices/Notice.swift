@@ -26,6 +26,11 @@ enum Notice: Equatable {
     case chapterFailed
     /// A Core Data save failed, so the latest change (an import, a position) may be lost.
     case saveFailed
+    /// *Find chapters* heard no chapter headings in the book's audio: it keeps no chapters.
+    case noChaptersFound
+    /// *Find chapters* couldn't search the audio: no speech model for its language, or the engine
+    /// failed. Trying again may work.
+    case chapterSearchFailed
 
     /// How many file names an import message lists before it says "and N more".
     static let listedFileNameLimit = 3
@@ -46,6 +51,10 @@ enum Notice: Equatable {
             return Localizable.noticeChapterFailed.localized
         case .saveFailed:
             return Localizable.noticeSaveFailed.localized
+        case .noChaptersFound:
+            return Localizable.noticeNoChaptersFound.localized
+        case .chapterSearchFailed:
+            return Localizable.noticeChapterSearchFailed.localized
         }
     }
 

@@ -170,7 +170,11 @@ LibriVox page's Play all open it.
 - **chapters-pill:** the right glass pill (`player.chapters`, *☰ Chapters* / *Capítulos*) opens the
   chapter panel; while it is open it shows *✕* and its label is *Close chapters*. **A book with no
   chapter markers (a plain MP3) has no pill**, so there is no "No chapters" message on this screen
-  any more (`player.chapters.empty` is gone).
+  any more (`player.chapters.empty` is gone). With the experimental *Find chapters* switch on, an
+  **imported** book without chapters shows **Find chapters** (`player.findChapters`) in its place,
+  then its progress while the audio is searched; chapters found replace it with this pill, and the
+  panel ends with *Remove found chapters* (`player.chapters.removeFound`). See
+  [find-chapters](find-chapters.md).
 - **pill-row-fit:** with Read-along on, four pills share the row. The speed pill never shrinks
   (`fixedSize`: it read *1…* on a 393 pt iPhone before). The pills' side padding is 12 pt, so all
   four keep their words on a 393 pt iPhone in en and pt-BR, and on a 375 pt iPhone SE in en. When
@@ -194,6 +198,11 @@ LibriVox page's Play all open it.
   the pills, with a faint dim behind it. Nothing else on the screen moves. It spans the width less
   40 pt on the left and 16 on the right, and is up to 440 pt tall (about eight rows), less on a
   short screen, never less than `PlayerView.minChapterListHeight` (224 pt) on any iPhone (#203).
+  **Below the cap it is as tall as its content:** on iOS 18 and later the list reports its real
+  content height (`onScrollGeometryChange`, `ChaptersPanel.onListHeight`), so a three-chapter book's
+  panel ends under its last row; the first frame, and iOS 17 always, use the old estimate (rows ×
+  58 pt, scaled, plus the header and the found-chapters footer). The measurement is kept per book,
+  chapter count and footer (`PanelListHeight`).
   - a small handle at its top (`player.chapters.panel`, VoiceOver *Close chapters*, a button)
   - the *Chapters* header (`player.chapters.title`) with the time left in the book ("7h 26m left")
   - one row per chapter (`player.chapter.<n>`), the shared `ChapterListView` rows (#166 G6): the
