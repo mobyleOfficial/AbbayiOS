@@ -284,11 +284,13 @@ struct PlayerView: View {
                     Button {
                         renaming = model.book
                     } label: {
+                        // No taller than the title's line: a taller row pushed the cover up, out
+                        // from under the open chapter panel. The tap area reaches past it instead.
                         Image(systemName: "pencil")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(ColorConstants.white.value.opacity(0.6))
-                            .frame(side: SpaceConstants.sx32.value)
-                            .contentShape(Rectangle())
+                            .frame(width: SpaceConstants.sx32.value)
+                            .contentShape(Rectangle().inset(by: -SpaceConstants.sx8.value))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Localizable.renameBook.localized)
