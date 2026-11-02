@@ -168,19 +168,22 @@ final class SettingsUITests: XCTestCase {
         }
         let deleteFinished = element(AccessibilityID.Settings.deleteFinished)
         XCTAssertFalse(deleteFinished.isEnabled, "seeded books are not finished downloads")
-        app.swipeUp()
-        app.swipeUp()
+        // Scrolled to each in turn: the form is longer than the screen, and rows scrolled far off
+        // leave the tree.
+        var identifiers = [AccessibilityID.Settings.language(AppLanguageRaw.system)]
         if #available(iOS 26, *) {
-            assertResolves(AccessibilityID.Settings.readAlong)
+            identifiers += [AccessibilityID.Settings.readAlong, AccessibilityID.Settings.findChapters]
         }
-        for identifier in [
-            AccessibilityID.Settings.language(AppLanguageRaw.system),
+        identifiers += [
             AccessibilityID.Settings.privacyPolicy,
             AccessibilityID.Settings.version,
             AccessibilityID.Settings.librivox,
             AccessibilityID.Settings.licenses,
             AccessibilityID.Settings.audioStatus
-        ] {
+        ]
+        for identifier in identifiers {
+            let row = element(identifier)
+            for _ in 0..<6 where !(row.exists && row.isHittable) { app.swipeUp() }
             assertResolves(identifier)
         }
 

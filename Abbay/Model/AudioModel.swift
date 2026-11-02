@@ -43,6 +43,20 @@ struct AudioModel {
         librivoxID != nil
     }
 
+    /// What a book is called when it has no title of its own (#322): its file's name without the
+    /// extension ("hunger-games-joined"). Empty for a URL that isn't a file's (a LibriVox book's
+    /// `librivox://` identity), which always has a title.
+    static func fileTitle(for url: URL?) -> String {
+        guard let url, url.isFileURL else { return String() }
+        return url.deletingPathExtension().lastPathComponent
+    }
+
+    /// A title as given (trimmed), or the file's name when that leaves nothing.
+    static func title(_ title: String?, orFileTitleOf url: URL?) -> String {
+        let trimmed = (title ?? String()).trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fileTitle(for: url) : trimmed
+    }
+
     /// The index of the chapter that holds `time`: the last one starting at or before it. Clamped,
     /// so a time before the first chapter reads as the first and one at or past the end as the
     /// last (#101). `nil` when there is no chapter to report (the book has none, or `time` isn't a

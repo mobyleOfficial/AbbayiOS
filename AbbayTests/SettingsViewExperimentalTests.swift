@@ -23,4 +23,10 @@ final class SettingsViewExperimentalTests: XCTestCase {
         XCTAssertFalse(SettingsView.showsExperimental(isAvailable: false, voiceOverOn: false))
         XCTAssertFalse(SettingsView.showsExperimental(isAvailable: false, voiceOverOn: true))
     }
+
+    /// *Find chapters* stays for VoiceOver users: found chapters help them as much as anyone.
+    func test_findChapters_isShownWhereTheEngineRuns_withOrWithoutVoiceOver() {
+        XCTAssertTrue(SettingsView.showsFindChapters(isAvailable: true))
+        XCTAssertFalse(SettingsView.showsFindChapters(isAvailable: false))
+    }
 }

@@ -120,8 +120,17 @@ final class CountingMockPlayer: PlayerProtocol {
     func emitTime(_ seconds: Double) { currentTimeSubject.send(CMTime(seconds: seconds, preferredTimescale: 600)) }
     func emitPlaying(_ isPlaying: Bool) { isPlayingSubject.send(isPlaying) }
 
+    /// Every `replaceChapters` call, in order.
+    private(set) var replacedChapters: [(chapters: [ChapterModel], url: URL)] = []
+
     // MARK: - PlayerProtocol
     func play(_ model: inout AudioModel) { url = model.url }
+    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) { replacedChapters.append((chapters, url)) }
+
+    /// Every `replaceTitle` call, in order.
+    private(set) var replacedTitles: [(title: String, url: URL)] = []
+
+    func replaceTitle(_ title: String, ofBookAt url: URL) { replacedTitles.append((title, url)) }
     func pause() {}
     func forward(withSeconds seconds: Double) {}
     func backward(withSeconds seconds: Double) {}

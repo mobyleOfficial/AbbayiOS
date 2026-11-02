@@ -3,6 +3,7 @@
 //  Abbay
 //
 
+import Combine
 import SwiftUI
 
 /// The app's root: the Library and Search tabs, each with its own `NavigationStack`, and above
@@ -140,10 +141,40 @@ private final class RootModels: ObservableObject {
     /// The player's model per presentation, shared by the full-screen player and the player pane.
     let details = PlayerDetailsModels()
 
+    private var chapterChanges: AnyCancellable?
+    private var titleChanges: AnyCancellable?
+
     init(playback: PlaybackCenter) {
         let presentation = PlayerPresentation(playback: playback.state)
         self.presentation = presentation
-        library = MediaListViewModel(playback: playback, presentation: presentation)
+        let library = MediaListViewModel(playback: playback, presentation: presentation)
+        self.library = library
+        let details = details
+        // Chapters found in a book's audio, or removed (`ChapterFinder`): its row and the player
+        // showing it take them. The loaded book's copy is the playback center's own.
+        chapterChanges = NotificationCenter.default.publisher(for: .bookChaptersDidChange)
+            .sink { notification in
+                guard let url = notification.object as? URL,
+                      let chapters = notification.userInfo?[ChapterFinder.chaptersKey] as? [ChapterModel]
+                else { return }
+                MainActor.assumeIsolated {
+                    library.chaptersChanged(ofBookAt: url)
+                    presentation.chaptersChanged(chapters, ofBookAt: url)
+                    details.chaptersChanged(chapters, ofBookAt: url)
+                }
+            }
+        // A book renamed (#322): the same holders take its new title.
+        titleChanges = NotificationCenter.default.publisher(for: .bookTitleDidChange)
+            .sink { notification in
+                guard let url = notification.object as? URL,
+                      let title = notification.userInfo?[BookRenamer.titleKey] as? String
+                else { return }
+                MainActor.assumeIsolated {
+                    library.chaptersChanged(ofBookAt: url)
+                    presentation.titleChanged(title, ofBookAt: url)
+                    details.titleChanged(title, ofBookAt: url)
+                }
+            }
     }
 }
 

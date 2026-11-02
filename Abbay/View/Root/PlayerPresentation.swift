@@ -511,3 +511,21 @@ extension PlayerPresentation {
         if readAlongFullScreen?.slot === slot { readAlongFullScreen = nil }
     }
 }
+
+// MARK: - Chapters found in the audio
+
+extension PlayerPresentation {
+    /// The book's chapters changed (`ChapterFinder`): the presented copy takes them, and the
+    /// chapters close when none are left.
+    func chaptersChanged(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        guard presentedBook?.url == url else { return }
+        presentedBook?.chapters = chapters
+        if chapters.isEmpty { setChapters(open: false) }
+    }
+
+    /// The book was renamed (#322): the presented copy takes the new title.
+    func titleChanged(_ title: String, ofBookAt url: URL) {
+        guard presentedBook?.url == url else { return }
+        presentedBook?.title = title
+    }
+}

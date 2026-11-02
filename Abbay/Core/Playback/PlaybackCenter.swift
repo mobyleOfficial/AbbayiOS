@@ -76,6 +76,22 @@ final class PlaybackCenter {
         clock.update(bookTime: 0, currentChapter: 0)
     }
 
+    /// A book's chapters changed (`ChapterFinder`): if it is the loaded one, the player and what
+    /// the screens read from here take them at once, the current chapter with them.
+    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {
+        player.replaceChapters(chapters, ofBookAt: url)
+        guard state.loadedBook?.url == url else { return }
+        state.setLoadedBookChapters(chapters, ofBookAt: url)
+        Self.apply(bookTime: clock.bookTime, book: state.loadedBook, to: clock)
+    }
+
+    /// A book was renamed (#322): if it is the loaded one, the player and the screens reading from
+    /// here take the new title.
+    func replaceTitle(_ title: String, ofBookAt url: URL) {
+        player.replaceTitle(title, ofBookAt: url)
+        state.setLoadedBookTitle(title, ofBookAt: url)
+    }
+
     // MARK: - Deliveries
     private func receive(book: AudioModel) {
         let isNewBook = book.url != state.loadedBook?.url

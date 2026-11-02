@@ -202,6 +202,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     func refreshLibrary() {
         guard let libraryTemplate else { return }
         let audios = loadAllAudiosUseCase.execute()
+        // The playing book's chapters (found in its audio, or removed) and title (renamed, #322)
+        // can change while it plays: Now Playing's chapter list reads them from `currentAudio`.
+        if let url = currentAudio?.url, let stored = audios.first(where: { $0.url == url }) {
+            currentAudio?.chapters = stored.chapters
+            currentAudio?.title = stored.title
+        }
         guard audios.map(RowContent.init) != shownRows else {
             audioItems = audios
             audios.forEach(showStoredProgress(of:))

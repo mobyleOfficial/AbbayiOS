@@ -109,7 +109,7 @@ extension ReadAlongUITests {
         XCTAssertEqual(expand.frame, before, "the expand button moved")
         XCTAssertFalse(expand.isEnabled, "the expand button can be used behind the chapter panel")
         // Tap where it is drawn: the panel takes the tap, and the full screen doesn't open.
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: before.midX, dy: before.midY)).tap()
+        app.coordinate(withNormalizedOffset: .zero).withOffset(underPanelTop(before)).tap()
         XCTAssertFalse(fullScreen.waitForExistence(timeout: 2), "the expand button is over the chapter panel")
         XCTAssertTrue(element(AccessibilityID.Player.chaptersTitle).exists, "the tap didn't land on the panel")
 

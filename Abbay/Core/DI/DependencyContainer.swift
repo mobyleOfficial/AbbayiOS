@@ -105,7 +105,8 @@ final class DependencyContainer: DependencyContainerProtocol {
         self.readAlong = ReadAlongCenter(
             transcriber: Self.makeReadAlongTranscriber(),
             store: .shared,
-            settings: settings
+            settings: settings,
+            playback: playback
         )
     }
 

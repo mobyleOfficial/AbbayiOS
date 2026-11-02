@@ -31,6 +31,35 @@ final class AppSettingsTests: XCTestCase {
     private let bookURL = URL(string: "file:///settings/book.m4b")
     private let otherURL = URL(string: "librivox://book/moby")
 
+    // MARK: - Find chapters
+
+    func test_findChaptersEnabled_persists_andLeavesReadAlongAlone() {
+        let store = InMemoryKeyValueStore()
+        let effects = RecordingEffects()
+        let sut = AppSettings(store: store, effects: effects)
+
+        sut.findChaptersEnabled = true
+        XCTAssertTrue(AppSettings(store: store).findChaptersEnabled)
+        sut.findChaptersEnabled = false
+
+        XCTAssertFalse(AppSettings(store: store).findChaptersEnabled)
+        XCTAssertFalse(sut.readAlongEnabled)
+        XCTAssertEqual(effects.clearReadAlongCount, 0, "no transcript is touched")
+    }
+
+    func test_chapterSearchCoverage_persists_andGoesWithTheBook() throws {
+        let url = try XCTUnwrap(bookURL)
+        let store = InMemoryKeyValueStore()
+        let sut = AppSettings(store: store)
+
+        XCTAssertNil(sut.chapterSearchCoverage(for: url))
+        sut.setChapterSearchCoverage(1234.5, for: url)
+        XCTAssertEqual(AppSettings(store: store).chapterSearchCoverage(for: url), 1234.5)
+
+        sut.forgetReadAlong(for: url)
+        XCTAssertNil(AppSettings(store: store).chapterSearchCoverage(for: url), "the book was deleted")
+    }
+
     // MARK: - Defaults
 
     func test_freshStore_hasTheDefaults() {
@@ -42,6 +71,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(sut.cellularPreference, .ask)
         XCTAssertEqual(sut.language, .system)
         XCTAssertFalse(sut.readAlongEnabled)
+        XCTAssertFalse(sut.findChaptersEnabled, "experimental: off until switched on")
         XCTAssertFalse(sut.readAlongShowsText, "the cover shows until the user flips once")
         XCTAssertNil(sut.readAlongLanguage(for: bookURL))
         XCTAssertEqual(sut.speed(for: bookURL), 1, "a book never set uses the default speed")

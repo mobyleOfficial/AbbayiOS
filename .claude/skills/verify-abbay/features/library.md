@@ -45,6 +45,19 @@ search and the [details page](librivox-details.md) live in the Search tab.
   swipe). Removes from Core Data, drops it from `audioList`, rewrites the
   snapshot. Deleting the loaded book unloads it from the player (`PlaybackCenter.unload()`), so the
   mini player disappears; deleting the book the details screen shows closes it.
+- **rename** (#322): an imported book's context menu has *Rename* / *Renomear*
+  (`library.row.<n>.rename`, between Play and Delete; not for LibriVox books, whose titles are the
+  catalog's). It opens the *Rename book* / *Renomear livro* box (a text field with the name,
+  *Cancel*, *Save* / *Salvar*; message *Leave it empty to use the file's name.*). The same box opens
+  from the player's ✎ ([player](player.md) *title*). The name is saved to the book's row and Siri's
+  snapshot (`RenameAudioUseCase`), and reaches the cell, the player, the mini player, Now Playing and
+  CarPlay at once (`BookRenamer`, `.bookTitleDidChange`). An empty name gives back the file's name.
+  The alert's field and buttons carry no identifiers (XCUITest doesn't see them): drive it as
+  `app.alerts["Rename book"]`.
+- **untitled books** (#322): a book with no title of its own (an MP3 without title metadata) is
+  called by its file's name without the extension (`AudioModel.fileTitle`), in every place that
+  shows a title. Applied on import (`FileLoader`) and on load (`DataToModel`), so books imported
+  before show it too.
 - **toolbar:** a **＋** `Menu` (`library.toolbar.add`) with **Import file**
   (`library.menu.import`) and **Download** (`library.add.download`, only switches to the Search
   tab, like *Browse free audiobooks*), plus the `gearshape` button (`library.toolbar.settings`, label

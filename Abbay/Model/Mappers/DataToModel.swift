@@ -33,7 +33,8 @@ extension AudioDataModel {
 
     private func mappedFields() -> AudioModel {
         var model = AudioModel()
-        model.title = title ?? String()
+        // A file without title metadata, saved before #322 or renamed to nothing: its file's name.
+        model.title = AudioModel.title(title, orFileTitleOf: url)
         model.albumName = albumName ?? String()
         model.artist = artist ?? String()
         model.duration = duration

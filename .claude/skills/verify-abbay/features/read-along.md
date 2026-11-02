@@ -26,7 +26,11 @@ behind the `ReadAlongTranscribing` protocol); `ReadAlongStore` (saved transcript
   transcriber). Details in [settings](settings.md).
 - **off leaves nothing:** switching it off stops a running session and deletes every saved
   transcript (`ReadAlongStore.deleteAll`); the Text pill goes away. A book deleted from the library
-  loses its transcript too (`DeleteAudioUseCase`).
+  loses its transcript too (`DeleteAudioUseCase`). It doesn't touch *Find chapters*
+  ([find-chapters](find-chapters.md)), which uses the same engine behind a switch of its own.
+- **language shared with Find chapters:** the language rules below live in
+  `ReadAlongLanguageResolver`, which the text and the chapter search both use, so a book is
+  detected once and read in one language.
 - **text pill** (`player.text`): between the speed and Chapters pills, only with Read-along on.
   Flips the cover's square to the text and back; the pill reads *Text* / *Texto* over the cover and *Cover* / *Capa* over the text; VoiceOver reads *Text* / *Show cover*. Whether
   the text shows is remembered app-wide. See [player](player.md) *read-along*.
