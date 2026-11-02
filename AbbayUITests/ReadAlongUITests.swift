@@ -77,6 +77,17 @@ final class ReadAlongUITests: XCTestCase {
         XCTAssertTrue(transportPlay.waitForExistence(timeout: 5), file: file, line: line)
     }
 
+    /// A point on `control` (a square control under the open chapter panel) that is below the
+    /// panel's top band: a tap in the band (the handle's, 24 pt, `ChaptersPanel.handleTapHeight`)
+    /// closes the panel by design. The panel is sized to its rows, so where its top falls on the
+    /// square depends on the book.
+    func underPanelTop(_ control: CGRect) -> CGVector {
+        // The handle's frame starts at the panel's top edge (its 8 pt top padding is inside it).
+        let panelTop = element(AccessibilityID.Player.chaptersPanel).frame.minY
+        let band = panelTop + 24 + 4
+        return CGVector(dx: control.midX, dy: min(control.maxY - 2, max(control.midY, band)))
+    }
+
     /// Taps the Text pill and waits for the square and its first line.
     func showText(file: StaticString = #filePath, line: UInt = #line) {
         let pill = element(AccessibilityID.Player.text)
@@ -269,7 +280,7 @@ final class ReadAlongUITests: XCTestCase {
         XCTAssertEqual(label.frame, before, "the language label moved")
         XCTAssertFalse(label.isEnabled, "the language label can be used behind the chapter panel")
         // Tap where it is drawn: the panel takes the tap, and the label's menu doesn't open.
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: before.midX, dy: before.midY)).tap()
+        app.coordinate(withNormalizedOffset: .zero).withOffset(underPanelTop(before)).tap()
         XCTAssertFalse(
             app.buttons["English"].waitForExistence(timeout: 2), "the language label is over the chapter panel"
         )
