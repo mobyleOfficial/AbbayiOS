@@ -2,6 +2,9 @@
 
 A simple, privacy-focused audiobook player built with SwiftUI. 100% native iOS implementation with zero third-party dependencies.
 
+- **App Store:** [Abbay on the App Store](https://apps.apple.com/app/abbay/id6826877030) (live since 1.7.0, November 2026)
+- **Website:** [mobyleapps.com/abbay](https://mobyleapps.com/abbay/), a static page with the privacy policy and support forms. Its source is in [`abbay/`](https://github.com/mobyleOfficial/mobyleofficial.github.io/tree/main/abbay) of the `mobyleofficial.github.io` repo
+
 ## Why Abbay?
 
 This is a lightweight audiobook player that prioritizes your privacy:

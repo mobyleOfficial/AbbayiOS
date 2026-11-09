@@ -3,6 +3,13 @@
 The App Store Connect listing for Abbay (app Apple ID 6826877030, bundle `com.edyuto.Abbay`).
 It isn't part of the app bundle or the Xcode project.
 
+Abbay is live: https://apps.apple.com/app/abbay/id6826877030 (1.7.0, approved November 2026).
+
+The Marketing, Support and Privacy Policy URLs point at the app's static website,
+https://mobyleapps.com/abbay/. Its source lives in the website repo, under
+[`abbay/`](https://github.com/mobyleOfficial/mobyleofficial.github.io/tree/main/abbay); the
+"Download on the App Store" badge there links to the store page.
+
 The text files use fastlane `deliver`'s metadata layout, so they can be uploaded with
 `bundle exec fastlane deliver --metadata_path StoreConfig --skip_binary_upload --skip_screenshots`
 once an App Store Connect API key is set up (#111). Until then, copy and paste them by hand.
@@ -34,7 +41,9 @@ once an App Store Connect API key is set up (#111). Until then, copy and paste t
 These don't depend on language:
 - `copyright.txt`
 - `primary_category.txt` / `secondary_category.txt`
-- `review_information/` (review notes and contact email)
+- `review_information/` (review notes and contact email). `notes.txt` holds the notes that got
+  1.7.0 approved: Apple's six Guideline 2.1 answers. A screen recording from a real device, starting
+  at the app's launch, went in the Attachment field.
 
 ## Settings that aren't text files
 
@@ -44,7 +53,8 @@ These don't depend on language:
 | Export compliance | Nothing to upload | `ITSAppUsesNonExemptEncryption = NO` in `Info.plist`; HTTPS through the system is exempt |
 | License agreement | Apple's standard EULA | No subscriptions or accounts |
 | Content rights | Contains third-party content, has the rights | LibriVox recordings and texts are public domain |
-| Price | Free, all territories | |
+| Price | Free | |
+| Availability | Every country or region except China mainland | China requires an NPPA permit for apps with book content; Abbay has none. Removed before the 1.7.0 resubmission |
 
 ### Age rating
 
