@@ -1,2 +1,26 @@
-No account needed. To test: open the Search tab, pick any LibriVox book, tap Download, then play it from the Library tab. Importing your own files: Library → + → Import. Searching and downloading need an internet connection; imported files play offline.
-The app also supports CarPlay audio and Siri / App Shortcuts for playing books in the library.
+SCREEN RECORDING
+Attached to this submission. Recorded on an iPhone 15 running iOS 27.2. The app has no accounts, no user-generated content and no paid content, so the recording has none of those flows.
+
+PURPOSE AND AUDIENCE
+Abbay is a free audiobook player for people who want classic literature without paying or signing up. It solves two problems: finding and listening to public-domain audiobooks, and playing audiobook files people already own. There are no ads, accounts, subscriptions or tracking.
+
+HOW TO TEST
+No login or setup is needed.
+1. Open the Search tab and pick a suggested book, or search for "Pride and Prejudice".
+2. On the book's page, tap Play to stream or Download to keep it offline.
+3. In the player: change chapter, change speed and volume, skip back and forward. Your position is saved.
+4. Importing a file (optional): save this public-domain sample to Files: https://archive.org/download/alice_in_wonderland_librivox/wonderland_ch_01_64kb.mp3 Then Library > + > Import file. Imported files play offline.
+5. Optional features, off by default, in Settings > Experimental (iOS 26 or later, on hardware that supports Apple's on-device speech recognition): Read-along shows the text as the book plays; Find chapters creates chapters in an imported file from headings the narrator reads out, and needs a file with at least two spoken headings. Both work only on the device.
+The app also supports lock screen controls and CarPlay audio. Siri and App Shortcuts can play books from the library on the iPhone; Siri does not yet work while in CarPlay.
+
+EXTERNAL SERVICES
+- LibriVox (librivox.org): catalog data.
+- Internet Archive (archive.org): search, metadata, cover images and audio files.
+- Apple frameworks only for everything else, including on-device speech recognition (iOS may download its speech model from Apple).
+No authentication, payment, analytics, advertising or third-party AI services. Settings links open mobyleapps.com (privacy policy), librivox.org and LinkedIn in the browser.
+
+REGIONS
+The app works the same in every region where it is offered, with no regional features or content rules. The interface is in English and Brazilian Portuguese. It is not offered in China mainland. Speech features depend on the languages Apple's speech recognition supports.
+
+THIRD-PARTY MATERIAL
+Audio comes from LibriVox, whose recordings are public-domain volunteer readings: https://librivox.org/pages/public-domain/ LibriVox states they are public domain in the USA and that this may differ in other countries. Each book page credits LibriVox. Imported files are chosen by the user, stay on the device and are never uploaded or shared by the app. The app is not in a regulated industry.
