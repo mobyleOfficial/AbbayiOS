@@ -46,8 +46,14 @@ protocol PlayerProtocol {
     func setPlaybackRate(_ rate: Double)
     /// Abbay's own volume, 0–1, under the system volume. One level for every book.
     var volume: Double { get }
-    /// Sets and saves Abbay's volume, applied at once whether playing or not.
+    /// Sets and saves Abbay's volume, applied at once whether playing or not. Ends any fade.
     func setVolume(_ volume: Double)
+    /// The sleep timer's fade (#332), 0–1 under Abbay's volume: 1 when not fading. Never saved.
+    var fadeLevel: Double { get }
+    /// Dims the player to `level` (clamped to 0–1) of Abbay's volume, without saving anything.
+    func setFadeLevel(_ level: Double)
+    /// Fires on main when the loaded book plays to its end (single-file or multi-file).
+    var bookEndPublisher: AnyPublisher<Void, Never> { get }
     /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
     /// an imported single-file book's chapters can change; anything else is ignored.
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
@@ -69,6 +75,12 @@ extension PlayerProtocol {
     var volume: Double { BookVolume.full }
 
     func setVolume(_ volume: Double) {}
+
+    var fadeLevel: Double { 1 }
+
+    func setFadeLevel(_ level: Double) {}
+
+    var bookEndPublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
 
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
 
@@ -119,6 +131,9 @@ final class Player: PlayerProtocol {
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
+    private let bookEndSubject = PassthroughSubject<Void, Never>()
+    /// The sleep timer's fade under Abbay's volume (#332); 1 when not fading.
+    private(set) var fadeLevel: Double = 1
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
     private var timeObserverToken: Any?
     /// A single-file book's seek target, until that seek completes (#151). While a book plays,
@@ -140,6 +155,10 @@ final class Player: PlayerProtocol {
 
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
+    }
+
+    var bookEndPublisher: AnyPublisher<Void, Never> {
+        bookEndSubject.eraseToAnyPublisher()
     }
 
     /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
@@ -532,6 +551,7 @@ extension Player {
     /// before the end (a LibriVox file can also be shorter than its listed duration): it is saved
     /// at its full length here, so a tap on it starts it over. Internal for tests.
     func bookDidEnd() {
+        defer { bookEndSubject.send() }
         guard let model, let last = model.chapters.indices.last else {
             saveTime()
             return
@@ -715,13 +735,22 @@ extension Player {
     func setVolume(_ volume: Double) {
         let level = BookVolume.snap(volume)
         volumes.volume = level
+        // The listener's change is heard at once, even mid-fade; the sleep timer sees the level
+        // it set is gone and stops ramping.
+        fadeLevel = 1
         apply(volume: level)
     }
 
+    /// The sleep timer's fade (#332): scales what is heard, never what is saved.
+    func setFadeLevel(_ level: Double) {
+        fadeLevel = min(max(level, 0), 1)
+        apply(volume: volumes.volume)
+    }
+
     /// Up to 100% the queue player's `volume`; past it the player stays at full and the boost
-    /// carries the rest.
+    /// carries the rest. The fade scales the queue player's gain, so the whole level follows it.
     private func apply(volume: Double) {
-        player.volume = Float(BookVolume.playerVolume(volume))
+        player.volume = Float(BookVolume.playerVolume(volume) * fadeLevel)
         boost.gain = BookVolume.boostGain(volume)
     }
 }

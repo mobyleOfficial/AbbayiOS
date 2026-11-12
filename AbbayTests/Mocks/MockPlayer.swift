@@ -116,5 +116,20 @@ final class MockPlayer: PlayerProtocol {
     func setVolume(_ volume: Double) {
         volumeCalls.append(volume)
         self.volume = volume
+        fadeLevel = 1
     }
+
+    /// Levels passed to `setFadeLevel(_:)`, clamped as `Player` does.
+    var fadeLevels = [Double]()
+    private(set) var fadeLevel: Double = 1
+
+    func setFadeLevel(_ level: Double) {
+        fadeLevel = min(max(level, 0), 1)
+        fadeLevels.append(fadeLevel)
+    }
+
+    private let bookEndSubject = PassthroughSubject<Void, Never>()
+    var bookEndPublisher: AnyPublisher<Void, Never> { bookEndSubject.eraseToAnyPublisher() }
+
+    func emitBookEnd() { bookEndSubject.send() }
 }
