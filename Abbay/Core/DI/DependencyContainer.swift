@@ -112,15 +112,12 @@ final class DependencyContainer: DependencyContainerProtocol {
         )
         playback.addObserver(sleepTimer)
         let sleepTimer = self.sleepTimer
-        // Built on main, like the rest of the container (`configure()` runs from the launch).
-        let sleepReturn = MainActor.assumeIsolated {
-            SleepReturnCenter(
-                settings: settings,
-                timer: sleepTimer,
-                player: player,
-                loadedURL: { playback.state.loadedBook?.url }
-            )
-        }
+        let sleepReturn = SleepReturnCenter(
+            settings: settings,
+            timer: sleepTimer,
+            player: player,
+            loadedURL: { playback.state.loadedBook?.url }
+        )
         self.sleepReturn = sleepReturn
         playback.addObserver(sleepReturn)
         self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)

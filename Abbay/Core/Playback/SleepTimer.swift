@@ -76,7 +76,9 @@ final class SleepTimer: PlaybackEventObserving {
     @ObservationIgnored private let scheduler: SleepTimerScheduling
     @ObservationIgnored private let fadeDuration: TimeInterval
     @ObservationIgnored private let firstDurationOverride: TimeInterval?
-    @ObservationIgnored private let subject = PassthroughSubject<SleepTimerEvent, Never>()
+    /// Sent on main only; `nonisolated(unsafe)` so `events` can be subscribed to while the dependency
+    /// container is built (`SleepReturnCenter`).
+    @ObservationIgnored nonisolated(unsafe) private let subject = PassthroughSubject<SleepTimerEvent, Never>()
 
     @ObservationIgnored private var isPlaying: Bool
     /// A duration's listening time left, as of `countedSince` (or now, while paused).
@@ -117,7 +119,7 @@ final class SleepTimer: PlaybackEventObserving {
         self.isPlaying = player.isPlaying(player.url)
     }
 
-    var events: AnyPublisher<SleepTimerEvent, Never> {
+    nonisolated var events: AnyPublisher<SleepTimerEvent, Never> {
         subject.eraseToAnyPublisher()
     }
 

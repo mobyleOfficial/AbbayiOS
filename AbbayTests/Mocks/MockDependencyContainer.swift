@@ -49,15 +49,13 @@ final class MockDependencyContainer: DependencyContainerProtocol {
         let sleepTimer = SleepTimer(player: player, loadedBook: { playback.state.loadedBook })
         self.sleepTimer = sleepTimer
         playback.addObserver(sleepTimer)
-        let sleepReturn = MainActor.assumeIsolated {
-            SleepReturnCenter(
-                settings: settings,
-                timer: sleepTimer,
-                player: player,
-                savePosition: MockSavePlaybackPositionUseCase(),
-                loadedURL: { playback.state.loadedBook?.url }
-            )
-        }
+        let sleepReturn = SleepReturnCenter(
+            settings: settings,
+            timer: sleepTimer,
+            player: player,
+            savePosition: MockSavePlaybackPositionUseCase(),
+            loadedURL: { playback.state.loadedBook?.url }
+        )
         self.sleepReturn = sleepReturn
         playback.addObserver(sleepReturn)
         // No engine, and a store of its own: nothing a test does reaches the real transcripts.

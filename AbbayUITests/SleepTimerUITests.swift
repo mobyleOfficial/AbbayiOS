@@ -225,6 +225,12 @@ final class SleepTimerUITests: XCTestCase {
 
         XCTAssertTrue(returnPrompt.waitForExistence(timeout: 5), "no prompt after the timer paused the book")
         XCTAssertTrue(returnPrompt.label.contains("0:0"), "back to about where the timer was set: \(returnPrompt.label)")
+
+        returnPrompt.tap()
+
+        XCTAssertTrue(wait(for: returnPrompt, "exists == false", "", timeout: 5) || !returnPrompt.exists)
+        XCTAssertFalse(returnPrompt.exists, "the prompt stayed after going back")
+        XCTAssertEqual(playButton.label, "Play", "going back doesn't start playback")
     }
 
 }
