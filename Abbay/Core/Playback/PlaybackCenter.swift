@@ -74,6 +74,15 @@ final class PlaybackCenter {
                 Self.onMain { self?.notify { $0.chapterEnded() } }
             }
             .store(in: &cancellables)
+        player.listenerMovePublisher
+            .sink { [weak self] in
+                Self.onMain {
+                    guard let self else { return }
+                    let bookTime = self.player.currentTime
+                    self.notify { $0.listenerMoved(bookTime: bookTime) }
+                }
+            }
+            .store(in: &cancellables)
         self.cancellables = cancellables
     }
 

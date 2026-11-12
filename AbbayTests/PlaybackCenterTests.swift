@@ -223,6 +223,8 @@ final class PlaybackCenterTests: XCTestCase {
         player.emitTime(42)
         player.emitBookEnd()
         player.emitChapterEnd()
+        player.currentTime = 77
+        player.emitListenerMove()
         center.replaceChapters(book.chapters, ofBookAt: try XCTUnwrap(book.url))
         center.unload()
 
@@ -230,6 +232,7 @@ final class PlaybackCenterTests: XCTestCase {
         XCTAssertTrue(observer.times.contains(42))
         XCTAssertEqual(observer.ends, 1)
         XCTAssertEqual(observer.chapterEnds, 1)
+        XCTAssertEqual(observer.moves, [77])
         XCTAssertEqual(observer.chapterChanges, 1)
         XCTAssertEqual(observer.unloads, 1)
     }
@@ -259,6 +262,7 @@ private final class RecordingPlaybackObserver: PlaybackEventObserving {
     var unloads = 0
     var chapterChanges = 0
     var chapterEnds = 0
+    var moves: [Double] = []
 
     func playingChanged(_ isPlaying: Bool) { playing.append(isPlaying) }
     func timeChanged(bookTime: Double) { times.append(bookTime) }
@@ -266,4 +270,5 @@ private final class RecordingPlaybackObserver: PlaybackEventObserving {
     func bookUnloaded() { unloads += 1 }
     func chaptersChanged() { chapterChanges += 1 }
     func chapterEnded() { chapterEnds += 1 }
+    func listenerMoved(bookTime: Double) { moves.append(bookTime) }
 }

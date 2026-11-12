@@ -56,6 +56,7 @@ final class Player: PlayerProtocol {
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let bookEndSubject = PassthroughSubject<Void, Never>()
     private let chapterEndSubject = PassthroughSubject<Void, Never>()
+    private let listenerMoveSubject = PassthroughSubject<Void, Never>()
     /// The sleep timer's fade under Abbay's volume (#332); 1 when not fading.
     private(set) var fadeLevel: Double = 1
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
@@ -87,6 +88,10 @@ final class Player: PlayerProtocol {
 
     var chapterEndPublisher: AnyPublisher<Void, Never> {
         chapterEndSubject.eraseToAnyPublisher()
+    }
+
+    var listenerMovePublisher: AnyPublisher<Void, Never> {
+        listenerMoveSubject.eraseToAnyPublisher()
     }
 
     /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
@@ -253,6 +258,7 @@ final class Player: PlayerProtocol {
         // The book's identity, which Siri loads it back by; never where its file is now (#186).
         lastPlayed.save(url: url)
         intentDonor.donatePlayMedia(model: model)
+        listenerMoveSubject.send()
     }
 
     func pause() {
@@ -421,6 +427,8 @@ private struct PendingSeek {
 
 extension Player {
     func seek(_ seconds: Double) {
+        // After the seek is under way, so `currentTime` already reads its target.
+        defer { listenerMoveSubject.send() }
         // A jump, not playback: a chapter left this way isn't finished (#299).
         chapterCompletion.jumped()
         if let multiFileQueue {
