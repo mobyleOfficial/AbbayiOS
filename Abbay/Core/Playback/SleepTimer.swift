@@ -157,6 +157,19 @@ final class SleepTimer: PlaybackEventObserving {
         schedule()
     }
 
+    /// End of chapter re-aims on every tick, so a seek, a chapter tap or a speed change moves the
+    /// pause with it, until the fade begins.
+    func timeChanged(bookTime: Double) {
+        guard choice == .endOfChapter else { return }
+        schedule(bookTime: bookTime)
+    }
+
+    /// Found chapters arrived or were removed: re-aim at the chapter now current.
+    func chaptersChanged() {
+        guard choice == .endOfChapter else { return }
+        schedule()
+    }
+
     func bookEnded() {
         guard choice != nil else { return }
         stop()
@@ -170,20 +183,34 @@ final class SleepTimer: PlaybackEventObserving {
 
     // MARK: - Scheduling
 
-    /// When playback should pause, in scheduler time; nil while paused.
-    private var deadline: TimeInterval? {
+    /// When playback should pause, in scheduler time; nil while paused or Off.
+    private func deadline(bookTime: Double) -> TimeInterval? {
         guard isPlaying else { return nil }
         switch choice {
         case .duration:
             return countedSince.map { $0 + banked }
-        case .endOfChapter, nil:
+        case .endOfChapter:
+            let rate = player.playbackRate > 0 ? player.playbackRate : PlaybackSpeed.normal
+            return scheduler.now + max(Self.chapterEnd(at: bookTime, in: loadedBook()) - bookTime, 0) / rate
+        case nil:
             return nil
         }
     }
 
-    private func schedule() {
+    /// The end of the chapter holding `bookTime`; the book's end without chapters (or past them).
+    static func chapterEnd(at bookTime: Double, in book: AudioModel?) -> Double {
+        guard let book else { return bookTime }
+        if let index = book.currentChapter(for: bookTime), book.chapters.indices.contains(index) {
+            return book.chapters[index].endTime
+        }
+        return book.duration
+    }
+
+    /// Aims the fade and the pause. Once the fade has begun its end is fixed: a LibriVox chapter's
+    /// file can end a moment early and the next one start, which must not move the pause.
+    private func schedule(bookTime: Double? = nil) {
         fadeStart = nil
-        guard fade == nil, let deadline else { return }
+        guard fade == nil, let deadline = deadline(bookTime: bookTime ?? player.currentTime) else { return }
         let untilFade = deadline - fadeDuration - scheduler.now
         if untilFade <= 0 {
             beginFade(endingAt: deadline)

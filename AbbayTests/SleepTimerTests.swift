@@ -236,4 +236,138 @@ final class SleepTimerTests: XCTestCase {
         timer.set(.duration(600))
         XCTAssertEqual(timer.remaining() ?? -1, 600, accuracy: 0.001)
     }
+
+    // MARK: - End of chapter
+
+    private func useChapteredBook() {
+        book?.chapters = [
+            ChapterModel(title: "One", startTime: 0, duration: 100),
+            ChapterModel(title: "Two", startTime: 100, duration: 150),
+            ChapterModel(title: "Three", startTime: 250, duration: 150)
+        ]
+        book?.duration = 400
+    }
+
+    /// Pauses within `tolerance` of `seconds` from now, and not before.
+    private func assertPauses(after seconds: TimeInterval, tolerance: TimeInterval = 0.25,
+                              file: StaticString = #filePath, line: UInt = #line) {
+        let before = player.pauseCallCount
+        scheduler.advance(by: seconds - tolerance)
+        XCTAssertEqual(player.pauseCallCount, before, "paused early", file: file, line: line)
+        scheduler.advance(by: tolerance * 2)
+        XCTAssertEqual(player.pauseCallCount, before + 1, "didn't pause on time", file: file, line: line)
+    }
+
+    func test_endOfChapter_pausesAtTheChapterEnd() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+
+        timer.set(.endOfChapter)
+
+        assertPauses(after: 70)
+        XCTAssertNil(timer.choice)
+    }
+
+    func test_endOfChapter_followsASpeedChange() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+        scheduler.advance(by: 20)
+
+        player.playbackRate = 2
+        timer.timeChanged(bookTime: 50)
+
+        assertPauses(after: 25)
+    }
+
+    func test_endOfChapter_reaimsAfterAChapterJump() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+        scheduler.advance(by: 10)
+
+        timer.timeChanged(bookTime: 120)
+
+        assertPauses(after: 130)
+    }
+
+    func test_endOfChapter_targetLocksOnceTheFadeBegins() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+        scheduler.advance(by: 67)
+        XCTAssertFalse(player.fadeLevels.isEmpty, "fading by now")
+
+        // A LibriVox chapter file ends a moment early and the next one starts.
+        timer.timeChanged(bookTime: 101)
+        scheduler.advance(by: 3.1)
+
+        XCTAssertEqual(player.pauseCallCount, 1, "the end didn't move to chapter two's")
+        let ramp = player.fadeLevels.dropLast()
+        XCTAssertTrue(zip(ramp, ramp.dropFirst()).allSatisfy { $0 > $1 }, "\(ramp) never rises")
+    }
+
+    func test_endOfChapter_withoutChapters_meansTheBookEnd() {
+        player.currentTime = 3000
+        let timer = makeTimer()
+        timer.playingChanged(true)
+
+        timer.set(.endOfChapter)
+
+        assertPauses(after: 600)
+    }
+
+    func test_endOfChapter_reaimsWhenChaptersAreReplaced() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+
+        book?.chapters = [
+            ChapterModel(title: "Found one", startTime: 0, duration: 50),
+            ChapterModel(title: "Found two", startTime: 50, duration: 350)
+        ]
+        player.currentTime = 40
+        timer.chaptersChanged()
+
+        assertPauses(after: 10)
+    }
+
+    func test_endOfChapter_pausedHolds() {
+        useChapteredBook()
+        player.currentTime = 30
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+        scheduler.advance(by: 10)
+        timer.playingChanged(false)
+
+        scheduler.advance(by: 600)
+
+        XCTAssertEqual(player.pauseCallCount, 0)
+        XCTAssertEqual(timer.choice, .endOfChapter)
+    }
+
+    func test_endOfChapter_inTheLastChapter_bookEndStops() {
+        useChapteredBook()
+        player.currentTime = 300
+        let timer = makeTimer()
+        timer.playingChanged(true)
+        timer.set(.endOfChapter)
+
+        timer.bookEnded()
+
+        XCTAssertNil(timer.choice)
+        XCTAssertEqual(stops.count, 1)
+    }
+
 }
