@@ -249,8 +249,12 @@ final class SleepTimerTests: XCTestCase {
     }
 
     /// Pauses within `tolerance` of `seconds` from now, and not before.
-    private func assertPauses(after seconds: TimeInterval, tolerance: TimeInterval = 0.25,
-                              file: StaticString = #filePath, line: UInt = #line) {
+    private func assertPauses(
+        after seconds: TimeInterval,
+        tolerance: TimeInterval = 0.25,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         let before = player.pauseCallCount
         scheduler.advance(by: seconds - tolerance)
         XCTAssertEqual(player.pauseCallCount, before, "paused early", file: file, line: line)

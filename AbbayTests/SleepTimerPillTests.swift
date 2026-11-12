@@ -19,7 +19,10 @@ final class SleepTimerPillTests: XCTestCase {
     }
 
     func test_accessibilityValue_underAMinute() {
-        XCTAssertEqual(SleepTimerPill.accessibilityValue(choice: .duration(300), remaining: 59), "Less than a minute left")
+        XCTAssertEqual(
+            SleepTimerPill.accessibilityValue(choice: .duration(300), remaining: 59),
+            "Less than a minute left"
+        )
     }
 
     func test_accessibilityValue_endOfChapter() {
