@@ -74,10 +74,13 @@ final class PlaybackCenter {
 
     // MARK: - Observers
 
-    /// Adds a follower of playback events, held weakly; events arrive on main.
-    func addObserver(_ observer: PlaybackEventObserving) {
-        observers.removeAll { $0.observer == nil }
-        observers.append(WeakPlaybackObserver(observer: observer))
+    /// Adds a follower of playback events, held weakly; events arrive on main. `nonisolated` so
+    /// the dependency container can wire it as it builds (on main, so at once).
+    nonisolated func addObserver(_ observer: PlaybackEventObserving) {
+        Self.onMain { [weak self] in
+            self?.observers.removeAll { $0.observer == nil }
+            self?.observers.append(WeakPlaybackObserver(observer: observer))
+        }
     }
 
     private func notify(_ event: (PlaybackEventObserving) -> Void) {

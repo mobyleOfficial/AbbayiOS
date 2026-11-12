@@ -107,6 +107,10 @@ enum LaunchArgument {
     /// headings: the search finds none.
     static let stubChapterHeadings = "-stubChapterHeadings"
 
+    /// Followed by a number of seconds (`-sleepTimerSeconds 8`): the sleep timer's *5 minutes*
+    /// lasts that long instead (#332), so a UI test sees the countdown, the fade and the pause.
+    static let sleepTimerSeconds = "-sleepTimerSeconds"
+
     /// Every name above. A launch carrying any of them is a UI test's.
     static let all = [
         seedLibrary, seedFillerBooks, seedLongBook, seedPlayableBook, seedTimeLeftEdges, seedMissingFile,
@@ -114,6 +118,6 @@ enum LaunchArgument {
         stubSlowLibriVox,
         stubDownloadStates, stubPathCellular, stubPathHotspot, stubPathLowDataMode, stubPathOffline,
         stubFailingImport, stubMovedImport, resetSettings, forceReduceMotion, seedReadAlong, stubReadAlongEngine,
-        readAlongControlsHideAfter, stubChapterHeadings
+        readAlongControlsHideAfter, stubChapterHeadings, sleepTimerSeconds
     ]
 }

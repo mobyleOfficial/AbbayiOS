@@ -90,7 +90,8 @@ final class SleepTimer: PlaybackEventObserving {
 
     private static let rampStep: TimeInterval = 0.25
 
-    init(
+    /// `nonisolated`, like `PlaybackCenter`'s, so the dependency container can build it.
+    nonisolated init(
         player: PlayerProtocol,
         loadedBook: @escaping @MainActor () -> AudioModel?,
         scheduler: SleepTimerScheduling = TaskSleepTimerScheduler(),
