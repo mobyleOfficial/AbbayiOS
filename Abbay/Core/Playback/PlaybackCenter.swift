@@ -20,6 +20,8 @@ final class PlaybackCenter {
     /// Set by a switch to a book with a saved position: until the player's seek there lands, the
     /// new item still reports ~0, which must not overwrite the seeded `bookTime`.
     private var pendingSeekTarget: Double?
+    /// The sleep timer and whoever else follows playback beside the views (#332), held weakly.
+    private var observers: [WeakPlaybackObserver] = []
 
     /// A tick below this, while a seek is pending, is the new item's start, not a real position.
     private static let startTolerance: Double = 1
@@ -59,10 +61,33 @@ final class PlaybackCenter {
             .store(in: &cancellables)
         player.isPlayingPublisher
             .sink { [weak self] isPlaying in
-                Self.onMain { self?.state.setIsPlaying(isPlaying) }
+                Self.onMain { self?.setIsPlaying(isPlaying) }
+            }
+            .store(in: &cancellables)
+        player.bookEndPublisher
+            .sink { [weak self] in
+                Self.onMain { self?.notify { $0.bookEnded() } }
             }
             .store(in: &cancellables)
         self.cancellables = cancellables
+    }
+
+    // MARK: - Observers
+
+    /// Adds a follower of playback events, held weakly; events arrive on main.
+    func addObserver(_ observer: PlaybackEventObserving) {
+        observers.removeAll { $0.observer == nil }
+        observers.append(WeakPlaybackObserver(observer: observer))
+    }
+
+    private func notify(_ event: (PlaybackEventObserving) -> Void) {
+        observers.compactMap(\.observer).forEach(event)
+    }
+
+    private func setIsPlaying(_ isPlaying: Bool) {
+        guard isPlaying != state.isPlaying else { return }
+        state.setIsPlaying(isPlaying)
+        notify { $0.playingChanged(isPlaying) }
     }
 
     // MARK: - Actions
@@ -72,8 +97,9 @@ final class PlaybackCenter {
         player.unload()
         pendingSeekTarget = nil
         state.setLoadedBook(nil)
-        state.setIsPlaying(false)
+        setIsPlaying(false)
         clock.update(bookTime: 0, currentChapter: 0)
+        notify { $0.bookUnloaded() }
     }
 
     /// A book's chapters changed (`ChapterFinder`): if it is the loaded one, the player and what
@@ -83,6 +109,7 @@ final class PlaybackCenter {
         guard state.loadedBook?.url == url else { return }
         state.setLoadedBookChapters(chapters, ofBookAt: url)
         Self.apply(bookTime: clock.bookTime, book: state.loadedBook, to: clock)
+        notify { $0.chaptersChanged() }
     }
 
     /// A book was renamed (#322): if it is the loaded one, the player and the screens reading from
@@ -119,6 +146,7 @@ final class PlaybackCenter {
             pendingSeekTarget = nil
         }
         Self.apply(bookTime: seconds, book: state.loadedBook, to: clock)
+        notify { $0.timeChanged(bookTime: seconds) }
     }
 
     private nonisolated static func apply(bookTime: Double, book: AudioModel?, to clock: PlaybackClock) {
@@ -135,4 +163,8 @@ final class PlaybackCenter {
             DispatchQueue.main.async { MainActor.assumeIsolated(work) }
         }
     }
+}
+
+private struct WeakPlaybackObserver {
+    weak var observer: PlaybackEventObserving?
 }
