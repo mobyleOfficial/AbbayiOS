@@ -111,7 +111,26 @@ LibriVox page's Play all open it.
   timer is set clears it without pausing again (the player already paused and saved the book as
   finished, #299). Deleting the playing book turns
   it off. `-sleepTimerSeconds 8` makes *5 minutes* last 8 s. Not in the mini player, Now Playing,
-  CarPlay or Siri. Next: *back to where you fell asleep* (#332 part 2).
+  CarPlay or Siri.
+- **sleep-return:** (#332 part 2, *back to where you fell asleep*) when the timer stops a book (it
+  ran out, or the book ended under it), `SleepReturnCenter` keeps a spot for that book
+  (`AppSettings.sleepReturnSpot`, `abbay.settings.sleepReturnSpots`, by URL; it survives a relaunch):
+  where the listener was last certainly awake, i.e. the book time of their **last deliberate
+  action** while the timer ran: setting or changing it, Play, a skip, a scrub or a chapter tap, from
+  the app, the lock screen, CarPlay or Siri (`Player.listenerMovePublisher`); a chapter playing
+  into the next isn't one. That book's player then shows, in the resume prompt's place over the
+  bottom of the cover (never under the open panel, and not while a resume prompt shows), a glass
+  capsule *🌙 Back to where you fell asleep · 1:00* / *Voltar para onde você adormeceu*
+  (`player.sleepReturn`): the leading part is one button (`player.sleepReturn.go`, read as *Back to
+  where you fell asleep, 1:00*) that goes back there **without playing** (a loaded book seeks; any
+  other has its saved position moved, and the screen shows it there), and a ✕
+  (`player.sleepReturn.dismiss`, *Dismiss* / *Fechar*) that forgets it. VoiceOver announces it. It
+  doesn't time out; it also goes when a new timer is set on the book (turning the timer Off keeps
+  it), when the book starts playing more than 5 min (book time) from where the timer stopped it,
+  once 30 min of the book has played past that point, or when the book is deleted. Pressing Play at
+  or near the stop keeps it: half asleep, the listener may do that on the lock screen before seeing
+  it. Not on the lock screen, CarPlay or the mini player. `-seedSleepReturn` gives *Seeded
+  Chaptered Book* a spot (back to 1:00, stopped at 2:30).
 - **loaded vs other book:**
   - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
     `PlaybackState`, time and chapter from `PlaybackClock`.
@@ -348,6 +367,8 @@ $B drag player.volume.slider up                           # to the top: "200%", 
 $B launch -seedLibrary -resetSettings -sleepTimerSeconds 8   # the sleep timer's "5 minutes" lasts 8 s
 $B tap player.sleepTimer && $B tap "5 minutes"            # popover of choices; the pill counts down 0:08, value "Less than a minute left"
 $B wait player.sleepTimer                                 # after the fade the book pauses; value back to "Off"
+$B wait player.sleepReturn.go                             # "Back to where you fell asleep, 0:01": a tap goes back there, paused
+$B launch -seedLibrary -resetSettings -seedSleepReturn    # Seeded Chaptered Book offers "back to 1:00"; player.sleepReturn.dismiss forgets it
 $B tap player.chapters && $B wait player.chapters.panel  # the glass chapter panel, at the current chapter
 $B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed); closes the panel
 $B tap player.close && $B wait library.list
@@ -367,6 +388,12 @@ $B drag player.close down                                 # planned: collapse un
   choice takes a tap over the Chapters pill; five pills fit with Read-along on. The timer itself
   (counting, hold, fade, end of chapter, speed, re-aim, book end, unload) is unit-tested in
   `SleepTimerTests`, the fade level in `PlayerFadeTests`, the pill's words in `SleepTimerPillTests`.
+- back to where you fell asleep (`SleepTimerUITests.test_sleepReturn_*`): after a timer pause the
+  prompt appears; `-seedSleepReturn`'s prompt reads *1:00* and a tap moves the book there, paused,
+  and the prompt goes; ✕ forgets it without moving the book. The spot's rules (saved on a timer
+  stop only, a new timer, Play near or far from the stop, the 30 min limit, another book, going
+  back loaded or not) are unit-tested in `SleepReturnCenterTests`, the last deliberate move in
+  `SleepTimerTests+LastAwake`, the stored spot in `AppSettingsTests`.
 - `player.title`
 - `player.transport.{back,play,forward}` and `player.speed`
 - the speed sheet's `speed.{value,increase,decrease,setDefault}` and `speed.preset.<n>`

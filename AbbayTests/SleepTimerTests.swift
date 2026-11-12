@@ -95,7 +95,7 @@ final class SleepTimerTests: XCTestCase {
         XCTAssertEqual(player.fadeLevel, 1, "the listener's level is back for the next play")
         XCTAssertNil(timer.choice)
         let url = try XCTUnwrap(book?.url)
-        XCTAssertEqual(stops, [SleepTimerStop(bookURL: url, stoppedAt: 0)])
+        XCTAssertEqual(stops, [SleepTimerStop(bookURL: url, stoppedAt: 0, lastAwakeAt: 0)])
     }
 
     func test_stop_carriesTheBookTime() {

@@ -100,6 +100,8 @@ enum Localizable: String {
     case sleepTimerOneHour
     case sleepTimerMinutesLeft
     case sleepTimerUnderAMinute
+    case sleepReturnBack
+    case sleepReturnDismiss
     case startOver
     // Settings
     case settingsTitle

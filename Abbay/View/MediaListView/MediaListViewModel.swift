@@ -79,6 +79,15 @@ final class MediaListViewModel: ObservableObject {
         refreshFromStorage(url)
     }
 
+    /// A book's saved position was written while it isn't loaded (*back to where you fell asleep*
+    /// moved it, #332): its row re-reads it, so the Continue card, the player opened from the row and
+    /// the row's Play start there. The loaded book's own saves (every 10 s) are skipped: its row
+    /// reads the clock.
+    func positionSaved(ofBookAt url: URL) {
+        guard url != loadedURL else { return }
+        refreshFromStorage(url)
+    }
+
     private func refreshFromStorage(_ url: URL?) {
         guard let url,
               let index = audioList.firstIndex(where: { $0.url == url }),

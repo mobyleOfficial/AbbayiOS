@@ -22,6 +22,7 @@ final class MockDependencyContainer: DependencyContainerProtocol {
     var audioSessionActivator: AudioSessionActivatorProtocol
     let readAlong: ReadAlongCenter
     let sleepTimer: SleepTimer
+    let sleepReturn: SleepReturnCenter
 
     /// The App Group stores default to one fresh in-memory store, so nothing a test does through
     /// the container reaches the real App Group. Pass `appGroup` to seed or inspect it.
@@ -45,8 +46,18 @@ final class MockDependencyContainer: DependencyContainerProtocol {
         self.downloadStates = DownloadStateStore(downloads: downloads)
         let playback = PlaybackCenter(player: player, loadAudio: loadAudio)
         self.playback = playback
-        self.sleepTimer = SleepTimer(player: player, loadedBook: { playback.state.loadedBook })
+        let sleepTimer = SleepTimer(player: player, loadedBook: { playback.state.loadedBook })
+        self.sleepTimer = sleepTimer
         playback.addObserver(sleepTimer)
+        let sleepReturn = SleepReturnCenter(
+            settings: settings,
+            timer: sleepTimer,
+            player: player,
+            savePosition: MockSavePlaybackPositionUseCase(),
+            loadedURL: { playback.state.loadedBook?.url }
+        )
+        self.sleepReturn = sleepReturn
+        playback.addObserver(sleepReturn)
         // No engine, and a store of its own: nothing a test does reaches the real transcripts.
         let readAlongRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("ReadAlong-\(UUID().uuidString)", isDirectory: true)
