@@ -178,3 +178,22 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         self = match
     }
 }
+
+/// Where *back to where you fell asleep* returns a book to (#332): the book time of the listener's
+/// last deliberate action while the sleep timer ran, and where the timer stopped the book.
+struct SleepReturnSpot: Equatable {
+    let returnTo: Double
+    let stoppedAt: Double
+}
+
+extension SleepReturnSpot {
+    /// A property-list dictionary, for the settings store.
+    var stored: [String: Double] {
+        ["returnTo": returnTo, "stoppedAt": stoppedAt]
+    }
+
+    init?(stored: [String: Double]) {
+        guard let returnTo = stored["returnTo"], let stoppedAt = stored["stoppedAt"] else { return nil }
+        self.init(returnTo: returnTo, stoppedAt: stoppedAt)
+    }
+}

@@ -60,6 +60,39 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertNil(AppSettings(store: store).chapterSearchCoverage(for: url), "the book was deleted")
     }
 
+    // MARK: - Back to where you fell asleep (#332)
+
+    func test_sleepReturnSpot_roundTrips() throws {
+        let url = try XCTUnwrap(bookURL)
+        let sut = AppSettings(store: InMemoryKeyValueStore())
+
+        XCTAssertNil(sut.sleepReturnSpot(for: url))
+        sut.setSleepReturnSpot(SleepReturnSpot(returnTo: 61.5, stoppedAt: 3700), for: url)
+
+        XCTAssertEqual(sut.sleepReturnSpot(for: url), SleepReturnSpot(returnTo: 61.5, stoppedAt: 3700))
+        XCTAssertNil(sut.sleepReturnSpot(for: URL(string: "file:///other.m4b")), "one spot per book")
+    }
+
+    func test_sleepReturnSpot_survivesANewSettings() throws {
+        let url = try XCTUnwrap(bookURL)
+        let store = InMemoryKeyValueStore()
+        AppSettings(store: store).setSleepReturnSpot(SleepReturnSpot(returnTo: 10, stoppedAt: 20), for: url)
+
+        XCTAssertEqual(AppSettings(store: store).sleepReturnSpot(for: url), SleepReturnSpot(returnTo: 10, stoppedAt: 20))
+    }
+
+    func test_sleepReturnSpot_nilClears() throws {
+        let url = try XCTUnwrap(bookURL)
+        let store = InMemoryKeyValueStore()
+        let sut = AppSettings(store: store)
+        sut.setSleepReturnSpot(SleepReturnSpot(returnTo: 10, stoppedAt: 20), for: url)
+
+        sut.setSleepReturnSpot(nil, for: url)
+
+        XCTAssertNil(sut.sleepReturnSpot(for: url))
+        XCTAssertNil(AppSettings(store: store).sleepReturnSpot(for: url))
+    }
+
     // MARK: - Defaults
 
     func test_freshStore_hasTheDefaults() {

@@ -86,6 +86,7 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
         static let findChaptersEnabled = "abbay.settings.findChapters"
         static let chapterSearchCoverage = "abbay.settings.chapterSearchCoverage"
         static let volume = "abbay.settings.volume"
+        static let sleepReturnSpots = "abbay.settings.sleepReturnSpots"
     }
 
     @ObservationIgnored private let store: KeyValueStoring
@@ -175,6 +176,10 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
     /// the list's buttons follow.
     private(set) var chapterSearchCoverage: [String: Double]
 
+    /// Where to go back to after the sleep timer stopped each book (#332), by URL string.
+    /// Observable, so the player's prompt follows.
+    private(set) var sleepReturnSpots: [String: SleepReturnSpot]
+
     init(store: KeyValueStoring, effects: SettingsEffects? = nil) {
         self.store = store
         self.effects = effects
@@ -191,6 +196,7 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
         bookSpeeds = Self.storedBookSpeeds(in: store)
         foundChapterBooks = Set(store.object(forKey: Key.foundChapterBooks) as? [String] ?? [])
         chapterSearchCoverage = store.object(forKey: Key.chapterSearchCoverage) as? [String: Double] ?? [:]
+        sleepReturnSpots = Self.storedSleepReturnSpots(in: store)
         applySkipIntervals()
         effects?.apply(language: language)
     }
@@ -259,6 +265,25 @@ final class AppSettings: PlaybackSpeedStoring, PlaybackVolumeStoring, BookSpeedR
             speeds[key] = nil
             bookSpeeds = speeds
         }
+    }
+
+    // MARK: - Back to where you fell asleep (#332)
+
+    func sleepReturnSpot(for url: URL?) -> SleepReturnSpot? {
+        guard let key = url?.absoluteString else { return nil }
+        return sleepReturnSpots[key]
+    }
+
+    /// nil clears it. Main thread, like the other per-book writes.
+    func setSleepReturnSpot(_ spot: SleepReturnSpot?, for url: URL?) {
+        guard let key = url?.absoluteString, sleepReturnSpots[key] != spot else { return }
+        sleepReturnSpots[key] = spot
+        store.set(sleepReturnSpots.mapValues(\.stored), forKey: Key.sleepReturnSpots)
+    }
+
+    private static func storedSleepReturnSpots(in store: KeyValueStoring) -> [String: SleepReturnSpot] {
+        let stored = store.object(forKey: Key.sleepReturnSpots) as? [String: [String: Double]] ?? [:]
+        return stored.compactMapValues(SleepReturnSpot.init(stored:))
     }
 
     // MARK: - Per-book read-along language
