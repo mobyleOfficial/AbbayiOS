@@ -31,6 +31,23 @@ from it).
 - After adding files, `xcodegen generate` (the project is generated).
 - No AI attribution in commits or PR bodies.
 
+## Xcode skills to use (xcode-integration plugin)
+
+- **Tasks 5 and 10 (SwiftUI):** consult `xcode-integration:swiftui-specialist` before writing the
+  pill and the prompt (`TimelineView`, `Menu`, `@Observable` invalidation, localization).
+- **Strings:** add them through the `StringCatalogEdit` tool (`xcode-integration:translation`
+  for the pt-BR values), not by hand-editing the JSON.
+- **After Tasks 5 and 10:** run `xcode-integration:accessibility-voiceover-specialist` and
+  `xcode-integration:accessibility-dynamic-type-specialist` on `SleepTimerPill.swift` and
+  `SleepReturnPromptView.swift`; fix what they find or file it.
+- **Tasks 6 and 11 (live check):** a subagent with `xcode-integration:device-interaction`
+  drives the app (`DeviceInteractionInstallAndRun` with `commandLineArguments`
+  `["$(inherited)", "-seedLibrary", "-resetSettings", "-sleepTimerSeconds", "8"]`), taking the
+  screenshots that become the PR's evidence. `xcode-integration:app-resizability` informs the iPad
+  split and Duo check of the pill row.
+- The gate still runs through `xcodebuild` on our own simulator (`CLAUDE.md`), not Xcode's
+  `RunAllTests`, so it doesn't share a destination with anyone.
+
 ## Review focus
 
 1. **A phone call or Siri interrupts during the fade:** the pause must still land and the volume
