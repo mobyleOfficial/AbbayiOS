@@ -93,6 +93,13 @@ enum Localizable: String {
     case chapterPosition
     case closeChapters
     case resumedAt
+    case sleepTimer
+    case sleepTimerOff
+    case sleepTimerEndOfChapter
+    case sleepTimerMinutes
+    case sleepTimerOneHour
+    case sleepTimerMinutesLeft
+    case sleepTimerUnderAMinute
     case startOver
     // Settings
     case settingsTitle

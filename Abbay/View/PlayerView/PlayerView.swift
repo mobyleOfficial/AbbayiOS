@@ -63,6 +63,9 @@ struct PlayerView: View {
     /// Optional so previews and tests can omit it: there is no Text pill then.
     @Environment(ReadAlongCenter.self)
     private var readAlong: ReadAlongCenter?
+    /// Optional for the same reason: there is no moon pill then (#332).
+    @Environment(SleepTimer.self)
+    private var sleepTimer: SleepTimer?
     /// The read-along session, here rather than in the square, which is rebuilt on each flip and
     /// rotation. One per screen, and the overlay builds one screen per presented book.
     @State
@@ -426,12 +429,12 @@ struct PlayerView: View {
 
 // MARK: - Pills
 extension PlayerView {
-    /// Speed and volume on the left, Chapters on the right, and Text between them while Read-along
-    /// is on. A book with no chapters has no Chapters pill; an imported one offers *Find chapters*
+    /// Speed, volume and the sleep timer's moon on the left, Chapters on the right, and Text between
+    /// them while Read-along is on. A book with no chapters has no Chapters pill; an imported one offers *Find chapters*
     /// in its place while that experimental switch is on (`ChapterFinder`).
     /// The speed never shrinks: it read "1…" on a 393 pt iPhone with all four pills. When the row
     /// runs short, Text and then Chapters drop their words and keep their icons (VoiceOver still
-    /// reads their names).
+    /// reads their names); only then does the moon drop its countdown (the left group's priority).
     /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
     /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
     /// panel off the bottom of the landscape screen, over the pills (#270).
@@ -440,7 +443,12 @@ extension PlayerView {
             HStack(spacing: SpaceConstants.sx8.value) {
                 speedPill
                 VolumePill(model: model, isShowing: $isShowingVolume, animation: panelAnimation)
+                if let sleepTimer {
+                    SleepTimerPill(timer: sleepTimer, hasChapters: !model.book.chapters.isEmpty)
+                }
             }
+            // Ahead of Text (0) and Chapters (1): they lose their words before the countdown does.
+            .layoutPriority(2)
             Spacer()
             if offersText {
                 textPill

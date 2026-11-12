@@ -112,9 +112,12 @@ final class SleepTimer: PlaybackEventObserving {
 
     /// What the menu offers for `book`: *When current chapter ends* only for a book with chapters.
     func choices(for book: AudioModel?) -> [SleepTimerChoice] {
+        choices(forChapters: !(book?.chapters.isEmpty ?? true))
+    }
+
+    func choices(forChapters hasChapters: Bool) -> [SleepTimerChoice] {
         let durations = SleepTimerChoice.durations.map(SleepTimerChoice.duration)
-        guard let book, !book.chapters.isEmpty else { return durations }
-        return [.endOfChapter] + durations
+        return hasChapters ? [.endOfChapter] + durations : durations
     }
 
     /// A duration's listening time left; nil when Off or set to the end of the chapter.
