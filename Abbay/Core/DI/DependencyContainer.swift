@@ -31,6 +31,8 @@ protocol DependencyContainerProtocol {
     var readAlong: ReadAlongCenter { get }
     /// The sleep timer (#332): app-wide, so it outlives the player screen.
     var sleepTimer: SleepTimer { get }
+    /// *Back to where you fell asleep* (#332): the spot each book's timer stopped it at.
+    var sleepReturn: SleepReturnCenter { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -73,6 +75,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     let audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
     let readAlong: ReadAlongCenter
     let sleepTimer: SleepTimer
+    let sleepReturn: SleepReturnCenter
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -108,6 +111,18 @@ final class DependencyContainer: DependencyContainerProtocol {
             firstDurationOverride: DebugOverrides.sleepTimerSeconds()
         )
         playback.addObserver(sleepTimer)
+        let sleepTimer = self.sleepTimer
+        // Built on main, like the rest of the container (`configure()` runs from the launch).
+        let sleepReturn = MainActor.assumeIsolated {
+            SleepReturnCenter(
+                settings: settings,
+                timer: sleepTimer,
+                player: player,
+                loadedURL: { playback.state.loadedBook?.url }
+            )
+        }
+        self.sleepReturn = sleepReturn
+        playback.addObserver(sleepReturn)
         self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)
         // Sessions stop themselves when Read-along is turned off, which deletes every transcript.
         // `.shared` is also the store the off switch and book deletion use (a temporary one under
