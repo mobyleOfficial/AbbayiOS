@@ -45,6 +45,13 @@ final class PlayerViewModel {
         presented.chapters = chapters
     }
 
+    /// The presented book's saved position moved while it isn't loaded (*back to where you fell
+    /// asleep*, #332): the screen shows it there, and Play starts there.
+    func presentedPositionChanged(_ seconds: Double, ofBookAt url: URL?) {
+        guard presented.url == url, presented.currentTime != seconds else { return }
+        presented.currentTime = seconds
+    }
+
     /// The presented book was renamed. A loaded book's title comes from `PlaybackState`.
     func presentedTitleChanged(_ title: String, ofBookAt url: URL) {
         guard presented.url == url, presented.title != title else { return }
