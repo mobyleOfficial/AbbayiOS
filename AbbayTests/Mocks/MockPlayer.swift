@@ -132,4 +132,9 @@ final class MockPlayer: PlayerProtocol {
     var bookEndPublisher: AnyPublisher<Void, Never> { bookEndSubject.eraseToAnyPublisher() }
 
     func emitBookEnd() { bookEndSubject.send() }
+
+    private let chapterEndSubject = PassthroughSubject<Void, Never>()
+    var chapterEndPublisher: AnyPublisher<Void, Never> { chapterEndSubject.eraseToAnyPublisher() }
+
+    func emitChapterEnd() { chapterEndSubject.send() }
 }

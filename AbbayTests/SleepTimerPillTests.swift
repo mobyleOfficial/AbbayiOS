@@ -42,7 +42,7 @@ final class SleepTimerPillTests: XCTestCase {
     /// The countdown on the pill: minutes and seconds, hours when there are any.
     func test_countdown() {
         XCTAssertEqual(SleepTimerPill.countdown(754), "12:34")
-        XCTAssertEqual(SleepTimerPill.countdown(3600), "1:00:00")
+        XCTAssertEqual(SleepTimerPill.countdown(3600), "60:00", "minutes only: the longest choice is an hour")
         XCTAssertEqual(SleepTimerPill.countdown(7.4), "0:08", "rounds up, so it never reads 0:00 while running")
     }
 }

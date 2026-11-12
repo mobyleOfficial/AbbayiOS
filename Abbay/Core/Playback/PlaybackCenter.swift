@@ -69,6 +69,11 @@ final class PlaybackCenter {
                 Self.onMain { self?.notify { $0.bookEnded() } }
             }
             .store(in: &cancellables)
+        player.chapterEndPublisher
+            .sink { [weak self] in
+                Self.onMain { self?.notify { $0.chapterEnded() } }
+            }
+            .store(in: &cancellables)
         self.cancellables = cancellables
     }
 

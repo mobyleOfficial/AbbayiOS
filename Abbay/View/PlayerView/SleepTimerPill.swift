@@ -133,9 +133,11 @@ extension SleepTimerPill {
         }
     }
 
-    /// The time left on the pill, rounded up so it never reads 0:00 while running.
+    /// The time left on the pill in minutes and seconds (the longest choice reads *60:00*, as wide
+    /// as *59:59*, so it fits the narrow row), rounded up so it never reads 0:00 while running.
     static func countdown(_ remaining: TimeInterval) -> String {
-        PlayerProgressView.clockText(remaining.rounded(.up))
+        let total = remaining.isFinite ? max(Int(remaining.rounded(.up)), 0) : 0
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     /// *Off*, *When current chapter ends*, *12 minutes left* (whole minutes, rounded up), or *Less

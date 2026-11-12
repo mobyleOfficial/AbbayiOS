@@ -37,6 +37,8 @@ protocol PlaybackEventObserving: AnyObject {
     func playingChanged(_ isPlaying: Bool)
     func timeChanged(bookTime: Double)
     func bookEnded()
+    /// A multi-file book's chapter file ended and the next took over by itself.
+    func chapterEnded()
     func bookUnloaded()
     func chaptersChanged()
 }
@@ -45,6 +47,7 @@ extension PlaybackEventObserving {
     func playingChanged(_ isPlaying: Bool) {}
     func timeChanged(bookTime: Double) {}
     func bookEnded() {}
+    func chapterEnded() {}
     func bookUnloaded() {}
     func chaptersChanged() {}
 }
@@ -174,8 +177,17 @@ final class SleepTimer: PlaybackEventObserving {
         schedule()
     }
 
+    /// The player has already paused at the book's end and saved it as finished (#299): pausing
+    /// again would save over that with a shorter position. The timer just clears.
     func bookEnded() {
         guard choice != nil else { return }
+        stop(pausing: false)
+    }
+
+    /// A LibriVox chapter is a file, and a file can be shorter than its listed chapter: the queue
+    /// moving on by itself is the chapter's real end, fade or no fade.
+    func chapterEnded() {
+        guard choice == .endOfChapter else { return }
         stop()
     }
 
@@ -256,9 +268,9 @@ final class SleepTimer: PlaybackEventObserving {
 
     // MARK: - Ending
 
-    /// Ran out, paused mid-fade, or the book ended: Off, paused, the level back, and the stop
-    /// announced for *back to where you fell asleep*.
-    private func stop() {
+    /// Ran out, paused mid-fade, or the book ended: Off, paused (unless the player already is), the
+    /// level back, and the stop announced for *back to where you fell asleep*.
+    private func stop(pausing: Bool = true) {
         let silent = fade.map { !$0.isOverridden } ?? false
         if silent {
             player.setFadeLevel(0)
@@ -268,7 +280,7 @@ final class SleepTimer: PlaybackEventObserving {
         // Silent until paused: the level comes back only after the pause.
         cancel(restoringLevel: false)
         choice = nil
-        if isPlaying {
+        if pausing, isPlaying {
             player.pause()
         }
         if silent {

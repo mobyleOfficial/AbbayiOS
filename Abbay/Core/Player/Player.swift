@@ -54,6 +54,9 @@ protocol PlayerProtocol {
     func setFadeLevel(_ level: Double)
     /// Fires on main when the loaded book plays to its end (single-file or multi-file).
     var bookEndPublisher: AnyPublisher<Void, Never> { get }
+    /// Fires on main when a multi-file book's chapter file plays to its end and the next one takes
+    /// over by itself: the real chapter boundary, which can come before the listed end (#332).
+    var chapterEndPublisher: AnyPublisher<Void, Never> { get }
     /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
     /// an imported single-file book's chapters can change; anything else is ignored.
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
@@ -81,6 +84,8 @@ extension PlayerProtocol {
     func setFadeLevel(_ level: Double) {}
 
     var bookEndPublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
+
+    var chapterEndPublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
 
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
 
@@ -132,6 +137,7 @@ final class Player: PlayerProtocol {
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let bookEndSubject = PassthroughSubject<Void, Never>()
+    private let chapterEndSubject = PassthroughSubject<Void, Never>()
     /// The sleep timer's fade under Abbay's volume (#332); 1 when not fading.
     private(set) var fadeLevel: Double = 1
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
@@ -159,6 +165,10 @@ final class Player: PlayerProtocol {
 
     var bookEndPublisher: AnyPublisher<Void, Never> {
         bookEndSubject.eraseToAnyPublisher()
+    }
+
+    var chapterEndPublisher: AnyPublisher<Void, Never> {
+        chapterEndSubject.eraseToAnyPublisher()
     }
 
     /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
@@ -417,6 +427,7 @@ final class Player: PlayerProtocol {
                     self?.pause()
                     self?.bookDidEnd()
                 },
+                onChapterEnd: { [weak self] in self?.chapterEndSubject.send() },
                 onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) },
                 prepareItem: { [boost] in boost.attach(to: $0) }
             )

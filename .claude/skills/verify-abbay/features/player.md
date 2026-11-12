@@ -87,8 +87,8 @@ LibriVox page's Play all open it.
 - **sleep-timer:** (#332) a moon pill right of the volume (`player.sleepTimer`, `SleepTimerPill`,
   label *Sleep timer* / *Timer para dormir*), where Apple Books keeps its timer. Off: an outlined
   `moon`, white, icon only. Set to the chapter's end: a filled moon, green. Counting down: a filled
-  moon and the time left (`12:34`, `1:00:00`; rounded up, so never *0:00*), green, ticking once a
-  second. VoiceOver value *Off* / *Desativado*, *When current chapter ends* / *Quando o capítulo
+  moon and the time left in minutes and seconds (`12:34`; the hour reads `60:00`, as wide as
+  `59:59`, so it fits an SE's row; rounded up, so never *0:00*), green, ticking once a second. VoiceOver value *Off* / *Desativado*, *When current chapter ends* / *Quando o capítulo
   atual terminar*, *12 minutes left* / *12 minutos restantes* (whole minutes, rounded up), *Less
   than a minute left* / *Menos de um minuto restante*. A tap opens the choices in a glass
   **popover** (not a `Menu`: on iOS 27 a menu over the Text and Chapters pills lost its taps to their
@@ -105,8 +105,11 @@ LibriVox page's Play all open it.
   change during the fade ends the fade and the pause still comes. *When current chapter ends*
   aims at the end of the chapter playing (the book's end with no chapters), in book time over the
   speed, re-aimed on every tick (a seek, a chapter tap, a speed change, found chapters) until the
-  fade begins, then fixed, so a LibriVox file ending a moment early can't push the pause into the
-  next chapter. The book ending while a timer is set clears it too. Deleting the playing book turns
+  fade begins, then fixed. A LibriVox chapter is a file, and a file can be shorter than its listed
+  chapter: when the queue moves on to the next file by itself (`MultiFileQueue` → `Player.chapterEndPublisher`),
+  that is the chapter's end, and the timer pauses there, fade or no fade. The book ending while a
+  timer is set clears it without pausing again (the player already paused and saved the book as
+  finished, #299). Deleting the playing book turns
   it off. `-sleepTimerSeconds 8` makes *5 minutes* last 8 s. Not in the mini player, Now Playing,
   CarPlay or Siri. Next: *back to where you fell asleep* (#332 part 2).
 - **loaded vs other book:**
