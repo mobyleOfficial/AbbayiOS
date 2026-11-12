@@ -4190,6 +4190,42 @@
           }
         }
       }
+    },
+    "sleepReturnBack" : {
+      "comment" : "Player: the prompt after the sleep timer paused the book (#332): a button that goes back to where the listener was last awake; the time it goes back to follows it",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to where you fell asleep"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar para onde você adormeceu"
+          }
+        }
+      }
+    },
+    "sleepReturnDismiss" : {
+      "comment" : "Player: VoiceOver label of the ✕ that closes the 'Back to where you fell asleep' prompt and forgets the spot (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -66,6 +66,9 @@ struct PlayerView: View {
     /// Optional for the same reason: there is no moon pill then (#332).
     @Environment(SleepTimer.self)
     private var sleepTimer: SleepTimer?
+    /// *Back to where you fell asleep* (#332); optional for the same reason.
+    @Environment(SleepReturnCenter.self)
+    private var sleepReturn: SleepReturnCenter?
     /// The read-along session, here rather than in the square, which is rebuilt on each flip and
     /// rotation. One per screen, and the overlay builds one screen per presented book.
     @State
@@ -241,6 +244,8 @@ struct PlayerView: View {
     /// "Resumed at 3:20 · Start over" over the bottom of the cover, after a chapter tap resumed
     /// partway in: for this screen's book only, never under the open panel, gone after
     /// `ResumePrompt.duration` or a tap on *Start over*. Nothing else on the screen moves.
+    /// While no resume prompt shows, the same place offers *back to where you fell asleep* (#332)
+    /// for a book the sleep timer stopped: it stays until used or dismissed.
     private var resumePromptOverlay: some View {
         VStack {
             if let prompt = presentation.resumePrompt, prompt.bookURL == model.book.url, !showsPanel {
@@ -254,9 +259,12 @@ struct PlayerView: View {
                     try? await Task.sleep(for: ResumePrompt.duration)
                     presentation.dismissResumePrompt(prompt.id)
                 }
+            } else {
+                sleepReturnPrompt
             }
         }
         .animation(.easeInOut(duration: 0.25), value: presentation.resumePrompt?.id)
+        .animation(.easeInOut(duration: 0.25), value: sleepReturn?.spot(for: model.book.url))
     }
 
     // MARK: - Read-along (#192)
@@ -818,5 +826,29 @@ struct PlayerView_Previews: PreviewProvider {
         .environment(PlaybackClock())
         .environment(AppSettings(store: InMemoryKeyValueStore()))
         .environment(PlayerPresentation())
+    }
+}
+
+// MARK: - Back to where you fell asleep (#332)
+extension PlayerView {
+    /// After the sleep timer stopped this book: go back to where the listener was last awake
+    /// (without playing), or dismiss. A book that isn't loaded has its saved position moved, and the
+    /// screen shows it there.
+    @ViewBuilder
+    var sleepReturnPrompt: some View {
+        if let sleepReturn, let spot = sleepReturn.spot(for: model.book.url), !showsPanel {
+            SleepReturnPromptView(spot: spot) {
+                let url = model.book.url
+                let wasLoaded = model.isLoaded
+                if let target = sleepReturn.goBack(for: url), !wasLoaded {
+                    model.presentedPositionChanged(target, ofBookAt: url)
+                }
+            } onDismiss: {
+                sleepReturn.dismiss(for: model.book.url)
+            }
+            .padding(.horizontal, SpaceConstants.sx12.value)
+            .padding(.bottom, SpaceConstants.sx12.value)
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+        }
     }
 }
