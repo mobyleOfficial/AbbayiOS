@@ -115,9 +115,21 @@ final class SleepReturnCenterTests: XCTestCase {
         XCTAssertNotNil(spot, "the spot belongs to its book")
     }
 
+    /// A scrub or skip while paused isn't listening: the spec keeps the spot until playback starts.
+    func test_pausedJumpPastTheLimit_keeps() throws {
+        try fallAsleep()
+        let center = try XCTUnwrap(center)
+
+        center.timeChanged(bookTime: 4200 + SleepReturnCenter.listeningLimit + 60)
+
+        XCTAssertNotNil(spot)
+    }
+
     func test_listeningLimit_clears() throws {
         try fallAsleep()
         let center = try XCTUnwrap(center)
+        player.currentTime = 4200
+        center.playingChanged(true)
 
         center.timeChanged(bookTime: 4200 + SleepReturnCenter.listeningLimit - 1)
         XCTAssertNotNil(spot)

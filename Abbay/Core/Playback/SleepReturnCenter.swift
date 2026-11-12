@@ -31,8 +31,12 @@ final class SleepReturnCenter: PlaybackEventObserving {
     @ObservationIgnored private let savePosition: SavePlaybackPositionUseCaseProtocol
     @ObservationIgnored private let loadedURL: @MainActor () -> URL?
     @ObservationIgnored private var cancellable: AnyCancellable?
+    /// Only listening counts towards `listeningLimit`: a scrub or skip while paused doesn't.
+    @ObservationIgnored private var isPlaying = false
 
-    init(
+    /// `nonisolated`, like `PlaybackCenter`'s, so the dependency container (and the tests' container,
+    /// sometimes built off the main thread) can build it. Timer events are moved onto main.
+    nonisolated init(
         settings: AppSettings,
         timer: SleepTimer,
         player: PlayerProtocol,
@@ -45,7 +49,7 @@ final class SleepReturnCenter: PlaybackEventObserving {
         self.savePosition = savePosition
         self.loadedURL = loadedURL
         cancellable = timer.events.sink { [weak self] event in
-            MainActor.assumeIsolated { self?.receive(event) }
+            Self.onMain { self?.receive(event) }
         }
     }
 
@@ -89,9 +93,19 @@ final class SleepReturnCenter: PlaybackEventObserving {
         }
     }
 
+    /// Synchronously on main (the timer sends there); hops there otherwise.
+    private nonisolated static func onMain(_ work: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated(work)
+        } else {
+            DispatchQueue.main.async { MainActor.assumeIsolated(work) }
+        }
+    }
+
     // MARK: - PlaybackEventObserving
 
     func playingChanged(_ isPlaying: Bool) {
+        self.isPlaying = isPlaying
         guard isPlaying, let url = loadedURL(), let spot = spot(for: url) else { return }
         if abs(player.currentTime - spot.stoppedAt) > Self.restartDistance {
             settings.setSleepReturnSpot(nil, for: url)
@@ -99,7 +113,7 @@ final class SleepReturnCenter: PlaybackEventObserving {
     }
 
     func timeChanged(bookTime: Double) {
-        guard let url = loadedURL(), let spot = spot(for: url) else { return }
+        guard isPlaying, let url = loadedURL(), let spot = spot(for: url) else { return }
         if bookTime >= spot.stoppedAt + Self.listeningLimit {
             settings.setSleepReturnSpot(nil, for: url)
         }
