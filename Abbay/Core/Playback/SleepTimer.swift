@@ -18,10 +18,12 @@ enum SleepTimerChoice: Hashable {
     static let durations: [TimeInterval] = [300, 600, 900, 1800, 2700, 3600]
 }
 
-/// The timer stopped a book: which, and at what book time.
+/// The timer stopped a book: which, at what book time, and where the listener was last certainly
+/// awake (their last deliberate action under the timer), for *back to where you fell asleep*.
 struct SleepTimerStop: Equatable {
     let bookURL: URL
     let stoppedAt: Double
+    let lastAwakeAt: Double
 }
 
 enum SleepTimerEvent: Equatable {
@@ -39,6 +41,9 @@ protocol PlaybackEventObserving: AnyObject {
     func bookEnded()
     /// A multi-file book's chapter file ended and the next took over by itself.
     func chapterEnded()
+    /// The listener moved playback on purpose (play, a seek, a skip, a chapter tap); `bookTime` is
+    /// where it stands after the move.
+    func listenerMoved(bookTime: Double)
     func bookUnloaded()
     func chaptersChanged()
 }
@@ -48,6 +53,7 @@ extension PlaybackEventObserving {
     func timeChanged(bookTime: Double) {}
     func bookEnded() {}
     func chapterEnded() {}
+    func listenerMoved(bookTime: Double) {}
     func bookUnloaded() {}
     func chaptersChanged() {}
 }
@@ -77,6 +83,8 @@ final class SleepTimer: PlaybackEventObserving {
     private var banked: TimeInterval = 0
     /// When playing last started under a duration; nil while paused.
     private var countedSince: TimeInterval?
+    /// Book time of the listener's last deliberate action while the timer runs (#332 part 2).
+    @ObservationIgnored private var lastAwakeAt: Double = 0
     @ObservationIgnored private var fade: Fade?
     @ObservationIgnored private var fadeStart: AnyCancellable?
 
@@ -134,6 +142,9 @@ final class SleepTimer: PlaybackEventObserving {
     func set(_ choice: SleepTimerChoice?) {
         cancel()
         self.choice = choice
+        if choice != nil {
+            lastAwakeAt = player.currentTime
+        }
         if case let .duration(seconds) = choice {
             banked = seconds == SleepTimerChoice.durations.first ? firstDurationOverride ?? seconds : seconds
             countedSince = isPlaying ? scheduler.now : nil
@@ -182,6 +193,13 @@ final class SleepTimer: PlaybackEventObserving {
     func bookEnded() {
         guard choice != nil else { return }
         stop(pausing: false)
+    }
+
+    /// Setting the timer, pressing Play, a skip, a scrub or a chapter tap: the listener was awake
+    /// here. A chapter playing into the next doesn't count (it isn't a move).
+    func listenerMoved(bookTime: Double) {
+        guard choice != nil else { return }
+        lastAwakeAt = bookTime
     }
 
     /// A LibriVox chapter is a file, and a file can be shorter than its listed chapter: the queue
@@ -287,7 +305,7 @@ final class SleepTimer: PlaybackEventObserving {
             player.setFadeLevel(1)
         }
         if let bookURL {
-            subject.send(.stopped(SleepTimerStop(bookURL: bookURL, stoppedAt: stoppedAt)))
+            subject.send(.stopped(SleepTimerStop(bookURL: bookURL, stoppedAt: stoppedAt, lastAwakeAt: lastAwakeAt)))
         }
     }
 

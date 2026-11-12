@@ -53,6 +53,10 @@ protocol PlayerProtocol {
     /// Fires on main when a multi-file book's chapter file plays to its end and the next one takes
     /// over by itself: the real chapter boundary, which can come before the listed end (#332).
     var chapterEndPublisher: AnyPublisher<Void, Never> { get }
+    /// Fires on main after the listener moved playback on purpose: `play`, and every `seek` (skips,
+    /// scrubs, chapter taps, from the app, the lock screen, CarPlay or Siri). A chapter playing into
+    /// the next isn't one. The sleep timer's *where you were last awake* (#332).
+    var listenerMovePublisher: AnyPublisher<Void, Never> { get }
     /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
     /// an imported single-file book's chapters can change; anything else is ignored.
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
@@ -82,6 +86,8 @@ extension PlayerProtocol {
     var bookEndPublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
 
     var chapterEndPublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
+
+    var listenerMovePublisher: AnyPublisher<Void, Never> { Empty().eraseToAnyPublisher() }
 
     func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
 
