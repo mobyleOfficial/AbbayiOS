@@ -10,71 +10,6 @@ import Combine
 import os
 import UIKit
 
-protocol PlayerProtocol {
-    var url: URL? { get }
-    var currentTime: Double { get }
-    var currentTimePublisher: AnyPublisher<CMTime, Never> { get }
-    var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> { get }
-    /// Whether the player is playing (or buffering towards it), on the main queue, without
-    /// duplicates. See `Player.isPlaying(status:reason:)`.
-    /// Unlike the time publisher it also fires on a pause, which stops the ticks.
-    var isPlayingPublisher: AnyPublisher<Bool, Never> { get }
-
-    func play(_ model: inout AudioModel)
-    func pause()
-    func forward(withSeconds seconds: Double)
-    func backward(withSeconds seconds: Double)
-    /// Whether `url` is loaded and playing, by the same rule as `isPlayingPublisher`.
-    func isPlaying(_ url: URL?) -> Bool
-    func seek(_ seconds: Double)
-    func cleanup()
-    /// Stops and forgets the loaded book (it was deleted), so `url` becomes nil. Unlike `cleanup`,
-    /// which runs at termination, the player stays usable: the next `play` loads normally.
-    func unload()
-    func skipToNextChapter()
-    func skipToPreviousChapter()
-    /// Plays a chapter of the loaded book from where it was left (#299); the chapter already
-    /// playing just keeps playing.
-    @discardableResult
-    func playChapter(at index: Int) -> Bool
-    /// Where `playChapter(at:)` would start chapter `index` of `book`, for loading a book there.
-    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double
-    /// The loaded book's speed; normal speed when nothing is loaded.
-    var playbackRate: Double { get }
-    /// Sets the loaded book's speed, saves it for that book, and applies it at once when playing.
-    /// It holds across pause and resume, seeks and chapter files.
-    func setPlaybackRate(_ rate: Double)
-    /// Abbay's own volume, 0–1, under the system volume. One level for every book.
-    var volume: Double { get }
-    /// Sets and saves Abbay's volume, applied at once whether playing or not.
-    func setVolume(_ volume: Double)
-    /// The loaded book got new chapters (or lost them): found in its audio, or removed again. Only
-    /// an imported single-file book's chapters can change; anything else is ignored.
-    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL)
-    /// The loaded book was renamed (#322): Now Playing and Siri's donations use the new title.
-    func replaceTitle(_ title: String, ofBookAt url: URL)
-}
-
-/// For players with no speed or volume control, or saved chapter positions (test doubles that
-/// predate them).
-extension PlayerProtocol {
-    func resumeTime(ofChapter index: Int, in book: AudioModel) -> Double {
-        book.chapters.indices.contains(index) ? book.chapters[index].resumeTime : 0
-    }
-
-    var playbackRate: Double { PlaybackSpeed.normal }
-
-    func setPlaybackRate(_ rate: Double) {}
-
-    var volume: Double { BookVolume.full }
-
-    func setVolume(_ volume: Double) {}
-
-    func replaceChapters(_ chapters: [ChapterModel], ofBookAt url: URL) {}
-
-    func replaceTitle(_ title: String, ofBookAt url: URL) {}
-}
-
 final class Player: PlayerProtocol {
     // MARK: - Properties
     // A queue player for every book: single-file books only ever hold one item, multi-file
@@ -119,6 +54,10 @@ final class Player: PlayerProtocol {
     private var cancellables = Set<AnyCancellable>()
     private var hasSecurityAccess = false
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
+    private let bookEndSubject = PassthroughSubject<Void, Never>()
+    private let chapterEndSubject = PassthroughSubject<Void, Never>()
+    /// The sleep timer's fade under Abbay's volume (#332); 1 when not fading.
+    private(set) var fadeLevel: Double = 1
     private let playUrlSubject = PassthroughSubject<AudioModel, Never>()
     private var timeObserverToken: Any?
     /// A single-file book's seek target, until that seek completes (#151). While a book plays,
@@ -140,6 +79,14 @@ final class Player: PlayerProtocol {
 
     var playUrlSubjectPublisher: AnyPublisher<AudioModel, Never> {
         playUrlSubject.eraseToAnyPublisher()
+    }
+
+    var bookEndPublisher: AnyPublisher<Void, Never> {
+        bookEndSubject.eraseToAnyPublisher()
+    }
+
+    var chapterEndPublisher: AnyPublisher<Void, Never> {
+        chapterEndSubject.eraseToAnyPublisher()
     }
 
     /// KVO on `timeControlStatus` and `reasonForWaitingToPlay`, so a pause from anywhere (lock
@@ -398,6 +345,7 @@ final class Player: PlayerProtocol {
                     self?.pause()
                     self?.bookDidEnd()
                 },
+                onChapterEnd: { [weak self] in self?.chapterEndSubject.send() },
                 onItemFailed: { [weak self] isStreaming in self?.chapterFailed(isStreaming: isStreaming) },
                 prepareItem: { [boost] in boost.attach(to: $0) }
             )
@@ -532,6 +480,7 @@ extension Player {
     /// before the end (a LibriVox file can also be shorter than its listed duration): it is saved
     /// at its full length here, so a tap on it starts it over. Internal for tests.
     func bookDidEnd() {
+        defer { bookEndSubject.send() }
         guard let model, let last = model.chapters.indices.last else {
             saveTime()
             return
@@ -715,13 +664,22 @@ extension Player {
     func setVolume(_ volume: Double) {
         let level = BookVolume.snap(volume)
         volumes.volume = level
+        // The listener's change is heard at once, even mid-fade; the sleep timer sees the level
+        // it set is gone and stops ramping.
+        fadeLevel = 1
         apply(volume: level)
     }
 
+    /// The sleep timer's fade (#332): scales what is heard, never what is saved.
+    func setFadeLevel(_ level: Double) {
+        fadeLevel = min(max(level, 0), 1)
+        apply(volume: volumes.volume)
+    }
+
     /// Up to 100% the queue player's `volume`; past it the player stays at full and the boost
-    /// carries the rest.
+    /// carries the rest. The fade scales the queue player's gain, so the whole level follows it.
     private func apply(volume: Double) {
-        player.volume = Float(BookVolume.playerVolume(volume))
+        player.volume = Float(BookVolume.playerVolume(volume) * fadeLevel)
         boost.gain = BookVolume.boostGain(volume)
     }
 }

@@ -206,4 +206,64 @@ final class PlaybackCenterTests: XCTestCase {
 
         XCTAssertEqual(center.clock.bookTime, 0.5)
     }
+
+    // MARK: - Observers (#332)
+
+    /// The sleep timer hears playback through the center: playing, ticks, the end, an unload and
+    /// replaced chapters, each once, on main.
+    func test_observer_receivesPlayingTicksEndAndUnload() throws {
+        let player = MockPlayer()
+        let center = PlaybackCenter(player: player)
+        let observer = RecordingPlaybackObserver()
+        center.addObserver(observer)
+        let book = ViewModelSupport.chaptered()
+
+        player.emitPlayUrl(book)
+        player.emitPlaying(true)
+        player.emitTime(42)
+        player.emitBookEnd()
+        player.emitChapterEnd()
+        center.replaceChapters(book.chapters, ofBookAt: try XCTUnwrap(book.url))
+        center.unload()
+
+        XCTAssertEqual(observer.playing, [true, false])
+        XCTAssertTrue(observer.times.contains(42))
+        XCTAssertEqual(observer.ends, 1)
+        XCTAssertEqual(observer.chapterEnds, 1)
+        XCTAssertEqual(observer.chapterChanges, 1)
+        XCTAssertEqual(observer.unloads, 1)
+    }
+
+    func test_observer_isHeldWeakly() {
+        let player = MockPlayer()
+        let center = PlaybackCenter(player: player)
+        weak var released: RecordingPlaybackObserver?
+        do {
+            let observer = RecordingPlaybackObserver()
+            center.addObserver(observer)
+            released = observer
+        }
+
+        player.emitPlaying(true)
+
+        XCTAssertNil(released)
+    }
+
+}
+
+@MainActor
+private final class RecordingPlaybackObserver: PlaybackEventObserving {
+    var playing: [Bool] = []
+    var times: [Double] = []
+    var ends = 0
+    var unloads = 0
+    var chapterChanges = 0
+    var chapterEnds = 0
+
+    func playingChanged(_ isPlaying: Bool) { playing.append(isPlaying) }
+    func timeChanged(bookTime: Double) { times.append(bookTime) }
+    func bookEnded() { ends += 1 }
+    func bookUnloaded() { unloads += 1 }
+    func chaptersChanged() { chapterChanges += 1 }
+    func chapterEnded() { chapterEnds += 1 }
 }

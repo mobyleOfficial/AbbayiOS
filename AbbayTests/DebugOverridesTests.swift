@@ -112,10 +112,26 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 27, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 28, "a new launch argument belongs in `all`")
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.sleepTimerSeconds))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubChapterHeadings))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.readAlongControlsHideAfter))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubReadAlongEngine))
+    }
+
+    // MARK: - Sleep timer (#332)
+
+    func test_sleepTimerSeconds_parsesTheNumber() {
+        let arguments = ["/path/to/Abbay", LaunchArgument.sleepTimerSeconds, "8"]
+
+        XCTAssertEqual(DebugOverrides.sleepTimerSeconds(arguments: arguments), 8)
+    }
+
+    func test_sleepTimerSeconds_nilWithoutANumber() {
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: ["/path/to/Abbay"]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds, "soon"]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds, "0"]))
     }
 
     // MARK: - Stub download states and network path (#171)

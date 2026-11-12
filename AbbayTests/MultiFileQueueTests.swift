@@ -28,8 +28,13 @@ final class MultiFileQueueTests: XCTestCase {
         try super.tearDownWithError()
     }
 
+    private var chapterEnds = 0
+    private var bookEnds = 0
+
     private func makeQueue() -> MultiFileQueue {
-        MultiFileQueue(
+        chapterEnds = 0
+        bookEnds = 0
+        return MultiFileQueue(
             player: player,
             chapters: (0..<3).map { index in
                 ChapterModel(
@@ -42,7 +47,8 @@ final class MultiFileQueueTests: XCTestCase {
             bookID: "1",
             downloadsRoot: root,
             prioritizer: NoopChapterPrioritizer(),
-            onBookEnd: {}
+            onBookEnd: { [unowned self] in bookEnds += 1 },
+            onChapterEnd: { [unowned self] in chapterEnds += 1 }
         )
     }
 
@@ -126,4 +132,36 @@ final class MultiFileQueueTests: XCTestCase {
         XCTAssertEqual(queue.pendingBookTime, 170)
         XCTAssertEqual(queue.bookTime, 170)
     }
+
+    // MARK: - A file playing to its end (#332)
+
+    /// A chapter's file ending hands over to the next one on its own: the sleep timer's *end of
+    /// chapter* hears it there, wherever the chapter's listed end was.
+    func test_itemEnd_beforeTheLastChapter_reportsAChapterEnd() throws {
+        let queue = makeQueue()
+        queue.seek(toBookTime: 150)
+        queue.finishSeek(generation: queue.seekGeneration, finished: true)
+        let item = try XCTUnwrap(player.currentItem)
+
+        NotificationCenter.default.post(name: .AVPlayerItemDidPlayToEndTime, object: item)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(chapterEnds, 1)
+        XCTAssertEqual(bookEnds, 0)
+        XCTAssertEqual(queue.currentIndex, 2)
+    }
+
+    func test_itemEnd_ofTheLastChapter_isTheBookEnd_notAChapterEnd() throws {
+        let queue = makeQueue()
+        queue.seek(toBookTime: 250)
+        queue.finishSeek(generation: queue.seekGeneration, finished: true)
+        let item = try XCTUnwrap(player.currentItem)
+
+        NotificationCenter.default.post(name: .AVPlayerItemDidPlayToEndTime, object: item)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(chapterEnds, 0)
+        XCTAssertEqual(bookEnds, 1)
+    }
+
 }

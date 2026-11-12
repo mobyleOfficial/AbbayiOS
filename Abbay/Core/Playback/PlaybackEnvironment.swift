@@ -36,6 +36,7 @@ extension View {
         environment(container.playback.state)
             .environment(container.playback.clock)
             .environment(container.readAlong)
+            .environment(container.sleepTimer)
             .environment(\.playbackCenter, container.playback)
             .environment(\.downloadStateStore, container.downloadStates)
     }
