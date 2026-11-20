@@ -181,4 +181,56 @@ final class SleepTimerUITests: XCTestCase {
         )
     }
 
+
+    // MARK: - Back to where you fell asleep (#332 part 2)
+
+    private var returnPrompt: XCUIElement { element(AccessibilityID.Player.sleepReturnGo) }
+
+    /// `-seedSleepReturn`: *Seeded Chaptered Book* (at 0:00) was stopped by a timer at 2:30, and the
+    /// listener was last awake at 1:00.
+    func test_sleepReturn_seededSpot_showsAndGoesBack() throws {
+        launch([LaunchArgument.seedSleepReturn])
+        try openPlayer("Seeded Chaptered Book")
+        XCTAssertTrue(returnPrompt.waitForExistence(timeout: 5), "no prompt for the seeded spot")
+        XCTAssertTrue(returnPrompt.label.contains("Back to where you fell asleep"), returnPrompt.label)
+        XCTAssertTrue(returnPrompt.label.contains("1:00"), returnPrompt.label)
+        XCTAssertTrue(app.staticTexts["0:00"].exists)
+
+        returnPrompt.tap()
+
+        XCTAssertTrue(app.staticTexts["1:00"].waitForExistence(timeout: 5), "the book didn't go back to 1:00")
+        XCTAssertFalse(returnPrompt.exists, "the prompt stayed")
+        XCTAssertEqual(playButton.label, "Play", "going back doesn't start playback")
+    }
+
+    func test_sleepReturn_dismiss() throws {
+        launch([LaunchArgument.seedSleepReturn])
+        try openPlayer("Seeded Chaptered Book")
+        XCTAssertTrue(returnPrompt.waitForExistence(timeout: 5))
+
+        element(AccessibilityID.Player.sleepReturnDismiss).tap()
+
+        XCTAssertTrue(wait(for: returnPrompt, "exists == %@", "0", timeout: 5) || !returnPrompt.exists)
+        XCTAssertFalse(returnPrompt.exists)
+        XCTAssertTrue(app.staticTexts["0:00"].exists, "dismissing doesn't move the book")
+    }
+
+    func test_sleepReturn_afterATimerPause() throws {
+        launch()
+        try openPlayer("Seeded Chaptered Book")
+        playButton.tap()
+        XCTAssertTrue(wait(for: playButton, "label == %@", "Pause", timeout: 10), "not playing")
+        choose("5 minutes")
+        XCTAssertTrue(wait(for: playButton, "label == %@", "Play", timeout: 20), "the timer didn't pause the book")
+
+        XCTAssertTrue(returnPrompt.waitForExistence(timeout: 5), "no prompt after the timer paused the book")
+        XCTAssertTrue(returnPrompt.label.contains("0:0"), "back to about where the timer was set: \(returnPrompt.label)")
+
+        returnPrompt.tap()
+
+        XCTAssertTrue(wait(for: returnPrompt, "exists == false", "", timeout: 5) || !returnPrompt.exists)
+        XCTAssertFalse(returnPrompt.exists, "the prompt stayed after going back")
+        XCTAssertEqual(playButton.label, "Play", "going back doesn't start playback")
+    }
+
 }

@@ -16,6 +16,20 @@ enum DebugOverrides {
     static func runLaunchSeeding(arguments: [String] = ProcessInfo.processInfo.arguments) {
         #if DEBUG
         UITestSeeder.run(arguments: arguments)
+        if DependencyContainer.isConfigured {
+            seedSleepReturn(arguments: arguments, settings: DependencyContainer.shared.settings)
+        }
+        #endif
+    }
+
+    /// `-seedSleepReturn` (#332): *Seeded Chaptered Book* was stopped by the sleep timer at 2:30, the
+    /// listener last awake at 1:00. After the library is seeded: re-seeding deletes the books, and a
+    /// deleted book's spot goes with it.
+    static func seedSleepReturn(arguments: [String], settings: AppSettings) {
+        #if DEBUG
+        guard arguments.contains(LaunchArgument.seedSleepReturn) else { return }
+        let url = UITestSeeder.liveAudio()("chaptered.m4b")
+        settings.setSleepReturnSpot(SleepReturnSpot(returnTo: 60, stoppedAt: 150), for: url)
         #endif
     }
 

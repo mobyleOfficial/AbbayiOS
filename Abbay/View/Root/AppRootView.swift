@@ -143,6 +143,7 @@ private final class RootModels: ObservableObject {
 
     private var chapterChanges: AnyCancellable?
     private var titleChanges: AnyCancellable?
+    private var positionSaves: AnyCancellable?
 
     init(playback: PlaybackCenter) {
         let presentation = PlayerPresentation(playback: playback.state)
@@ -162,6 +163,14 @@ private final class RootModels: ObservableObject {
                     presentation.chaptersChanged(chapters, ofBookAt: url)
                     details.chaptersChanged(chapters, ofBookAt: url)
                 }
+            }
+        // A position saved for a book that isn't loaded (#332, *back to where you fell asleep*):
+        // its row re-reads it. Posted on the saving thread.
+        positionSaves = NotificationCenter.default.publisher(for: .playbackPositionDidSave)
+            .compactMap { $0.userInfo?[PlaybackPositionSave.urlKey] as? URL }
+            .receive(on: DispatchQueue.main)
+            .sink { url in
+                MainActor.assumeIsolated { library.positionSaved(ofBookAt: url) }
             }
         // A book renamed (#322): the same holders take its new title.
         titleChanges = NotificationCenter.default.publisher(for: .bookTitleDidChange)

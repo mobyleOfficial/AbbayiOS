@@ -101,4 +101,29 @@ final class PlayerFadeTests: XCTestCase {
 
         XCTAssertEqual(ends, 1)
     }
+
+    // MARK: - The listener's moves (#332 part 2)
+
+    /// Every skip, scrub and chapter tap goes through `seek`: each is the listener, awake.
+    func test_seek_publishesAListenerMove() throws {
+        let player = try makePlayer()
+        var moves = 0
+        player.listenerMovePublisher.sink { moves += 1 }.store(in: &cancellables)
+
+        player.seek(42)
+
+        XCTAssertEqual(moves, 1)
+    }
+
+    func test_play_publishesAListenerMove() throws {
+        let player = try makePlayer()
+        var moves = 0
+        player.listenerMovePublisher.sink { moves += 1 }.store(in: &cancellables)
+        var book = AudioModel(title: "Moves", duration: 600, url: URL(string: "file:///moves.m4b"))
+
+        player.play(&book)
+
+        XCTAssertGreaterThanOrEqual(moves, 1)
+    }
+
 }
