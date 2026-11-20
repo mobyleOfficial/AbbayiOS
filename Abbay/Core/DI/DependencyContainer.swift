@@ -29,6 +29,8 @@ protocol DependencyContainerProtocol {
     var audioSessionActivator: AudioSessionActivatorProtocol { get }
     /// Read-along's engine, store and settings (#192); unavailable below iOS 26.
     var readAlong: ReadAlongCenter { get }
+    /// The sleep timer (#332): app-wide, so it outlives the player screen.
+    var sleepTimer: SleepTimer { get }
 }
 
 final class DependencyContainer: DependencyContainerProtocol {
@@ -70,6 +72,7 @@ final class DependencyContainer: DependencyContainerProtocol {
     let diagnostics: SiriDiagnostics = .shared
     let audioSessionActivator: AudioSessionActivatorProtocol = AudioSessionActivator()
     let readAlong: ReadAlongCenter
+    let sleepTimer: SleepTimer
 
     private init() {
         // `shared`, not a new instance: `configure()` can run more than once per process, and a
@@ -97,7 +100,14 @@ final class DependencyContainer: DependencyContainerProtocol {
         self.player = player
         self.loadAudio = loadAudio
         // Built here, on main: `configure()` runs from the AppDelegate's launch.
-        self.playback = PlaybackCenter(player: player, loadAudio: loadAudio)
+        let playback = PlaybackCenter(player: player, loadAudio: loadAudio)
+        self.playback = playback
+        self.sleepTimer = SleepTimer(
+            player: player,
+            loadedBook: { playback.state.loadedBook },
+            firstDurationOverride: DebugOverrides.sleepTimerSeconds()
+        )
+        playback.addObserver(sleepTimer)
         self.downloadStates = DownloadStateStore(downloads: downloads, path: NetworkPathMonitor.app)
         // Sessions stop themselves when Read-along is turned off, which deletes every transcript.
         // `.shared` is also the store the off switch and book deletion use (a temporary one under

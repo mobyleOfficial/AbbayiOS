@@ -22,6 +22,9 @@ final class MultiFileQueue {
     private let downloadsRoot: URL
     private let prioritizer: ChapterPrioritizing
     private let onBookEnd: () -> Void
+    /// A chapter's file played to its end and the queue moved on to the next one by itself: the
+    /// real chapter boundary, which can come before the chapter's listed end (#332).
+    private let onChapterEnd: () -> Void
     /// The chapter being played failed to load or play; `isStreaming` when it isn't downloaded.
     /// On main. A queued chapter failing ahead of time is reported only once it becomes current.
     private let onItemFailed: (_ isStreaming: Bool) -> Void
@@ -74,6 +77,7 @@ final class MultiFileQueue {
         downloadsRoot: URL,
         prioritizer: ChapterPrioritizing,
         onBookEnd: @escaping () -> Void,
+        onChapterEnd: @escaping () -> Void = {},
         onItemFailed: @escaping (_ isStreaming: Bool) -> Void = { _ in },
         prepareItem: @escaping (AVPlayerItem) -> Void = { _ in }
     ) {
@@ -84,6 +88,7 @@ final class MultiFileQueue {
         self.downloadsRoot = downloadsRoot
         self.prioritizer = prioritizer
         self.onBookEnd = onBookEnd
+        self.onChapterEnd = onChapterEnd
         self.onItemFailed = onItemFailed
         self.prepareItem = prepareItem
 
@@ -237,6 +242,7 @@ final class MultiFileQueue {
         enqueue(chapterIndex: next + 1, after: nextItem)
         updateActionAtItemEnd()
         prioritizer.prioritize(chapterIndex: next, ofBookID: bookID)
+        onChapterEnd()
         // It failed while queued, when it wasn't the listener's problem yet; now it is.
         if nextItem.status == .failed {
             reportFailure(of: nextItem, chapterIndex: next)

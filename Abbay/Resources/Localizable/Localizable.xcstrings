@@ -4004,6 +4004,192 @@
           }
         }
       }
+    },
+    "sleepTimer" : {
+      "comment" : "Player: the sleep timer's pill (VoiceOver label) and its menu's title (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep timer"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer para dormir"
+          }
+        }
+      }
+    },
+    "sleepTimerOff" : {
+      "comment" : "Player: the sleep timer menu's choice that turns it off, and VoiceOver's value while it is off (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desativado"
+          }
+        }
+      }
+    },
+    "sleepTimerEndOfChapter" : {
+      "comment" : "Player: the sleep timer menu's choice that pauses at the end of the chapter playing, and VoiceOver's value while it is set (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When current chapter ends"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quando o capítulo atual terminar"
+          }
+        }
+      }
+    },
+    "sleepTimerMinutes" : {
+      "comment" : "Player: a sleep timer menu choice, a number of minutes, e.g. 5 minutes (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minute"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutes"
+                }
+              }
+            }
+          }
+        },
+        "pt-BR" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minuto"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutos"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sleepTimerOneHour" : {
+      "comment" : "Player: the sleep timer menu's longest choice (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 hour"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 hora"
+          }
+        }
+      }
+    },
+    "sleepTimerMinutesLeft" : {
+      "comment" : "Player: VoiceOver's value for the sleep timer pill while it counts down, in whole minutes rounded up, e.g. 12 minutes left (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minute left"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutes left"
+                }
+              }
+            }
+          }
+        },
+        "pt-BR" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minuto restante"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutos restantes"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d minutos restantes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sleepTimerUnderAMinute" : {
+      "comment" : "Player: VoiceOver's value for the sleep timer pill in its last minute (#332)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Less than a minute left"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menos de um minuto restante"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

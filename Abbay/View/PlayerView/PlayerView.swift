@@ -63,6 +63,9 @@ struct PlayerView: View {
     /// Optional so previews and tests can omit it: there is no Text pill then.
     @Environment(ReadAlongCenter.self)
     private var readAlong: ReadAlongCenter?
+    /// Optional for the same reason: there is no moon pill then (#332).
+    @Environment(SleepTimer.self)
+    private var sleepTimer: SleepTimer?
     /// The read-along session, here rather than in the square, which is rebuilt on each flip and
     /// rotation. One per screen, and the overlay builds one screen per presented book.
     @State
@@ -426,12 +429,12 @@ struct PlayerView: View {
 
 // MARK: - Pills
 extension PlayerView {
-    /// Speed and volume on the left, Chapters on the right, and Text between them while Read-along
-    /// is on. A book with no chapters has no Chapters pill; an imported one offers *Find chapters*
+    /// Speed, volume and the sleep timer's moon on the left, Chapters on the right, and Text between
+    /// them while Read-along is on. A book with no chapters has no Chapters pill; an imported one offers *Find chapters*
     /// in its place while that experimental switch is on (`ChapterFinder`).
     /// The speed never shrinks: it read "1…" on a 393 pt iPhone with all four pills. When the row
     /// runs short, Text and then Chapters drop their words and keep their icons (VoiceOver still
-    /// reads their names).
+    /// reads their names); only then does the moon drop its countdown (the left group's priority).
     /// They publish their bounds (`PillsAnchorKey`) for the chapter panel, which sits just above
     /// them. A preference, not a stored frame: after a rotation the stored portrait frame placed the
     /// panel off the bottom of the landscape screen, over the pills (#270).
@@ -440,7 +443,12 @@ extension PlayerView {
             HStack(spacing: SpaceConstants.sx8.value) {
                 speedPill
                 VolumePill(model: model, isShowing: $isShowingVolume, animation: panelAnimation)
+                if let sleepTimer {
+                    SleepTimerPill(timer: sleepTimer, hasChapters: !model.book.chapters.isEmpty)
+                }
             }
+            // Ahead of Text (0) and Chapters (1): they lose their words before the countdown does.
+            .layoutPriority(2)
             Spacer()
             if offersText {
                 textPill
@@ -647,55 +655,6 @@ private struct FrameReporter: ViewModifier {
                     .onChange(of: proxy.frame(in: .named(space)), initial: true) { _, frame in
                         action(frame)
                     }
-            }
-        }
-    }
-}
-
-/// A glass capsule with a label, the look of the speed and chapters pills. The volume pill has
-/// only its icon, at a fixed width, so the pill keeps its size as the symbol changes. With
-/// `collapsesToIcon`, a pill offered less than its full width shows only its icon, at that same
-/// width, instead of truncating its word; its button keeps its accessibility label.
-struct PlayerPill: View {
-    let text: String?
-    var systemImage: String?
-    /// For a symbol that draws a level: the volume's waves.
-    var variableValue: Double?
-    var collapsesToIcon = false
-
-    @ScaledMetric(relativeTo: .subheadline)
-    private var iconOnlyWidth: CGFloat = 22
-
-    var body: some View {
-        Group {
-            if collapsesToIcon, systemImage != nil, text != nil {
-                ViewThatFits(in: .horizontal) {
-                    content(showsText: true)
-                    content(showsText: false)
-                }
-            } else {
-                content(showsText: true)
-            }
-        }
-        .font(.subheadline.weight(.semibold))
-        .lineLimit(1)
-        // 12, not 16: with Read-along on, four pills share a 393 pt iPhone's row with their words.
-        .padding(.horizontal, SpaceConstants.sx12.value)
-        .padding(.vertical, SpaceConstants.sx8.value + SpaceConstants.sx2.value)
-        .abbayGlass(in: Capsule(), interactive: true)
-        .contentShape(Capsule())
-    }
-
-    private func content(showsText: Bool) -> some View {
-        let shownText = showsText ? text : nil
-        return HStack(spacing: SpaceConstants.sx4.value) {
-            if let systemImage {
-                Image(systemName: systemImage, variableValue: variableValue)
-                    .frame(width: shownText == nil ? iconOnlyWidth : nil)
-                    .accessibilityHidden(true)
-            }
-            if let shownText {
-                Text(shownText)
             }
         }
     }

@@ -189,6 +189,19 @@ enum DebugOverrides {
         return nil
     }
 
+    /// How long the sleep timer's *5 minutes* lasts, for `-sleepTimerSeconds <seconds>` (#332);
+    /// `nil` without it, or without a positive number after it.
+    static func sleepTimerSeconds(arguments: [String] = ProcessInfo.processInfo.arguments) -> TimeInterval? {
+        #if DEBUG
+        if let index = arguments.firstIndex(of: LaunchArgument.sleepTimerSeconds),
+           arguments.indices.contains(index + 1),
+           let seconds = TimeInterval(arguments[index + 1]), seconds > 0 {
+            return seconds
+        }
+        #endif
+        return nil
+    }
+
     /// Reduce Motion forced on, for `-forceReduceMotion`; `nil` follows the system setting.
     static func reduceMotion(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
         #if DEBUG
