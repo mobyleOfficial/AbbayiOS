@@ -1,5 +1,6 @@
-SCREEN RECORDING
-Attached to this submission. Recorded on an iPhone 15 running iOS 27.2. The app has no accounts, no user-generated content and no paid content, so the recording has none of those flows.
+WHAT'S NEW IN 1.8.0
+A sleep timer on the player: the moon button next to the volume. Choose 5 to 60 minutes or the end of the chapter; near the end the sound fades out and playback pauses. Pausing holds the countdown and Play resumes it. After the timer has paused a book, a "Back to where you fell asleep" prompt over the cover returns to the listener's last action before falling asleep, without starting playback. To see it quickly: play a book, set 5 minutes and wait.
+The device screen recording requested in review was attached to the 1.7.0 submission; the rest of the app is unchanged.
 
 PURPOSE AND AUDIENCE
 Abbay is a free audiobook player for people who want classic literature without paying or signing up. It solves two problems: finding and listening to public-domain audiobooks, and playing audiobook files people already own. There are no ads, accounts, subscriptions or tracking.
