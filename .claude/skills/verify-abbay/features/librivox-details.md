@@ -2,7 +2,8 @@
 
 `LibriVoxDetailView` — the page pushed in the **Search tab** from a Popular card or a LibriVox search
 result (see [tabs](tabs.md)). Describes one book, starts its download, and becomes a **Play** button
-once the book is in the library. The only way to add a LibriVox book.
+once the book is in the library. Its **Download** and **Stream** buttons are the only ways to add a LibriVox
+book.
 
 ## Sub-features
 
@@ -66,6 +67,21 @@ once the book is in the library. The only way to add a LibriVox book.
   loaded it, otherwise one download shared with any load in flight and stored; refused off
   `CoverHostPolicy`; nil, so no artwork, if it isn't an image, #175), hands it to the download manager, adds it to the Library and **stays on the page**; the
   button becomes **Play**. Tapping it twice while saving is ignored.
+- **stream (#340):** a full-width glass **Stream** button (`detail.stream`, *Ouvir online* in pt-BR,
+  `dot.radiowaves.left.and.right` glyph, malachite label, `abbayGlassButton()`) under Download. It
+  saves the book the same way (cover, language hint) with `isStreamOnly` set and
+  `allowsCellularDownload` on, **does not** hand it to the download manager, and plays it: the player
+  opens (`openPlayer`, as Play) and streams every chapter (`MultiFileQueue` uses the remote URL when
+  no file is on disk). No size check and no cellular alert: streaming ignores the cellular setting.
+  Tapped while LibriVox's titles are still loading, it spins and goes once they arrive, like
+  Download. Download and Stream each ignore a tap while the other is pending or saving. Back on the
+  page the book shows **Play**, and under it a glass **Download** (`detail.download`) with no
+  progress bar or chapter statuses.
+- **download-a-streamed-book (#340):** that second **Download** downloads the book after all: the
+  same cellular decision as a new book (the *Large download* alert on a metered path), then
+  `UpdateDownloadFlagsUseCase` clears `isStreamOnly` and stores the cellular choice, the Library row
+  gets the new flags (`MediaListViewModel.addLibriVoxBook` on a book it already has updates only
+  them), and the book is enqueued. The button disappears, and the progress bar and statuses appear.
 - **cellular-warning:** if the book is over 99,000,000 bytes *and* the phone is on a metered network
   (cellular, Personal Hotspot or Low Data Mode, `NetworkPathMonitor.isMetered`), an alert
   *"Large download"* offers **Continue** (`detail.cellular.continue`, cellular allowed for this book)
@@ -86,7 +102,8 @@ once the book is in the library. The only way to add a LibriVox book.
   bar's glass; earlier it is a plain malachite bar button. The stub book is too short to scroll it
   away: the stub catalog's last Popular book, *Emma* (`search.card.5`, 24 chapters), is.
 - **already-owned:** a book already in the Library opens with **Play** instead of Download (looked up
-  by its `librivox://book/<id>` URL) and is never added twice.
+  by its `librivox://book/<id>` URL) and is never added twice. A streamed one also shows the second
+  **Download** (*download-a-streamed-book*); neither shows Stream.
 - **download-state:** read from the app-wide `DownloadStateStore` entry for this book, not from a
   `statesPublisher` sink of its own, so the download manager keeps one subscriber
   (`SubscriptionBudgetTests`).
@@ -124,7 +141,20 @@ $B tap search.result.0 && $B wait detail.download
 $B tap detail.download && $B wait detail.play # page stays open; Download is gone
 $B tap detail.play && $B wait player.transport.play
 $B tap player.close                           # or drag its header down
+
+# Stream (#340): a fresh library, so the stub book isn't owned yet
+$B launch -stubLibriVox -resetLibrary -resetSettings -stubDownloadStates
+$B tap root.tab.search && $B tap search.card.0
+$B tap detail.stream && $B wait player.close  # plays at once
+$B tap player.close
+$B wait detail.play && $B wait detail.download # no detail.progress: nothing downloads
+$B tap detail.download && $B wait detail.progress
 ```
+
+Real streaming needs the network and no `-stubLibriVox` (the stub's chapter can't play):
+`-resetLibrary -resetSettings`, `search.card.0`, `detail.stream`; the player's elapsed time moves
+and `Library/Application Support/LibriVox/` stays absent in the app container, also after a
+relaunch.
 
 **Verified** (`AccessibilityIdentifierTests`): `detail.view` (also from `search.card.0`,
 `test_searchTab_showsPopularCards_andOpensDetails`), `detail.download`, `detail.play`
@@ -132,6 +162,13 @@ $B tap player.close                           # or drag its header down
 `test_playFromDetail_opensPlayer_thenLibraryShowsMiniPlayer`), reached through the Search tab's
 `search.result.0`. Play calls the injected `openPlayer`, i.e. `presentation.open`; the page no
 longer presents its own player sheet.
+
+`DownloadStatusUITests.test_stream_addsWithoutDownloading_thenDownloadStartsIt` (#340):
+`detail.stream` (label *Stream*), the player opening, then `detail.play` and `detail.download` with no
+`detail.progress`, and Download starting it (`detail.progress`, the button gone). Unit:
+`LibriVoxDetailViewModelTests` (stream saves stream-only, enqueues nothing and plays; no cellular
+alert; Download on a streamed book clears the flag, asks on a metered path, enqueues),
+`MediaListViewModelTests`, `LibriVoxPersistenceTests`.
 
 `DownloadStatusUITests` (#171) adds, with `-stubDownloadStates` and a `-stubPath*` argument (the
 stub book is then 120 MB, so on the fixed metered path Download asks): `detail.cellular.wait`,

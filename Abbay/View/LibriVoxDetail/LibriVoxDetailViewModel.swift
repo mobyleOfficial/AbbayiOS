@@ -15,8 +15,10 @@ final class LibriVoxDetailViewModel: ObservableObject {
     /// Download was tapped while `isAwaitingLibriVox`: it starts once the final chapters are in,
     /// so the saved book never keeps the file-name titles LibriVox was about to replace.
     @Published private(set) var isDownloadPending = false
+    /// Stream was tapped while `isAwaitingLibriVox`, for the same reason as `isDownloadPending`.
+    @Published private(set) var isStreamPending = false
     @Published private(set) var loadFailed = false
-    /// Non-nil once Download was confirmed and the book was saved.
+    /// Non-nil once Download or Stream saved the book (or it was already in the library).
     @Published private(set) var addedBook: AudioModel?
     @Published var isShowingCellularAlert = false
 
@@ -26,6 +28,8 @@ final class LibriVoxDetailViewModel: ObservableObject {
     private let downloads: BookDownloadManagerProtocol
     private let downloadStates: DownloadStateStore
     private let saveAudio: SaveAudioUseCaseProtocol
+    /// Download on a book added with Stream (#340) clears its stream-only flag.
+    private let updateFlags: UpdateDownloadFlagsUseCaseProtocol
     private let path: NetworkPathProviding
     /// Read when Download is tapped, so a change in Settings applies to the next download.
     private let cellularPreference: () -> CellularDownloadPreference
@@ -46,6 +50,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         saveAudio: SaveAudioUseCaseProtocol,
         path: NetworkPathProviding,
         loadAudio: LoadAudioUseCaseProtocol = LoadAudioUseCase(),
+        updateFlags: UpdateDownloadFlagsUseCaseProtocol = UpdateDownloadFlagsUseCase(),
         cellularPreference: @escaping () -> CellularDownloadPreference = { .ask },
         recordLanguage: @escaping (String, URL?) -> Void = { code, url in
             guard DependencyContainer.isConfigured else { return }
@@ -60,6 +65,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
         self.downloads = downloads
         self.downloadStates = downloadStates
         self.saveAudio = saveAudio
+        self.updateFlags = updateFlags
         self.path = path
         self.cellularPreference = cellularPreference
         self.recordLanguage = recordLanguage
@@ -85,6 +91,11 @@ final class LibriVoxDetailViewModel: ObservableObject {
         return downloadStates.hold(bookID: book.id, allowsCellular: addedBook.allowsCellularDownload)
     }
 
+    /// Download is offered: the book isn't in the library yet, or it was added with Stream (#340).
+    var canDownload: Bool {
+        addedBook.map(\.isStreamOnly) ?? true
+    }
+
     /// The size shown on the page and used by the cellular policy.
     var totalBytes: Int64 { details?.totalBytes ?? 0 }
 
@@ -96,6 +107,9 @@ final class LibriVoxDetailViewModel: ObservableObject {
             if isDownloadPending {
                 isDownloadPending = false
                 if details != nil { downloadTapped() }
+            } else if isStreamPending {
+                isStreamPending = false
+                if details != nil { streamTapped() }
             }
         }
         do {
@@ -111,7 +125,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
     }
 
     func downloadTapped() {
-        guard let details, addedBook == nil, !isStarting else { return }
+        guard let details, canDownload, !isStarting, !isStreamPending else { return }
         if isAwaitingLibriVox {
             isDownloadPending = true
             return
@@ -132,8 +146,19 @@ final class LibriVoxDetailViewModel: ObservableObject {
     /// "Continue" allows cellular for this book; "Wait for Wi-Fi" starts it Wi-Fi only.
     func confirmCellular(continue shouldContinue: Bool) {
         isShowingCellularAlert = false
-        guard let details, addedBook == nil, !isStarting else { return }
+        guard let details, canDownload, !isStarting else { return }
         start(details, allowsCellular: shouldContinue)
+    }
+
+    /// Adds the book without downloading it (#340) and plays it: the player streams every chapter.
+    /// No size check, as streaming ignores the cellular setting.
+    func streamTapped() {
+        guard let details, addedBook == nil, !isStarting, !isDownloadPending else { return }
+        if isAwaitingLibriVox {
+            isStreamPending = true
+            return
+        }
+        save(details, allowsCellular: true, isStreamOnly: true) { [weak self] in self?.play() }
     }
 
     /// A chapter's "Failed · Retry" status: restarts its download now.
@@ -149,12 +174,42 @@ final class LibriVoxDetailViewModel: ObservableObject {
     }
 
     private func start(_ details: LibriVoxBookDetails, allowsCellular: Bool) {
+        guard var model = addedBook else {
+            save(details, allowsCellular: allowsCellular, isStreamOnly: false) { [weak self] in
+                guard let self, let addedBook else { return }
+                downloads.enqueue(addedBook)
+            }
+            return
+        }
+        // A book added with Stream: downloaded from now on, like one added with Download.
+        updateFlags.execute(
+            url: model.url,
+            isDownloadPaused: nil,
+            allowsCellularDownload: allowsCellular,
+            isStreamOnly: false
+        )
+        model.allowsCellularDownload = allowsCellular
+        model.isStreamOnly = false
+        addedBook = model
+        onAdded(model)
+        downloads.enqueue(model)
+    }
+
+    /// Saves the book to the library, then runs `then` (start its download, or play it).
+    private func save(
+        _ details: LibriVoxBookDetails,
+        allowsCellular: Bool,
+        isStreamOnly: Bool,
+        then: @escaping () -> Void
+    ) {
         isStarting = true
         Task { [weak self] in
             guard let self else { return }
+            defer { isStarting = false }
             let cover = await client.coverData(for: book)
             var model = details.audioModel(imageData: cover)
             model.allowsCellularDownload = allowsCellular
+            model.isStreamOnly = isStreamOnly
             do {
                 try saveAudio.execute(model)
             } catch {
@@ -164,7 +219,6 @@ final class LibriVoxDetailViewModel: ObservableObject {
                     "saving the book failed: \(error.domain, privacy: .public) \(error.code, privacy: .public)"
                 )
                 noticeReporter.report(.saveFailed)
-                isStarting = false
                 return
             }
             if let code = ReadAlongLanguage.languageCode(fromLibriVox: details.book.language) {
@@ -172,7 +226,7 @@ final class LibriVoxDetailViewModel: ObservableObject {
             }
             addedBook = model
             onAdded(model)
-            downloads.enqueue(model)
+            then()
         }
     }
 }

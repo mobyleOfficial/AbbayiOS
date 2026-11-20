@@ -24,6 +24,9 @@ struct AudioModel {
     var librivoxID: String?
     var allowsCellularDownload = false
     var isDownloadPaused = false
+    /// Added with Stream rather than Download (#340): its chapters play from the network and are
+    /// never downloaded, not even at launch, until Download on its page clears this.
+    var isStreamOnly = false
     var totalBytes: Int64 = 0
     /// Where the book's file is now, when that is not `url`: its bookmark resolved somewhere else
     /// (the file moved in Files, an iCloud re-sync, a reinstall that moved the bundle). Set only

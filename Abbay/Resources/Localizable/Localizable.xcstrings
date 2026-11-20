@@ -4226,6 +4226,24 @@
           }
         }
       }
+    },
+    "stream" : {
+      "comment" : "LibriVox details page: button that adds the book and plays it from the internet without downloading it",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stream"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvir online"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

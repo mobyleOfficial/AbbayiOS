@@ -78,6 +78,7 @@ final class SaveAudioUseCase: SaveAudioUseCaseProtocol {
         if existing == nil {
             model.setValue(new.allowsCellularDownload, forKey: #keyPath(AudioDataModel.allowsCellularDownload))
             model.setValue(new.isDownloadPaused, forKey: #keyPath(AudioDataModel.isDownloadPaused))
+            model.setValue(new.isStreamOnly, forKey: #keyPath(AudioDataModel.isStreamOnly))
             for chapter in new.chapters {
                 model.addToChapters(chapter.dataModel(in: context))
             }

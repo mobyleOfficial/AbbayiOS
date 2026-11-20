@@ -32,6 +32,8 @@ extension AudioDataModel {
     @NSManaged var librivoxID: String?
     @NSManaged var allowsCellularDownload: Bool
     @NSManaged var isDownloadPaused: Bool
+    /// Added with Stream (#340): never downloaded, so `restore()` leaves it alone. Model version 4.
+    @NSManaged var isStreamOnly: Bool
     @NSManaged var totalBytes: Int64
     @NSManaged var chapters: NSOrderedSet?
 
