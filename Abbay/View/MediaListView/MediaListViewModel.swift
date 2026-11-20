@@ -146,7 +146,13 @@ final class MediaListViewModel: ObservableObject {
 
     /// A LibriVox book the details page just saved (which wrote the snapshot).
     func addLibriVoxBook(_ book: AudioModel) {
-        guard !audioList.contains(where: { $0.url == book.url }) else { return }
+        if let index = audioList.firstIndex(where: { $0.url == book.url }) {
+            // Download on a book added with Stream (#340): only its download flags change, so the
+            // row's ring and hold hint read the new ones and its progress is left alone.
+            audioList[index].allowsCellularDownload = book.allowsCellularDownload
+            audioList[index].isStreamOnly = book.isStreamOnly
+            return
+        }
         audioList.append(book)
     }
 }

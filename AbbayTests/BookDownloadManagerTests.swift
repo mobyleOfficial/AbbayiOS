@@ -721,3 +721,24 @@ private extension BookDownloadManagerTests {
 private final class LatestStates {
     var value: [String: BookDownloadState] = [:]
 }
+
+// MARK: - Stream (#340)
+@MainActor
+extension BookDownloadManagerTests {
+    /// A book added with Stream (#340) is never downloaded: not at launch, and not when the player
+    /// jumps to one of its chapters.
+    func test_streamOnlyBook_isNotRestored_andPrioritizeStartsNothing() async throws {
+        var streamed = makeBook(id: "2")
+        streamed.isStreamOnly = true
+        loadAll.stub = [makeBook(isPaused: true), streamed]
+
+        sut.restore()
+        await waitUntil { self.latestStates["1"] != nil }
+        sut.prioritize(chapterIndex: 2, ofBookID: "2")
+
+        await drainEvents()
+        XCTAssertNil(latestStates["2"])
+        XCTAssertTrue(startedIDs(ofBook: "2").isEmpty)
+        XCTAssertFalse(provider.resumeCalls.contains { $0.hasPrefix("2#") })
+    }
+}

@@ -53,6 +53,27 @@ final class LibriVoxPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.chapters.count, 2)
     }
 
+    /// A book added with Stream (#340) stays stream-only until Download clears it, and a stale copy
+    /// saved over it can't put it back.
+    func test_streamOnly_savedOnInsert_clearedOnlyByUpdateDownloadFlags() throws {
+        var audio = makeBook()
+        audio.isStreamOnly = true
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
+        XCTAssertTrue(try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL)).isStreamOnly)
+
+        UpdateDownloadFlagsUseCase().execute(
+            url: bookURL, isDownloadPaused: nil, allowsCellularDownload: false, isStreamOnly: false
+        )
+        var loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+        XCTAssertFalse(loaded.isStreamOnly)
+        XCTAssertFalse(loaded.allowsCellularDownload)
+        XCTAssertTrue(loaded.isDownloadPaused, "untouched")
+
+        try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(audio)
+        loaded = try XCTUnwrap(LoadAudioUseCase().execute(url: bookURL))
+        XCTAssertFalse(loaded.isStreamOnly, "a stale stream-only copy doesn't undo Download")
+    }
+
     func test_updateDownloadFlags_changesOnlyTheGivenFlags() throws {
         try SaveAudioUseCase(snapshotWriter: MockLibrarySnapshotWriter()).execute(makeBook())
 

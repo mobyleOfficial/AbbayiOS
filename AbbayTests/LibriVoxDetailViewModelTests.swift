@@ -52,6 +52,9 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         )
     }
 
+    private let loadAudio = MockLoadAudioUseCase()
+    private let flags = MockUpdateDownloadFlagsUseCase()
+
     private func makeSUT(
         totalBytes: Int64,
         cellular: Bool,
@@ -70,7 +73,8 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
             downloadStates: store,
             saveAudio: save,
             path: path,
-            loadAudio: MockLoadAudioUseCase(),
+            loadAudio: loadAudio,
+            updateFlags: flags,
             cellularPreference: { preference },
             recordLanguage: recordLanguage,
             noticeReporter: notices,
@@ -79,12 +83,6 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
         )
         await sut.load()
         return sut
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0..<200 where !condition() {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
     }
 
     func test_load_failureLeavesDetailsNilAndFlagsError() async {
@@ -390,5 +388,104 @@ final class LibriVoxDetailViewModelTests: XCTestCase {
 
         XCTAssertTrue(opened.isEmpty)
         XCTAssertTrue(player.playCalls.isEmpty)
+    }
+}
+
+// MARK: - Helpers
+private extension LibriVoxDetailViewModelTests {
+    func waitUntil(_ condition: () -> Bool) async {
+        for _ in 0..<200 where !condition() {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+}
+
+// MARK: - Stream (#340)
+extension LibriVoxDetailViewModelTests {
+    private var bookURL: URL { LibriVoxIdentity.bookURL(id: "moby_dick_librivox") }
+
+    func test_stream_savesTheBookStreamOnly_downloadsNothing_andPlaysIt() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+
+        sut.streamTapped()
+        await waitUntil { !opened.isEmpty }
+
+        XCTAssertEqual(save.savedModels.map(\.isStreamOnly), [true])
+        XCTAssertEqual(added.map(\.isStreamOnly), [true])
+        XCTAssertTrue(downloads.enqueued.isEmpty, "nothing is downloaded")
+        XCTAssertEqual(player.playCalls.map(\.librivoxID), ["moby_dick_librivox"])
+        XCTAssertEqual(opened.map(\.librivoxID), ["moby_dick_librivox"])
+        XCTAssertEqual(sut.addedBook?.isStreamOnly, true)
+        XCTAssertTrue(sut.canDownload, "a streamed book can still be downloaded")
+    }
+
+    /// Streaming ignores the cellular setting: a large book on cellular streams without asking.
+    func test_stream_largeBookOnCellular_doesNotAsk() async {
+        let sut = await makeSUT(totalBytes: 500_000_000, cellular: true)
+
+        sut.streamTapped()
+        await waitUntil { !opened.isEmpty }
+
+        XCTAssertFalse(sut.isShowingCellularAlert)
+        XCTAssertEqual(save.savedModels.count, 1)
+    }
+
+    func test_stream_twice_savesOnce() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+
+        sut.streamTapped()
+        sut.streamTapped()
+        await waitUntil { !opened.isEmpty }
+
+        XCTAssertEqual(save.savedModels.count, 1)
+    }
+
+    func test_download_onAStreamedBook_clearsTheFlag_andStartsTheDownload() async {
+        var streamed = AudioModel()
+        streamed.url = bookURL
+        streamed.librivoxID = "moby_dick_librivox"
+        streamed.isStreamOnly = true
+        streamed.allowsCellularDownload = true
+        loadAudio.stubs[bookURL.absoluteString] = streamed
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+        XCTAssertTrue(sut.canDownload)
+
+        sut.downloadTapped()
+
+        XCTAssertEqual(flags.calls, [.init(
+            url: bookURL, isDownloadPaused: nil, allowsCellularDownload: true, isStreamOnly: false
+        )])
+        XCTAssertEqual(downloads.enqueued.map(\.isStreamOnly), [false])
+        XCTAssertEqual(added.map(\.isStreamOnly), [false], "the Library row learns the new flags")
+        XCTAssertTrue(save.savedModels.isEmpty, "already saved")
+        XCTAssertFalse(sut.canDownload)
+    }
+
+    /// The large-download alert still applies, and Wait for Wi-Fi is stored.
+    func test_download_onAStreamedLargeBookOnCellular_asks_thenWaitsForWiFi() async {
+        var streamed = AudioModel()
+        streamed.url = bookURL
+        streamed.librivoxID = "moby_dick_librivox"
+        streamed.isStreamOnly = true
+        loadAudio.stubs[bookURL.absoluteString] = streamed
+        let sut = await makeSUT(totalBytes: 500_000_000, cellular: true)
+
+        sut.downloadTapped()
+        XCTAssertTrue(sut.isShowingCellularAlert)
+        sut.confirmCellular(continue: false)
+
+        XCTAssertEqual(flags.calls.map(\.allowsCellularDownload), [false])
+        XCTAssertEqual(downloads.enqueued.map(\.allowsCellularDownload), [false])
+    }
+
+    func test_download_onABookAddedWithDownload_isNotOffered() async {
+        let sut = await makeSUT(totalBytes: 1000, cellular: false)
+        sut.downloadTapped()
+        await waitUntil { sut.addedBook != nil }
+
+        XCTAssertFalse(sut.canDownload)
+        sut.downloadTapped()
+        XCTAssertEqual(downloads.enqueued.count, 1)
+        XCTAssertTrue(flags.calls.isEmpty)
     }
 }
