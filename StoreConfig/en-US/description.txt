@@ -6,6 +6,7 @@ Search the LibriVox catalogue, thousands of books read by volunteers, and start 
 • Download for offline listening
 • Chapter list and quick chapter switching
 • Playback speed control
+• Sleep timer that fades out gently, and a way back to where you fell asleep
 • Continue listening right from your library
 • Lock screen and Control Center controls
 • Import your own audiobook files from the Files app
