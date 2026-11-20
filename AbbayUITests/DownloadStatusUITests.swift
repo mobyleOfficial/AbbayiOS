@@ -65,6 +65,41 @@ final class DownloadStatusUITests: XCTestCase {
         assertResolves(AccessibilityID.Detail.progress)
     }
 
+    // MARK: - Stream (#340)
+
+    /// Stream adds the book without downloading it and plays it; back on the page, Play and
+    /// Download show, with no progress. Download then starts it like any other book.
+    func test_stream_addsWithoutDownloading_thenDownloadStartsIt() {
+        app.launchArguments = [
+            LaunchArgument.stubLibriVox,
+            LaunchArgument.resetLibrary,
+            LaunchArgument.resetSettings,
+            LaunchArgument.stubDownloadStates,
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        assertResolves(AccessibilityID.Root.tabSearch)
+        element(AccessibilityID.Root.tabSearch).tap()
+        assertResolves(AccessibilityID.Search.card(0))
+        element(AccessibilityID.Search.card(0)).tap()
+        assertResolves(AccessibilityID.Detail.stream)
+        XCTAssertEqual(element(AccessibilityID.Detail.stream).label, "Stream")
+
+        element(AccessibilityID.Detail.stream).tap()
+        assertResolves(AccessibilityID.Player.close)
+        element(AccessibilityID.Player.close).tap()
+
+        assertResolves(AccessibilityID.Detail.play)
+        assertResolves(AccessibilityID.Detail.download)
+        XCTAssertFalse(element(AccessibilityID.Detail.stream).exists)
+        XCTAssertFalse(element(AccessibilityID.Detail.progress).exists, "nothing is downloading")
+
+        element(AccessibilityID.Detail.download).tap()
+        assertResolves(AccessibilityID.Detail.progress)
+        XCTAssertTrue(element(AccessibilityID.Detail.download).waitForNonExistence(timeout: 15))
+        XCTAssertTrue(element(AccessibilityID.Detail.play).exists)
+    }
+
     private func openPlayerFromLibrary() {
         element(AccessibilityID.Root.tabLibrary).tap()
         let title = element(AccessibilityID.Element.title(AccessibilityID.Library.row(0)))

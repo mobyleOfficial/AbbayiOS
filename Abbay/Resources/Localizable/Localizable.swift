@@ -34,6 +34,7 @@ enum Localizable: String {
     case downloadPaused
     case downloadingProgress
     case download
+    case stream
     case play
     case pause
     case chaptersCount

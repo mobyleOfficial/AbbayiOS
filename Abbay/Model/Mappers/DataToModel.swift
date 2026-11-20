@@ -44,6 +44,7 @@ extension AudioDataModel {
         model.librivoxID = librivoxID
         model.allowsCellularDownload = allowsCellularDownload
         model.isDownloadPaused = isDownloadPaused
+        model.isStreamOnly = isStreamOnly
         model.totalBytes = totalBytes
         model.url = url
         model.chapters = chapters?.compactMap({ ($0 as? ChapterDataModel)?.model }) ?? []

@@ -218,7 +218,8 @@ final class BookDownloadManager: BookDownloadManagerProtocol {
             // finished while the app was dead as soon as it exists, and those need their book.
             var restored: [String] = []
             for model in loadAll.execute() {
-                guard let id = model.librivoxID, books[id] == nil else { continue }
+                // A book added with Stream (#340) is never downloaded unless Download asks for it.
+                guard let id = model.librivoxID, !model.isStreamOnly, books[id] == nil else { continue }
                 var book = makeBook(model, id: id)
                 book.isRestoring = true
                 books[id] = book

@@ -95,6 +95,9 @@ enum AccessibilityID {
         static let view = "detail.view"
         static let download = "detail.download"
         static let play = "detail.play"
+        /// Stream (#340): adds the book without downloading it and plays it. Once it is added,
+        /// `download` under Play downloads it after all.
+        static let stream = "detail.stream"
         /// The compact Download in the navigation bar, once `download` has scrolled away (#166 G5).
         static let pinnedDownload = "detail.pinned.download"
         /// The compact Play in the navigation bar, once `play` has scrolled away.

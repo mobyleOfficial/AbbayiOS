@@ -59,6 +59,30 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.audioList.map(\.librivoxID), ["7"])
     }
 
+    /// Download on a streamed book (#340) hands the book back: only its download flags change.
+    @MainActor
+    func test_addLibriVoxBook_again_updatesOnlyTheDownloadFlags() throws {
+        let viewModel = try makeLibrary()
+        var book = AudioModel(url: URL(string: "librivox://book/7"))
+        book.title = "Remote"
+        book.librivoxID = "7"
+        book.isStreamOnly = true
+        book.allowsCellularDownload = true
+        book.currentTime = 90
+        viewModel.addLibriVoxBook(book)
+
+        var downloaded = book
+        downloaded.isStreamOnly = false
+        downloaded.allowsCellularDownload = false
+        downloaded.currentTime = 0
+        viewModel.addLibriVoxBook(downloaded)
+
+        XCTAssertEqual(viewModel.audioList.count, 1)
+        XCTAssertEqual(viewModel.audioList.first?.isStreamOnly, false)
+        XCTAssertEqual(viewModel.audioList.first?.allowsCellularDownload, false)
+        XCTAssertEqual(viewModel.audioList.first?.currentTime, 90, "progress left alone")
+    }
+
     @MainActor
     func test_deleteAudio_removesTheRowThroughTheUseCase() throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
