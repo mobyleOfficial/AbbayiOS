@@ -3,7 +3,7 @@ Abbay is a free audiobook player for the world's public-domain classics.
 Search the LibriVox catalogue, thousands of books read by volunteers, and start listening in seconds. Download books to listen offline, jump between chapters, and pick up exactly where you left off.
 
 • Free public-domain audiobooks from LibriVox: Austen, Doyle, Dickens, Shelley, Twain and many more
-• Download for offline listening
+• Stream a book right away, or download it for offline listening
 • Chapter list and quick chapter switching
 • Playback speed control
 • Sleep timer that fades out gently, and a way back to where you fell asleep

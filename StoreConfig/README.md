@@ -20,7 +20,8 @@ once an App Store Connect API key is set up (#111). Until then, copy and paste t
 - **No Siri or CarPlay in the listing.** They work, but stay unadvertised until the device
   checks pass (#90, #201, #178). They appear only in the private review notes.
 - **Every feature named must exist in the app.** The sleep timer and *back to where you fell
-  asleep* (#332) exist from the release that ships them; name them only in that release's listing.
+  asleep* (#332) exist from 1.8.0, and *Stream* (#340) from 1.8.1; name a feature only in the
+  listing of the release that ships it.
 - **Both languages:** every text exists in `en-US` and `pt-BR`.
 - **Search (since 1.8.0):** the name is the field the App Store weighs most, so it carries the main
   term after the brand: *Abbay: Free Audiobooks* / *Abbay: Audiolivros Grátis* (the home screen
