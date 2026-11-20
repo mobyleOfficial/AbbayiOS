@@ -59,6 +59,30 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.audioList.map(\.librivoxID), ["7"])
     }
 
+    /// Download on a streamed book (#340) hands the book back: only its download flags change.
+    @MainActor
+    func test_addLibriVoxBook_again_updatesOnlyTheDownloadFlags() throws {
+        let viewModel = try makeLibrary()
+        var book = AudioModel(url: URL(string: "librivox://book/7"))
+        book.title = "Remote"
+        book.librivoxID = "7"
+        book.isStreamOnly = true
+        book.allowsCellularDownload = true
+        book.currentTime = 90
+        viewModel.addLibriVoxBook(book)
+
+        var downloaded = book
+        downloaded.isStreamOnly = false
+        downloaded.allowsCellularDownload = false
+        downloaded.currentTime = 0
+        viewModel.addLibriVoxBook(downloaded)
+
+        XCTAssertEqual(viewModel.audioList.count, 1)
+        XCTAssertEqual(viewModel.audioList.first?.isStreamOnly, false)
+        XCTAssertEqual(viewModel.audioList.first?.allowsCellularDownload, false)
+        XCTAssertEqual(viewModel.audioList.first?.currentTime, 90, "progress left alone")
+    }
+
     @MainActor
     func test_deleteAudio_removesTheRowThroughTheUseCase() throws {
         var modelA = AudioModel(url: URL(string: "file:///a.m4a"))
@@ -267,4 +291,41 @@ final class MediaListViewModelTests: XCTestCase {
         XCTAssertEqual(player.unloadCallCount, 0)
         XCTAssertEqual(center.state.loadedBook?.url, urlA)
     }
+
+    // MARK: - A saved position that moved while the book isn't loaded (#332 part 2)
+
+    /// *Back to where you fell asleep* on a book that isn't loaded moves its saved position: its
+    /// row (and the Continue card, the player opened from it, its Play) must take it, or the next
+    /// play from the library undoes it.
+    @MainActor
+    func test_positionSaved_ofABookNotLoaded_refreshesItsRow() throws {
+        try XCTUnwrap(mockLoadAll).stub = [book("A", url: urlA, currentTime: 4200)]
+        let loadAudio = MockLoadAudioUseCase()
+        let (viewModel, _) = try makeViewModel(loadAudio: loadAudio)
+        loadAudio.stubs[try XCTUnwrap(urlA).absoluteString] = book("A", url: urlA, currentTime: 600)
+
+        viewModel.positionSaved(ofBookAt: try XCTUnwrap(urlA))
+
+        let rowA = try XCTUnwrap(viewModel.audioList.first { $0.url == urlA })
+        XCTAssertEqual(rowA.currentTime, 600)
+        let rowPlayer = MockPlayer()
+        MediaViewModel(rowA, player: rowPlayer, downloads: nil).play()
+        XCTAssertEqual(rowPlayer.playCalls.last?.currentTime, 600, "Play from the row starts where it went back to")
+    }
+
+    /// The loaded book saves every 10 s while playing; its row reads the clock, so those are skipped.
+    @MainActor
+    func test_positionSaved_ofTheLoadedBook_isIgnored() throws {
+        try XCTUnwrap(mockLoadAll).stub = [book("A", url: urlA)]
+        let player = MockPlayer()
+        let loadAudio = MockLoadAudioUseCase()
+        let (viewModel, center) = try makeViewModel(player: player, loadAudio: loadAudio)
+        announce(book("A", url: urlA), player: player, center: center, to: viewModel)
+        let reads = loadAudio.executeCalls.count
+
+        viewModel.positionSaved(ofBookAt: try XCTUnwrap(urlA))
+
+        XCTAssertEqual(loadAudio.executeCalls.count, reads)
+    }
+
 }

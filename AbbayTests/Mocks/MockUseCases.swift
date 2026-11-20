@@ -33,11 +33,17 @@ final class MockUpdateDownloadFlagsUseCase: UpdateDownloadFlagsUseCaseProtocol {
         let url: URL?
         let isDownloadPaused: Bool?
         let allowsCellularDownload: Bool?
+        var isStreamOnly: Bool?
     }
 
     private(set) var calls: [Call] = []
 
-    func execute(url: URL?, isDownloadPaused: Bool?, allowsCellularDownload: Bool?) {
-        calls.append(Call(url: url, isDownloadPaused: isDownloadPaused, allowsCellularDownload: allowsCellularDownload))
+    func execute(url: URL?, isDownloadPaused: Bool?, allowsCellularDownload: Bool?, isStreamOnly: Bool?) {
+        calls.append(Call(
+            url: url,
+            isDownloadPaused: isDownloadPaused,
+            allowsCellularDownload: allowsCellularDownload,
+            isStreamOnly: isStreamOnly
+        ))
     }
 }

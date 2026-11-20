@@ -34,6 +34,7 @@ enum Localizable: String {
     case downloadPaused
     case downloadingProgress
     case download
+    case stream
     case play
     case pause
     case chaptersCount
@@ -93,6 +94,15 @@ enum Localizable: String {
     case chapterPosition
     case closeChapters
     case resumedAt
+    case sleepTimer
+    case sleepTimerOff
+    case sleepTimerEndOfChapter
+    case sleepTimerMinutes
+    case sleepTimerOneHour
+    case sleepTimerMinutesLeft
+    case sleepTimerUnderAMinute
+    case sleepReturnBack
+    case sleepReturnDismiss
     case startOver
     // Settings
     case settingsTitle

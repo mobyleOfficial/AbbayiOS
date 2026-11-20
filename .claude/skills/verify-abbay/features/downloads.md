@@ -14,6 +14,14 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
 - **streaming:** `MultiFileQueue` plays a chapter's local file when it exists and its remote URL
   otherwise, so a book can be played while it is still downloading. Streaming ignores the cellular
   setting.
+- **stream-only (#340):** a book added with **Stream** on its [LibriVox page](librivox-details.md)
+  carries `isStreamOnly` (`AudioDataModel.isStreamOnly`, Core Data model **version 4**, default NO,
+  so every book saved before reads as downloaded-on-add). The manager never hears of it: no state,
+  no ring, no statuses, `restore()` skips it, and `prioritize` (a chapter jump in the player) does
+  nothing for a book it doesn't hold. Only `UpdateDownloadFlagsUseCase` clears the flag (Download on
+  its page), after which it is enqueued like any book; `SaveAudioUseCase` writes it on insert only,
+  so a stale copy can't put it back. Offline, its chapters hit the existing `streamingOffline`
+  notice ([notices](notices.md)).
 - **prioritize-on-jump:** whenever the player loads or advances to a chapter it asks the manager to
   move that chapter to the front of the queue (unless it is downloaded or already running).
 - **pause-resume:** the progress ring on a Library row (`DownloadRingView`) pauses a running book and
@@ -57,7 +65,7 @@ deleted. Not a screen of its own: it surfaces on the Library row, the
   don't follow it. The ring: see [media-row](media-row.md) *download-ring*.
 - **restore:** on every launch (after any `-seedLibrary`/`-resetLibrary` seeding) `restore()`
   re-attaches to tasks the system kept running and restarts the missing chapters of every
-  LibriVox book in the Library. The system can also relaunch the app in the background to deliver
+  LibriVox book in the Library, except stream-only ones (*stream-only*). The system can also relaunch the app in the background to deliver
   finished downloads (`handleEventsForBackgroundURLSession`).
 - **delete:** deleting a LibriVox book cancels its tasks (dropping resume data) and deletes its
   directory. The player's position saves are update-only, so a deleted book that was loaded in the
@@ -127,7 +135,9 @@ label, then *Paused* once tapped).
 **Unit-tested instead:** `BookDownloadManagerTests` (queue, concurrency, pause/resume, backoff and
 cap, begin failures, tap-to-retry, restart when back online, restore, stale cancels, remove,
 failures kept across a relaunch, metered pre-#134 tasks restarted on restore),
-`ChapterFailureStoreTests`, `ResumeDataInspectorTests` and `DownloadProviderTests` (resume data
+`ChapterFailureStoreTests`, `ChapterProgressPersistenceTests` (a model 3 store opens with no book
+stream-only), `BookDownloadManagerTests.test_streamOnlyBook_isNotRestored_andPrioritizeStartsNothing`,
+`ResumeDataInspectorTests` and `DownloadProviderTests` (resume data
 allowing metered networks refused, `runningIDsAllowingMeteredNetworks`, `cancel(ids:)`),
 `DownloadStateStoreTests` (which book a path holds, and that idle rows don't read the path),
 `LocalizationTests` (statuses stay short, the ring's held label),
@@ -157,7 +167,7 @@ The hints and the shorter pt-BR status were first driven with a temporary stub (
 - **Seeded books have no downloads.** `-seedLibrary` books carry no `librivoxID`, so they never show a
   ring or statuses regardless of launch arguments.
 - **The ring appears only while incomplete.** A fully downloaded book, or one the manager has not been
-  asked about, shows no ring. `MediaViewModel`, `PlayerViewModel` and the details page all filter on
+  asked about (a stream-only book), shows no ring. `MediaViewModel`, `PlayerViewModel` and the details page all filter on
   `!isComplete`.
 - **Wait for Wi-Fi still enqueues.** The book is added and its chapters show *Waiting*; cellular,
   hotspots and Low Data Mode are simply not allowed for its tasks. On any of them such a book waits,

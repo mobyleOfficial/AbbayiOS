@@ -79,6 +79,15 @@ final class MediaListViewModel: ObservableObject {
         refreshFromStorage(url)
     }
 
+    /// A book's saved position was written while it isn't loaded (*back to where you fell asleep*
+    /// moved it, #332): its row re-reads it, so the Continue card, the player opened from the row and
+    /// the row's Play start there. The loaded book's own saves (every 10 s) are skipped: its row
+    /// reads the clock.
+    func positionSaved(ofBookAt url: URL) {
+        guard url != loadedURL else { return }
+        refreshFromStorage(url)
+    }
+
     private func refreshFromStorage(_ url: URL?) {
         guard let url,
               let index = audioList.firstIndex(where: { $0.url == url }),
@@ -137,7 +146,13 @@ final class MediaListViewModel: ObservableObject {
 
     /// A LibriVox book the details page just saved (which wrote the snapshot).
     func addLibriVoxBook(_ book: AudioModel) {
-        guard !audioList.contains(where: { $0.url == book.url }) else { return }
+        if let index = audioList.firstIndex(where: { $0.url == book.url }) {
+            // Download on a book added with Stream (#340): only its download flags change, so the
+            // row's ring and hold hint read the new ones and its progress is left alone.
+            audioList[index].allowsCellularDownload = book.allowsCellularDownload
+            audioList[index].isStreamOnly = book.isStreamOnly
+            return
+        }
         audioList.append(book)
     }
 }

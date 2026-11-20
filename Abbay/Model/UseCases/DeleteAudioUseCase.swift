@@ -69,6 +69,7 @@ final class DeleteAudioUseCase: DeleteAudioUseCaseProtocol {
             // Checked when it runs: tests reset the container between cases.
             guard DependencyContainer.isConfigured else { return }
             DependencyContainer.shared.settings.forgetSpeed(for: url)
+            DependencyContainer.shared.settings.setSleepReturnSpot(nil, for: url)
         }
     }
 

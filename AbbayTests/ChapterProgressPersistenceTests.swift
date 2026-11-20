@@ -112,6 +112,32 @@ final class ChapterProgressPersistenceTests: XCTestCase {
         }
     }
 
+    /// Model 4 (#340): a book saved before Stream existed was added with Download, so it reads as
+    /// not stream-only and keeps downloading at launch.
+    func test_v3Store_opensThroughDataStack_keepsEveryRow_withNoBookStreamOnly() throws {
+        let storeURL = try makeStore(modelFile: "AudioDataModel 3.mom") { book in
+            book.setValue("lv_id", forKey: "librivoxID")
+            book.setValue(true, forKey: "allowsCellularDownload")
+            let chapter = (book.value(forKey: "chapters") as? NSOrderedSet)?.firstObject as? NSManagedObject
+            chapter?.setValue(12.5, forKey: "resumeOffset")
+        }
+
+        let stack = DataStack(modelName: "AudioDataModel", storeURL: storeURL, noticeReporter: MockNoticeReporter())
+
+        try stack.performAndWait { context in
+            let book = try XCTUnwrap(try context.fetch(AudioDataModel.fetchRequest()).first)
+            XCTAssertEqual(book.title, "Old Book")
+            XCTAssertEqual(book.currentTime, 42)
+            XCTAssertEqual(book.librivoxID, "lv_id")
+            XCTAssertTrue(book.allowsCellularDownload)
+            XCTAssertFalse(book.isStreamOnly)
+            let chapters = try XCTUnwrap(book.chapters?.array as? [ChapterDataModel])
+            XCTAssertEqual(chapters.map(\.title), ["Chapter 0", "Chapter 1"])
+            XCTAssertEqual(chapters.map(\.resumeOffset), [12.5, nil])
+            XCTAssertFalse(book.mapped(resolveBookmark: { _ in nil }).model.isStreamOnly)
+        }
+    }
+
     /// After the upgrade a chapter's offset is written and read back like any other field.
     func test_migratedStore_savesAChapterOffset() throws {
         let storeURL = try makeStore(modelFile: "AudioDataModel 2.mom") { _ in }
@@ -151,9 +177,15 @@ final class ChapterProgressPersistenceTests: XCTestCase {
         )
         let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: momd.appendingPathComponent(modelFile)))
         XCTAssertNil(
-            model.entitiesByName["ChapterDataModel"]?.propertiesByName["resumeOffset"],
-            "\(modelFile) predates #299"
+            model.entitiesByName["AudioDataModel"]?.propertiesByName["isStreamOnly"],
+            "\(modelFile) predates #340"
         )
+        if modelFile != "AudioDataModel 3.mom" {
+            XCTAssertNil(
+                model.entitiesByName["ChapterDataModel"]?.propertiesByName["resumeOffset"],
+                "\(modelFile) predates #299"
+            )
+        }
 
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -171,7 +203,6 @@ final class ChapterProgressPersistenceTests: XCTestCase {
         book.setValue("Old Book", forKey: "title")
         book.setValue(42.0, forKey: "currentTime")
         book.setValue(URL(string: "file:///old.m4b"), forKey: "url")
-        extra(book)
         let chapters = (0..<2).map { index -> NSManagedObject in
             let chapter = NSEntityDescription.insertNewObject(forEntityName: "ChapterDataModel", into: context)
             chapter.setValue("Chapter \(index)", forKey: "title")
@@ -180,6 +211,7 @@ final class ChapterProgressPersistenceTests: XCTestCase {
             return chapter
         }
         book.setValue(NSOrderedSet(array: chapters), forKey: "chapters")
+        extra(book)
         try context.save()
         try coordinator.remove(store)
         return storeURL

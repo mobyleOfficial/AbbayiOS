@@ -1,8 +1,8 @@
 # Player (the details screen)
 
 `PlayerView` is the full-screen details screen, "Player A" of the Liquid Glass redesign (#166 G1):
-a large cover, a left-aligned title block, the scrubber, the transport, and glass pills: speed and
-volume on the left, chapters on the right, and Text between them with Read-along on (#192). The chapters open as a glass
+a large cover, a left-aligned title block, the scrubber, the transport, and glass pills: speed,
+volume and the sleep timer's moon on the left, chapters on the right, and Text between them with Read-along on (#192). The chapters open as a glass
 panel over the cover (G2); the Text pill flips the cover's square to the text being read. It is **no longer a sheet**.
 It is drawn inside `PlayerExpansionOverlay`, one panel above the tabs that grows out of where it
 was opened (the tapped [library](library.md) cover, or the [mini player](mini-player.md)) and
@@ -84,6 +84,53 @@ LibriVox page's Play all open it.
   CarPlay playback too, which has no control of its own. VoiceOver: the pill and the capsule are
   both adjustable (swipe up/down, 10% a step, through 200%), so the capsule never needs opening; the capsule also
   closes on the escape scrub. Not in the mini player or Now Playing.
+- **sleep-timer:** (#332) a moon pill right of the volume (`player.sleepTimer`, `SleepTimerPill`,
+  label *Sleep timer* / *Timer para dormir*), where Apple Books keeps its timer. Off: an outlined
+  `moon`, white, icon only. Set to the chapter's end: a filled moon, green. Counting down: a filled
+  moon and the time left in minutes and seconds (`12:34`; the hour reads `60:00`, as wide as
+  `59:59`, so it fits an SE's row; rounded up, so never *0:00*), green, ticking once a second. VoiceOver value *Off* / *Desativado*, *When current chapter ends* / *Quando o capítulo
+  atual terminar*, *12 minutes left* / *12 minutos restantes* (whole minutes, rounded up), *Less
+  than a minute left* / *Menos de um minuto restante*. A tap opens the choices in a glass
+  **popover** (not a `Menu`: on iOS 27 a menu over the Text and Chapters pills lost its taps to their
+  interactive glass): a *Sleep timer* header, *Off*, *When current chapter ends* (only for a book
+  with chapters, found ones included), *5, 10, 15, 30, 45 minutes*, *1 hour*; the running one is
+  checked (and has VoiceOver's selected trait). A choice sets it and closes the popover; another
+  choice restarts the count; *Off* cancels it. The timer is app-wide (`SleepTimer`, beside
+  `PlaybackCenter`, which forwards playback events to it): it keeps counting with the player
+  closed, in the background and locked, and follows a book switch. It counts **listening time**:
+  any pause (by hand, a call, the lock screen) holds the count and Play resumes it; only *Off*
+  cancels it (owner-approved design; the issue's "pausing cancels it" was overturned). In its last
+  5 s Abbay's own volume fades to silence through the player's fade level (`Player.setFadeLevel`,
+  never saved, never the system volume), then the book pauses and the level comes back; a volume
+  change during the fade ends the fade and the pause still comes. *When current chapter ends*
+  aims at the end of the chapter playing (the book's end with no chapters), in book time over the
+  speed, re-aimed on every tick (a seek, a chapter tap, a speed change, found chapters) until the
+  fade begins, then fixed. A LibriVox chapter is a file, and a file can be shorter than its listed
+  chapter: when the queue moves on to the next file by itself (`MultiFileQueue` → `Player.chapterEndPublisher`),
+  that is the chapter's end, and the timer pauses there, fade or no fade. The book ending while a
+  timer is set clears it without pausing again (the player already paused and saved the book as
+  finished, #299). Deleting the playing book turns
+  it off. `-sleepTimerSeconds 8` makes *5 minutes* last 8 s. Not in the mini player, Now Playing,
+  CarPlay or Siri.
+- **sleep-return:** (#332 part 2, *back to where you fell asleep*) when the timer stops a book (it
+  ran out, or the book ended under it), `SleepReturnCenter` keeps a spot for that book
+  (`AppSettings.sleepReturnSpot`, `abbay.settings.sleepReturnSpots`, by URL; it survives a relaunch):
+  where the listener was last certainly awake, i.e. the book time of their **last deliberate
+  action** while the timer ran: setting or changing it, Play, a skip, a scrub or a chapter tap, from
+  the app, the lock screen, CarPlay or Siri (`Player.listenerMovePublisher`); a chapter playing
+  into the next isn't one. That book's player then shows, in the resume prompt's place over the
+  bottom of the cover (never under the open panel, and not while a resume prompt shows), a glass
+  capsule *🌙 Back to where you fell asleep · 1:00* / *Voltar para onde você adormeceu*
+  (`player.sleepReturn`): the leading part is one button (`player.sleepReturn.go`, read as *Back to
+  where you fell asleep, 1:00*) that goes back there **without playing** (a loaded book seeks; any
+  other has its saved position moved, and the screen shows it there), and a ✕
+  (`player.sleepReturn.dismiss`, *Dismiss* / *Fechar*) that forgets it. VoiceOver announces it. It
+  doesn't time out; it also goes when a new timer is set on the book (turning the timer Off keeps
+  it), when the book starts playing more than 5 min (book time) from where the timer stopped it,
+  once 30 min of the book has played past that point, or when the book is deleted. Pressing Play at
+  or near the stop keeps it: half asleep, the listener may do that on the lock screen before seeing
+  it. Not on the lock screen, CarPlay or the mini player. `-seedSleepReturn` gives *Seeded
+  Chaptered Book* a spot (back to 1:00, stopped at 2:30).
 - **loaded vs other book:**
   - **The loaded book** (the one in the player) shows the player's state: `isPlaying` from
     `PlaybackState`, time and chapter from `PlaybackClock`.
@@ -182,8 +229,10 @@ LibriVox page's Play all open it.
   four keep their words on a 393 pt iPhone in en and pt-BR, and on a 375 pt iPhone SE in en. When
   the row still runs short (pt-BR on the SE, a long speed like *1.75×*, larger text), the Text
   pill and then Chapters (`layoutPriority(1)`) show only their icon (`PlayerPill.collapsesToIcon`,
-  a `ViewThatFits`); their buttons keep their VoiceOver labels. Evidence: `-seedLibrary
-  -seedPlayableBook -resetSettings -seedReadAlong`, open the book, look at the row.
+  a `ViewThatFits`); their buttons keep their VoiceOver labels. With the sleep timer's moon (#332)
+  the left group (speed, volume, moon) has `layoutPriority(2)`: Text and Chapters drop their words
+  before a running moon drops its countdown (`test_sleepTimer_pillsFit_withReadAlongOn`). Evidence:
+  `-seedLibrary -seedPlayableBook -resetSettings -seedReadAlong`, open the book, look at the row.
 - **landscape (#270):** at a compact height (an iPhone in landscape), the cover fills the height on
   the leading side, and the title, scrubber, transport and pills stack on the trailing side
   (`verticalSizeClass == .compact`). The expansion's cover lands on that cover frame, and the chapter
@@ -315,6 +364,11 @@ $B tap player.speed && $B tap speed.preset.1.5 && $B swipe down   # player.speed
 $B tap player.volume && $B wait player.volume.slider    # the glass capsule above the pill; value "100%"
 $B drag player.volume.slider down && $B tap player.title  # dims the book (pill value e.g. "50%", green); a tap outside closes it
 $B drag player.volume.slider up                           # to the top: "200%", the whole fill and the pill red
+$B launch -seedLibrary -resetSettings -sleepTimerSeconds 8   # the sleep timer's "5 minutes" lasts 8 s
+$B tap player.sleepTimer && $B tap "5 minutes"            # popover of choices; the pill counts down 0:08, value "Less than a minute left"
+$B wait player.sleepTimer                                 # after the fade the book pauses; value back to "Off"
+$B wait player.sleepReturn.go                             # "Back to where you fell asleep, 0:01": a tap goes back there, paused
+$B launch -seedLibrary -resetSettings -seedSleepReturn    # Seeded Chaptered Book offers "back to 1:00"; player.sleepReturn.dismiss forgets it
 $B tap player.chapters && $B wait player.chapters.panel  # the glass chapter panel, at the current chapter
 $B tap player.chapter.2                                   # plays chapter 3 of the shown book, paused or not (loads it if needed); closes the panel
 $B tap player.close && $B wait library.list
@@ -328,6 +382,18 @@ $B drag player.close down                                 # planned: collapse un
 ```
 
 **Verified** (`AccessibilityIdentifierTests`, `MiniPlayerUITests`):
+- the sleep timer (`SleepTimerUITests`, `-sleepTimerSeconds 8`): `player.sleepTimer` reads *Sleep
+  timer*, *Off*; *5 minutes* counts down and pauses a playing book, and the pill goes back to *Off*;
+  a pause holds the count; *When current chapter ends* only for a book with chapters; the bottom
+  choice takes a tap over the Chapters pill; five pills fit with Read-along on. The timer itself
+  (counting, hold, fade, end of chapter, speed, re-aim, book end, unload) is unit-tested in
+  `SleepTimerTests`, the fade level in `PlayerFadeTests`, the pill's words in `SleepTimerPillTests`.
+- back to where you fell asleep (`SleepTimerUITests.test_sleepReturn_*`): after a timer pause the
+  prompt appears; `-seedSleepReturn`'s prompt reads *1:00* and a tap moves the book there, paused,
+  and the prompt goes; ✕ forgets it without moving the book. The spot's rules (saved on a timer
+  stop only, a new timer, Play near or far from the stop, the 30 min limit, another book, going
+  back loaded or not) are unit-tested in `SleepReturnCenterTests`, the last deliberate move in
+  `SleepTimerTests+LastAwake`, the stored spot in `AppSettingsTests`.
 - `player.title`
 - `player.transport.{back,play,forward}` and `player.speed`
 - the speed sheet's `speed.{value,increase,decrease,setDefault}` and `speed.preset.<n>`

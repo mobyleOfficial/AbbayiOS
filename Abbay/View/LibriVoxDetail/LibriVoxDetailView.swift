@@ -132,6 +132,8 @@ struct LibriVoxDetailView: View {
                     .onGeometryChange(for: Bool.self) { proxy in
                         Self.isScrolledAway(maxY: proxy.frame(in: .named(Metrics.scrollSpace)).maxY)
                     } action: { isActionScrolledAway = $0 }
+                secondaryActionButton
+                    .disabled(isPlaceholder)
                 if isPlaceholder || model.isAwaitingLibriVox {
                     descriptionPlaceholder
                 } else {
@@ -267,10 +269,11 @@ struct LibriVoxDetailView: View {
         }
     }
 
-    /// While a Download waits for LibriVox's chapter titles (`isDownloadPending`), a spinner.
+    /// While a Download waits for LibriVox's chapter titles (`isDownloadPending`), a spinner. A
+    /// streamed book's Download is the second button, which spins instead.
     @ViewBuilder
     private var actionLabel: some View {
-        if model.isDownloadPending {
+        if model.isDownloadPending, !isAdded {
             ProgressView()
                 .tint(ColorConstants.background2.value)
                 .accessibilityLabel(Localizable.loading.localized)
@@ -283,7 +286,7 @@ struct LibriVoxDetailView: View {
     }
 
     /// One full-width malachite button: Download, then Play once the book is in the library (it
-    /// streams what isn't downloaded yet). The download's progress is on the chapter card.
+    /// streams what isn't downloaded yet), with Stream under it (`secondaryActionButton`). The download's progress is on the chapter card.
     private var actionButton: some View {
         Button(action: performAction) {
             actionLabel
@@ -352,5 +355,57 @@ struct LibriVoxDetailView: View {
         static let metadataPlaceholderWidth: CGFloat = 180
         static let descriptionLastLineWidth: CGFloat = 200
         static let placeholderRows = 6
+    }
+}
+
+// MARK: - Stream / Download under the big button
+private extension LibriVoxDetailView {
+    /// Under the big button (#340): **Stream** adds the book without downloading it and plays it;
+    /// once a streamed book is in the library, **Download** downloads it after all. A fully added
+    /// (downloading or downloaded) book has no second button.
+    @ViewBuilder
+    var secondaryActionButton: some View {
+        if !isAdded {
+            secondaryButton(
+                Localizable.stream.localized,
+                systemImage: "dot.radiowaves.left.and.right",
+                isPending: model.isStreamPending,
+                identifier: AccessibilityID.Detail.stream
+            ) { model.streamTapped() }
+        } else if model.canDownload {
+            secondaryButton(
+                Localizable.download.localized,
+                systemImage: "arrow.down",
+                isPending: model.isDownloadPending,
+                identifier: AccessibilityID.Detail.download
+            ) { model.downloadTapped() }
+        }
+    }
+
+    func secondaryButton(
+        _ title: String,
+        systemImage: String,
+        isPending: Bool,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Group {
+                if isPending {
+                    ProgressView()
+                        .accessibilityLabel(Localizable.loading.localized)
+                } else {
+                    Label(title, systemImage: systemImage)
+                }
+            }
+            .font(.headline)
+            .foregroundStyle(ColorConstants.malachite.value)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, SpaceConstants.sx4.value)
+        }
+        .abbayGlassButton()
+        .controlSize(.large)
+        .buttonBorderShape(.capsule)
+        .accessibilityIdentifier(identifier)
     }
 }

@@ -112,10 +112,38 @@ final class DebugOverridesTests: XCTestCase {
 
     func test_launchArgumentAll_listsEveryArgumentOnce() {
         XCTAssertEqual(Set(LaunchArgument.all).count, LaunchArgument.all.count)
-        XCTAssertEqual(LaunchArgument.all.count, 27, "a new launch argument belongs in `all`")
+        XCTAssertEqual(LaunchArgument.all.count, 29, "a new launch argument belongs in `all`")
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.seedSleepReturn))
+        XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.sleepTimerSeconds))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubChapterHeadings))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.readAlongControlsHideAfter))
         XCTAssertTrue(LaunchArgument.all.contains(LaunchArgument.stubReadAlongEngine))
+    }
+
+    // MARK: - Sleep timer (#332)
+
+    func test_sleepTimerSeconds_parsesTheNumber() {
+        let arguments = ["/path/to/Abbay", LaunchArgument.sleepTimerSeconds, "8"]
+
+        XCTAssertEqual(DebugOverrides.sleepTimerSeconds(arguments: arguments), 8)
+    }
+
+    func test_sleepTimerSeconds_nilWithoutANumber() {
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: ["/path/to/Abbay"]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds, "soon"]))
+        XCTAssertNil(DebugOverrides.sleepTimerSeconds(arguments: [LaunchArgument.sleepTimerSeconds, "0"]))
+    }
+
+    func test_seedSleepReturn_putsASpotOnTheChapteredBook() throws {
+        let settings = AppSettings(store: InMemoryKeyValueStore())
+        let url = UITestSeeder.liveAudio()("chaptered.m4b")
+
+        DebugOverrides.seedSleepReturn(arguments: [LaunchArgument.seedLibrary], settings: settings)
+        XCTAssertNil(settings.sleepReturnSpot(for: url), "only with -seedSleepReturn")
+        DebugOverrides.seedSleepReturn(arguments: [LaunchArgument.seedSleepReturn], settings: settings)
+
+        XCTAssertEqual(settings.sleepReturnSpot(for: url), SleepReturnSpot(returnTo: 60, stoppedAt: 150))
     }
 
     // MARK: - Stub download states and network path (#171)

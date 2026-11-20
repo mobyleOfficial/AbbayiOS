@@ -95,6 +95,9 @@ enum AccessibilityID {
         static let view = "detail.view"
         static let download = "detail.download"
         static let play = "detail.play"
+        /// Stream (#340): adds the book without downloading it and plays it. Once it is added,
+        /// `download` under Play downloads it after all.
+        static let stream = "detail.stream"
         /// The compact Download in the navigation bar, once `download` has scrolled away (#166 G5).
         static let pinnedDownload = "detail.pinned.download"
         /// The compact Play in the navigation bar, once `play` has scrolled away.
@@ -189,6 +192,16 @@ enum AccessibilityID {
         static let volume = "player.volume"
         /// The open volume capsule above the pill: an adjustable slider, Abbay's own volume.
         static let volumeSlider = "player.volume.slider"
+        /// The moon pill beside the volume (#332): opens the sleep timer's choices. Its label is
+        /// "Sleep timer", its value "Off", "When current chapter ends" or "12 minutes left".
+        static let sleepTimer = "player.sleepTimer"
+        /// After the sleep timer paused the book (#332): the glass prompt over the cover's bottom,
+        /// *🌙 Back to where you fell asleep · 1:00*. Its leading part is a button (`sleepReturnGo`,
+        /// labelled with the message and the time) that goes back there without playing; the ✕
+        /// (`sleepReturnDismiss`) forgets the spot.
+        static let sleepReturn = "player.sleepReturn"
+        static let sleepReturnGo = "player.sleepReturn.go"
+        static let sleepReturnDismiss = "player.sleepReturn.dismiss"
         /// The header strip at the top of the details screen (it no longer draws a grabber bar):
         /// drag it down to collapse into the bar.
         /// Hidden from accessibility, so XCUITest can't resolve it; drag from beside `close`.
