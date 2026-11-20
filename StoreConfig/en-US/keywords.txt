@@ -1,1 +1,1 @@
-audiobook,audiobooks,librivox,public domain,free books,classics,listen,offline,literature,novels
+audiobook,audio book,books,listen,novels,literature,stories,library,poetry,reading,public domain
