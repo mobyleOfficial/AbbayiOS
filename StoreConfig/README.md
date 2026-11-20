@@ -20,8 +20,14 @@ once an App Store Connect API key is set up (#111). Until then, copy and paste t
 - **No Siri or CarPlay in the listing.** They work, but stay unadvertised until the device
   checks pass (#90, #201, #178). They appear only in the private review notes.
 - **Every feature named must exist in the app.** The sleep timer and *back to where you fell
-  asleep* (#332) exist from the release that ships them; name them only in that release's listing.
+  asleep* (#332) exist from 1.8.0, and *Stream* (#340) from 1.8.1; name a feature only in the
+  listing of the release that ships it.
 - **Both languages:** every text exists in `en-US` and `pt-BR`.
+- **Search (since 1.8.0):** the name is the field the App Store weighs most, so it carries the main
+  term after the brand: *Abbay: Free Audiobooks* / *Abbay: Audiolivros Grátis* (the home screen
+  still says *Abbay*). Apple combines name, subtitle and keywords, so a word in one is wasted in
+  another: keywords hold only words that aren't in the name or subtitle (singular *audiobook* /
+  *audiolivro* stays as a hedge for the plural in the name). No competitor names (Audible etc.).
 - **Apple's limits:**
   - name and subtitle: 30 characters each
   - promotional text: 170
@@ -37,6 +43,7 @@ once an App Store Connect API key is set up (#111). Until then, copy and paste t
 | `promotional_text.txt` | Promotional Text (editable without a new version) |
 | `description.txt` | Description |
 | `keywords.txt` | Keywords |
+| `release_notes.txt` | What's New in This Version (the release being submitted) |
 | `marketing_url.txt` / `support_url.txt` / `privacy_url.txt` | Marketing URL / Support URL / Privacy Policy URL |
 
 These don't depend on language:

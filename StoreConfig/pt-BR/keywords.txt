@@ -1,1 +1,1 @@
-audiolivro,audiolivros,livros grátis,domínio público,librivox,clássicos,ouvir,offline,literatura
+audiolivro,audio livro,livros,ouvir,romances,literatura,histórias,poesia,domínio público,leitura
